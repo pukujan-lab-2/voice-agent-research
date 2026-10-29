@@ -1,0 +1,9 @@
+.venv/
+node_modules/
+build/
+out/
+clips/*.mp4
+clips/*.jpg
+clips/*.json
+clips/*.err
+clips/old/

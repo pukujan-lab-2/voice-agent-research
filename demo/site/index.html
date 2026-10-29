@@ -1,0 +1,572 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Copilot demo</title>
+<style>
+:root{
+  --ink:#16181d; --muted:#6b7280; --line:#e5e7eb; --bg:#f6f7f9; --card:#fff;
+  --cop:#6d4aff; --cop2:#a78bfa; --ok:#16a34a; --bad:#dc2626; --warn:#f59e0b;
+}
+*{box-sizing:border-box}
+html,body{margin:0;width:1280px;height:720px;overflow:hidden;background:#0b0c10;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif;color:var(--ink)}
+#app{position:absolute;inset:0;display:flex;background:var(--bg)}
+#stageWrap{position:relative;flex:1;overflow:hidden}
+#stage{position:absolute;inset:0;transform-origin:30% 35%;transition:transform .6s ease}
+.site{display:none;position:absolute;inset:0;flex-direction:column}
+.site.on{display:flex}
+.top{height:56px;display:flex;align-items:center;gap:28px;padding:0 28px;background:#fff;border-bottom:1px solid var(--line)}
+.brand{font-weight:750;font-size:17px;display:flex;align-items:center;gap:10px;white-space:nowrap}
+.logo{width:26px;height:26px;border-radius:7px}
+.nav{display:flex;gap:20px;font-size:13px;color:var(--muted)}
+.body{flex:1;overflow:hidden;padding:58px 28px 24px;position:relative}
+.view{display:none}.view.on{display:block}
+h1{font-size:26px;margin:0 0 8px}h2{font-size:18px;margin:0 0 12px}
+p{margin:0 0 12px;color:var(--muted);font-size:14px;line-height:1.5}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:10px 16px;border-radius:9px;background:var(--ink);color:#fff;font-weight:600;font-size:14px;border:0}
+.btn.alt{background:#fff;color:var(--ink);border:1px solid var(--line)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 16px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px 14px}
+.f{display:flex;flex-direction:column;gap:4px;position:relative}
+.f label{font-size:11.5px;font-weight:600;color:#374151}
+.f .in{height:34px;border:1px solid #d1d5db;border-radius:7px;background:#fff;padding:0 10px;font-size:13px;display:flex;align-items:center;white-space:nowrap;overflow:hidden;transition:box-shadow .3s,border-color .3s}
+.f .in.area{height:58px;align-items:flex-start;padding-top:8px;white-space:normal}
+.f .in.sel::after{content:"▾";margin-left:auto;color:var(--muted);padding-left:8px}
+.f .in .ph{color:#9ca3af}
+.f.err .in{border-color:var(--bad);box-shadow:0 0 0 3px #fee2e2}
+.f .msg{display:none;font-size:11px;color:var(--bad);font-weight:600}
+.f.err .msg{display:block}
+.in.glow,.slot.glow{border-color:var(--cop)!important;box-shadow:0 0 0 3px #ede9fe,0 0 18px #a78bfa88!important}
+.in.focus{border-color:#2563eb;box-shadow:0 0 0 3px #dbeafe}
+.chk{display:flex;gap:8px;align-items:center;font-size:12.5px}
+.chk i{width:15px;height:15px;border:1.5px solid #9ca3af;border-radius:4px;display:inline-block}
+.chk.on i{background:var(--ink);border-color:var(--ink)}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px}
+.hl{position:relative;z-index:3;box-shadow:0 0 0 3px var(--cop),0 0 0 9px #a78bfa44!important;border-radius:10px;animation:pulse 1.4s ease-in-out infinite}
+@keyframes pulse{50%{box-shadow:0 0 0 3px var(--cop),0 0 0 14px #a78bfa22}}
+.slots{display:flex;gap:8px;flex-wrap:wrap}
+.slot{border:1px solid #d1d5db;border-radius:8px;padding:8px 10px;font-size:12.5px;background:#fff;min-width:118px}
+.slot b{display:block;font-size:12px}
+.slot.off{color:#9ca3af;background:#f3f4f6}
+.slot.pick{background:var(--ink);color:#fff;border-color:var(--ink)}
+.tip{position:absolute;z-index:20;background:#111827;color:#fff;font-size:12px;padding:7px 10px;border-radius:7px;max-width:260px;display:none;box-shadow:0 8px 24px #0004}
+/* overlays */
+#hud{position:absolute;left:16px;top:66px;z-index:40;display:flex;gap:8px;align-items:center}
+.pill{padding:6px 12px;border-radius:99px;font-weight:700;font-size:13px;color:#fff;box-shadow:0 4px 14px #0003}
+#label.before{background:#475569}#label.after{background:var(--cop)}
+#who{background:#fff;color:var(--ink);font-weight:650}
+#mood{font-size:22px;filter:drop-shadow(0 2px 3px #0003)}
+#clock{position:absolute;right:16px;top:66px;z-index:40;background:#111827e6;color:#fff;font:600 14px ui-monospace,Menlo,monospace;padding:6px 11px;border-radius:9px;display:flex;gap:8px;align-items:center}
+#speed{display:none;background:var(--warn);color:#111;border-radius:6px;padding:1px 6px;font-size:11px;font-family:inherit;font-weight:800}
+#cursor{position:absolute;z-index:60;width:22px;height:22px;left:640px;top:360px;pointer-events:none;transition:left .6s cubic-bezier(.4,.1,.2,1),top .6s cubic-bezier(.4,.1,.2,1);display:none}
+#cursor svg{filter:drop-shadow(0 2px 3px #0005)}
+.ripple{position:absolute;z-index:59;width:40px;height:40px;margin:-20px 0 0 -20px;border-radius:50%;border:3px solid #2563eb;animation:rip .5s ease-out forwards;pointer-events:none}
+@keyframes rip{from{transform:scale(.2);opacity:1}to{transform:scale(1.4);opacity:0}}
+#toast{position:absolute;left:50%;bottom:92px;transform:translate(-50%,20px);z-index:45;background:#111827;color:#fff;padding:11px 18px;border-radius:11px;font-weight:600;font-size:14px;opacity:0;transition:.35s;white-space:nowrap}
+#toast.on{opacity:1;transform:translate(-50%,0)}
+#subs{position:absolute;left:0;right:0;bottom:26px;z-index:90;display:flex;justify-content:center;pointer-events:none}
+#subs .box{max-width:900px;background:#000000c4;color:#fff;border-radius:12px;padding:10px 18px;text-align:center;font-size:20px;line-height:1.35;font-weight:560;display:none}
+#subs .box.thought{font-style:italic;background:#1f2937d9}
+#subs .nm{font-size:13px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#c4b5fd;margin-right:8px;font-style:normal}
+#subs .tr{display:block;font-size:15px;color:#d1d5db;font-weight:500;margin-top:3px}
+/* copilot */
+#copilot{width:0;overflow:hidden;transition:width .5s ease;background:#fff;border-left:1px solid var(--line);display:flex;flex-direction:column;position:relative}
+#copilot.open{width:390px}
+#copilot .hd{height:56px;display:flex;align-items:center;gap:10px;padding:0 16px;border-bottom:1px solid var(--line);min-width:390px}
+.orb{width:30px;height:30px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#c4b5fd,var(--cop) 60%,#3b1fd1);box-shadow:0 0 0 0 #a78bfa88}
+.orb.talk{animation:orb 0.9s ease-in-out infinite}
+@keyframes orb{50%{box-shadow:0 0 0 10px #a78bfa22;transform:scale(1.08)}}
+#copilot .hd b{font-size:15px}#copilot .hd small{display:block;color:var(--muted);font-size:11.5px;font-weight:500}
+#lang{margin-left:auto;font-size:11px;font-weight:800;border:1px solid var(--line);border-radius:6px;padding:2px 6px;color:var(--muted)}
+#log{flex:1;overflow:hidden;padding:14px 14px 8px;display:flex;flex-direction:column;justify-content:flex-end;gap:9px;min-width:390px}
+.msg{max-width:88%;padding:9px 12px;border-radius:13px;font-size:14px;line-height:1.42}
+.msg.c{background:#f3f0ff;border-top-left-radius:4px;align-self:flex-start}
+.msg.u{background:var(--ink);color:#fff;border-top-right-radius:4px;align-self:flex-end}
+.msg .tr{display:block;font-size:12px;opacity:.7;margin-top:3px}
+.msg.dots{color:var(--cop);font-weight:800;letter-spacing:3px}
+#copilot.large .msg{font-size:16.5px}
+#dock{min-width:390px;padding:10px 14px 14px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:8px}
+#chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{border:1px solid #ddd6fe;color:var(--cop);background:#faf5ff;border-radius:99px;padding:5px 11px;font-size:12.5px;font-weight:600}
+#confirm{display:none;border:1.5px solid var(--cop);border-radius:12px;padding:11px 13px;background:#fff}
+#confirm b{font-size:13px}#confirm ul{margin:6px 0 8px;padding-left:18px;font-size:12.5px;color:#374151}
+#confirm .row{display:flex;gap:8px;align-items:center}
+#confirm .yes{background:var(--cop);color:#fff;border-radius:8px;padding:6px 12px;font-weight:700;font-size:12.5px}
+#confirm .no{border:1px solid var(--line);border-radius:8px;padding:6px 12px;font-size:12.5px}
+#waiting{display:none;font-size:11.5px;color:var(--cop);font-weight:700;margin-left:auto}
+#task{display:none;font-size:12.5px;color:#374151;align-items:center;gap:8px}
+#task .bar{flex:1;height:5px;background:#ede9fe;border-radius:9px;overflow:hidden}
+#task .bar i{display:block;height:100%;width:30%;background:var(--cop);animation:load 1.2s linear infinite}
+@keyframes load{from{transform:translateX(-100%)}to{transform:translateX(330%)}}
+#mic{display:flex;align-items:center;gap:10px;height:40px;border:1px solid var(--line);border-radius:99px;padding:0 6px 0 14px;font-size:13px;color:var(--muted)}
+#mic .wave{display:flex;gap:3px;align-items:center;height:22px;margin-left:auto;margin-right:6px}
+#mic .wave i{width:3px;height:4px;background:#c4b5fd;border-radius:2px}
+#mic.live .wave i{animation:wv .5s ease-in-out infinite alternate;background:var(--cop)}
+#mic .wave i:nth-child(2n){animation-delay:.12s}#mic .wave i:nth-child(3n){animation-delay:.25s}
+@keyframes wv{to{height:20px}}
+#mic .btnm{width:30px;height:30px;border-radius:50%;background:var(--cop);display:grid;place-items:center;color:#fff;font-size:14px}
+#spell{position:absolute;z-index:70;right:405px;bottom:120px;background:#fff;border:2px solid var(--cop);border-radius:12px;padding:10px 16px;font:800 26px ui-monospace,Menlo,monospace;letter-spacing:.12em;color:var(--cop);display:none;box-shadow:0 10px 30px #6d4aff33}
+/* title & clip & outro */
+.full{position:absolute;inset:0;z-index:80;display:none;background:#0b0c10;color:#fff}
+.full.on{display:flex}
+#title{flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:14px;background:radial-gradient(circle at 50% 40%,#1e1b4b,#0b0c10 70%)}
+#title h1{font-size:54px;letter-spacing:-.02em;margin:0}#title p{font-size:22px;color:#c7c9d1;margin:0;max-width:820px}
+#clip video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+#lower{position:absolute;left:36px;bottom:120px;background:#000000a8;color:#fff;padding:10px 16px;border-radius:10px;font-size:19px;font-weight:650;border-left:5px solid var(--cop)}
+#outro{flex-direction:column;align-items:center;justify-content:center;gap:22px;background:radial-gradient(circle at 50% 30%,#1e1b4b,#0b0c10 70%)}
+#outro h1{font-size:40px;margin:0}
+#stats{display:grid;grid-template-columns:repeat(5,200px);gap:14px}
+.st{background:#ffffff10;border:1px solid #ffffff22;border-radius:14px;padding:14px;text-align:center}
+.st b{display:block;font-size:17px;margin-bottom:8px}.st small{color:#a1a1aa;font-size:12px}
+.st .b{color:#fca5a5;font:700 22px ui-monospace,Menlo,monospace}.st .a{color:#c4b5fd;font:800 26px ui-monospace,Menlo,monospace}
+#outro .tag{font-size:21px;color:#ddd6fe}
+#outro .fine{font-size:12px;color:#71717a}
+/* site specific */
+.peds .logo{background:#0ea5e9}.peds .top{border-bottom:3px solid #0ea5e9}
+.appl .logo{background:#ea580c}.it .logo{background:#2563eb}.ag .logo{background:#111}.rt .logo{background:#15803d}
+.hero{display:flex;gap:24px;align-items:center;padding:30px;background:linear-gradient(120deg,#e0f2fe,#f0f9ff);border-radius:16px}
+.results li{list-style:none;border-bottom:1px solid var(--line);padding:10px 0;font-size:13.5px}
+.results li a{color:#1d4ed8;font-weight:600}
+.pdf{display:flex;gap:16px}.pdfpage{flex:1;height:520px;background:#fff;border:1px solid var(--line);padding:24px;overflow:hidden}
+.ln{height:7px;background:#e5e7eb;border-radius:3px;margin:9px 0}
+.steps .stp{display:flex;gap:14px;align-items:center;padding:14px;border:1px solid var(--line);border-radius:12px;margin-bottom:10px;background:#fff}
+.stp .n{width:34px;height:34px;border-radius:50%;background:#ffedd5;color:#c2410c;font-weight:800;display:grid;place-items:center}
+.tiers{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.tier{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px;font-size:11.5px;color:#4b5563}
+.tier b{font-size:16px;color:var(--ink);display:block}.tier .pr{font-size:20px;font-weight:800;color:var(--ink);margin:6px 0}
+.tier ul{padding-left:15px;margin:6px 0;line-height:1.55}
+.rt .body{font-size:10px}.rt .f label{font-size:9.5px}.rt .f .in{height:24px;font-size:10.5px}
+.legal{font-size:9.5px;color:#6b7280;line-height:1.45;columns:2;column-gap:20px}
+#copilot.large ~ * {}
+/* scope badge + comparison */
+#scope{min-width:390px;padding:9px 16px;background:#faf5ff;border-bottom:1px solid #ede9fe;font-size:12px;color:#4c1d95;display:none}
+#scope b{display:block;margin-bottom:5px}
+#scCan{display:flex;flex-wrap:wrap;gap:4px}
+#scCan span{background:#fff;border:1px solid #ddd6fe;border-radius:6px;padding:2px 7px;font-weight:600}
+.mobile #scope{min-width:0;background:#6d4aff22;border:1px solid #a78bfa55;border-radius:12px;color:#ddd6fe;font-size:13.5px;margin-bottom:14px;padding:11px 13px}
+.mobile #scCan span{background:#ffffff12;border-color:#ffffff26;color:#ede9fe}
+.mobile #spell{left:44px;bottom:44px}
+#compare{flex-direction:column;align-items:center;justify-content:center;gap:28px;background:radial-gradient(circle at 50% 30%,#1e1b4b,#0b0c10 70%)}
+#compare h1{font-size:40px;margin:0}
+#cmp{display:grid;grid-template-columns:repeat(3,330px);gap:20px}
+.cm{background:#ffffff0d;border:1px solid #ffffff22;border-radius:16px;padding:20px 22px;transition:all .6s ease}
+.cm h3{margin:0 0 4px;font-size:22px}.cm small{color:#a1a1aa;font-size:13px}
+.cm ul{margin:14px 0 0;padding-left:18px;font-size:16px;line-height:1.7;color:#d4d4d8}
+.cm.us{border-color:#a78bfa;background:#6d4aff22}
+#compare.hi .cm:not(.us){opacity:.35;transform:scale(.96)}
+#compare.hi .cm.us{transform:scale(1.06);box-shadow:0 0 0 2px #a78bfa,0 20px 60px #6d4aff55}
+/* ---- mobile mode (?mobile): the site runs inside a phone, copilot is a voice call ---- */
+html.mobile body{background:radial-gradient(circle at 50% 45%,#1e1b4b 0%,#0b0c10 65%)}
+.mobile #app{left:486px;top:27px;width:390px;height:844px;right:auto;bottom:auto;transform:scale(.79);transform-origin:0 0;flex-direction:column;border-radius:46px;overflow:hidden;box-shadow:0 0 0 13px #1c1d22,0 0 0 15px #3a3c44,0 30px 80px #000c}
+.mobile #app::before{content:"9:41";flex:none;height:44px;display:flex;align-items:center;padding-left:34px;font:650 16px -apple-system,system-ui,sans-serif;background:#fff}
+.mobile #app::after{content:"";position:absolute;top:11px;left:50%;width:118px;height:32px;margin-left:-59px;border-radius:20px;background:#000;z-index:99}
+.mobile .top{height:52px;padding:0 16px;gap:10px}
+.mobile .top::after{content:"☰";margin-left:auto;font-size:21px;color:var(--muted)}
+.mobile .nav{display:none}
+.mobile .brand{font-size:15px}
+.mobile .body{padding:16px 16px 150px}
+.mobile h1{font-size:23px}
+.mobile .grid{grid-template-columns:1fr 1fr;gap:10px 10px}
+.mobile .grid3{grid-template-columns:1fr 1fr;gap:9px 10px}
+.mobile .tiers{grid-template-columns:1fr 1fr;gap:9px}
+.mobile .hero{flex-direction:column;padding:24px}
+.mobile .slot{min-width:0;flex:1 1 40%}
+.mobile .pdfpage{height:640px}
+.mobile .legal{columns:1}
+.mobile #stageWrap{flex:1}
+/* copilot = call sheet at the bottom of the phone */
+.mobile #copilot{position:absolute;left:0;right:0;bottom:0;width:auto!important;z-index:30;flex-direction:column-reverse;border:0;border-radius:22px 22px 0 0;box-shadow:0 -10px 30px #0002;transform:translateY(110%);transition:transform .45s ease}
+.mobile #copilot.open{transform:none}
+.mobile #copilot .hd{min-width:0;height:74px;border:0;border-top:1px solid var(--line);padding:0 18px 10px;gap:12px}
+.mobile #copilot .orb{width:40px;height:40px}
+.mobile #copilot .hd small{color:var(--ok);font-weight:650}
+.mobile #lang{margin-left:auto}
+.mobile #hang{width:44px;height:44px;border-radius:50%;background:var(--bad);color:#fff;display:grid;place-items:center;font-size:19px;transform:rotate(135deg)}
+.mobile #dock{min-width:0;border:0;padding:12px 14px 4px}
+.mobile #mic{display:none}
+/* side panels */
+#sideL,#sideR{display:none}
+.mobile.inapp #sideL,.mobile.inapp #sideR{display:block}
+#sideL{position:absolute;left:44px;top:46px;width:390px;z-index:40;color:#fff}
+.mobile #hud{position:static;flex-direction:column;align-items:flex-start;gap:12px}
+.mobile .pill{font-size:16px;padding:8px 15px}
+.mobile #whoTask{color:#c7c9d1;font-size:19px;line-height:1.35;font-weight:550;max-width:360px}
+.mobile #mood{font-size:56px}
+.mobile #clock{position:static;display:inline-flex;margin-top:18px;font-size:30px;padding:10px 16px;border-radius:14px;background:#ffffff14;border:1px solid #ffffff22}
+.mobile #speed{font-size:13px;padding:2px 8px}
+#sideR{position:absolute;left:902px;top:46px;width:340px;height:628px;z-index:40;color:#fff;display:none;flex-direction:column}
+.mobile.inapp #sideR{display:flex}
+#sideR .h{font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#a1a1aa;margin-bottom:12px}
+#sideR .empty{color:#71717a;font-size:17px;line-height:1.45;font-style:italic}
+.mobile #log{min-width:0;flex:1;padding:0;gap:10px}
+.mobile #log .msg{font-size:15.5px;max-width:92%}
+.mobile #log .msg.c{color:var(--ink)}
+.mobile .msg.u{background:#2a2d36;border:1px solid #ffffff1c}
+.mobile.inapp #subs{left:44px;right:auto;width:390px;bottom:44px;justify-content:flex-start}
+.mobile.inapp #subs .box{text-align:left;font-size:19px}
+.mobile #spell{right:auto;left:902px;bottom:44px;font-size:30px}
+.mobile #toast{bottom:150px;white-space:normal;max-width:290px;text-align:center;font-size:13.5px}
+.mobile #cursor svg{display:none}
+.mobile #cursor{width:30px;height:30px;margin:-10px 0 0 -10px;border-radius:50%;background:#11182755;border:2px solid #fff;box-shadow:0 2px 8px #0005}
+/* ---- vertical 9:16 (?vertical): phone site in the middle, people/task on top, captions below ---- */
+html.vertical,html.vertical body{width:720px;height:1280px}
+html.vertical #app{left:155px;top:214px;transform:scale(1.05)}
+html.vertical #sideL{left:28px;top:30px;width:664px}
+html.vertical #hud{flex-direction:row;flex-wrap:wrap;align-items:center;gap:10px}
+html.vertical #whoTask{flex-basis:100%;order:5;font-size:18px;max-width:none}
+html.vertical #mood{font-size:30px}
+html.vertical #clock{position:absolute;right:0;top:0;margin:0;font-size:22px;padding:6px 12px}
+html.vertical #scope{margin:12px 0 0;padding:8px 11px;font-size:12.5px}
+html.vertical #scope b{display:inline;margin-right:8px}
+html.vertical #scCan{display:inline-flex;gap:4px}
+html.vertical #sideR{display:none!important}
+html.vertical.inapp #subs{left:20px;right:20px;width:auto;bottom:22px;justify-content:center}
+html.vertical.inapp #subs .box{text-align:center;font-size:19px;max-width:680px}
+html.vertical #spell{left:50%;bottom:330px;transform:translateX(-50%)}
+html.vertical #toast{bottom:240px}
+#vidBg{display:none}
+html.vertical #clip #vidBg{display:block;filter:blur(28px) brightness(.55);transform:scale(1.15)}
+html.vertical #clip #vid{object-fit:contain}
+html.vertical #lower{left:24px;right:24px;bottom:330px;font-size:18px}
+html.vertical #title h1{font-size:44px;padding:0 36px}html.vertical #title p{padding:0 40px}
+html.vertical #compare h1{font-size:34px}
+html.vertical #cmp{grid-template-columns:1fr;width:620px;gap:14px}
+html.vertical .cm{padding:16px 20px}html.vertical .cm ul{margin-top:8px;line-height:1.55}
+html.vertical #outro h1{font-size:32px;text-align:center;padding:0 30px}
+html.vertical #stats{grid-template-columns:1fr;width:640px;gap:10px}
+html.vertical .st{display:grid;grid-template-columns:120px 1fr auto;align-items:center;text-align:left;padding:10px 16px;gap:12px}
+html.vertical .st b{margin:0}
+html.vertical .st > div{margin:0!important;display:grid;grid-template-columns:auto auto;gap:0 10px;align-items:center;text-align:right}
+html.vertical #outro .tag{text-align:center;padding:0 40px;font-size:19px}
+html.vertical #outro .fine{text-align:center;padding:0 40px}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="stageWrap">
+    <div id="stage">
+
+      <!-- 1. Pediatrics -->
+      <section class="site peds" data-site="peds">
+        <div class="top"><div class="brand"><span class="logo"></span>Brookside Pediatrics</div>
+          <div class="nav"><span>Our doctors</span><span>Patients</span><span>Insurance</span><span>Locations</span></div></div>
+        <div class="body">
+          <div class="view on" id="peds-home">
+            <div class="hero"><div><h1>Care for every little one.</h1><p>Same-week appointments for well visits, sick visits and vaccines.</p>
+              <span class="btn" id="peds-book">Book appointment →</span></div></div>
+          </div>
+          <div class="view" id="peds-form">
+            <h2>Book an appointment · Step 1 of 3</h2>
+            <div class="grid" style="margin-bottom:14px">
+              <div class="f"><label>Patient (child)</label><div class="in sel" id="peds-child"><span class="ph">Select patient</span></div></div>
+              <div class="f"><label>Visit type</label><div class="in sel"><span>Well-child checkup</span></div></div>
+              <div class="f"><label>Insurance member ID</label><div class="in" id="peds-member"><span class="ph">11 characters</span></div><span class="msg"></span></div>
+              <div class="f"><label>Preferred pharmacy</label><div class="in sel"><span class="ph">Search pharmacy</span></div></div>
+              <div class="f"><label>Allergies</label><div class="in"><span class="ph">List allergies</span></div></div>
+              <div class="f"><label>Parent phone</label><div class="in"><span class="ph">(555) 000-0000</span></div></div>
+            </div>
+            <div class="f"><label>Available times · next week</label>
+              <div class="slots">
+                <div class="slot off"><b>Mon</b>No times</div>
+                <div class="slot" id="peds-slot-tue"><b>Tue · 9:40 AM</b>Dr. Patel</div>
+                <div class="slot off"><b>Wed</b>No times</div>
+                <div class="slot" id="peds-slot-thu"><b>Thu · 4:20 PM</b>Dr. Lee</div>
+                <div class="slot"><b>Fri · 3:00 PM</b>Dr. Okafor</div>
+              </div><span class="msg"></span></div>
+            <div style="margin-top:16px"><span class="btn" id="peds-submit">Continue</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. Appliance support -->
+      <section class="site appl" data-site="appliance">
+        <div class="top"><div class="brand"><span class="logo"></span>Halvorsen Home · Support</div>
+          <div class="nav"><span>Manuals</span><span>Parts</span><span>Warranty</span><span>Contact</span></div></div>
+        <div class="body">
+          <div class="view on" id="ap-home">
+            <h1>How can we help?</h1><p>Search manuals, error codes and guides.</p>
+            <div class="f" style="max-width:560px"><div class="in" id="ap-search"><span class="ph">Search error code or model</span></div></div>
+            <div class="grid3" style="margin-top:22px">
+              <div class="card"><b>Dishwashers</b><p>Manuals and parts</p></div><div class="card"><b>Laundry</b><p>Manuals and parts</p></div><div class="card"><b>Cooking</b><p>Manuals and parts</p></div>
+            </div>
+          </div>
+          <div class="view" id="ap-results">
+            <h2>47 results for “E24”</h2>
+            <ul class="results" style="padding:0">
+              <li><a>E24 / E25 on washer-dryer combos (WDX series)</a><br><span style="color:#6b7280">Article · laundry</span></li>
+              <li><a id="ap-manual">HDW-series Owner's Manual (PDF, 84 pages)</a><br><span style="color:#6b7280">Dishwashers · 2019–2024</span></li>
+              <li><a>Error codes: complete list (all appliances)</a><br><span style="color:#6b7280">Article</span></li>
+              <li><a>Firmware notes 3.2.1</a><br><span style="color:#6b7280">Download</span></li>
+            </ul>
+          </div>
+          <div class="view" id="ap-pdf">
+            <div class="pdf"><div class="pdfpage"><b style="font-size:13px">HDW-series Owner's Manual</b><span style="float:right;color:#6b7280;font-size:12px">Page <span id="ap-pdf-page">1</span> / 84</span>
+              <div id="ap-lines"></div></div></div>
+          </div>
+          <div class="view" id="ap-steps">
+            <h2>E24 · water not draining · HDW-500</h2>
+            <div class="steps">
+              <div class="stp" id="ap-step-1"><span class="n">1</span><div><b>Twist out the drain filter</b><p style="margin:0">Bottom of the tub, turn counter-clockwise and lift.</p></div></div>
+              <div class="stp" id="ap-step-2"><span class="n">2</span><div><b>Rinse it and click it back in</b><p style="margin:0">Remove food and grease under warm water.</p></div></div>
+              <div class="stp"><span class="n">3</span><div><b>Run “Quick drain”</b><p style="margin:0">Hold Start for 3 seconds.</p></div></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. IT service desk -->
+      <section class="site it" data-site="itdesk">
+        <div class="top"><div class="brand"><span class="logo"></span>Cobalt · IT Service Desk</div>
+          <div class="nav"><span>My tickets</span><span>Knowledge base</span><span>Requests</span></div></div>
+        <div class="body">
+          <h2>New incident</h2>
+          <div class="grid3">
+            <div class="f"><label>Category *</label><div class="in sel" id="it-cat"><span class="ph">Select</span></div><span class="msg"></span></div>
+            <div class="f"><label>Subcategory *</label><div class="in sel" id="it-sub"><span class="ph">Select</span></div><span class="msg"></span></div>
+            <div class="f"><label>Configuration item</label><div class="in sel"><span class="ph">Select CI</span></div></div>
+            <div class="f"><label>Asset tag *</label><div class="in" id="it-asset"><span class="ph">e.g. CL-0000</span></div><span class="msg"></span></div>
+            <div class="f"><label>Impact *</label><div class="in sel" id="it-impact"><span class="ph">Select</span></div><span class="msg"></span></div>
+            <div class="f"><label>Urgency *</label><div class="in sel" id="it-urg"><span class="ph">Select</span></div><span class="msg"></span></div>
+            <div class="f"><label>Location</label><div class="in sel"><span class="ph">Building / floor</span></div></div>
+            <div class="f"><label>Contact phone</label><div class="in"><span class="ph">Ext.</span></div></div>
+            <div class="f"><label>Assignment group</label><div class="in sel"><span class="ph">Auto</span></div></div>
+          </div>
+          <div class="f" style="margin-top:12px"><label>Description *</label><div class="in area" id="it-desc"><span class="ph">Describe the issue in detail</span></div></div>
+          <div style="margin-top:14px"><span class="btn" id="it-submit">Submit incident</span></div>
+        </div>
+      </section>
+
+      <!-- 4. Web agency -->
+      <section class="site ag" data-site="agency">
+        <div class="top"><div class="brand"><span class="logo"></span>Lumen &amp; Pine Studio</div>
+          <div class="nav"><span>Work</span><span>Services</span><span>Pricing</span><span>Contact</span></div></div>
+        <div class="body">
+          <div class="view on" id="ag-pricing">
+            <h1>Pricing</h1><p>Transparent packages. Annual billing saves 15%.</p>
+            <div class="tiers">
+              <div class="tier" id="ag-tier-1"><b>Starter</b><div class="pr">$1,400</div><ul><li>5 pages, static build</li><li>Basic SEO schema</li><li>Shared CDN</li></ul></div>
+              <div class="tier" id="ag-tier-2"><b>Growth</b><div class="pr">$2,800</div><ul><li>12 pages + CMS</li><li>Bookings &amp; payments</li><li>Analytics events</li></ul></div>
+              <div class="tier" id="ag-tier-3"><b>Scale</b><div class="pr">$6,500</div><ul><li>Headless CMS</li><li>Edge CDN, ISR</li><li>99.95% SLA</li></ul></div>
+              <div class="tier" id="ag-tier-4"><b>Enterprise</b><div class="pr">Custom</div><ul><li>SSO / SAML</li><li>Dedicated PM</li><li>Composable stack</li></ul></div>
+            </div>
+            <div style="margin-top:18px"><span class="btn" id="ag-quote">Get a quote</span></div>
+          </div>
+          <div class="view" id="ag-form">
+            <h2>Request a quote</h2>
+            <div class="grid">
+              <div class="f"><label>Business name</label><div class="in" id="ag-biz"><span class="ph">Company</span></div></div>
+              <div class="f"><label>Package</label><div class="in sel" id="ag-plan"><span class="ph">Select package</span></div></div>
+              <div class="f"><label>Budget</label><div class="in sel" id="ag-budget"><span class="ph">Select range</span></div></div>
+              <div class="f"><label>Timeline</label><div class="in sel"><span class="ph">Select</span></div></div>
+            </div>
+            <div class="f" style="margin-top:12px"><label>Scope (select all that apply)</label>
+              <div class="grid3"><span class="chk"><i></i>Headless CMS</span><span class="chk"><i></i>i18n</span><span class="chk"><i></i>Bookings</span><span class="chk"><i></i>E-commerce</span><span class="chk"><i></i>SSO</span><span class="chk"><i></i>Migrations</span></div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 5. Retirement -->
+      <section class="site rt" data-site="retire">
+        <div class="top"><div class="brand"><span class="logo"></span>Evergreen Retirement Services</div>
+          <div class="nav"><span>Benefits</span><span>Forms</span><span>Payments</span><span>Help</span></div></div>
+        <div class="body">
+          <h2 style="font-size:14px">Form R-17 · Designation of Beneficiary (Defined Benefit Plan)</h2>
+          <p class="legal">Pursuant to Plan Section 8.04, the Member may designate one or more primary and contingent beneficiaries. A designation filed hereunder revokes all prior designations. Payee designation codes are listed in Schedule B, §4(c). Spousal consent may be required under Section 417 where the beneficiary is other than the Member's spouse; such consent must be witnessed by a notary or plan representative. Percentages for primary beneficiaries must total 100%. Incomplete forms will be returned without processing. Allow 10–15 business days.</p>
+          <div class="grid3" style="margin-top:8px">
+            <div class="f"><label>Member ID</label><div class="in"><span>EV-00418822</span></div></div>
+            <div class="f"><label>Member name</label><div class="in"><span>Harold Reyes</span></div></div>
+            <div class="f"><label>Date of birth</label><div class="in"><span>03/14/1952</span></div></div>
+            <div class="f"><label>Primary beneficiary (full legal name)</label><div class="in" id="rt-ben"><span class="ph">Full legal name</span></div></div>
+            <div class="f"><label>Payee designation code (Sch. B §4(c))</label><div class="in sel" id="rt-code"><span class="ph">Code</span></div></div>
+            <div class="f"><label>Share %</label><div class="in"><span>100</span></div></div>
+            <div class="f"><label>Beneficiary SSN</label><div class="in"><span class="ph">XXX-XX-XXXX</span></div></div>
+            <div class="f"><label>Contingent beneficiary</label><div class="in"><span class="ph">Optional</span></div></div>
+            <div class="f"><label>Spousal consent (Sec. 417)</label><div class="in sel"><span class="ph">N/A</span></div></div>
+          </div>
+          <p class="legal" style="margin-top:10px">Signature of Member · Date · Witness · Delivery: mail to Evergreen Retirement Services, P.O. Box 7710, or upload via secure portal.</p>
+        </div>
+      </section>
+
+    </div>
+    <div class="tip" id="tip"></div>
+  </div>
+  <aside id="copilot">
+    <div class="hd"><span class="orb" id="orb"></span><div><b>Copilot</b><small>Listening · asks before acting</small></div><span id="lang">EN</span></div>
+    <div id="scope"><b>🔒 Only works on <span id="scSite"></span></b><div id="scCan"></div></div>
+    <div id="log"></div>
+    <div id="dock">
+      <div id="spellSlot"></div>
+      <div id="chips"></div>
+      <div id="confirm"><b id="cfTitle"></b><ul id="cfItems"></ul><div class="row"><span class="yes">Yes, go ahead</span><span class="no">Edit</span><span id="waiting">● waiting for your OK</span></div></div>
+      <div id="task"><span id="taskText"></span><span class="bar"><i></i></span></div>
+      <div id="mic"><span>Hold to talk, or just speak</span><span class="wave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="btnm">🎙</span></div>
+    </div>
+  </aside>
+</div>
+
+<div id="hud"><span class="pill" id="label" style="display:none"></span><span class="pill" id="who" style="display:none"></span><span id="mood"></span></div>
+<div id="clock" style="display:none">⏱ <span id="clockV">0:00</span><span id="speed">⏩ SPED UP</span></div>
+<div id="cursor"><svg width="22" height="22" viewBox="0 0 24 24"><path d="M3 2l7 19 2.6-7.4L20 11z" fill="#111" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg></div>
+<div id="toast"></div>
+<div id="spell"></div>
+<div id="sideL"></div>
+<div id="sideR"><div class="h">📞 Live voice call</div><div class="empty" id="noCall">No one to ask.<br>Just you and the website.</div></div>
+<div class="full" id="title"><h1 id="tH"></h1><p id="tP"></p></div>
+<div class="full" id="clip"><video id="vidBg" muted playsinline preload="auto"></video><video id="vid" muted playsinline preload="auto"></video><div id="lower"></div></div>
+<div class="full" id="compare"><h1>So how is this different?</h1><div id="cmp">
+  <div class="cm"><h3>Browser agents</h3><small>e.g. Operator, Comet, Claude in Chrome</small><ul><li>Lives in your browser</li><li>Roams any website</li><li>You hand over a goal and watch</li></ul></div>
+  <div class="cm"><h3>Coding agents</h3><small>e.g. Claude Code, Codex</small><ul><li>Built for developers</li><li>Works in code and terminals</li><li>Not for a site's customers</li></ul></div>
+  <div class="cm us"><h3>Website copilot</h3><small>installed by the website itself</small><ul><li>Knows only that one site</li><li>Can only use that site's actions</li><li>Asks you step by step, on a voice call</li><li>Checks with you before it acts</li></ul></div>
+</div></div>
+<div class="full" id="outro"><h1>Same tasks. A very different feeling.</h1><div id="stats"></div>
+  <div class="tag">Websites that talk back, guide you, and ask before they act.</div>
+  <div class="fine">Concept demo · scripted scenario · fictional people and businesses · “without” timings sped up and illustrative</div></div>
+<div id="subs"><div class="box" id="subBox"></div></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const QS = new URLSearchParams(location.search);
+const VERT = QS.has('vertical');
+const MOBILE = QS.has('mobile') || VERT;
+const S = { persona:null, mode:null, clock:0, rate:0, last:0, stats:{}, order:[] };
+
+function fmt(sec){ sec=Math.max(0,Math.round(sec)); return Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0'); }
+function site(){ return $('.site.on'); }
+function el(sel){ const s=site(); return (s && s.querySelector(sel)) || document.querySelector(sel); }
+function center(e){ const r=e.getBoundingClientRect(); return [r.left+Math.min(r.width/2,60), r.top+r.height/2]; }
+function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+
+function moveCursor(e, ms){ const c=$('#cursor'); c.style.display='block'; c.style.transition=`left ${ms}ms cubic-bezier(.4,.1,.2,1), top ${ms}ms cubic-bezier(.4,.1,.2,1)`; const [x,y]=center(e); c.style.left=(x-3)+'px'; c.style.top=(y-2)+'px'; }
+function ripple(e){ const [x,y]=center(e); const r=document.createElement('div'); r.className='ripple'; r.style.left=x+'px'; r.style.top=y+'px'; document.body.appendChild(r); setTimeout(()=>r.remove(),600); }
+function setText(e, text){ e.innerHTML=''; const sp=document.createElement('span'); sp.textContent=text; e.appendChild(sp); return sp; }
+async function typeInto(e, text, ms){ const sp=setText(e,''); const step=Math.max(ms/Math.max(text.length,1),8); for(let i=1;i<=text.length;i++){ sp.textContent=text.slice(0,i); await sleep(step); } }
+function glow(e){ e.classList.add('glow'); setTimeout(()=>e.classList.remove('glow'),1400); }
+
+const A = {
+  scene(e){
+    for(const id of ['title','clip','outro','compare']) $('#'+id).classList.remove('on');
+    $('#subBox').style.display='none';
+    document.documentElement.classList.remove('inapp');
+    if(e.name==='title'){ $('#tH').textContent=e.title; $('#tP').textContent=e.sub||''; $('#title').classList.add('on'); hud(false); return; }
+    if(e.name==='compare'){ $('#compare').classList.remove('hi'); $('#compare').classList.add('on'); hud(false); return; }
+    if(e.name==='outro'){ renderStats(); $('#outro').classList.add('on'); hud(false); return; }
+    // app
+    S.mode=e.mode;
+    $$('.site').forEach(s=>s.classList.toggle('on', s.dataset.site===e.site));
+    const s=site();
+    s.querySelectorAll('.view').forEach((v,i)=>v.classList.toggle('on', i===0));
+    s.querySelectorAll('.f').forEach(f=>{f.classList.remove('err');});
+    s.querySelectorAll('.in').forEach(i=>{ if(!i.dataset.orig) i.dataset.orig=i.innerHTML; i.innerHTML=i.dataset.orig; i.classList.remove('glow','focus'); });
+    s.querySelectorAll('.slot').forEach(x=>x.classList.remove('pick','glow'));
+    s.querySelectorAll('.hl').forEach(x=>x.classList.remove('hl'));
+    $('#stage').style.transform='scale(1)';
+    $('#copilot').classList.remove('open','large'); $('#log').innerHTML=''; $('#chips').innerHTML=''; $('#confirm').style.display='none'; $('#task').style.display='none';
+    $('#lang').textContent='EN'; $('#scope').style.display='none'; $('#mood').textContent=''; $('#tip').style.display='none'; $('#spell').style.display='none';
+    $('#cursor').style.display = e.mode==='before' ? 'block':'none';
+    if(e.mode==='before'){ const c=$('#cursor'); c.style.transition='none'; c.style.left='700px'; c.style.top='420px'; }
+    if(e.site==='appliance') buildPdf();
+    $('#speed').style.display = e.mode==='before' ? 'inline':'none';
+    const L=$('#label'); L.className='pill '+e.mode; L.textContent = e.mode==='before' ? 'Without a copilot' : 'With a copilot';
+    hud(true);
+    document.documentElement.classList.add('inapp');
+    if(MOBILE){ $('#noCall').style.display = e.mode==='before' ? 'block':'none'; }
+  },
+  persona(e){ S.persona=e.key; if(!S.stats[e.key]){ S.stats[e.key]={name:e.title, task:e.task}; S.order.push(e.key);} $('#who').textContent=e.title; if(MOBILE) $('#whoTask').textContent=e.task; },
+  clip(e){
+    hud(false); $('#clock').style.display='none'; document.documentElement.classList.remove('inapp');
+    const v=$('#vid'); v.src=e.src; v.currentTime=0; v.play().catch(()=>{});
+    if(VERT){ const g=$('#vidBg'); g.src=e.src; g.currentTime=0; g.play().catch(()=>{}); setTimeout(()=>g.pause(), e.dur*1000-30); }
+    $('#lower').textContent=e.lower||''; $('#lower').style.display=e.lower?'block':'none';
+    $('#clip').classList.add('on');
+    setTimeout(()=>{ $('#clip').classList.remove('on'); v.pause(); }, e.dur*1000-30);
+  },
+  clock(e){
+    if(e.start!==undefined){ S.clock=e.start; $('#clock').style.display='flex'; }
+    if(e.rate===0 && S.persona && S.mode){ S.stats[S.persona][S.mode]=S.clock; }
+    S.rate=e.rate;
+  },
+  speedup(e){ $('#speed').textContent = e.on ? '⏩⏩ FAST-FORWARD' : '⏩ SPED UP'; },
+  cursor(e){ const t=el(e.sel); if(t) moveCursor(t, e.dur*900); },
+  async click(e){
+    const t=el(e.sel); if(!t) return;
+    if(S.mode==='after'){ glow(t); if(t.classList.contains('chk')) t.classList.add('on'); return; }
+    moveCursor(t, e.dur*700); await sleep(e.dur*750); ripple(t);
+    if(t.classList.contains('in')){ $$('.in.focus').forEach(x=>x.classList.remove('focus')); t.classList.add('focus'); }
+    if(t.classList.contains('chk')) t.classList.toggle('on');
+    if(t.classList.contains('slot') && !t.classList.contains('off')){ site().querySelectorAll('.slot').forEach(x=>x.classList.remove('pick')); t.classList.add('pick'); }
+  },
+  async type(e){ const t=el(e.sel); if(!t) return; if(S.mode==='before'){ moveCursor(t, e.dur*250); await sleep(e.dur*280); ripple(t); $$('.in.focus').forEach(x=>x.classList.remove('focus')); t.classList.add('focus'); } await typeInto(t, e.text, e.dur*650); },
+  async retype(e){ const t=el(e.sel); const f=t.closest('.f'); moveCursor(t, e.dur*250); await sleep(e.dur*280); ripple(t); f && f.classList.remove('err'); await typeInto(t, e.text, e.dur*600); },
+  select(e){ const t=el(e.sel); if(!t) return; if(t.classList.contains('slot')){ site().querySelectorAll('.slot').forEach(x=>x.classList.remove('pick')); t.classList.add('pick'); } else setText(t, e.value); if(e.glow) glow(t); },
+  async fill(e){ const t=el(e.sel); if(!t) return; t.classList.add('glow'); await typeInto(t, e.text, Math.max(e.dur*800, 250)); setTimeout(()=>t.classList.remove('glow'),900); },
+  formErrors(e){ site().querySelectorAll('.f').forEach(f=>f.classList.remove('err')); for(const [sel,msg] of Object.entries(e.errors||{})){ const t=el(sel); const f=t && t.closest('.f'); if(f){ f.classList.add('err'); const m=f.querySelector('.msg'); if(m) m.textContent=msg; } } },
+  tooltip(e){ const tip=$('#tip'); if(!e.sel){ tip.style.display='none'; return; } const t=el(e.sel); const r=t.getBoundingClientRect(), w=$('#stageWrap').getBoundingClientRect(); tip.textContent=e.text; tip.style.display='block'; const k=w.width/$('#stageWrap').offsetWidth; tip.style.left=(r.left-w.left)/k+'px'; tip.style.top=(r.bottom-w.top+8)/k+'px'; },
+  toast(e){ const t=$('#toast'); t.textContent=e.text; t.classList.add('on'); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('on'), 2600); },
+  mood(e){ $('#mood').textContent=e.emoji; },
+  view(e){ const t=el(e.sel); if(!t) return; t.parentElement.querySelectorAll(':scope > .view').forEach(v=>v.classList.toggle('on', v===t)); },
+  highlight(e){ site().querySelectorAll('.hl').forEach(x=>x.classList.remove('hl')); if(!e.sel) return; e.sel.split(',').forEach(s=>{ const t=el(s.trim()); if(t) t.classList.add('hl'); }); },
+  copilot(e){ if(e.open && !$('#copilot').classList.contains('open')) S.callStart=performance.now(); $('#copilot').classList.toggle('open', !!e.open); $('#copilot').classList.toggle('large', !!e.large); },
+  async thinking(e){ const d=bubble('c','•••'); d.classList.add('dots'); await sleep(e.dur*1000-50); d.remove(); },
+  chips(e){ $('#chips').innerHTML=(e.items||[]).map(x=>`<span class="chip">${x}</span>`).join(''); },
+  confirm(e){ const c=$('#confirm'); if(!e.title){ c.style.display='none'; return; } $('#cfTitle').textContent=e.title; $('#cfItems').innerHTML=e.items.map(x=>`<li>${x}</li>`).join(''); c.style.display='block'; $('#waiting').style.display='inline'; },
+  waitingOk(e){ $('#waiting').style.display=e.on?'inline':'none'; },
+  task(e){ $('#task').style.display=e.on?'flex':'none'; $('#taskText').textContent=e.text||''; },
+  spell(e){ const s=$('#spell'); if(!e.text){ s.style.display='none'; return; } s.textContent=e.text; s.style.display='block'; },
+  lang(e){ $('#lang').textContent=e.code; },
+  async scrollPdf(e){ const p=$('#ap-pdf-page'); const n=e.pages; for(let i=1;i<=n;i++){ p.textContent=i; buildPdf(i); await sleep(e.dur*1000/n); } },
+  zoom(e){ $('#stage').style.transform=`scale(${e.level})`; },
+  say(e){
+    const box=$('#subBox');
+    const nm = e.who==='narrator' ? '' : `<span class="nm">${e.name}</span>`;
+    box.className='box'+(e.thought?' thought':'');
+    box.innerHTML = (e.thought?'💭 ':'')+nm+esc(e.text)+(e.sub?`<span class="tr">${esc(e.sub)}</span>`:'');
+    box.style.display = (MOBILE && !VERT && S.mode==='after' && !e.thought && e.who!=='narrator' && !$('#clip').classList.contains('on')) ? 'none' : 'block';
+    clearTimeout(box._h); box._h=setTimeout(()=>box.style.display='none', e.dur*1000+250);
+    if(!e.thought && e.who!=='narrator' && S.mode==='after' && !$('#clip').classList.contains('on')){
+      const isC = e.who==='copilot';
+      const b=bubble(isC?'c':'u','');
+      streamText(b, e.text, e.sub, e.dur*(isC?0.85:0.95));
+      const tgt = isC ? $('#orb') : $('#mic');
+      tgt.classList.add(isC?'talk':'live'); setTimeout(()=>tgt.classList.remove('talk','live'), e.dur*1000);
+    }
+  },
+  scope(e){ $('#scSite').textContent=e.site; $('#scCan').innerHTML=e.can.map(x=>`<span>${esc(x)}</span>`).join(''); $('#scope').style.display='block'; },
+  compareHi(){ $('#compare').classList.add('hi'); },
+  noop(){},
+};
+function esc(s){ return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+function bubble(cls, text){ const d=document.createElement('div'); d.className='msg '+cls; d.textContent=text; $('#log').appendChild(d); const log=$('#log'); while(log.children.length>7) log.firstChild.remove(); return d; }
+async function streamText(d, text, sub, sec){ const words=text.split(' '); const step=sec*1000/words.length; for(let i=1;i<=words.length;i++){ d.textContent=words.slice(0,i).join(' '); await sleep(step); } if(sub){ const s=document.createElement('span'); s.className='tr'; s.textContent=sub; d.appendChild(s); } }
+function hud(on){ $('#label').style.display=on?'inline-block':'none'; $('#who').style.display=on?'inline-block':'none'; if(!on) $('#clock').style.display='none'; }
+function buildPdf(seed=1){ const box=$('#ap-lines'); if(!box) return; let h=''; for(let i=0;i<38;i++){ const w=40+((i*37+seed*13)%55); h+=`<div class="ln" style="width:${w}%"></div>`; } box.innerHTML=h; }
+function renderStats(){
+  $('#stats').innerHTML = S.order.map(k=>{ const s=S.stats[k]; return `<div class="st"><b>${s.name}</b><small>${s.task}</small><div style="margin-top:10px"><small>without</small><div class="b">${fmt(s.before||0)}</div><small>with copilot</small><div class="a">${fmt(s.after||0)}</div></div></div>`; }).join('');
+}
+
+// player
+let TL=null, t0=null, idx=0;
+async function load(){ TL = await (await fetch('../build/timeline.json')).json(); window.__total = TL.total; window.__ready = true; }
+function tick(now){
+  const t=(now-t0)/1000;
+  const dt=(now-S.last)/1000; S.last=now; S.clock += dt*S.rate; $('#clockV').textContent=fmt(S.clock);
+  if(MOBILE && S.callStart && $('#copilot').classList.contains('open')) $('#callT').textContent='On call · '+fmt((now-S.callStart)/1000);
+  while(idx<TL.events.length && TL.events[idx].t<=t){ const e=TL.events[idx++]; try{ A[e.do] && A[e.do](e); }catch(err){ console.error(e.do, err); } }
+  if(t < TL.total) requestAnimationFrame(tick); else window.__done=true;
+}
+window.__start = () => { t0=performance.now(); S.last=t0; requestAnimationFrame(tick); return Date.now(); };
+if(MOBILE){
+  document.documentElement.classList.add('mobile');
+  if(VERT) document.documentElement.classList.add('vertical');
+  $('#sideL').append($('#hud'), $('#clock'));
+  const t=document.createElement('div'); t.id='whoTask'; $('#hud').insertBefore(t, $('#mood'));
+  $('#sideR').append($('#scope'), $('#log'));
+  if(VERT) $('#sideL').appendChild($('#scope'));
+  $('#copilot .hd small').id='callT'; $('#copilot .hd small').textContent='On call';
+  const h=document.createElement('span'); h.id='hang'; h.textContent='📞'; $('#copilot .hd').appendChild(h);
+  $('#copilot .hd b').textContent='Copilot';
+} else { $('#hud').appendChild($('#clock')); $('#clock').style.position='static'; }
+load();
+</script>
+</body>
+</html>
