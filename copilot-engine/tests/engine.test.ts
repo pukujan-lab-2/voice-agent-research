@@ -54,7 +54,7 @@ test('a yes with a condition attached never submits; asking for a person is not 
   const { Copilot } = await import('../src/engine.ts');
   const { halvorsen } = await import('../src/flows/halvorsen.ts');
   const S = 'four four one zero, seven two, B as in bravo, K, nine, X, one, one';
-  for (const said of ['yes but change the time', 'yes, except the problem is wrong', 'yes wait', 'yeah though the name is off']) {
+  for (const said of ['yes but change the time', 'yes, except the problem is wrong', 'yes wait', 'yeah though the name is off', 'yes if it is free', 'yes as long as it is covered']) {
     let n = 0;
     const c = new Copilot(halvorsen, new RuleModel(), { submit: () => { n++; } });
     c.start();
@@ -68,4 +68,15 @@ test('a yes with a condition attached never submits; asking for a person is not 
   const r = await c.turn('can I talk to a real person');
   assert.equal(c.values.problem, undefined);
   assert.match(r, /can't transfer/);
+});
+
+test('declining a name and ruling out an option are not answers', async () => {
+  for (const t of ["I'd rather not say", 'prefer not to', "I don't want to give it"]) assert.equal(parseName(t), '', t);
+  const { Copilot } = await import('../src/engine.ts');
+  const { halvorsen } = await import('../src/flows/halvorsen.ts');
+  const c = new Copilot(halvorsen, new RuleModel(), { submit: () => {} });
+  c.start();
+  for (const s of ['Dmitri', '77H2 01NP 55A8', 'yes', 'no heat']) await c.turn(s);
+  await c.turn('not the morning');
+  assert.equal(c.values.visit_time, undefined);
 });

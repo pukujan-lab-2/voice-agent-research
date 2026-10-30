@@ -368,3 +368,278 @@
 {"ts":"2026-10-30T15:57:47.561Z","set":"guide","judge":"jev","retriever":"octo","scenario":"unrelated","pass":true}
 {"ts":"2026-10-30T15:58:58.383Z","set":"sim","model":"llama","seed":3,"conversations":500,"turns":5106,"checks":6890,"failed":117}
 {"ts":"2026-10-30T15:59:12.670Z","set":"sim","model":"jev+llama","seed":3,"conversations":500,"turns":5110,"checks":6893,"failed":49,"jev_calls":568,"jev_cost_usd":0.011902}
+{"ts":"2026-10-30T16:01:20.979Z","set":"holdout3","model":"jev+llama","scenario":"problem: with filler words","pass":true}
+{"ts":"2026-10-30T16:01:21.550Z","set":"holdout3","model":"jev+llama","scenario":"problem: mentions money","pass":true}
+{"ts":"2026-10-30T16:01:22.069Z","set":"holdout3","model":"jev+llama","scenario":"problem: mentions the store","pass":true}
+{"ts":"2026-10-30T16:01:22.539Z","set":"holdout3","model":"jev+llama","scenario":"problem: one word code","pass":true}
+{"ts":"2026-10-30T16:01:23.065Z","set":"holdout3","model":"jev+llama","scenario":"problem: negative phrasing","pass":true}
+{"ts":"2026-10-30T16:01:23.589Z","set":"holdout3","model":"jev+llama","scenario":"problem: phone app","pass":true}
+{"ts":"2026-10-30T16:01:23.789Z","set":"holdout3","model":"jev+llama","scenario":"off-topic: pay my bill","pass":true}
+{"ts":"2026-10-30T16:01:24.098Z","set":"holdout3","model":"jev+llama","scenario":"off-topic: recipe","pass":true}
+{"ts":"2026-10-30T16:01:24.345Z","set":"holdout3","model":"jev+llama","scenario":"off-topic: stock price","pass":true}
+{"ts":"2026-10-30T16:01:24.513Z","set":"holdout3","model":"jev+llama","scenario":"off-topic: system prompt","pass":true}
+{"ts":"2026-10-30T16:01:24.712Z","set":"holdout3","model":"jev+llama","scenario":"off-topic: pretend admin","pass":true}
+{"ts":"2026-10-30T16:01:24.961Z","set":"holdout3","model":"jev+llama","scenario":"off-topic: manager","pass":true}
+{"ts":"2026-10-30T16:01:25.154Z","set":"holdout3","model":"jev+llama","scenario":"unclear: not sure how to say","pass":true}
+{"ts":"2026-10-30T16:01:25.350Z","set":"holdout3","model":"jev+llama","scenario":"unclear: same as before","pass":true}
+{"ts":"2026-10-30T16:01:26.188Z","set":"holdout3","model":"jev+llama","scenario":"correction: serial again during problem","pass":true}
+{"ts":"2026-10-30T16:01:26.189Z","set":"holdout3","model":"jev+llama","scenario":"name: lowercase with surname","pass":true}
+{"ts":"2026-10-30T16:01:26.189Z","set":"holdout3","model":"jev+llama","scenario":"name: \"call me\"","pass":true}
+{"ts":"2026-10-30T16:01:26.189Z","set":"holdout3","model":"jev+llama","scenario":"name: refuses","pass":false}
+{"ts":"2026-10-30T16:01:26.189Z","set":"holdout3","model":"jev+llama","scenario":"serial: with \"oh\" for zero","pass":true}
+{"ts":"2026-10-30T16:01:26.725Z","set":"holdout3","model":"jev+llama","scenario":"time: around ten","pass":true}
+{"ts":"2026-10-30T16:01:27.240Z","set":"holdout3","model":"jev+llama","scenario":"time: not morning","pass":false}
+{"ts":"2026-10-30T16:01:27.765Z","set":"holdout3","model":"jev+llama","scenario":"review: \"yes\" then field name","pass":true}
+{"ts":"2026-10-30T16:01:28.293Z","set":"holdout3","model":"jev+llama","scenario":"review: \"correct, submit\"","pass":true}
+{"ts":"2026-10-30T16:01:28.813Z","set":"holdout3","model":"jev+llama","scenario":"review: \"no wait\"","pass":true}
+{"ts":"2026-10-30T16:01:29.369Z","set":"holdout3","model":"jev+llama","scenario":"review: \"yes if it is free\"","pass":false}
+{"ts":"2026-10-30T16:01:29.887Z","set":"holdout3","model":"jev+llama","scenario":"review: \"sure why not\"","pass":true}
+{"ts":"2026-10-30T16:01:59.601Z","engine":"0.1.0","model":"rules","scenario":"1 serial read-back, mishear, correction","pass":true,"detail":""}
+{"ts":"2026-10-30T16:01:59.603Z","engine":"0.1.0","model":"rules","scenario":"2 off-scope is declined, then the task resumes","pass":true,"detail":""}
+{"ts":"2026-10-30T16:01:59.603Z","engine":"0.1.0","model":"rules","scenario":"3 changing an earlier answer changes only that field","pass":true,"detail":""}
+{"ts":"2026-10-30T16:01:59.604Z","engine":"0.1.0","model":"rules","scenario":"4 a yes before the confirm card submits nothing","pass":true,"detail":""}
+{"ts":"2026-10-30T16:01:59.605Z","engine":"0.1.0","model":"rules","scenario":"5 silence, maybe and wait never submit; a clear yes does","pass":true,"detail":""}
+{"ts":"2026-10-30T16:01:59.605Z","engine":"0.1.0","model":"rules","scenario":"5b wait at the card submits nothing and offers changes","pass":true,"detail":""}
+{"ts":"2026-10-30T16:01:59.605Z","engine":"0.1.0","model":"rules","scenario":"5c a change request at the card re-asks only that field","pass":true,"detail":""}
+{"ts":"2026-10-30T16:01:59.675Z","set":"holdout","model":"rules","scenario":"serial as digits and spaces","pass":true}
+{"ts":"2026-10-30T16:01:59.677Z","set":"holdout","model":"rules","scenario":"serial typed in one go","pass":true}
+{"ts":"2026-10-30T16:01:59.677Z","set":"holdout","model":"rules","scenario":"serial with phonetic words","pass":true}
+{"ts":"2026-10-30T16:01:59.677Z","set":"holdout","model":"rules","scenario":"serial too short asks again","pass":true}
+{"ts":"2026-10-30T16:01:59.678Z","set":"holdout","model":"rules","scenario":"time: mornings work best","pass":true}
+{"ts":"2026-10-30T16:01:59.678Z","set":"holdout","model":"rules","scenario":"time: I'd rather come after lunch","pass":true}
+{"ts":"2026-10-30T16:01:59.679Z","set":"holdout","model":"rules","scenario":"time: either is not an answer","pass":true}
+{"ts":"2026-10-30T16:01:59.679Z","set":"holdout","model":"rules","scenario":"problem: free description","pass":true}
+{"ts":"2026-10-30T16:01:59.679Z","set":"holdout","model":"rules","scenario":"off-scope: return policy","pass":false}
+{"ts":"2026-10-30T16:01:59.679Z","set":"holdout","model":"rules","scenario":"off-scope: joke","pass":true}
+{"ts":"2026-10-30T16:01:59.679Z","set":"holdout","model":"rules","scenario":"correct the name mid-flow","pass":true}
+{"ts":"2026-10-30T16:01:59.679Z","set":"holdout","model":"rules","scenario":"review: \"yep that is right\" submits","pass":true}
+{"ts":"2026-10-30T16:01:59.680Z","set":"holdout","model":"rules","scenario":"review: \"go for it\" submits","pass":true}
+{"ts":"2026-10-30T16:01:59.680Z","set":"holdout","model":"rules","scenario":"review: \"sounds good\" never submits by accident (either result is safe)","pass":true}
+{"ts":"2026-10-30T16:01:59.680Z","set":"holdout","model":"rules","scenario":"review: \"not really\" does not submit","pass":true}
+{"ts":"2026-10-30T16:01:59.680Z","set":"holdout","model":"rules","scenario":"review: \"I think so\" does not submit","pass":true}
+{"ts":"2026-10-30T16:02:00.797Z","set":"holdout3","model":"jev+llama","scenario":"problem: with filler words","pass":true}
+{"ts":"2026-10-30T16:02:01.320Z","set":"holdout3","model":"jev+llama","scenario":"problem: mentions money","pass":true}
+{"ts":"2026-10-30T16:02:01.848Z","set":"holdout3","model":"jev+llama","scenario":"problem: mentions the store","pass":true}
+{"ts":"2026-10-30T16:02:02.233Z","set":"holdout3","model":"jev+llama","scenario":"problem: one word code","pass":true}
+{"ts":"2026-10-30T16:02:02.725Z","set":"holdout3","model":"jev+llama","scenario":"problem: negative phrasing","pass":true}
+{"ts":"2026-10-30T16:02:03.247Z","set":"holdout3","model":"jev+llama","scenario":"problem: phone app","pass":true}
+{"ts":"2026-10-30T16:02:03.439Z","set":"holdout3","model":"jev+llama","scenario":"off-topic: pay my bill","pass":true}
+{"ts":"2026-10-30T16:02:03.667Z","set":"holdout3","model":"jev+llama","scenario":"off-topic: recipe","pass":true}
+{"ts":"2026-10-30T16:02:03.844Z","set":"holdout3","model":"jev+llama","scenario":"off-topic: stock price","pass":true}
+{"ts":"2026-10-30T16:02:04.125Z","set":"holdout3","model":"jev+llama","scenario":"off-topic: system prompt","pass":true}
+{"ts":"2026-10-30T16:02:04.337Z","set":"holdout3","model":"jev+llama","scenario":"off-topic: pretend admin","pass":true}
+{"ts":"2026-10-30T16:02:04.493Z","set":"holdout3","model":"jev+llama","scenario":"off-topic: manager","pass":true}
+{"ts":"2026-10-30T16:02:04.663Z","set":"holdout3","model":"jev+llama","scenario":"unclear: not sure how to say","pass":true}
+{"ts":"2026-10-30T16:02:04.852Z","set":"holdout3","model":"jev+llama","scenario":"unclear: same as before","pass":true}
+{"ts":"2026-10-30T16:02:05.581Z","set":"holdout3","model":"jev+llama","scenario":"correction: serial again during problem","pass":true}
+{"ts":"2026-10-30T16:02:05.582Z","set":"holdout3","model":"jev+llama","scenario":"name: lowercase with surname","pass":true}
+{"ts":"2026-10-30T16:02:05.582Z","set":"holdout3","model":"jev+llama","scenario":"name: \"call me\"","pass":true}
+{"ts":"2026-10-30T16:02:05.583Z","set":"holdout3","model":"jev+llama","scenario":"name: refuses","pass":true}
+{"ts":"2026-10-30T16:02:05.583Z","set":"holdout3","model":"jev+llama","scenario":"serial: with \"oh\" for zero","pass":true}
+{"ts":"2026-10-30T16:02:06.069Z","set":"holdout3","model":"jev+llama","scenario":"time: around ten","pass":true}
+{"ts":"2026-10-30T16:02:06.575Z","set":"holdout3","model":"jev+llama","scenario":"time: not morning","pass":true}
+{"ts":"2026-10-30T16:02:07.084Z","set":"holdout3","model":"jev+llama","scenario":"review: \"yes\" then field name","pass":true}
+{"ts":"2026-10-30T16:02:07.612Z","set":"holdout3","model":"jev+llama","scenario":"review: \"correct, submit\"","pass":true}
+{"ts":"2026-10-30T16:02:08.145Z","set":"holdout3","model":"jev+llama","scenario":"review: \"no wait\"","pass":true}
+{"ts":"2026-10-30T16:02:08.658Z","set":"holdout3","model":"jev+llama","scenario":"review: \"yes if it is free\"","pass":true}
+{"ts":"2026-10-30T16:02:09.184Z","set":"holdout3","model":"jev+llama","scenario":"review: \"sure why not\"","pass":true}
+{"ts":"2026-10-30T16:02:09.900Z","set":"holdout2","model":"jev+llama","scenario":"problem: power bill went up","pass":true}
+{"ts":"2026-10-30T16:02:10.470Z","set":"holdout2","model":"jev+llama","scenario":"problem: card reader","pass":true}
+{"ts":"2026-10-30T16:02:11.045Z","set":"holdout2","model":"jev+llama","scenario":"problem: smells like burning","pass":true}
+{"ts":"2026-10-30T16:02:11.509Z","set":"holdout2","model":"jev+llama","scenario":"problem: short","pass":true}
+{"ts":"2026-10-30T16:02:12.087Z","set":"holdout2","model":"jev+llama","scenario":"problem: with a story","pass":true}
+{"ts":"2026-10-30T16:02:12.644Z","set":"holdout2","model":"jev+llama","scenario":"problem: ice maker","pass":true}
+{"ts":"2026-10-30T16:02:13.097Z","set":"holdout2","model":"jev+llama","scenario":"problem: error code only","pass":true}
+{"ts":"2026-10-30T16:02:13.638Z","set":"holdout2","model":"jev+llama","scenario":"problem: booking word inside","pass":true}
+{"ts":"2026-10-30T16:02:13.903Z","set":"holdout2","model":"jev+llama","scenario":"off-topic: mortgage","pass":true}
+{"ts":"2026-10-30T16:02:14.148Z","set":"holdout2","model":"jev+llama","scenario":"off-topic: flight","pass":true}
+{"ts":"2026-10-30T16:02:14.426Z","set":"holdout2","model":"jev+llama","scenario":"off-topic: buy new appliance","pass":true}
+{"ts":"2026-10-30T16:02:14.594Z","set":"holdout2","model":"jev+llama","scenario":"off-topic: football","pass":true}
+{"ts":"2026-10-30T16:02:14.765Z","set":"holdout2","model":"jev+llama","scenario":"off-topic: write an essay","pass":true}
+{"ts":"2026-10-30T16:02:14.954Z","set":"holdout2","model":"jev+llama","scenario":"off-topic: prompt injection","pass":true}
+{"ts":"2026-10-30T16:02:14.955Z","set":"holdout2","model":"jev+llama","scenario":"off-topic: talk to a human","pass":true}
+{"ts":"2026-10-30T16:02:15.185Z","set":"holdout2","model":"jev+llama","scenario":"unclear: let me think","pass":true}
+{"ts":"2026-10-30T16:02:15.477Z","set":"holdout2","model":"jev+llama","scenario":"unclear: you know","pass":true}
+{"ts":"2026-10-30T16:02:15.478Z","set":"holdout2","model":"jev+llama","scenario":"serial: with dashes typed","pass":true}
+{"ts":"2026-10-30T16:02:15.479Z","set":"holdout2","model":"jev+llama","scenario":"serial: \"double one\"","pass":true}
+{"ts":"2026-10-30T16:02:15.479Z","set":"holdout2","model":"jev+llama","scenario":"serial: one character short","pass":true}
+{"ts":"2026-10-30T16:02:15.479Z","set":"holdout2","model":"jev+llama","scenario":"name: two words","pass":true}
+{"ts":"2026-10-30T16:02:15.480Z","set":"holdout2","model":"jev+llama","scenario":"name: question is not a name","pass":true}
+{"ts":"2026-10-30T16:02:16.092Z","set":"holdout2","model":"jev+llama","scenario":"time: first thing","pass":true}
+{"ts":"2026-10-30T16:02:16.551Z","set":"holdout2","model":"jev+llama","scenario":"time: any time is not a choice","pass":true}
+{"ts":"2026-10-30T16:02:16.953Z","set":"holdout2","model":"jev+llama","scenario":"time: both named is not a choice","pass":true}
+{"ts":"2026-10-30T16:02:17.572Z","set":"holdout2","model":"jev+llama","scenario":"review: \"yes please submit it\"","pass":true}
+{"ts":"2026-10-30T16:02:18.098Z","set":"holdout2","model":"jev+llama","scenario":"review: \"yes but change the time\"","pass":true}
+{"ts":"2026-10-30T16:02:18.679Z","set":"holdout2","model":"jev+llama","scenario":"review: \"hold on\"","pass":true}
+{"ts":"2026-10-30T16:02:19.174Z","set":"holdout2","model":"jev+llama","scenario":"review: \"is it free?\"","pass":true}
+{"ts":"2026-10-30T16:02:19.763Z","set":"holdout2","model":"jev+llama","scenario":"review: \"submit\" alone","pass":true}
+{"ts":"2026-10-30T16:04:28.350Z","set":"sim","model":"jev+llama","seed":4,"conversations":500,"turns":5127,"checks":6923,"failed":48,"jev_calls":567,"jev_cost_usd":0.011883}
+{"ts":"2026-10-30T16:10:14.749Z","set":"guide-medicare","judge":"jev","retriever":"octo","scenario":"when does my initial enrollment period start?","pass":true}
+{"ts":"2026-10-30T16:10:15.279Z","set":"guide-medicare","judge":"jev","retriever":"octo","scenario":"what is the general enrollment period?","pass":true}
+{"ts":"2026-10-30T16:10:15.819Z","set":"guide-medicare","judge":"jev","retriever":"octo","scenario":"what's the phone number for the railroad retirement board?","pass":false}
+{"ts":"2026-10-30T16:10:16.371Z","set":"guide-medicare","judge":"jev","retriever":"octo","scenario":"does COBRA count as coverage from current employment?","pass":true}
+{"ts":"2026-10-30T16:10:16.867Z","set":"guide-medicare","judge":"jev","retriever":"octo","scenario":"if I already get Social Security, do I have to sign up?","pass":true}
+{"ts":"2026-10-30T16:10:17.361Z","set":"guide-medicare","judge":"jev","retriever":"octo","scenario":"what happens if I don't sign up for Part B when I'm first eligible?","pass":true}
+{"ts":"2026-10-30T16:10:17.887Z","set":"guide-medicare","judge":"jev","retriever":"octo","scenario":"I have ALS. When does my Medicare start?","pass":true}
+{"ts":"2026-10-30T16:10:18.410Z","set":"guide-medicare","judge":"jev","retriever":"octo","scenario":"do I need Part B to keep TRICARE if I am on active duty?","pass":true}
+{"ts":"2026-10-30T16:10:19.002Z","set":"guide-medicare","judge":"jev","retriever":"octo","scenario":"how far back can my Part A coverage go?","pass":true}
+{"ts":"2026-10-30T16:10:19.491Z","set":"guide-medicare","judge":"jev","retriever":"octo","scenario":"where do I apply online?","pass":true}
+{"ts":"2026-10-30T16:10:19.997Z","set":"guide-medicare","judge":"jev","retriever":"octo","scenario":"I live in Puerto Rico, do I get Part B automatically?","pass":false}
+{"ts":"2026-10-30T16:10:20.512Z","set":"guide-medicare","judge":"jev","retriever":"octo","scenario":"how much is the Part B premium this year?","pass":true}
+{"ts":"2026-10-30T16:10:21.022Z","set":"guide-medicare","judge":"jev","retriever":"octo","scenario":"which Medigap plan is best for me?","pass":true}
+{"ts":"2026-10-30T16:10:21.575Z","set":"guide-medicare","judge":"jev","retriever":"octo","scenario":"how do I clean my dishwasher filter?","pass":true}
+{"ts":"2026-10-30T16:10:22.110Z","set":"guide-medicare","judge":"jev","retriever":"octo","scenario":"what's the weather in Boston?","pass":true}
+{"ts":"2026-10-30T16:10:22.649Z","set":"guide-medicare","judge":"jev","retriever":"octo","scenario":"can you recommend a good doctor near me?","pass":true}
+{"ts":"2026-10-30T16:10:22.753Z","set":"guide","judge":"jev","retriever":"octo","scenario":"next moves on","pass":true}
+{"ts":"2026-10-30T16:10:22.754Z","set":"guide","judge":"jev","retriever":"octo","scenario":"\"ok, done\" moves on","pass":true}
+{"ts":"2026-10-30T16:10:22.754Z","set":"guide","judge":"jev","retriever":"octo","scenario":"back goes back","pass":true}
+{"ts":"2026-10-30T16:10:22.754Z","set":"guide","judge":"jev","retriever":"octo","scenario":"back at step 1 stays","pass":true}
+{"ts":"2026-10-30T16:10:22.754Z","set":"guide","judge":"jev","retriever":"octo","scenario":"repeat stays","pass":true}
+{"ts":"2026-10-30T16:10:22.755Z","set":"guide","judge":"jev","retriever":"octo","scenario":"filler waits","pass":true}
+{"ts":"2026-10-30T16:10:22.755Z","set":"guide","judge":"jev","retriever":"octo","scenario":"last step finishes","pass":true}
+{"ts":"2026-10-30T16:10:22.755Z","set":"guide","judge":"jev","retriever":"octo","scenario":"stop ends","pass":true}
+{"ts":"2026-10-30T16:10:22.755Z","set":"guide","judge":"jev","retriever":"octo","scenario":"statement is not a step","pass":true}
+{"ts":"2026-10-30T16:10:23.450Z","set":"guide","judge":"jev","retriever":"octo","scenario":"how often","pass":true}
+{"ts":"2026-10-30T16:10:23.927Z","set":"guide","judge":"jev","retriever":"octo","scenario":"wire brush","pass":true}
+{"ts":"2026-10-30T16:10:24.422Z","set":"guide","judge":"jev","retriever":"octo","scenario":"does not click","pass":true}
+{"ts":"2026-10-30T16:10:24.917Z","set":"guide","judge":"jev","retriever":"octo","scenario":"E24","pass":true}
+{"ts":"2026-10-30T16:10:25.378Z","set":"guide","judge":"jev","retriever":"octo","scenario":"where is the switch","pass":true}
+{"ts":"2026-10-30T16:10:25.897Z","set":"guide","judge":"jev","retriever":"octo","scenario":"question keeps the step","pass":true}
+{"ts":"2026-10-30T16:10:26.425Z","set":"guide","judge":"jev","retriever":"octo","scenario":"price of a new filter","pass":true}
+{"ts":"2026-10-30T16:10:26.950Z","set":"guide","judge":"jev","retriever":"octo","scenario":"oven question","pass":true}
+{"ts":"2026-10-30T16:10:27.483Z","set":"guide","judge":"jev","retriever":"octo","scenario":"filter brand","pass":true}
+{"ts":"2026-10-30T16:10:28.022Z","set":"guide","judge":"jev","retriever":"octo","scenario":"warranty length is answerable","pass":true}
+{"ts":"2026-10-30T16:10:28.540Z","set":"guide","judge":"jev","retriever":"octo","scenario":"dish soap","pass":true}
+{"ts":"2026-10-30T16:10:29.043Z","set":"guide","judge":"jev","retriever":"octo","scenario":"unrelated","pass":true}
+{"ts":"2026-10-30T16:11:09.554Z","set":"guide-medicare","judge":"jev","retriever":"octo","scenario":"when does my initial enrollment period start?","pass":true}
+{"ts":"2026-10-30T16:11:10.183Z","set":"guide-medicare","judge":"jev","retriever":"octo","scenario":"what is the general enrollment period?","pass":true}
+{"ts":"2026-10-30T16:11:10.829Z","set":"guide-medicare","judge":"jev","retriever":"octo","scenario":"what's the phone number for the railroad retirement board?","pass":true}
+{"ts":"2026-10-30T16:11:11.519Z","set":"guide-medicare","judge":"jev","retriever":"octo","scenario":"does COBRA count as coverage from current employment?","pass":true}
+{"ts":"2026-10-30T16:11:12.059Z","set":"guide-medicare","judge":"jev","retriever":"octo","scenario":"if I already get Social Security, do I have to sign up?","pass":true}
+{"ts":"2026-10-30T16:11:12.575Z","set":"guide-medicare","judge":"jev","retriever":"octo","scenario":"what happens if I don't sign up for Part B when I'm first eligible?","pass":true}
+{"ts":"2026-10-30T16:11:13.185Z","set":"guide-medicare","judge":"jev","retriever":"octo","scenario":"I have ALS. When does my Medicare start?","pass":true}
+{"ts":"2026-10-30T16:11:13.725Z","set":"guide-medicare","judge":"jev","retriever":"octo","scenario":"do I need Part B to keep TRICARE if I am on active duty?","pass":true}
+{"ts":"2026-10-30T16:11:14.273Z","set":"guide-medicare","judge":"jev","retriever":"octo","scenario":"how far back can my Part A coverage go?","pass":true}
+{"ts":"2026-10-30T16:11:14.825Z","set":"guide-medicare","judge":"jev","retriever":"octo","scenario":"where do I apply online?","pass":true}
+{"ts":"2026-10-30T16:11:15.366Z","set":"guide-medicare","judge":"jev","retriever":"octo","scenario":"I live in Puerto Rico, do I get Part B automatically?","pass":true}
+{"ts":"2026-10-30T16:11:15.828Z","set":"guide-medicare","judge":"jev","retriever":"octo","scenario":"how much is the Part B premium this year?","pass":true}
+{"ts":"2026-10-30T16:11:16.366Z","set":"guide-medicare","judge":"jev","retriever":"octo","scenario":"which Medigap plan is best for me?","pass":true}
+{"ts":"2026-10-30T16:11:16.899Z","set":"guide-medicare","judge":"jev","retriever":"octo","scenario":"how do I clean my dishwasher filter?","pass":true}
+{"ts":"2026-10-30T16:11:17.427Z","set":"guide-medicare","judge":"jev","retriever":"octo","scenario":"what's the weather in Boston?","pass":true}
+{"ts":"2026-10-30T16:11:18.036Z","set":"guide-medicare","judge":"jev","retriever":"octo","scenario":"can you recommend a good doctor near me?","pass":true}
+{"ts":"2026-10-30T16:11:18.147Z","set":"guide","judge":"jev","retriever":"octo","scenario":"next moves on","pass":true}
+{"ts":"2026-10-30T16:11:18.149Z","set":"guide","judge":"jev","retriever":"octo","scenario":"\"ok, done\" moves on","pass":true}
+{"ts":"2026-10-30T16:11:18.149Z","set":"guide","judge":"jev","retriever":"octo","scenario":"back goes back","pass":true}
+{"ts":"2026-10-30T16:11:18.149Z","set":"guide","judge":"jev","retriever":"octo","scenario":"back at step 1 stays","pass":true}
+{"ts":"2026-10-30T16:11:18.149Z","set":"guide","judge":"jev","retriever":"octo","scenario":"repeat stays","pass":true}
+{"ts":"2026-10-30T16:11:18.149Z","set":"guide","judge":"jev","retriever":"octo","scenario":"filler waits","pass":true}
+{"ts":"2026-10-30T16:11:18.150Z","set":"guide","judge":"jev","retriever":"octo","scenario":"last step finishes","pass":true}
+{"ts":"2026-10-30T16:11:18.150Z","set":"guide","judge":"jev","retriever":"octo","scenario":"stop ends","pass":true}
+{"ts":"2026-10-30T16:11:18.151Z","set":"guide","judge":"jev","retriever":"octo","scenario":"statement is not a step","pass":true}
+{"ts":"2026-10-30T16:11:19.014Z","set":"guide","judge":"jev","retriever":"octo","scenario":"how often","pass":true}
+{"ts":"2026-10-30T16:11:19.495Z","set":"guide","judge":"jev","retriever":"octo","scenario":"wire brush","pass":true}
+{"ts":"2026-10-30T16:11:20.031Z","set":"guide","judge":"jev","retriever":"octo","scenario":"does not click","pass":true}
+{"ts":"2026-10-30T16:11:20.504Z","set":"guide","judge":"jev","retriever":"octo","scenario":"E24","pass":true}
+{"ts":"2026-10-30T16:11:20.974Z","set":"guide","judge":"jev","retriever":"octo","scenario":"where is the switch","pass":true}
+{"ts":"2026-10-30T16:11:21.477Z","set":"guide","judge":"jev","retriever":"octo","scenario":"question keeps the step","pass":true}
+{"ts":"2026-10-30T16:11:22.092Z","set":"guide","judge":"jev","retriever":"octo","scenario":"price of a new filter","pass":true}
+{"ts":"2026-10-30T16:11:22.579Z","set":"guide","judge":"jev","retriever":"octo","scenario":"oven question","pass":true}
+{"ts":"2026-10-30T16:11:23.116Z","set":"guide","judge":"jev","retriever":"octo","scenario":"filter brand","pass":true}
+{"ts":"2026-10-30T16:11:23.683Z","set":"guide","judge":"jev","retriever":"octo","scenario":"warranty length is answerable","pass":true}
+{"ts":"2026-10-30T16:11:24.200Z","set":"guide","judge":"jev","retriever":"octo","scenario":"dish soap","pass":true}
+{"ts":"2026-10-30T16:11:24.659Z","set":"guide","judge":"jev","retriever":"octo","scenario":"unrelated","pass":true}
+{"ts":"2026-10-30T16:11:24.760Z","set":"guide","judge":"jev","retriever":"keyword","scenario":"next moves on","pass":true}
+{"ts":"2026-10-30T16:11:24.761Z","set":"guide","judge":"jev","retriever":"keyword","scenario":"\"ok, done\" moves on","pass":true}
+{"ts":"2026-10-30T16:11:24.761Z","set":"guide","judge":"jev","retriever":"keyword","scenario":"back goes back","pass":true}
+{"ts":"2026-10-30T16:11:24.761Z","set":"guide","judge":"jev","retriever":"keyword","scenario":"back at step 1 stays","pass":true}
+{"ts":"2026-10-30T16:11:24.761Z","set":"guide","judge":"jev","retriever":"keyword","scenario":"repeat stays","pass":true}
+{"ts":"2026-10-30T16:11:24.761Z","set":"guide","judge":"jev","retriever":"keyword","scenario":"filler waits","pass":true}
+{"ts":"2026-10-30T16:11:24.761Z","set":"guide","judge":"jev","retriever":"keyword","scenario":"last step finishes","pass":true}
+{"ts":"2026-10-30T16:11:24.761Z","set":"guide","judge":"jev","retriever":"keyword","scenario":"stop ends","pass":true}
+{"ts":"2026-10-30T16:11:24.762Z","set":"guide","judge":"jev","retriever":"keyword","scenario":"statement is not a step","pass":true}
+{"ts":"2026-10-30T16:11:25.027Z","set":"guide","judge":"jev","retriever":"keyword","scenario":"how often","pass":true}
+{"ts":"2026-10-30T16:11:25.198Z","set":"guide","judge":"jev","retriever":"keyword","scenario":"wire brush","pass":true}
+{"ts":"2026-10-30T16:11:25.391Z","set":"guide","judge":"jev","retriever":"keyword","scenario":"does not click","pass":true}
+{"ts":"2026-10-30T16:11:25.565Z","set":"guide","judge":"jev","retriever":"keyword","scenario":"E24","pass":true}
+{"ts":"2026-10-30T16:11:25.728Z","set":"guide","judge":"jev","retriever":"keyword","scenario":"where is the switch","pass":true}
+{"ts":"2026-10-30T16:11:25.934Z","set":"guide","judge":"jev","retriever":"keyword","scenario":"question keeps the step","pass":true}
+{"ts":"2026-10-30T16:11:26.084Z","set":"guide","judge":"jev","retriever":"keyword","scenario":"price of a new filter","pass":true}
+{"ts":"2026-10-30T16:11:26.278Z","set":"guide","judge":"jev","retriever":"keyword","scenario":"oven question","pass":true}
+{"ts":"2026-10-30T16:11:26.430Z","set":"guide","judge":"jev","retriever":"keyword","scenario":"filter brand","pass":true}
+{"ts":"2026-10-30T16:11:26.627Z","set":"guide","judge":"jev","retriever":"keyword","scenario":"warranty length is answerable","pass":true}
+{"ts":"2026-10-30T16:11:26.792Z","set":"guide","judge":"jev","retriever":"keyword","scenario":"dish soap","pass":true}
+{"ts":"2026-10-30T16:11:26.793Z","set":"guide","judge":"jev","retriever":"keyword","scenario":"unrelated","pass":true}
+{"ts":"2026-10-30T16:11:58.246Z","set":"guide-medicare","judge":"jev","retriever":"octo","scenario":"when does my initial enrollment period start?","pass":false}
+{"ts":"2026-10-30T16:11:58.803Z","set":"guide-medicare","judge":"jev","retriever":"octo","scenario":"what is the general enrollment period?","pass":true}
+{"ts":"2026-10-30T16:11:59.270Z","set":"guide-medicare","judge":"jev","retriever":"octo","scenario":"what's the phone number for the railroad retirement board?","pass":false}
+{"ts":"2026-10-30T16:11:59.735Z","set":"guide-medicare","judge":"jev","retriever":"octo","scenario":"does COBRA count as coverage from current employment?","pass":true}
+{"ts":"2026-10-30T16:12:00.321Z","set":"guide-medicare","judge":"jev","retriever":"octo","scenario":"if I already get Social Security, do I have to sign up?","pass":true}
+{"ts":"2026-10-30T16:12:00.804Z","set":"guide-medicare","judge":"jev","retriever":"octo","scenario":"what happens if I don't sign up for Part B when I'm first eligible?","pass":true}
+{"ts":"2026-10-30T16:12:01.325Z","set":"guide-medicare","judge":"jev","retriever":"octo","scenario":"I have ALS. When does my Medicare start?","pass":true}
+{"ts":"2026-10-30T16:12:01.845Z","set":"guide-medicare","judge":"jev","retriever":"octo","scenario":"do I need Part B to keep TRICARE if I am on active duty?","pass":true}
+{"ts":"2026-10-30T16:12:02.355Z","set":"guide-medicare","judge":"jev","retriever":"octo","scenario":"how far back can my Part A coverage go?","pass":true}
+{"ts":"2026-10-30T16:12:02.933Z","set":"guide-medicare","judge":"jev","retriever":"octo","scenario":"where do I apply online?","pass":true}
+{"ts":"2026-10-30T16:12:03.447Z","set":"guide-medicare","judge":"jev","retriever":"octo","scenario":"I live in Puerto Rico, do I get Part B automatically?","pass":true}
+{"ts":"2026-10-30T16:12:03.960Z","set":"guide-medicare","judge":"jev","retriever":"octo","scenario":"how much is the Part B premium this year?","pass":true}
+{"ts":"2026-10-30T16:12:04.580Z","set":"guide-medicare","judge":"jev","retriever":"octo","scenario":"which Medigap plan is best for me?","pass":true}
+{"ts":"2026-10-30T16:12:05.059Z","set":"guide-medicare","judge":"jev","retriever":"octo","scenario":"how do I clean my dishwasher filter?","pass":true}
+{"ts":"2026-10-30T16:12:05.530Z","set":"guide-medicare","judge":"jev","retriever":"octo","scenario":"what's the weather in Boston?","pass":true}
+{"ts":"2026-10-30T16:12:06.027Z","set":"guide-medicare","judge":"jev","retriever":"octo","scenario":"can you recommend a good doctor near me?","pass":true}
+{"ts":"2026-10-30T16:12:06.120Z","set":"guide","judge":"jev","retriever":"octo","scenario":"next moves on","pass":true}
+{"ts":"2026-10-30T16:12:06.121Z","set":"guide","judge":"jev","retriever":"octo","scenario":"\"ok, done\" moves on","pass":true}
+{"ts":"2026-10-30T16:12:06.122Z","set":"guide","judge":"jev","retriever":"octo","scenario":"back goes back","pass":true}
+{"ts":"2026-10-30T16:12:06.122Z","set":"guide","judge":"jev","retriever":"octo","scenario":"back at step 1 stays","pass":true}
+{"ts":"2026-10-30T16:12:06.122Z","set":"guide","judge":"jev","retriever":"octo","scenario":"repeat stays","pass":true}
+{"ts":"2026-10-30T16:12:06.122Z","set":"guide","judge":"jev","retriever":"octo","scenario":"filler waits","pass":true}
+{"ts":"2026-10-30T16:12:06.122Z","set":"guide","judge":"jev","retriever":"octo","scenario":"last step finishes","pass":true}
+{"ts":"2026-10-30T16:12:06.122Z","set":"guide","judge":"jev","retriever":"octo","scenario":"stop ends","pass":true}
+{"ts":"2026-10-30T16:12:06.123Z","set":"guide","judge":"jev","retriever":"octo","scenario":"statement is not a step","pass":true}
+{"ts":"2026-10-30T16:12:07.113Z","set":"guide","judge":"jev","retriever":"octo","scenario":"how often","pass":true}
+{"ts":"2026-10-30T16:12:07.601Z","set":"guide","judge":"jev","retriever":"octo","scenario":"wire brush","pass":true}
+{"ts":"2026-10-30T16:12:08.135Z","set":"guide","judge":"jev","retriever":"octo","scenario":"does not click","pass":true}
+{"ts":"2026-10-30T16:12:08.658Z","set":"guide","judge":"jev","retriever":"octo","scenario":"E24","pass":true}
+{"ts":"2026-10-30T16:12:09.174Z","set":"guide","judge":"jev","retriever":"octo","scenario":"where is the switch","pass":true}
+{"ts":"2026-10-30T16:12:09.709Z","set":"guide","judge":"jev","retriever":"octo","scenario":"question keeps the step","pass":true}
+{"ts":"2026-10-30T16:12:10.298Z","set":"guide","judge":"jev","retriever":"octo","scenario":"price of a new filter","pass":true}
+{"ts":"2026-10-30T16:12:10.783Z","set":"guide","judge":"jev","retriever":"octo","scenario":"oven question","pass":true}
+{"ts":"2026-10-30T16:12:11.284Z","set":"guide","judge":"jev","retriever":"octo","scenario":"filter brand","pass":true}
+{"ts":"2026-10-30T16:12:11.816Z","set":"guide","judge":"jev","retriever":"octo","scenario":"warranty length is answerable","pass":true}
+{"ts":"2026-10-30T16:12:12.338Z","set":"guide","judge":"jev","retriever":"octo","scenario":"dish soap","pass":true}
+{"ts":"2026-10-30T16:12:12.888Z","set":"guide","judge":"jev","retriever":"octo","scenario":"unrelated","pass":true}
+{"ts":"2026-10-30T16:12:34.729Z","set":"guide-medicare","judge":"jev","retriever":"octo","scenario":"when does my initial enrollment period start?","pass":true}
+{"ts":"2026-10-30T16:12:35.431Z","set":"guide-medicare","judge":"jev","retriever":"octo","scenario":"what is the general enrollment period?","pass":true}
+{"ts":"2026-10-30T16:12:36.089Z","set":"guide-medicare","judge":"jev","retriever":"octo","scenario":"what's the phone number for the railroad retirement board?","pass":true}
+{"ts":"2026-10-30T16:12:36.812Z","set":"guide-medicare","judge":"jev","retriever":"octo","scenario":"does COBRA count as coverage from current employment?","pass":true}
+{"ts":"2026-10-30T16:12:37.505Z","set":"guide-medicare","judge":"jev","retriever":"octo","scenario":"if I already get Social Security, do I have to sign up?","pass":true}
+{"ts":"2026-10-30T16:12:38.219Z","set":"guide-medicare","judge":"jev","retriever":"octo","scenario":"what happens if I don't sign up for Part B when I'm first eligible?","pass":true}
+{"ts":"2026-10-30T16:12:38.913Z","set":"guide-medicare","judge":"jev","retriever":"octo","scenario":"I have ALS. When does my Medicare start?","pass":true}
+{"ts":"2026-10-30T16:12:39.721Z","set":"guide-medicare","judge":"jev","retriever":"octo","scenario":"do I need Part B to keep TRICARE if I am on active duty?","pass":true}
+{"ts":"2026-10-30T16:12:40.485Z","set":"guide-medicare","judge":"jev","retriever":"octo","scenario":"how far back can my Part A coverage go?","pass":true}
+{"ts":"2026-10-30T16:12:41.178Z","set":"guide-medicare","judge":"jev","retriever":"octo","scenario":"where do I apply online?","pass":true}
+{"ts":"2026-10-30T16:12:41.898Z","set":"guide-medicare","judge":"jev","retriever":"octo","scenario":"I live in Puerto Rico, do I get Part B automatically?","pass":true}
+{"ts":"2026-10-30T16:12:42.440Z","set":"guide-medicare","judge":"jev","retriever":"octo","scenario":"how much is the Part B premium this year?","pass":true}
+{"ts":"2026-10-30T16:12:42.957Z","set":"guide-medicare","judge":"jev","retriever":"octo","scenario":"which Medigap plan is best for me?","pass":true}
+{"ts":"2026-10-30T16:12:43.491Z","set":"guide-medicare","judge":"jev","retriever":"octo","scenario":"how do I clean my dishwasher filter?","pass":true}
+{"ts":"2026-10-30T16:12:43.974Z","set":"guide-medicare","judge":"jev","retriever":"octo","scenario":"what's the weather in Boston?","pass":true}
+{"ts":"2026-10-30T16:12:44.454Z","set":"guide-medicare","judge":"jev","retriever":"octo","scenario":"can you recommend a good doctor near me?","pass":true}
+{"ts":"2026-10-30T16:12:44.556Z","set":"guide","judge":"jev","retriever":"octo","scenario":"next moves on","pass":true}
+{"ts":"2026-10-30T16:12:44.557Z","set":"guide","judge":"jev","retriever":"octo","scenario":"\"ok, done\" moves on","pass":true}
+{"ts":"2026-10-30T16:12:44.557Z","set":"guide","judge":"jev","retriever":"octo","scenario":"back goes back","pass":true}
+{"ts":"2026-10-30T16:12:44.557Z","set":"guide","judge":"jev","retriever":"octo","scenario":"back at step 1 stays","pass":true}
+{"ts":"2026-10-30T16:12:44.557Z","set":"guide","judge":"jev","retriever":"octo","scenario":"repeat stays","pass":true}
+{"ts":"2026-10-30T16:12:44.558Z","set":"guide","judge":"jev","retriever":"octo","scenario":"filler waits","pass":true}
+{"ts":"2026-10-30T16:12:44.558Z","set":"guide","judge":"jev","retriever":"octo","scenario":"last step finishes","pass":true}
+{"ts":"2026-10-30T16:12:44.558Z","set":"guide","judge":"jev","retriever":"octo","scenario":"stop ends","pass":true}
+{"ts":"2026-10-30T16:12:44.558Z","set":"guide","judge":"jev","retriever":"octo","scenario":"statement is not a step","pass":true}
+{"ts":"2026-10-30T16:12:45.499Z","set":"guide","judge":"jev","retriever":"octo","scenario":"how often","pass":true}
+{"ts":"2026-10-30T16:12:46.024Z","set":"guide","judge":"jev","retriever":"octo","scenario":"wire brush","pass":true}
+{"ts":"2026-10-30T16:12:46.545Z","set":"guide","judge":"jev","retriever":"octo","scenario":"does not click","pass":true}
+{"ts":"2026-10-30T16:12:47.080Z","set":"guide","judge":"jev","retriever":"octo","scenario":"E24","pass":true}
+{"ts":"2026-10-30T16:12:47.583Z","set":"guide","judge":"jev","retriever":"octo","scenario":"where is the switch","pass":true}
+{"ts":"2026-10-30T16:12:48.076Z","set":"guide","judge":"jev","retriever":"octo","scenario":"question keeps the step","pass":true}
+{"ts":"2026-10-30T16:12:48.574Z","set":"guide","judge":"jev","retriever":"octo","scenario":"price of a new filter","pass":true}
+{"ts":"2026-10-30T16:12:49.059Z","set":"guide","judge":"jev","retriever":"octo","scenario":"oven question","pass":true}
+{"ts":"2026-10-30T16:12:49.547Z","set":"guide","judge":"jev","retriever":"octo","scenario":"filter brand","pass":true}
+{"ts":"2026-10-30T16:12:50.068Z","set":"guide","judge":"jev","retriever":"octo","scenario":"warranty length is answerable","pass":true}
+{"ts":"2026-10-30T16:12:50.639Z","set":"guide","judge":"jev","retriever":"octo","scenario":"dish soap","pass":true}
+{"ts":"2026-10-30T16:12:51.141Z","set":"guide","judge":"jev","retriever":"octo","scenario":"unrelated","pass":true}

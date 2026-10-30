@@ -48,11 +48,13 @@ export function isFiller(text: string): boolean {
   return t === '' || FILLER.test(t) || (HEDGE.test(t) && t.split(/\s+/).length <= 4);
 }
 
-const NAME_STOP = new Set(['what', 'where', 'when', 'why', 'how', 'who', 'can', 'could', 'would', 'do', 'does', 'is', 'are', 'was', 'the', 'a', 'an', 'my', 'your', 'it', 'that', 'this', 'please', 'thanks', 'thank', 'hello', 'yes', 'no', 'not', 'much', 'i', 'we', 'you', 'about', 'for', 'with', 'and', 'or', 'to', 'of', 'in', 'on', 'have', 'need', 'want', 'help', 'me', 'sorry', 'okay', 'ok', 'hmm', 'um', 'uh', 'maybe', 'sure', 'wait']);
+const NAME_STOP = new Set(['what', 'where', 'when', 'why', 'how', 'who', 'can', 'could', 'would', 'do', 'does', 'is', 'are', 'was', 'the', 'a', 'an', 'my', 'your', 'it', 'that', 'this', 'please', 'thanks', 'thank', 'hello', 'yes', 'no', 'not', 'much', 'i', 'we', 'you', 'about', 'for', 'with', 'and', 'or', 'to', 'of', 'in', 'on', 'have', 'need', 'want', 'help', 'me', 'sorry', 'okay', 'ok', 'hmm', 'um', 'uh', 'maybe', 'sure', 'wait', "i'd", 'rather', 'prefer', 'say', "don't", "won't", 'nope', 'nah', 'skip', 'pass']);
 
 // "um, my name is Priya Rossi" -> "Priya Rossi". Returns '' when the text is not plausibly just a name.
 export function parseName(said: string): string {
   let t = said.trim().replace(/[\u2019]/g, "'").replace(/[.!]+$/, '');
+  // Declining to give a name is not a name ("I'd rather not say", "prefer not to").
+  if (/\b(rather not|prefer not|don'?t want to|won'?t say|not telling|skip (it|this|that))\b/i.test(t)) return '';
   t = t.replace(/^(?:(?:um|uh|er|so|well|hi|hello|actually|sorry)[,\s]+)+/i, '');
   t = t.replace(/^(?:(?:change|make|set) (?:my )?name (?:to|as)|my name(?:'s| is)|name(?:'s| is)|it(?:'s| is)|this is|i(?:'m| am)|call me|they call me|you can call me)\s+/i, '');
   t = t.replace(/^(?:actually|really|just|now)\s+/i, '');

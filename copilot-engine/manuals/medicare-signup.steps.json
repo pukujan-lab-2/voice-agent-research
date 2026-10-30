@@ -1,0 +1,61 @@
+{
+ "task": "sign up for Medicare Part A and Part B at 65",
+ "source": "medicare-and-you.txt",
+ "pages": [
+  15,
+  19
+ ],
+ "drafted_by": "nvidia/nemotron-3-ultra-550b-a55b:free",
+ "reviewed": false,
+ "steps": [
+  {
+   "n": 1,
+   "text": "Check if you receive Social Security or Railroad Retirement Board benefits; if so, you will be automatically enrolled in Part A and Part B starting the first day of the month you turn 65.",
+   "page": 15,
+   "backed": 0.79,
+   "facts_on_page": true
+  },
+  {
+   "n": 2,
+   "text": "If you are not receiving those benefits, visit SSA.gov/medicare/sign-up to apply for Part A and Part B.",
+   "page": 15,
+   "backed": 0.83,
+   "facts_on_page": true
+  },
+  {
+   "n": 3,
+   "text": "Contact Social Security 3 months before you turn 65 to set up an appointment if you prefer not to apply online.",
+   "page": 15,
+   "backed": 0.86,
+   "facts_on_page": true
+  },
+  {
+   "n": 4,
+   "text": "If you worked for a railroad, visit RRB.gov or call the RRB at 1-877-772-5772 (TTY users call 1-312-751-4701).",
+   "page": 15,
+   "backed": 1.0,
+   "facts_on_page": true
+  },
+  {
+   "n": 5,
+   "text": "Enroll during your Initial Enrollment Period: the 7-month period starting 3 months before your 65th birthday month and ending 3 months after (if your birthday is on the 1st, the period starts 4 months before and ends 2 months after).",
+   "page": 17,
+   "backed": 0.74,
+   "facts_on_page": true
+  },
+  {
+   "n": 6,
+   "text": "If you miss the Initial Enrollment Period, you can sign up during the General Enrollment Period (January 1\u2013March 31 each year), but you may pay a late enrollment penalty.",
+   "page": 18,
+   "backed": 1.0,
+   "facts_on_page": true
+  },
+  {
+   "n": 7,
+   "text": "After signing up, review your Medicare coverage options to decide what best meets your needs.",
+   "page": 16,
+   "backed": 1.0,
+   "facts_on_page": true
+  }
+ ]
+}

@@ -11,7 +11,11 @@ export interface Passage { id: string; text: string; page?: number }
 
 export interface Retriever { search(query: string, k: number): Promise<Passage[]> }
 // Returns the id of the passage that answers the question, or '' when none does.
-export interface Judge { pick(question: string, passages: Passage[]): Promise<string> }
+export interface Judge {
+  pick(question: string, passages: Passage[]): Promise<string>;
+  // Optional: which sentences of the chosen passage answer the question (indices). Without it, shortQuote decides.
+  sentences?(question: string, sentences: string[]): Promise<number[]>;
+}
 
 const NEXT = /^\s*(next|done|ok(ay)?,? (done|next)|finished|got it|did it|i did( it| that)?|that'?s done|ready|go on|continue|what'?s next|and then\??)\W*$/i;
 const BACK = /\b(go back|previous step|last step|step before|back one)\b|^\s*back\W*$/i;
@@ -68,13 +72,38 @@ export class Guide {
     const p = hits.find(h => h.id === id);
     const back = `When you're ready, we're still on step ${this.manual.steps[this.idx].n}.`;
     if (!p) return `I don't know. The manual doesn't cover that, and I only answer from the manual. ${back}`;
-    return `The manual says${p.page ? ` (page ${p.page})` : ''}: "${p.text}" ${back}`;
+    return `The manual says${p.page ? ` (page ${p.page})` : ''}: "${await this.quote(p.text, q)}" ${back}`;
+  }
+
+  private async quote(text: string, q: string): Promise<string> {
+    const sents = splitSentences(text);
+    if (text.length <= 260 || sents.length < 2 || !this.judge.sentences) return shortQuote(text, q);
+    const idx = await this.judge.sentences(q, sents);
+    return idx.length ? idx.sort((a, b) => a - b).map(i => sents[i]).join(' ') : shortQuote(text, q);
   }
 
   private say(text: string): string {
     this.log.push({ who: 'copilot', text });
     return text;
   }
+}
+
+// Passages can be long; read back only the sentences that best match the question (in their original order),
+// so a spoken answer stays short. Still the manual's own words, never a rewrite.
+export const splitSentences = (text: string): string[] => text.split(/(?<=[.!?])\s+(?=[A-Z0-9"“])/);
+
+export function shortQuote(text: string, question: string, maxChars = 260): string {
+  const sents = splitSentences(text);
+  if (text.length <= maxChars || sents.length < 2) return text;
+  const q = new Set(words(question));
+  const ranked = sents.map((s, i) => ({ s, i, score: words(s).filter(w => q.has(w)).length })).sort((a, b) => b.score - a.score || a.i - b.i);
+  const keep: typeof ranked = [];
+  for (const r of ranked) {
+    if (keep.length && (r.score === 0 || keep.reduce((n, k) => n + k.s.length, 0) + r.s.length > maxChars)) break;
+    keep.push(r);
+    if (keep.length === 2) break;
+  }
+  return keep.sort((a, b) => a.i - b.i).map(k => k.s).join(' ');
 }
 
 // Keyword retriever for tests and small manuals: scores passages by shared words (Octo RAG replaces it in production).
@@ -133,8 +162,33 @@ export class JevJudge implements Judge {
       this.calls++; this.cost += j.usage?.cost ?? 0;
       const a = j.answers?.source;
       const i = typeof a?.choice === 'string' && a.choice.startsWith('p') ? +a.choice.slice(1) : -1;
-      return i >= 0 && (a.confidence ?? 0) >= 0.6 ? passages[i]?.id ?? '' : '';
+      // Two passages can both answer, which splits Jev's confidence between them; what matters is how sure it is
+      // that SOME passage answers, so the gate is the probability of "none".
+      const none = a?.probabilities?.none ?? 1;
+      return i >= 0 && none <= 0.25 ? passages[i]?.id ?? '' : '';
     } catch { return ''; }
+  }
+
+  async sentences(question: string, sentences: string[]): Promise<number[]> {
+    const criteria: Record<string, string> = {};
+    sentences.forEach((t, i) => { criteria[`s${i}`] = `This sentence answers the question: "${t}"`; });
+    try {
+      const r = await fetch(this.url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${this.key}`, 'User-Agent': 'copilot-engine/0.1' },
+        body: JSON.stringify({ model: 'typesafe/jev-1.14', state: { question },
+          questions: { sentence: { type: 'choice', criteria, instructions: 'Pick the sentence that most directly answers the question.' } } }),
+        signal: AbortSignal.timeout(20000),
+      });
+      if (!r.ok) return [];
+      const j = await r.json();
+      this.calls++; this.cost += j.usage?.cost ?? 0;
+      const probs: Record<string, number> = j.answers?.sentence?.probabilities ?? {};
+      // the best sentence, plus a runner-up only when Jev rates it almost as high (an answer split across two sentences)
+      const ranked = Object.entries(probs).sort((a, b) => b[1] - a[1]);
+      const keep = ranked.filter(([, p], i) => i === 0 || (i === 1 && p >= 0.3));
+      return keep.map(([k]) => +k.slice(1)).filter(i => i >= 0 && i < sentences.length);
+    } catch { return []; }
   }
 }
 
@@ -143,26 +197,49 @@ export class OctoRetriever implements Retriever {
   private base: string;
   private key: string;
   private workspaceId: string;
-  constructor(opts: { base?: string; key: string; workspaceId: string }) {
+  private titlePrefix?: string;
+  private allowed?: Promise<Set<string>>;
+  // titlePrefix keeps answers to one manual: a workspace can hold many, and Octo search has no filter, so the
+  // retriever learns that manual's document versions once and drops passages from any other document.
+  constructor(opts: { base?: string; key: string; workspaceId: string; titlePrefix?: string }) {
     this.base = opts.base ?? 'https://octodb.design-bakery.com/api';
     this.key = opts.key;
     this.workspaceId = opts.workspaceId;
+    this.titlePrefix = opts.titlePrefix;
   }
+
+  private async get(path: string): Promise<any> {
+    const r = await fetch(`${this.base}${path}${path.includes('?') ? '&' : '?'}workspaceId=${this.workspaceId}`, {
+      headers: { Authorization: `Bearer ${this.key}`, 'User-Agent': 'copilot-engine/0.1' }, signal: AbortSignal.timeout(20000) });
+    return r.json();
+  }
+
+  private versions(): Promise<Set<string>> {
+    this.allowed ??= (async () => {
+      const docs: any[] = await this.get('/rag/documents');
+      const mine = docs.filter(d => String(d.title).startsWith(this.titlePrefix!));
+      const full = await Promise.all(mine.map(d => this.get(`/rag/documents/${d.documentId}`)));
+      return new Set(full.flatMap(d => (d.versions ?? []).map((v: any) => v.versionId)));
+    })();
+    return this.allowed;
+  }
+
   async search(query: string, k: number): Promise<Passage[]> {
     try {
+      const allowed = this.titlePrefix ? await this.versions() : undefined;
       const r = await fetch(`${this.base}/rag/query`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${this.key}`, 'User-Agent': 'copilot-engine/0.1' },
-        body: JSON.stringify({ workspaceId: this.workspaceId, query, limit: k }),
+        body: JSON.stringify({ workspaceId: this.workspaceId, query, limit: allowed ? k * 5 : k }),
         signal: AbortSignal.timeout(20000),
       });
       if (!r.ok) return [];
       const j = await r.json();
-      const rows: any[] = j.results ?? j.chunks ?? j.matches ?? (Array.isArray(j) ? j : []);
-      return rows.map((x, i) => {
-        const text: string = x.text ?? x.content ?? x.chunk ?? '';
+      const rows: any[] = (j.matches ?? []).filter((x: any) => !allowed || allowed.has(x.documentVersionId));
+      return rows.slice(0, k).map((x, i) => {
+        const text: string = x.content ?? '';
         const page = Number(text.match(/\[page (\d+)\]/)?.[1]) || undefined;
-        return { id: String(x.id ?? x.chunkId ?? x.documentId ?? i), text: text.replace(/\[page \d+\]\s*/g, '').trim(), page };
+        return { id: String(x.chunkId ?? i), text: text.replace(/\[page \d+\]\s*/g, '').trim(), page };
       }).filter(p => p.text);
     } catch { return []; }
   }

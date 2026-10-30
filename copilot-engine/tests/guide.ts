@@ -8,7 +8,7 @@ import { halvorsenFilter as M } from '../src/manuals/halvorsen-filter.ts';
 const jev = process.argv.includes('--jev');
 const judge = jev ? new JevJudge() : new OverlapJudge();
 const octo = process.argv.includes('--octo');
-const retriever = octo ? new OctoRetriever({ key: process.env.OCTO_KEY!, workspaceId: process.env.OCTO_WORKSPACE! }) : new KeywordRetriever(M.passages);
+const retriever = octo ? new OctoRetriever({ key: process.env.OCTO_KEY!, workspaceId: process.env.OCTO_WORKSPACE!, titlePrefix: 'demo:halvorsen-dw500' }) : new KeywordRetriever(M.passages);
 const make = () => new Guide(M, retriever, judge);
 
 type Case = { name: string; setup: string[]; say: string; ok: (g: Guide, r: string) => boolean };

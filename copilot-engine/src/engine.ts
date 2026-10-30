@@ -6,7 +6,7 @@ type State = 'ask' | 'verify' | 'review' | 'change' | 'done';
 // Asks one question at a time, reads back serials, shows a confirm card, and only then calls hooks.submit.
 // The model only helps understand free-form answers; every safety decision is made here in code.
 // Words that attach a condition to a yes, or ask for a person instead of the assistant.
-const BUT = /\b(but|except|although|though|however|wait|unless)\b/i;
+const BUT = /\b(but|except|although|though|however|wait|unless|if|as long as|provided|assuming|only)\b/i;
 const WANTS_HUMAN = /\b(real person|human|representative|operator|live agent|someone real)\b/i;
 
 export class Copilot {
@@ -129,6 +129,8 @@ export class Copilot {
     const t = said.toLowerCase();
     const hits = (f.options ?? []).filter(o =>
       [o, ...(f.synonyms?.[o] ?? [])].some(w => new RegExp(`(^|[^a-z])${w.toLowerCase().replace(/\./g, '\\.')}s?($|[^a-z])`).test(t)));
+    // "not the morning" names an option only to rule it out: ask again rather than guess the other one.
+    if (/\b(not|no|don'?t|isn'?t|can'?t|never|nothing in the)\b/.test(t)) return '';
     return hits.length === 1 ? hits[0] : '';
   }
 

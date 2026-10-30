@@ -25,8 +25,19 @@ public posting, secrets, deleting data. Everything else gets built and reported.
       answered only by quoting a manual passage (Octo search + Jev picks the passage or says none), else
       "I don't know". 21/21 with Octo + Jev (case set written with the code, not a holdout yet).
 
+- [x] Holdout3 (26 fresh cases, Jev + LFM3): 23/26 first run. Found another submit bug ("yes if it is free"
+      submitted), plus "I'd rather not say" taken as a name and "not the morning" read as morning. All fixed with
+      tests. New 500-conversation seed 4 after the fixes: 48/6,923 checks failed, safety checks 100%.
+- [x] Real manual: Medicare & You 2027 pp 15-19 (public domain). `tools/manual_passages.py` loads 23 passages into
+      Octo; `tools/draft_steps.py` drafts 7 steps with a named free model (Nemotron) and checks each step's words,
+      numbers and web addresses against its page; saved as an owner-review draft (`manuals/medicare-signup.steps.json`,
+      reviewed: false). Octo search is filtered to one manual by title prefix (Octo has no query filter yet).
+      Jev picks the passage (gate on P(none) <= 0.25) and the 1-2 sentences to read back. 16/16 on Medicare questions
+      written before the first run (14/16 first run, both misses were safe "I don't know"); 0.7 s, ~$0.00006 per question.
+
 ## Next, in this order (each ends with tests added to the ledger)
-1. [~] Manual-guidance mode (core done): still to do: split a real manual into numbered steps offline (owner reviews), walk one step at a time,
+1. [~] Manual-guidance mode (core + one real manual done): still to do: an owner review screen for drafted steps,
+       a fresh Medicare question set, then a second manual (IRS). Original note: split a real manual into numbered steps offline (owner reviews), walk one step at a time,
        answer side questions from retrieval only, say "I don't know" otherwise. Pairs with the booking-flow mode.
 2. [ ] Site adapter + a real demo backend (Brookside booking): the flow's `submit` calls the owner's own API.
 3. [ ] Page adapter: PageAgent (alibaba/page-agent, MIT) as the in-page layer; fill-and-never-submit on a practice
