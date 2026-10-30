@@ -18,6 +18,20 @@ export class DomFiller implements Hooks {
   private form: PageForm;
   constructor(form: PageForm) { this.form = form; }
 
+  // The page's own check (pattern, type, length) on a copy of the box, so nothing is typed in before the yes.
+  check(field: Field, value: string): string | void {
+    const p = this.form.fields.find(x => x.id === field.name);
+    if (!p || p.tag === 'radio' || p.tag === 'select') return;
+    const el = document.querySelector<Box>(`[data-copilot-id="${p.id}"]`);
+    if (!el) return;
+    const c = el.cloneNode() as Box;
+    c.value = value;
+    // minlength is only enforced on text a person typed, so a copy given a value passes it: check it here.
+    const min = (el as HTMLInputElement).minLength;
+    if (min > 0 && value.length < min) return `The page didn't accept that: Please lengthen this text to ${min} characters or more (you are currently using ${value.length} characters).`;
+    if (!c.checkValidity()) return `The page didn't accept that: ${c.validationMessage.replace(/\s+/g, ' ').trim()}`;
+  }
+
   async fill(field: Field, value: string): Promise<string | void> {
     const p = this.form.fields.find(x => x.id === field.name);
     const gone = "I can't find that box on the page any more.";

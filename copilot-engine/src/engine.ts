@@ -10,7 +10,9 @@ const BUT = /\b(but|except|although|though|however|wait|unless|if|as long as|pro
 const WANTS_HUMAN = /\b(real person|human|representative|operator|live agent|someone real)\b/i;
 // A reply about an earlier answer rather than the current question. STRONG needs no field name ("you wrote it twice"
 // means the last answer); FIX needs one ("fix the name").
-const STRONG_FIX = /\b(you (actually |just )?(wrote|put|typed|entered|filled( in)?|spelled|spelt|got)|twice|go back|previous (one|answer|question)|last (one|answer|question)|(that|it)('s| was| is) (wrong|not right|incorrect|misspelled)|(you made|that's) a mistake|typo)\b/i;
+const STRONG_FIX = /\b(you (actually |just )?(wrote|put|typed|entered|filled( in)?|spelled|spelt|got)|twice|(that|it)('s| was| is) (wrong|not right|incorrect|misspelled)|(you made|that's) a mistake|typo)\b/i;
+// "Go back" steps to the question before the one that is open; said again, it steps back again.
+const GO_BACK = /\b(go(ing)? back|back up|previous (one|question|answer|field)|last question|undo)\b|^\W*back\W*$/i;
 const FIX = /\b(fix|change|wrong|correct|update|edit|misspel+ed|spelled|spelt|mistake|actually|sorry|i meant|i mean|make that|no,? wait)\b|\bmy name\b/i;
 // Answers that are easy to mishear are read back and need a yes before they are kept. `problem` says what was wrong
 // with an answer that did not parse, so the caller can fix it instead of just hearing the question again.
@@ -74,6 +76,22 @@ export class Copilot {
     return '';
   }
 
+  // Every answer is read back and needs a yes before it is typed in. The page may refuse it first (its own pattern).
+  private async propose(f: Field, v: string): Promise<string> {
+    const no = await this.hooks.check?.(f, v);
+    if (no) { this.state = 'ask'; return `${no} ${f.question}`; }
+    this.pending = v;
+    this.state = 'verify';
+    return this.readback(f, v);
+  }
+
+  private readback(f: Field, v: string): string {
+    const rb = READBACK[f.kind];
+    if (rb) return `I heard ${rb.show(v)}. Is that right?`;
+    if (f.kind === 'choice') return `${v}, is that right?`;
+    return /\?$/.test(f.label) ? `I'll put "${v}". Is that right?` : `I'll put "${v}" for ${f.label}. Is that right?`;
+  }
+
   private async keep(f: Field, v: string): Promise<string> {
     const no = await this.set(f, v);
     if (no) { this.state = 'ask'; return `${no} ${f.question}`; }
@@ -118,23 +136,25 @@ export class Copilot {
     const t = said.toLowerCase();
     const named = this.flow.fields.filter(answered).filter(f => this.mentions(f, t));
     let target: Field | undefined;
-    if (named.length && FIX.test(said)) target = named.find(f => f.name === this.lastSet) ?? named[named.length - 1];
+    const back = GO_BACK.test(said) && !named.length;
+    if (back) target = this.flow.fields[this.idx - 1];
+    else if (named.length && (FIX.test(said) || GO_BACK.test(said))) target = named.find(f => f.name === this.lastSet) ?? named[named.length - 1];
     else if (STRONG_FIX.test(said)) target = this.flow.fields.find(f => f.name === this.lastSet && answered(f));
-    if (!target) return '';
+    if (!target || this.values[target.name] === undefined) return '';
     // "Sick visit, sorry" answers the open question; it is not about an earlier one.
-    if (cur.kind === 'choice' && this.matchChoice(cur, said)) return '';
-    if (this.state === 'ask' && READBACK[cur.kind]?.parse(said) && cur.kind !== 'name') return '';
+    if (!back && cur.kind === 'choice' && this.matchChoice(cur, said)) return '';
+    if (!back && this.state === 'ask' && READBACK[cur.kind]?.parse(said) && cur.kind !== 'name') return '';
     if (this.resume < 0) this.resume = this.idx;
     this.idx = this.flow.fields.indexOf(target);
     this.pending = '';
     // The new value may be in the same sentence: "actually change my name to Amira".
-    const v = target.kind === 'name' ? parseName(said) : '';
+    const v = target.kind === 'name' && !back ? parseName(said) : '';
     if (v && v.toLowerCase() !== this.values[target.name].toLowerCase()) {
       this.pending = v; this.state = 'verify';
       return `Sure. I heard ${v} for the ${target.label}. Is that right?`;
     }
     this.state = 'ask';
-    return `Sure, let's fix that. I have the ${target.label} as ${this.show(target)}. ${target.question}`;
+    return `${back ? 'Sure, going back.' : "Sure, let's fix that."} I have the ${target.label} as ${this.show(target)}. ${target.question}`;
   }
 
   // Does the reply name this field? Its name, label, aliases, or the label's last word ("the name" for "child's full name").
@@ -167,7 +187,7 @@ export class Copilot {
       // A bare yes or no to a name question is not a name ("Yeah" is nobody's name here), and nothing has been submitted.
       if (f.kind === 'name' && yesNo(said) !== 'unclear' && said.trim().split(/\s+/).length <= 6) return `I haven't submitted anything yet. ${q}`;
       const s = rb.parse(said);
-      if (s) { this.pending = s; this.state = 'verify'; return `I heard ${rb.show(s)}. Is that right?`; }
+      if (s) return this.propose(f, s);
       return this.missed(f, rb, said);
     }
     // A bare yes/no is never an answer to a text, name or choice question, so "yes, submit it" cannot do anything here.
@@ -177,7 +197,7 @@ export class Copilot {
     if (f.kind === 'choice') {
       // Code decides choices; the model is never allowed to guess one.
       const hit = this.matchChoice(f, said);
-      if (hit) return this.keep(f, hit);
+      if (hit) return this.propose(f, hit);
       return `Sorry, I need one of these: ${(f.options ?? []).join(' or ')}. ${q}`;
     }
     const u = await this.model.understand({ flow: this.flow, field: f, said, values: this.values });
@@ -186,7 +206,7 @@ export class Copilot {
       // Keep the customer's own words: use the model's cleaned value only if it adds nothing the customer did not say.
       const own = stripFiller(said);
       const v = u.value?.trim() && grounded(u.value, said) ? u.value.trim() : own;
-      if (v) return this.keep(f, v);
+      if (v) return this.propose(f, v);
     }
     return `Sorry, I didn't catch that. ${q}`;
   }
@@ -212,24 +232,27 @@ export class Copilot {
 
   private async onVerify(said: string): Promise<string> {
     const f = this.field();
-    const rb = READBACK[f.kind]!;
-    // "No, you wrote the name wrong" while a different answer is being read back is about that other answer.
+    const rb = READBACK[f.kind];
+    // "Go back", or "no, you wrote the name wrong" while a different answer is being read back, is about that answer.
     const t = said.toLowerCase();
-    if (this.flow.fields.some(x => x !== f && this.values[x.name] !== undefined && this.mentions(x, t))) {
+    if (GO_BACK.test(said) || this.flow.fields.some(x => x !== f && this.values[x.name] !== undefined && this.mentions(x, t))) {
       const fixed = this.correction(said);
       if (fixed) return fixed;
     }
-    const s = rb.parse(said);
-    if (s && yesNo(said) === 'unclear') { this.pending = s; return `I heard ${rb.show(s)}. Is that right?`; }
     const yn = yesNo(said);
+    // A fresh answer instead of a yes or no is read back in turn.
+    if (yn === 'unclear') {
+      const s = rb ? rb.parse(said) : f.kind === 'choice' ? this.matchChoice(f, said) : '';
+      if (s) return this.propose(f, s);
+    }
     if (yn === 'yes' && !BUT.test(said)) { const v = this.pending; this.pending = ''; return this.keep(f, v); }
     if (yn === 'no') {
       this.pending = ''; this.state = 'ask';
       const n = (this.misses[f.name] = (this.misses[f.name] ?? 0) + 1);
-      const offer = n >= 2 && this.flow.typeOffer ? ` ${this.flow.typeOffer}` : '';
-      return `Okay, let's try again, a little slower.${offer} ${f.question}`;
+      const offer = n >= 2 && rb && f.kind !== 'name' && this.flow.typeOffer ? ` ${this.flow.typeOffer}` : '';
+      return `${rb ? "Okay, let's try again, a little slower." : 'Okay.'}${offer} ${f.question}`;
     }
-    return `Sorry, is ${rb.show(this.pending)} correct? Please say yes or no.`;
+    return `Sorry, is ${rb ? rb.show(this.pending) : this.pending} correct? Please say yes or no.`;
   }
 
   private async onReview(said: string): Promise<string> {

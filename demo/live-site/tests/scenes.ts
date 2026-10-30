@@ -49,7 +49,7 @@ const settle = (page: Page, n: number) => page.waitForFunction(n => {
   return s && !s.busy && s.messages.filter((m: any) => m.who === 'bot').length > n && !document.querySelector('[data-testid="call-panel"][data-busy="true"]');
 }, n, { timeout: 60_000 });
 
-type Ctx = { page: Page; say: (t: string) => Promise<string>; val: (sel: string) => Promise<string>; sent: string[] };
+type Ctx = { page: Page; say: (t: string) => Promise<string>; answer: (t: string) => Promise<string>; val: (sel: string) => Promise<string>; sent: string[] };
 
 async function scene(name: string, url: string, run: (c: Ctx) => Promise<void>) {
   if (only.length && !only.includes(name)) return;
@@ -78,12 +78,17 @@ async function scene(name: string, url: string, run: (c: Ctx) => Promise<void>) 
     console.log(`      > ${t}\n      < ${r.slice(0, 200)}`);
     return r;
   };
+  // An answer the copilot reads back ("…, is that right?") is confirmed with a yes, as a person would.
+  const answer = async (t: string) => {
+    const r = await say(t);
+    return /Is that right\?$/i.test(r) ? say('yes') : r;
+  };
   const val = (sel: string) => page.$eval(sel, el => (el as HTMLInputElement).value);
   await page.waitForFunction(() => (window as any).copilot?.getSnapshot().mounted, null, { timeout: 15_000 });
   await page.click(T('call-type'));
   await settle(page, 0);
   console.log(`      < ${(await lastBot(page)).slice(0, 200)}`);
-  await run({ page, say, val, sent });
+  await run({ page, say, answer, val, sent });
   check('copilot sent nothing and never left the page', sent.length === 0, sent);
   check('the panel shows every copilot message', await page.locator(BOT).count() === await bots(page), [await page.locator(BOT).count(), await bots(page)]);
   // The person presses the button themself: the fake endpoint keeps everything in the browser.
@@ -106,7 +111,7 @@ const nextStep = async (page: Page, say0: string) => {
   check(`next step starts by itself: ${say0}`, /On to the next part/.test(r) && r.includes(say0), r);
 };
 
-await scene('clinic', '/clinic/book', async ({ page, say, val }) => {
+await scene('clinic', '/clinic/book', async ({ page, say, answer, val }) => {
   const first = await page.evaluate(() => (window as any).copilot.getSnapshot().messages.find((m: any) => m.who === 'bot')?.text ?? '');
   check('opens on the booking form and asks for the child', /fill in this booking form/.test(first) && /child's full name/.test(first), first);
   // A doubled name (as an iPhone once heard it) is read back; the person misses it and says yes, then fixes it later.
@@ -122,14 +127,14 @@ await scene('clinic', '/clinic/book', async ({ page, say, val }) => {
   r = await say('yes');
   check('name fixed, then back to the question that was open', (await val('#child')) === 'Leo Rahman' && /^Thanks, that's fixed\. .*Well-child checkup/.test(r)
     && (await val('#visit')) === '', r);
-  r = await say('a checkup please');
+  r = await answer('a checkup please');
   check('"checkup" picks Well-child checkup', (await val('#visit')) === 'wellchild' && /Here's what I have/.test(r), r);
   r = await say('yes');
   check('hands step 1 back: press Next yourself', /press Next yourself/.test(r), r);
   await nextStep(page, 'Mornings or afternoons');
-  await say('mornings if possible');
+  await answer('mornings if possible');
   check('morning radio checked', await page.isChecked('#tod_am'));
-  await say('Tuesday');
+  await answer('Tuesday');
   check('Tuesday slot selected', (await val('#slot')) === 'tue0940');
   await say('yes');
   await nextStep(page, 'parent or guardian');
@@ -148,7 +153,10 @@ await scene('clinic', '/clinic/book', async ({ page, say, val }) => {
     && (await val('#email')) === 'aisha@example.com' && !(await page.isChecked('#remind')));
 });
 
-await scene('appliance', '/appliance/support', async ({ page, say, val }) => {
+await scene('appliance', '/appliance/support', async ({ page, say, answer, val }) => {
+  // The mode tabs are in the open panel: the call starts as a compact bar.
+  check('the call opens as a compact bar', (await page.getAttribute(T('call-panel'), 'data-expanded')) === 'false');
+  await page.click(T('call-expand'));
   await page.click(T('call-mode-guide'));
   await page.waitForFunction(() => ((window as any).copilot.getSnapshot().messages as any[]).some(m => m.who === 'bot' && /Step 1 of 6/.test(m.text)));
   check('walk-through starts at step 1 of the E24 fix', true);
@@ -178,56 +186,67 @@ await scene('appliance', '/appliance/support', async ({ page, say, val }) => {
   check('"L as in Lima" read back', /I heard 1334-592C-LSD3/.test(r), r);
   await say('yes');
   check('serial typed in after the yes', (await val('#serial')) === '1334592CLSD3');
-  await say('E24');
+  await answer('E24');
   check('error code E24 selected', (await val('#code')) === 'E24');
   await say('Marcus Hall');
   await say('yes');
   await say('marcus at example dot com');
   await say('yes');
-  await say('it shows E24 and there is water at the bottom');
+  await answer('it shows E24 and there is water at the bottom');
   check('description typed in', (await val('#what')) === 'it shows E24 and there is water at the bottom');
   r = await say('yes');
   check('hand-back: press Request visit yourself', /press Request visit yourself/.test(r), r);
 });
 
-await scene('pricing', '/pricing/quote', async ({ page, say, val }) => {
-  await say('Prana Yoga Studio');
+await scene('pricing', '/pricing/quote', async ({ page, say, answer, val }) => {
+  await answer('Prana Yoga Studio');
   check('business name typed in', (await val('#biz')) === 'Prana Yoga Studio');
   await say('Sofia Marin');
   await say('yes');
   await say('sofia at example dot com');
   await say('yes');
-  await say('Growth');
+  let r = await say('Growth');
+  check('the plan is read back before it is checked', /^Growth, is that right\?$/.test(r) && !(await page.isChecked('#p2')), r);
+  await say('yes');
   check('Growth plan checked', await page.isChecked('#p2'));
-  await say('around three thousand');
+  // Back two questions to fix the email, then on with the question that was open.
+  r = await say('go back');
+  check('"go back" steps back to the plan and says what it holds', /^Sure, going back\. I have the plan as Growth\./.test(r), r);
+  r = await say('go back');
+  check('"go back" again steps back to the email', /^Sure, going back\. I have the email as sofia@example\.com\./i.test(r), r);
+  await say('sofia dot marin at example dot com');
+  r = await say('yes');
+  check('email fixed, plan kept, back to the budget question', (await val('#email')) === 'sofia.marin@example.com' && await page.isChecked('#p2')
+    && /^Thanks, that's fixed\. .*budget/i.test(r), r);
+  await answer('around three thousand');
   check('budget $1,000 to $3,000', (await val('#budget')) === '1to3k');
-  let r = await say('a website with online class booking');
+  r = await answer('a website with online class booking');
   check('review card', /Here's what I have/.test(r) && /plan: Growth/.test(r), r);
   r = await say('change the budget');
   check('"change the budget" re-asks only the budget', /^Sure\. Roughly what budget/.test(r), r);
-  r = await say('about five thousand');
+  r = await answer('about five thousand');
   check('budget changed, back to the card', (await val('#budget')) === '3to7k' && /Here's what I have/.test(r), r);
   r = await say('yes');
   check('hand-back: press Request a quote yourself', /press Request a quote yourself/.test(r), r);
-  check('every field filled', (await val('#contact')) === 'Sofia Marin' && (await val('#email')) === 'sofia@example.com' && (await val('#needs')) === 'a website with online class booking');
+  check('every field filled', (await val('#contact')) === 'Sofia Marin' && (await val('#email')) === 'sofia.marin@example.com' && (await val('#needs')) === 'a website with online class booking');
 });
 
-await scene('itdesk', '/itdesk/new', async ({ page, say, val }) => {
-  await say("it's a network problem");
+await scene('itdesk', '/itdesk/new', async ({ page, say, answer, val }) => {
+  await answer("it's a network problem");
   check('category Network', (await val('#cat')) === 'net');
-  await say('the VPN');
+  await answer('the VPN');
   check('service VPN', (await val('#svc')) === 'vpn');
   let r = await say('my laptop is 4419');
   check("the page's own pattern rejects a bad asset tag, and the copilot asks again", /page didn't accept that/.test(r) && (await val('#asset')) === '', r);
-  await say('CF-4419');
+  await answer('CF-4419');
   check('asset tag typed in', (await val('#asset')) === 'CF-4419');
-  await say('just me');
+  await answer('just me');
   check('impact: just me', await page.isChecked('#i1'));
-  await say('high, I have a client call at two');
+  await answer('high, I have a client call at two');
   check('urgency High', (await val('#urg')) === 'high');
   r = await say('can you order me lunch while we wait?');
   check('off-topic request is turned down and nothing is typed', /only help you fill in this form/.test(r) && (await val('#desc')) === '', r);
-  await say('VPN fails to connect since 9 AM, client call at 2 PM');
+  await answer('VPN fails to connect since 9 AM, client call at 2 PM');
   check('description typed in', (await val('#desc')) === 'VPN fails to connect since 9 AM, client call at 2 PM');
   await say('daniel at example dot com');
   r = await say('yes');
@@ -235,8 +254,8 @@ await scene('itdesk', '/itdesk/new', async ({ page, say, val }) => {
   check('hand-back: press Submit ticket yourself', /press Submit ticket yourself/.test(r), r);
 });
 
-await scene('pension', '/pension/forms/r17', async ({ page, say, val }) => {
-  await say('SPF-204118.');
+await scene('pension', '/pension/forms/r17', async ({ page, say, answer, val }) => {
+  await answer('SPF-204118.');
   check('member number typed in, despite the full stop dictation adds', (await val('#member')) === 'SPF-204118');
   await say('Michael');
   await say('yes');
@@ -250,11 +269,11 @@ await scene('pension', '/pension/forms/r17', async ({ page, say, val }) => {
   check('processing time answered with page 4', /\(page 4\)/.test(r) && /5 working days/.test(r), r);
   r = await say("What is the fund's phone number?");
   check('not in the guide: "I don\'t know"', /^I don't know/.test(r), r);
-  await say('my son');
+  await answer('my son');
   check('"my son" picks payee code C', (await val('#code')) === 'C');
-  await say('100');
+  await answer('100');
   check('share 100', (await val('#share')) === '100');
-  r = await say('primary');
+  r = await answer('primary');
   check('primary checked and review card shown', await page.isChecked('#t1') && /Here's what I have/.test(r), r);
   r = await say('yes');
   check('hand-back names the button and the box to tick', /press Submit form R-17 yourself/.test(r) && /I agree this form replaces/.test(r), r);
@@ -314,6 +333,8 @@ if (!only.length || only.includes('voice')) {
   r = await talk('yes');
   check('spoken name typed in once', (await page.$eval('#child', e => (e as HTMLInputElement).value)) === 'Pooja Bajracharya', r);
   r = await talk('a checkup please');
+  check('spoken choice is read back for a yes', /^Well-child checkup, is that right\?$/.test(r), r);
+  r = await talk('yes');
   check('spoken "checkup" picks Well-child checkup, then the read-back is spoken', (await page.$eval('#visit', e => (e as HTMLSelectElement).value)) === 'wellchild' && /Here's what I have/.test(r), r);
   r = await talk('yes');
   check('spoken hand-back: press Next yourself', /press Next yourself/.test(r), r);
@@ -343,13 +364,30 @@ if (!only.length || only.includes('voice')) {
   await page.close();
 }
 
-// Phone layout: with the panel open in text mode on short phone screens, every call control is fully on screen and no
-// page scrolls sideways. (A layout that only fits an 812px-tall screen once hid the text box on an iPhone 13.)
+// Phone layout. A call is a compact bar at the bottom: in a voice call it covers at most a fifth of the screen, the
+// page above stays in view and scrolls, and the field being asked is highlighted above the bar. The handle or the
+// caption opens the whole conversation, and the handle closes it again. Typing adds only the text box and Send, and
+// every call control stays fully on screen on short phones. Same on desktop, as a small corner window.
 if (!only.length || only.includes('layout')) {
   current = 'layout';
   console.log('\n== layout');
+  const onScreen = (page: Page, ids: string[]) => page.evaluate(ids => ids.filter(id => {
+    const e = document.querySelector(`[data-testid="${id}"]`);
+    if (!e) return true;
+    const r = e.getBoundingClientRect();
+    return r.top < 0 || r.left < 0 || r.bottom > innerHeight + 0.5 || r.right > innerWidth + 0.5 || r.height < 1;
+  }), ids);
+  const panelBox = (page: Page) => page.$eval(T('call-panel'), e => { const r = e.getBoundingClientRect(); return { top: r.top, h: r.height, w: r.width, vh: innerHeight, vw: innerWidth }; });
+  // A microphone that never hears anything, so a voice call just listens.
+  const quietMic = () => {
+    const w = window as any;
+    class QuietSR { onresult: any; onend: any; onerror: any; lang = ''; interimResults = false; continuous = false; maxAlternatives = 1; start() {} stop() {} abort() {} }
+    w.SpeechRecognition = QuietSR; w.webkitSpeechRecognition = QuietSR;
+    Object.defineProperty(w, 'speechSynthesis', { value: { cancel() {}, speak(u: any) { setTimeout(() => { u.onstart?.(); u.onend?.(); }, 10); } } });
+  };
   for (const [w, h] of [[390, 664], [375, 560], [360, 640]]) {
     const ctx = await browser.newContext({ viewport: { width: w, height: h }, isMobile: true, hasTouch: true });
+    await ctx.addInitScript(quietMic);
     for (const url of ['/clinic/book', '/appliance/support', '/pricing/quote', '/itdesk/new', '/pension/forms/r17']) {
       const page = await ctx.newPage();
       await page.goto(`${srv.url}${url}?guest=1`);
@@ -357,17 +395,57 @@ if (!only.length || only.includes('layout')) {
       const wide = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
       await page.click(T('call-type'));
       await settle(page, 0);
-      const off = await page.evaluate(ids => ids.filter(id => {
-        const e = document.querySelector(`[data-testid="${id}"]`);
-        if (!e) return true;
-        const r = e.getBoundingClientRect();
-        return r.top < 0 || r.left < 0 || r.bottom > innerHeight + 0.5 || r.right > innerWidth + 0.5 || r.height < 1;
-      }), ['call-input', 'call-send', 'call-mic', 'call-keyboard', 'call-end']);
-      check(`${w}x${h} ${url}: no sideways scroll, every call control on screen`, wide <= 0 && off.length === 0, { wide, off });
+      const off = await onScreen(page, ['call-input', 'call-send', 'call-mic', 'call-keyboard', 'call-end']);
+      const typing = await panelBox(page);
+      check(`${w}x${h} ${url}: typing: no sideways scroll, every call control on screen, bar under a third of the screen`,
+        wide <= 0 && off.length === 0 && typing.h <= typing.vh * 0.32, { wide, off, typing });
       await page.close();
     }
+    // Voice call on the clinic form: the compact bar, the highlighted field above it, and expand/collapse.
+    const page = await ctx.newPage();
+    await page.goto(`${srv.url}/clinic/book?guest=1`);
+    await page.waitForFunction(() => (window as any).copilot?.getSnapshot().mounted, null, { timeout: 15_000 });
+    await page.click(T('call-start'));
+    await settle(page, 0);
+    await page.waitForTimeout(700); // the smooth scroll to the field
+    const bar = await panelBox(page);
+    const field = await page.$eval('[data-copilot-active]', e => { const r = e.getBoundingClientRect(); return { top: r.top, bottom: r.bottom, id: e.id }; }).catch(() => null);
+    const caption = (await page.textContent(T('call-caption'))) ?? '';
+    check(`${w}x${h} voice: compact bar covers at most a fifth of the screen`, bar.h <= bar.vh * 0.2 + 1 && bar.w <= bar.vw, bar);
+    check(`${w}x${h} voice: the caption shows the copilot's question`, /child's full name/.test(caption), caption);
+    check(`${w}x${h} voice: the field being asked is highlighted and above the bar`, !!field && field.id === 'child' && field.top >= 0 && field.bottom <= bar.top, field);
+    check(`${w}x${h} voice: Mute, Keyboard and End are on screen`, (await onScreen(page, ['call-mic', 'call-keyboard', 'call-end'])).length === 0);
+    const y0 = await page.evaluate(() => scrollY);
+    await page.mouse.wheel(0, 300);
+    await page.waitForTimeout(300);
+    check(`${w}x${h} voice: the page still scrolls behind the bar`, (await page.evaluate(() => scrollY)) !== y0);
+    await page.click(T('call-caption'));
+    const open = await panelBox(page);
+    check(`${w}x${h} voice: tapping the caption opens the conversation`, (await page.getAttribute(T('call-panel'), 'data-expanded')) === 'true'
+      && await page.locator(BOT).first().isVisible() && open.h > bar.h && open.h <= open.vh * 0.75, open);
+    const hb = await page.$eval(T('call-expand'), e => { const r = e.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; });
+    await page.mouse.move(hb.x, hb.y); await page.mouse.down(); await page.mouse.move(hb.x, hb.y + 80, { steps: 6 }); await page.mouse.up();
+    check(`${w}x${h} voice: dragging the handle down closes it again`, (await page.getAttribute(T('call-panel'), 'data-expanded')) === 'false');
+    const hc = await page.$eval(T('call-expand'), e => { const r = e.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; });
+    await page.mouse.move(hc.x, hc.y); await page.mouse.down(); await page.mouse.move(hc.x, hc.y - 80, { steps: 6 }); await page.mouse.up();
+    check(`${w}x${h} voice: dragging the handle up opens it`, (await page.getAttribute(T('call-panel'), 'data-expanded')) === 'true');
+    await page.close();
     await ctx.close();
   }
+  // Desktop: a small corner window that opens to the full conversation.
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  await ctx.addInitScript(quietMic);
+  const page = await ctx.newPage();
+  await page.goto(`${srv.url}/clinic/book?guest=1`);
+  await page.waitForFunction(() => (window as any).copilot?.getSnapshot().mounted, null, { timeout: 15_000 });
+  await page.click(T('call-start'));
+  await settle(page, 0);
+  const d = await panelBox(page);
+  check('desktop: compact corner window', d.w <= 400 && d.h <= 200 && d.top > d.vh / 2, d);
+  await page.click(T('call-expand'));
+  const de = await panelBox(page);
+  check('desktop: the handle opens the conversation', de.h > d.h && await page.locator(BOT).first().isVisible(), de);
+  await ctx.close();
 }
 
 await browser.close();

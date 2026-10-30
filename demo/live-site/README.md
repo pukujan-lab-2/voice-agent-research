@@ -57,10 +57,18 @@ Key names: `openrouter_jev_only` → `OPENROUTER_JEV_KEY`, `octo_db_chatbots` �
 `octo_db_chatbots_workspace` → `OCTO_WORKSPACE` (environment variables of those names win). `LLAMA_URL` swaps the
 rules behind Jev for a local LFM.
 
-Results (2026-10-30), against the ABA app: live 109/109, including a layout scene that opens the call panel at
-390×664, 375×560 and 360×640 and requires every call control to be on screen, and the three iPhone call bugs (a name
-the recogniser finalises twice, "you wrote the name twice, can you fix it" mid-flow, a spaced or short spoken serial
-with the keyboard offered after two misses). Offline 107/109: the word-overlap stand-in
+A call opens as a compact bar (status, Mute / Keyboard / End, and the copilot's last line as a caption) so the page
+and the highlighted field stay in view; the handle (tap or drag) or the caption opens the whole conversation. That bar
+was written by hand in `app/src/components/copilot/CopilotWidget.tsx` and `app/src/globals.css`, after the ABA runs:
+a new ABA run must keep it. Every answer is read back for a yes, and "go back" or "change the …" returns to any
+earlier answer and then to the open question.
+
+Results (2026-10-30): live 141/141. The layout scene checks the compact bar at 390×664, 375×560 and 360×640: at most a
+fifth of the screen in a voice call, the asked field highlighted above it, the page still scrolling, expand and
+collapse by caption and handle, every control on screen when typing, and a small corner window on desktop. Other scenes
+cover the three iPhone call bugs (a name the recogniser finalises twice, "you wrote the name twice, can you fix it"
+mid-flow, a spaced or short spoken serial with the keyboard offered after two misses) and going back two questions
+and on again. Offline 139/141: the word-overlap stand-in
 picks the wrong passage for two manual questions, which is what Jev is there for. After deploying, both public
 hostnames were checked in Chromium (desktop) and WebKit (iPhone 13): the copilot fills the clinic form and answers E24
 from the live manual with a page link, with no page errors. Voice was tested with stubbed browser speech; a real

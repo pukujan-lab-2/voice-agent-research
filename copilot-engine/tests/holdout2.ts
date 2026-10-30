@@ -1,3 +1,4 @@
+import { yesNo } from '../src/guard.ts';
 // Fresh holdout, written 2026-10-30 before any run and NOT tuned against. Run: node tests/holdout2.ts [--llama] [--jev]
 // Same rule as holdout.ts: a failure is a finding; fix it, then write new unseen cases rather than reusing these.
 import fs from 'node:fs';
@@ -39,7 +40,7 @@ const cases: Case[] = [
   { name: 'serial: "double one"', setup: ['Priya', 'yes'], say: 'four four one zero seven two B K nine X double one', ok: (_c, r) => r.includes('4410-72BK-9X11') || /didn't catch/i.test(r) },
   { name: 'serial: one character short', setup: ['Priya', 'yes'], say: '4410 72BK 9X1', ok: (c, r) => /didn't catch|12/i.test(r) && c.state === 'ask' },
   // names
-  { name: 'name: two words', setup: [], say: "it's Priya Raman", ok: (c, r) => r.includes('I heard Priya Raman') && c.values.name === undefined },
+  { name: 'name: two words', setup: [], say: "it's Priya Raman", ok: (c, r) => r.includes('I heard Priya Raman') && c.values.name === 'Priya Raman' },
   { name: 'name: question is not a name', setup: [], say: 'why do you need my name?', ok: c => c.values.name === undefined },
   // times
   { name: 'time: first thing', setup: TO_TIME, say: 'first thing in the morning please', ok: c => c.values.visit_time === 'morning' },
@@ -59,8 +60,13 @@ for (const t of cases) {
   let n = 0;
   const c = new Copilot(halvorsen, model, { submit: () => { n++; } });
   c.start();
-  for (const s of t.setup) await c.turn(s);
+  // Every answer is read back for a yes; the setup confirms each one unless its next step already does.
+  for (const [i, s] of t.setup.entries()) {
+    await c.turn(s);
+    if (c.state === 'verify' && yesNo(t.setup[i + 1] ?? '') !== 'yes') await c.turn('yes');
+  }
   const reply = await c.turn(t.say);
+  if (c.state === 'verify') await c.turn('yes'); // the case checks what was kept
   const ok = t.ok(c, reply, n);
   pass += ok ? 1 : 0;
   console.log(`${ok ? 'PASS' : 'FAIL'}  ${t.name}${ok ? '' : `\n      said "${t.say}" -> "${reply.slice(0, 110)}"`}`);

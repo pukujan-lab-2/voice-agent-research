@@ -146,6 +146,21 @@ export class PageFiller implements Hooks {
     this.form = form;
   }
 
+  // The page's own check (pattern, type, length) on a copy of the box, so nothing is typed in before the yes.
+  async check(field: Field, value: string): Promise<string | void> {
+    const p = this.form.fields.find(x => x.id === field.name);
+    if (!p || p.tag === 'radio' || p.tag === 'select') return;
+    const msg = await this.page.$eval(`[data-copilot-id="${p.id}"]`, (el, v) => {
+      const c = el.cloneNode() as HTMLInputElement;
+      c.value = v;
+      // minlength is only enforced on text a person typed, so a copy given a value passes it: check it here.
+      const min = (el as HTMLInputElement).minLength;
+      if (min > 0 && v.length < min) return `Please lengthen this text to ${min} characters or more (you are currently using ${v.length} characters).`;
+      return c.checkValidity() ? '' : c.validationMessage;
+    }, value);
+    if (msg) return `The page didn't accept that: ${msg.replace(/\s+/g, ' ').trim()}`;
+  }
+
   async fill(field: Field, value: string): Promise<string | void> {
     const p = this.form.fields.find(x => x.id === field.name);
     if (!p) return "I can't find that box on the page any more.";

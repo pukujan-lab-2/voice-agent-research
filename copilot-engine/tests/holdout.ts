@@ -1,3 +1,4 @@
+import { yesNo } from '../src/guard.ts';
 // Utterances written once and NOT tuned against. Run with: node tests/holdout.ts [--llama]
 // Failures here are findings to turn into rules or prompt examples (then add new unseen cases).
 import fs from 'node:fs';
@@ -33,8 +34,13 @@ for (const t of cases) {
   let n = 0;
   const c = new Copilot(halvorsen, model, { submit: () => { n++; } });
   c.start();
-  for (const s of t.setup) await c.turn(s);
+  // Every answer is read back for a yes; the setup confirms each one unless its next step already does.
+  for (const [i, s] of t.setup.entries()) {
+    await c.turn(s);
+    if (c.state === 'verify' && yesNo(t.setup[i + 1] ?? '') !== 'yes') await c.turn('yes');
+  }
   const reply = await c.turn(t.say);
+  if (c.state === 'verify') await c.turn('yes'); // the case checks what was kept
   const ok = t.ok(c, reply, n);
   pass += ok ? 1 : 0;
   console.log(`${ok ? 'PASS' : 'FAIL'}  ${t.name}${ok ? '' : `\n      said "${t.say}" -> "${reply.slice(0, 110)}"`}`);

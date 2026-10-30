@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactElement } from "react";
+import type React from "react";
 import {
   Phone,
   Keyboard,
@@ -6,7 +7,6 @@ import {
   MicOff,
   X,
   Send,
-  Minus,
   BookOpen,
   FormInput,
 } from "lucide-react";
@@ -77,6 +77,17 @@ function renderMessageText(msg: CopilotMessage) {
   return parts;
 }
 
+/** The caption shows the end of the copilot's last message: that is where its question is. */
+function captionOf(msg: CopilotMessage): CopilotMessage {
+  const sentences = msg.text.match(/[^.!?]+[.!?]+["')]*\s*|[^.!?]+$/g) ?? [msg.text];
+  let text = "";
+  for (let i = sentences.length - 1; i >= 0; i--) {
+    if (text && (sentences[i] + text).length > 140) break;
+    text = sentences[i] + text;
+  }
+  return { ...msg, text: text.trim() };
+}
+
 /* ---------- the component ---------- */
 
 export function CopilotWidget() {
@@ -84,10 +95,12 @@ export function CopilotWidget() {
   const [isMobile, setIsMobile] = useState(
     typeof window !== "undefined" ? window.innerWidth < 768 : false,
   );
-  const [minimised, setMinimised] = useState(false);
+  // A call starts as a small bar (the page stays in view); the handle or the caption opens the full transcript.
+  const [expanded, setExpanded] = useState(false);
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const drag = useRef<{ y: number; moved: boolean } | null>(null);
 
   useEffect(() => {
     const onResize = () => setIsMobile(window.innerWidth < 768);
@@ -95,30 +108,32 @@ export function CopilotWidget() {
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
-  // Auto-scroll to bottom when messages change.
+  // Every call opens compact.
+  useEffect(() => {
+    if (!snapshot.open) setExpanded(false);
+  }, [snapshot.open]);
+
+  // Auto-scroll to bottom when messages change or the transcript opens.
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [snapshot.messages]);
+  }, [snapshot.messages, expanded]);
 
-  // Tell the copilot how many px at the bottom the panel covers (mobile bottom sheet).
+  // Tell the copilot how many px at the bottom the panel covers, so the field being filled stays above it.
   useEffect(() => {
     if (!snapshot.open || !isMobile) {
       window.copilot?.setCovered(0);
       return;
     }
     const update = () => {
-      if (panelRef.current) {
-        const h = panelRef.current.offsetHeight;
-        window.copilot?.setCovered(minimised ? 56 : h);
-      }
+      if (panelRef.current) window.copilot?.setCovered(window.innerHeight - panelRef.current.getBoundingClientRect().top);
     };
     update();
     const ro = new ResizeObserver(update);
     if (panelRef.current) ro.observe(panelRef.current);
     return () => ro.disconnect();
-  }, [snapshot.open, isMobile, minimised, snapshot.messages]);
+  }, [snapshot.open, isMobile, expanded, snapshot.messages]);
 
   // Close on Escape.
   useEffect(() => {
@@ -185,32 +200,61 @@ export function CopilotWidget() {
   // ---------- during a call ----------
   const large = snapshot.large;
   const showTabs = snapshot.modes.length >= 2;
+  const lastBot = [...snapshot.messages].reverse().find((m) => m.who === "bot");
+
+  // The handle: a tap toggles, a drag up opens, a drag down closes.
+  const onHandleDown = (e: React.PointerEvent) => {
+    drag.current = { y: e.clientY, moved: false };
+    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+  };
+  const onHandleMove = (e: React.PointerEvent) => {
+    if (!drag.current) return;
+    const dy = e.clientY - drag.current.y;
+    if (Math.abs(dy) < 24) return;
+    drag.current.moved = true;
+    setExpanded(dy < 0);
+  };
+  const onHandleUp = () => {
+    if (drag.current && !drag.current.moved) setExpanded((v) => !v);
+    drag.current = null;
+  };
 
   const panel = (
     <div
+      key="call-panel" /* a new element, not the start bar's (whose transform would slide in) */
       ref={panelRef}
       className={cn(
         "copilot-panel",
         isMobile ? "copilot-panel-mobile" : "copilot-panel-desktop",
-        minimised && isMobile && "copilot-panel-minimised",
+        expanded ? "copilot-panel-expanded" : "copilot-panel-compact",
         large && "copilot-panel-large",
       )}
       data-testid="call-panel"
+      data-expanded={expanded ? "true" : "false"}
       data-busy={snapshot.busy ? "true" : "false"}
       data-typing={snapshot.textInput ? "true" : "false"}
       role="dialog"
       aria-label={`${snapshot.business} copilot call`}
     >
-      {/* drag handle look on mobile */}
-      {isMobile && (
-        <div className="copilot-drag-handle" aria-hidden="true">
-          <span />
-        </div>
-      )}
+      <button
+        type="button"
+        className="copilot-drag-handle"
+        data-testid="call-expand"
+        aria-label={expanded ? "Show less" : "Show the whole conversation"}
+        aria-expanded={expanded}
+        onPointerDown={onHandleDown}
+        onPointerMove={onHandleMove}
+        onPointerUp={onHandleUp}
+        onPointerCancel={() => { drag.current = null; }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setExpanded((v) => !v); }
+        }}
+      >
+        <span />
+      </button>
 
-      {/* header */}
-      <div className="copilot-header">
-        <div className="copilot-header-top">
+      {expanded && (
+        <div className="copilot-header">
           <div className="copilot-header-info">
             <div className={cn("copilot-business", large && "text-lg")}>
               {snapshot.business}
@@ -219,204 +263,201 @@ export function CopilotWidget() {
               Fills only what you confirm. Never presses Submit.
             </div>
           </div>
-          <div className="copilot-header-controls">
-            {isMobile && (
+          {snapshot.can.length > 0 && (
+            <div className="copilot-chips">
+              {snapshot.can.map((c, i) => (
+                <span key={i} className="copilot-chip">
+                  {c}
+                </span>
+              ))}
+            </div>
+          )}
+          {showTabs && (
+            <div className="copilot-tabs" role="tablist">
               <button
                 type="button"
-                className="copilot-icon-btn"
-                aria-label={minimised ? "Expand" : "Minimise"}
-                onClick={() => setMinimised((v) => !v)}
+                role="tab"
+                aria-selected={snapshot.mode === "form"}
+                className={cn("copilot-tab", snapshot.mode === "form" && "copilot-tab-active")}
+                data-testid="call-mode-form"
+                onClick={() => setMode("form")}
               >
-                {minimised ? <Phone size={18} /> : <Minus size={18} />}
+                <FormInput size={14} /> Fill the form with me
               </button>
-            )}
-            <button
-              type="button"
-              className="copilot-icon-btn"
-              aria-label="End call"
-              data-testid="call-end"
-              onClick={end}
-            >
-              <X size={18} />
-            </button>
-          </div>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={snapshot.mode === "guide"}
+                className={cn("copilot-tab", snapshot.mode === "guide" && "copilot-tab-active")}
+                data-testid="call-mode-guide"
+                onClick={() => setMode("guide")}
+              >
+                <BookOpen size={14} /> Walk me through
+              </button>
+            </div>
+          )}
         </div>
-        {/* live status */}
+      )}
+
+      {/* status and the call controls, always one row */}
+      <div className="copilot-bar-row">
         <div className="copilot-status" data-testid="call-status">
           <StatusIcon status={snapshot.status} />
           <span className={cn(large && "text-base")}>
             {statusLabel(snapshot.status)}
           </span>
         </div>
-        {/* chips */}
-        {snapshot.can.length > 0 && (
-          <div className="copilot-chips">
-            {snapshot.can.map((c, i) => (
-              <span key={i} className="copilot-chip">
-                {c}
-              </span>
-            ))}
+        <div className="copilot-controls-row">
+          <button
+            type="button"
+            className={cn(
+              "copilot-mic-btn",
+              snapshot.mic === "on" && "copilot-mic-on",
+              snapshot.mic === "unavailable" && "copilot-mic-disabled",
+            )}
+            disabled={snapshot.mic === "unavailable"}
+            aria-label={
+              snapshot.mic === "on"
+                ? "Mute"
+                : snapshot.mic === "unavailable"
+                  ? "No mic"
+                  : "Tap to talk"
+            }
+            data-testid="call-mic"
+            onClick={toggleMic}
+          >
+            {snapshot.mic === "on" ? <Mic size={18} /> : <MicOff size={18} />}
+            <span>
+              {snapshot.mic === "on"
+                ? "Mute"
+                : snapshot.mic === "unavailable"
+                  ? "No mic"
+                  : "Talk"}
+            </span>
+          </button>
+          <button
+            type="button"
+            className="copilot-control-btn"
+            aria-label="Switch to typing"
+            data-testid="call-keyboard"
+            onClick={() => {
+              window.copilot?.start({ voice: false });
+            }}
+          >
+            <Keyboard size={18} />
+            <span>Keyboard</span>
+          </button>
+          <button
+            type="button"
+            className="copilot-end-btn"
+            aria-label="End call"
+            data-testid="call-end"
+            onClick={end}
+          >
+            <X size={18} />
+            <span>End</span>
+          </button>
+        </div>
+      </div>
+
+      {/* compact: the copilot's last line as a caption; a tap opens the transcript */}
+      {!expanded && (
+        <div
+          className="copilot-caption"
+          data-testid="call-caption"
+          role="button"
+          tabIndex={0}
+          aria-label="Show the whole conversation"
+          aria-live="polite"
+          onClick={(e) => {
+            if ((e.target as HTMLElement).closest("a")) return;
+            setExpanded(true);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") setExpanded(true);
+          }}
+        >
+          <div className="copilot-caption-text">
+            {snapshot.heard ? (
+              <span className="copilot-caption-heard">{snapshot.heard}</span>
+            ) : lastBot ? (
+              renderMessageText(captionOf(lastBot))
+            ) : (
+              "Connecting…"
+            )}
           </div>
+        </div>
+      )}
+
+      {/* the whole conversation (kept in the page while compact, so it is never lost) */}
+      <div
+        ref={scrollRef}
+        className="copilot-messages"
+        hidden={!expanded}
+        aria-live={expanded ? "polite" : "off"}
+        aria-label="Conversation"
+      >
+        {snapshot.messages.length === 0 && (
+          <div className="copilot-empty">Connecting…</div>
         )}
-        {/* tabs */}
-        {showTabs && (
-          <div className="copilot-tabs" role="tablist">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={snapshot.mode === "form"}
-              className={cn("copilot-tab", snapshot.mode === "form" && "copilot-tab-active")}
-              data-testid="call-mode-form"
-              onClick={() => setMode("form")}
-            >
-              <FormInput size={14} /> Fill the form with me
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={snapshot.mode === "guide"}
-              className={cn("copilot-tab", snapshot.mode === "guide" && "copilot-tab-active")}
-              data-testid="call-mode-guide"
-              onClick={() => setMode("guide")}
-            >
-              <BookOpen size={14} /> Walk me through
-            </button>
+        {snapshot.messages.map((msg) => (
+          <div
+            key={msg.id}
+            className={cn(
+              "copilot-message",
+              msg.who === "bot" ? "copilot-message-bot" : "copilot-message-user",
+            )}
+            data-testid="call-message"
+            data-who={msg.who}
+          >
+            {renderMessageText(msg)}
           </div>
+        ))}
+        {snapshot.heard && (
+          <div className="copilot-heard">{snapshot.heard}</div>
         )}
       </div>
 
-      {minimised && isMobile ? null : (
-        <>
-          {/* messages */}
-          <div
-            ref={scrollRef}
-            className="copilot-messages"
-            aria-live="polite"
-            aria-label="Conversation"
+      {/* text input */}
+      {snapshot.textInput && (
+        <form
+          className="copilot-input-row"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (input.trim()) {
+              send(input.trim());
+              setInput("");
+            }
+          }}
+        >
+          <input
+            type="text"
+            className="copilot-text-input"
+            placeholder="Type your answer…"
+            value={input}
+            data-testid="call-input"
+            onChange={(e) => setInput(e.target.value)}
+            autoComplete="off"
+            enterKeyHint="send"
+          />
+          <button
+            type="submit"
+            className="copilot-send-btn"
+            data-testid="call-send"
+            aria-label="Send message"
           >
-            {snapshot.messages.length === 0 && (
-              <div className="copilot-empty">Connecting…</div>
-            )}
-            {snapshot.messages.map((msg) => (
-              <div
-                key={msg.id}
-                className={cn(
-                  "copilot-message",
-                  msg.who === "bot" ? "copilot-message-bot" : "copilot-message-user",
-                )}
-                data-testid="call-message"
-                data-who={msg.who}
-              >
-                {renderMessageText(msg)}
-              </div>
-            ))}
-            {/* live transcript */}
-            {snapshot.heard && (
-              <div className="copilot-heard">{snapshot.heard}</div>
-            )}
-          </div>
+            <Send size={18} />
+          </button>
+        </form>
+      )}
 
-          {/* controls */}
-          <div className="copilot-controls">
-            <div className="copilot-controls-row">
-              <button
-                type="button"
-                className={cn(
-                  "copilot-mic-btn",
-                  snapshot.mic === "on" && "copilot-mic-on",
-                  snapshot.mic === "unavailable" && "copilot-mic-disabled",
-                )}
-                disabled={snapshot.mic === "unavailable"}
-                aria-label={
-                  snapshot.mic === "on"
-                    ? "Mute"
-                    : snapshot.mic === "unavailable"
-                      ? "No mic"
-                      : "Tap to talk"
-                }
-                data-testid="call-mic"
-                onClick={toggleMic}
-              >
-                {snapshot.mic === "on" ? <Mic size={22} /> : <MicOff size={22} />}
-                <span>
-                  {snapshot.mic === "on"
-                    ? "Mute"
-                    : snapshot.mic === "unavailable"
-                      ? "No mic"
-                      : "Tap to talk"}
-                </span>
-              </button>
-              <button
-                type="button"
-                className="copilot-control-btn"
-                aria-label="Switch to typing"
-                data-testid="call-keyboard"
-                onClick={() => {
-                  window.copilot?.start({ voice: false });
-                }}
-              >
-                <Keyboard size={20} />
-                <span>Keyboard</span>
-              </button>
-              <button
-                type="button"
-                className="copilot-end-btn"
-                aria-label="End call"
-                onClick={end}
-              >
-                <X size={20} />
-                <span>End</span>
-              </button>
-            </div>
-
-            {/* text input */}
-            {snapshot.textInput && (
-              <form
-                className="copilot-input-row"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  if (input.trim()) {
-                    send(input.trim());
-                    setInput("");
-                  }
-                }}
-              >
-                <input
-                  type="text"
-                  className="copilot-text-input"
-                  placeholder="Type your message…"
-                  value={input}
-                  data-testid="call-input"
-                  onChange={(e) => setInput(e.target.value)}
-                  autoComplete="off"
-                />
-                <button
-                  type="submit"
-                  className="copilot-send-btn"
-                  data-testid="call-send"
-                  aria-label="Send message"
-                >
-                  <Send size={18} />
-                </button>
-              </form>
-            )}
-          </div>
-
-          <div className="copilot-footnote">
-            Fictional demo. Voice uses your browser's own speech service.
-          </div>
-        </>
+      {expanded && (
+        <div className="copilot-footnote">
+          Fictional demo. Voice uses your browser's own speech service.
+        </div>
       )}
     </div>
   );
 
-  return (
-    <>
-      {/* backdrop only on mobile when not minimised */}
-      {isMobile && !minimised && (
-        <div className="copilot-backdrop" onClick={() => setMinimised(true)} />
-      )}
-      {panel}
-    </>
-  );
+  return panel;
 }

@@ -1,3 +1,4 @@
+import { yesNo } from '../src/guard.ts';
 // Third fresh holdout, written 2026-10-30 after the holdout2 fixes, before any run. Run: node tests/holdout3.ts [--llama] [--jev]
 // Same rule as holdout.ts: a failure is a finding; fix it, then write new unseen cases rather than reusing these.
 import fs from 'node:fs';
@@ -33,8 +34,8 @@ const cases: Case[] = [
   { name: 'unclear: same as before', setup: TO_PROBLEM, say: 'same thing as last time', ok: () => true }, // either is acceptable; recorded for review
   // corrections and other fields
   { name: 'correction: serial again during problem', setup: TO_PROBLEM, say: 'wait, the serial I gave you was wrong', ok: c => c.values.problem === undefined },
-  { name: 'name: lowercase with surname', setup: [], say: 'dmitri volkov', ok: (_c, r) => /I heard dmitri volkov\./i.test(r) },
-  { name: 'name: "call me"', setup: [], say: 'you can call me Dee', ok: (_c, r) => r.includes('I heard Dee.') },
+  { name: 'name: lowercase with surname', setup: [], say: 'dmitri volkov', ok: (c, r) => /I heard dmitri volkov\./i.test(r) && /^dmitri volkov$/i.test(c.values.name ?? '') },
+  { name: 'name: "call me"', setup: [], say: 'you can call me Dee', ok: (c, r) => r.includes('I heard Dee.') && c.values.name === 'Dee' },
   { name: 'name: refuses', setup: [], say: "I'd rather not say", ok: c => c.values.name === undefined },
   { name: 'serial: with "oh" for zero', setup: ['Dmitri', 'yes'], say: 'seven seven H two oh one N P five five A eight', ok: (_c, r) => r.includes('77H2-01NP-55A8') || /didn't catch/i.test(r) },
   { name: 'time: around ten', setup: TO_TIME, say: 'around ten am', ok: c => c.values.visit_time === 'morning' },
@@ -53,8 +54,13 @@ for (const t of cases) {
   let n = 0;
   const c = new Copilot(halvorsen, model, { submit: () => { n++; } });
   c.start();
-  for (const s of t.setup) await c.turn(s);
+  // Every answer is read back for a yes; the setup confirms each one unless its next step already does.
+  for (const [i, s] of t.setup.entries()) {
+    await c.turn(s);
+    if (c.state === 'verify' && yesNo(t.setup[i + 1] ?? '') !== 'yes') await c.turn('yes');
+  }
   const reply = await c.turn(t.say);
+  if (c.state === 'verify') await c.turn('yes'); // the case checks what was kept
   const ok = t.ok(c, reply, n);
   pass += ok ? 1 : 0;
   console.log(`${ok ? 'PASS' : 'FAIL'}  ${t.name}${ok ? '' : `\n      said "${t.say}" -> "${reply.slice(0, 110)}"`}`);

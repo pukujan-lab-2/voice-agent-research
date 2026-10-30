@@ -38,4 +38,6 @@ export interface Hooks {
   // Called as each answer is accepted (a page adapter types it into the form). Return a message to reject the value
   // (for example the page's own validation message); the field is then asked again.
   fill?(field: Field, value: string): Promise<string | void> | string | void;
+  // Called before an answer is read back: return the page's own refusal (its pattern, say) without typing anything in.
+  check?(field: Field, value: string): Promise<string | void> | string | void;
 }
