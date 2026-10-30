@@ -67,12 +67,16 @@ export class Guide {
   }
 
   private async answer(q: string): Promise<string> {
+    return `${await this.lookup(q)} When you're ready, we're still on step ${this.manual.steps[this.idx].n}.`;
+  }
+
+  // Answers one question from the manual, or says it doesn't know. Also used outside a walk-through (a form's side question).
+  async lookup(q: string): Promise<string> {
     const hits = await this.retriever.search(q, 4);
     const id = hits.length ? await this.judge.pick(q, hits) : '';
     const p = hits.find(h => h.id === id);
-    const back = `When you're ready, we're still on step ${this.manual.steps[this.idx].n}.`;
-    if (!p) return `I don't know. The manual doesn't cover that, and I only answer from the manual. ${back}`;
-    return `The manual says${p.page ? ` (page ${p.page})` : ''}: "${await this.quote(p.text, q)}" ${back}`;
+    if (!p) return "I don't know. The manual doesn't cover that, and I only answer from the manual.";
+    return `The manual says${p.page ? ` (page ${p.page})` : ''}: "${await this.quote(p.text, q)}"`;
   }
 
   private async quote(text: string, q: string): Promise<string> {

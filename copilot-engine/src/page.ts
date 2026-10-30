@@ -11,13 +11,14 @@ export type PageField = {
   name: string;
   required: boolean;
   autocomplete: string;
-  options?: { label: string; value: string }[];
+  ask?: string; // the site's own wording of the question (data-copilot-ask), used instead of one built from the label
+  options?: { label: string; value: string; also?: string[] }[]; // also: other ways people say it (data-copilot-also)
 };
 export type PageForm = { fields: PageField[]; yourself: string[]; submit: string };
 
-// Runs inside the page. Visible, enabled fields only; hidden, honeypot, disabled and read-only fields are ignored.
+// Runs inside the page (exported so an in-page widget can call it directly). Visible, enabled fields only; hidden, honeypot, disabled and read-only fields are ignored.
 // Things a person must do themselves (consent, passwords, payment, uploads, captchas) are listed, never touched.
-function readInPage(): PageForm {
+export function readInPage(): PageForm {
   const clean = (s: string | null | undefined) => (s ?? '').replace(/\s+/g, ' ').replace(/\s*[*:]\s*$/, '').trim();
   const visible = (el: Element) => {
     const r = el.getBoundingClientRect();
@@ -41,6 +42,9 @@ function readInPage(): PageForm {
   };
   const SENSITIVE = /\b(card|cvv|cvc|security code|expir|iban|routing|account number|sort code|ssn|social security|passport|pin)\b/i;
   const CONSENT = /\b(agree|terms|consent|privacy|accept|subscribe|newsletter|marketing)\b/i;
+  const also = (el: Element | null | undefined) => (el?.getAttribute('data-copilot-also') ?? '').split(',').map(x => x.trim()).filter(Boolean);
+  // Ids from an earlier read (an earlier step of a multi-step form) must not point at fields that are now hidden.
+  document.querySelectorAll<HTMLElement>('[data-copilot-id],[data-copilot-submit]').forEach(e => { delete e.dataset.copilotId; delete e.dataset.copilotOption; delete e.dataset.copilotSubmit; });
   const fields: PageField[] = [];
   const yourself: string[] = [];
   const seenRadio = new Set<string>();
@@ -71,20 +75,22 @@ function readInPage(): PageForm {
       seenRadio.add(group);
       const radios = Array.from(document.querySelectorAll<HTMLInputElement>(`input[type=radio][name="${CSS.escape(group)}"]`)).filter(r => !r.disabled && visible(r));
       const id = `c${n++}`;
-      const options = radios.map(r => ({ label: labelOf(r), value: r.value }));
+      const options = radios.map(r => ({ label: labelOf(r), value: r.value, also: also(r) }));
       radios.forEach((r, i) => { r.dataset.copilotId = id; r.dataset.copilotOption = options[i].label; });
       const legend = el.closest('fieldset')?.querySelector('legend');
-      fields.push({ id, tag: 'radio', type, label: clean(legend?.textContent) || group, name: group, required: radios.some(r => r.required), autocomplete: auto, options });
+      const fs = el.closest('fieldset');
+      fields.push({ id, tag: 'radio', type, label: clean(legend?.textContent) || group, name: group, required: radios.some(r => r.required), autocomplete: auto, options, ask: fs?.getAttribute('data-copilot-ask') ?? undefined });
       continue;
     }
     const id = `c${n++}`;
     el.dataset.copilotId = id;
-    const f: PageField = { id, tag: el.tagName.toLowerCase() as PageField['tag'], type, label, name: nameAttr, required: el.required, autocomplete: auto };
-    if (el instanceof HTMLSelectElement) f.options = Array.from(el.options).filter(o => o.value !== '' && !o.disabled).map(o => ({ label: clean(o.textContent), value: o.value }));
+    const f: PageField = { id, tag: el.tagName.toLowerCase() as PageField['tag'], type, label, name: nameAttr, required: el.required, autocomplete: auto, ask: el.getAttribute('data-copilot-ask') ?? undefined };
+    if (el instanceof HTMLSelectElement) f.options = Array.from(el.options).filter(o => o.value !== '' && !o.disabled).map(o => ({ label: clean(o.textContent), value: o.value, also: also(o) }));
     fields.push(f);
   }
   const form = fields.length ? document.querySelector(`[data-copilot-id="${fields[0].id}"]`)?.closest('form') : null;
-  const btn = (form ?? document).querySelector<HTMLElement>('button[type=submit],input[type=submit],button:not([type])');
+  // The visible button: in a multi-step form that is this step's Next, not the final Submit of a hidden step.
+  const btn = Array.from((form ?? document).querySelectorAll<HTMLElement>('button[type=submit],input[type=submit],button:not([type])')).find(visible);
   if (btn) btn.dataset.copilotSubmit = '1';
   return { fields, yourself, submit: btn ? clean(btn.textContent || (btn as HTMLInputElement).value) || 'Submit' : 'Submit' };
 }
@@ -99,18 +105,21 @@ const or = (xs: string[]) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).j
 export function flowFromPage(form: PageForm, opts: { business: string; id?: string }): Flow {
   const fields: Field[] = form.fields.map(p => {
     const label = p.label || p.name;
-    const low = label.toLowerCase();
-    const ask = /\?$/.test(label) ? label : '';
+    const low = label.toLowerCase().replace(/^your\s+/, ''); // "Your name" -> "What's your name?", not "your your name"
+    const ask = p.ask || (/\?$/.test(label) ? label : '');
     if (p.options) {
       const names = p.options.map(o => o.label);
-      return { name: p.id, label: low, kind: 'choice', options: names, question: `${ask ? ask.replace(/\?$/, "") : `Which ${low}`}: ${or(names)}?` };
+      const synonyms = Object.fromEntries(p.options.filter(o => o.also?.length).map(o => [o.label, o.also!]));
+      return { name: p.id, label: low, kind: 'choice', options: names, synonyms, question: `${ask ? ask.replace(/\?$/, "") : `Which ${low}`}: ${or(names)}?` };
     }
+    if (/\bserial\b/.test(low))
+      return { name: p.id, label: low, kind: 'serial', question: ask || `What's the ${low}? You can read it out letter by letter.` };
     if (p.type === 'email' || p.autocomplete === 'email' || /\be-?mail\b/.test(low))
-      return { name: p.id, label: low, kind: 'email', question: "What's your email address? You can say it like name at example dot com." };
+      return { name: p.id, label: low, kind: 'email', question: ask || "What's your email address? You can say it like name at example dot com." };
     if (p.type === 'tel' || p.autocomplete.startsWith('tel') || /\b(phone|mobile|telephone)\b/.test(low))
-      return { name: p.id, label: low, kind: 'phone', question: "What's your phone number?" };
+      return { name: p.id, label: low, kind: 'phone', question: ask || "What's your phone number?" };
     if (['name', 'given-name', 'family-name'].includes(p.autocomplete) || (/\bname$/.test(low) && !/\b(company|business|user|organi[sz]ation|product|pet|file|street|account|domain)\b/.test(low)))
-      return { name: p.id, label: low, kind: 'name', question: `What's your ${low}?` };
+      return { name: p.id, label: low, kind: 'name', question: ask || `What's your ${low}?` };
     return { name: p.id, label: low, kind: 'text', question: ask || `What should I put for ${low}?` };
   });
   const todo = form.yourself.length ? ` Before you do, please ${or(form.yourself)} yourself.` : '';

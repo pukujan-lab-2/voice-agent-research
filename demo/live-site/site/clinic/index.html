@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Tumbleberry Clinic Booking</title>
+<link rel="stylesheet" href="/assets/site.css">
+<style>:root { --accent: #0f8a7e; }</style>
+<script src="/assets/demo.js" defer></script>
+<script type="module" src="/copilot/widget.js"></script>
+</head>
+<body data-gate data-scene="clinic">
+<header class="topbar"><a class="brand" href="/clinic/">Tumbleberry Children's Clinic <small>fictional</small></a><span class="who"></span></header>
+<main class="wrap">
+  <h1>Book a visit</h1>
+  <p class="muted">Three short steps. Please use made-up details: this clinic does not exist.</p>
+  <div class="persona" data-persona-box hidden></div>
+  <div class="steps"><span class="on">1 · Your child</span><span>2 · Time</span><span>3 · Contact</span></div>
+  <form class="card" id="book" data-demo-form data-wizard autocomplete="off">
+    <fieldset class="step" data-step>
+      <label for="child">Child's full name</label>
+      <input id="child" name="child" required data-copilot-ask="What's your child's full name?">
+      <label for="visit">Type of visit</label>
+      <select id="visit" name="visit" required data-copilot-ask="What kind of visit is it">
+        <option value="">Choose one</option>
+        <option value="wellchild" data-copilot-also="checkup, check-up, check up, well child">Well-child checkup</option>
+        <option value="sick" data-copilot-also="sick, ill, fever, cough">Sick visit</option>
+        <option value="vacc" data-copilot-also="vaccine, shot, shots, jab">Vaccination</option>
+      </select>
+      <button type="submit">Next</button>
+    </fieldset>
+    <fieldset class="step" data-step hidden disabled>
+      <fieldset data-copilot-ask="Mornings or afternoons?">
+        <legend>Time of day</legend>
+        <input type="radio" id="tod_am" name="tod" value="am" required><label for="tod_am">Morning</label>
+        <input type="radio" id="tod_pm" name="tod" value="pm"><label for="tod_pm">Afternoon</label>
+      </fieldset>
+      <label for="slot">Open slot</label>
+      <select id="slot" name="slot" required data-copilot-ask="Which day suits you">
+        <option value="">Choose a slot</option>
+        <option value="tue0940" data-copilot-also="Tuesday, Tue">Tuesday 9:40 AM, Dr. Okafor</option>
+        <option value="wed1020" data-copilot-also="Wednesday, Wed">Wednesday 10:20 AM, Dr. Lind</option>
+        <option value="thu1415" data-copilot-also="Thursday, Thu">Thursday 2:15 PM, Dr. Okafor</option>
+        <option value="fri1530" data-copilot-also="Friday, Fri">Friday 3:30 PM, Dr. Lind</option>
+      </select>
+      <button type="submit">Next</button>
+    </fieldset>
+    <fieldset class="step" data-step hidden disabled>
+      <label for="parent">Parent or guardian name</label>
+      <input id="parent" name="parent" autocomplete="off" required data-copilot-ask="And what's your name, as the parent or guardian?">
+      <label for="phone">Mobile phone</label>
+      <input id="phone" name="phone" type="tel" required placeholder="made up, for the demo">
+      <label for="email">Email</label>
+      <input id="email" name="email" type="email" required placeholder="made up, for the demo">
+      <div class="check"><input type="checkbox" id="remind" name="remind"><label for="remind">Text me a reminder the day before</label></div>
+      <button type="submit">Book visit</button>
+    </fieldset>
+  </form>
+</main>
+<script type="application/json" id="copilot-config">
+{ "business": "Tumbleberry Children's Clinic", "form": "booking",
+  "can": ["Fill in this booking form with you", "Read back phone and email", "You press Next and Book yourself"] }
+</script>
+</body>
+</html>

@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Larchmoss Studio Pricing</title>
+<link rel="stylesheet" href="/assets/site.css">
+<style>:root { --accent: #6d28d9; }</style>
+<script src="/assets/demo.js" defer></script>
+<script type="module" src="/copilot/widget.js"></script>
+</head>
+<body data-gate data-scene="pricing">
+<header class="topbar"><a class="brand" href="/pricing/">Larchmoss Studio <small>fictional web agency</small></a><span class="who"></span></header>
+<main class="wrap">
+  <h1>Websites for small businesses</h1>
+  <p class="muted">Three plans. Prices are made up for this demo.</p>
+  <div class="grid">
+    <div class="card tier"><h3>Starter</h3><div class="price">$900</div><ul><li>5 pages</li><li>Contact form</li></ul></div>
+    <div class="card tier"><h3>Growth</h3><div class="price">$2,800</div><ul><li>Up to 15 pages</li><li>Online booking and payments</li></ul></div>
+    <div class="card tier"><h3>Scale</h3><div class="price">$6,500</div><ul><li>Unlimited pages</li><li>Headless CMS, edge CDN</li></ul></div>
+  </div>
+  <div class="persona" data-persona-box hidden></div>
+  <h2>Request a quote</h2>
+  <form class="card" id="quote" data-demo-form autocomplete="off">
+    <label for="biz">Business name</label>
+    <input id="biz" name="biz" required data-copilot-ask="What's your business called?">
+    <label for="contact">Your name</label>
+    <input id="contact" name="contact" required>
+    <label for="email">Email</label>
+    <input id="email" name="email" type="email" required placeholder="made up, for the demo">
+    <fieldset data-copilot-ask="Which plan would you like">
+      <legend>Plan</legend>
+      <input type="radio" id="p1" name="plan" value="starter" required><label for="p1">Starter</label>
+      <input type="radio" id="p2" name="plan" value="growth" data-copilot-also="booking, payments"><label for="p2">Growth</label>
+      <input type="radio" id="p3" name="plan" value="scale"><label for="p3">Scale</label>
+    </fieldset>
+    <label for="budget">Budget</label>
+    <select id="budget" name="budget" required data-copilot-ask="Roughly what budget do you have">
+      <option value="">Choose one</option>
+      <option value="lt1k" data-copilot-also="under a thousand, less than a thousand">Under $1,000</option>
+      <option value="1to3k" data-copilot-also="three thousand, 3000, 3,000, two thousand, 2000, 2,000">$1,000 to $3,000</option>
+      <option value="3to7k" data-copilot-also="five thousand, 5000, 5,000">$3,000 to $7,000</option>
+      <option value="gt7k" data-copilot-also="ten thousand, more than seven thousand">Over $7,000</option>
+    </select>
+    <label for="needs">What do you need?</label>
+    <textarea id="needs" name="needs" minlength="10" required></textarea>
+    <button type="submit">Request a quote</button>
+  </form>
+</main>
+<script type="application/json" id="copilot-config">
+{ "business": "Larchmoss Studio", "form": "quote request",
+  "can": ["Fill the quote request with you", "Read back your email", "You press Request a quote yourself"] }
+</script>
+</body>
+</html>
