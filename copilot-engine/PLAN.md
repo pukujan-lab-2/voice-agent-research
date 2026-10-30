@@ -61,9 +61,41 @@ can be compared over time.
 
 ## Decisions to make
 
-- LLM for understanding answers: Claude (default; the user has the keys in `.env`).
+- **No Claude in the product** (too expensive; Claude is for coding work only). Open-weight models only,
+  behind one swappable interface, via a hosted provider first (Qwen, Llama, Mistral, DeepSeek families;
+  check current versions and prices). Self-hosting only for the premium tier.
+- **Cascade, not omni, by default:** speech-to-text (Whisper) -> small text model -> text-to-speech.
+  Reason: a text transcript per turn is needed to validate, log and test. LFM3-Omni-2B (released
+  2026-10-27, LFM Open License, tool calling unconfirmed) is tested in the comparison step; read its
+  license first.
+- **The system is the strength, the model is replaceable:** identifiers validated by regex in code,
+  spell-back from a lookup table, structured output (JSON schema or grammar) so the model can only pick
+  an allowed action, all state and the submit gate in the engine, cheap rules for easy turns, a bigger
+  open model only for messy ones. Each failure becomes a new scenario.
 - Language: Node/TypeScript, to share Playwright with the video-studio tools.
 - Where it lives: `chatbots/copilot-engine/` in this repo.
+
+## Model comparison step (before choosing)
+
+Run the same scenarios on each candidate (cascade with 2-3 open text models; LFM3-Omni-2B as text brain
+and as speech-to-speech). Log pass rate, latency per turn and cost per conversation in the ledger. Keep
+the cheapest that passes the read-back and never-submit-without-yes scenarios.
+
+**Decision (user, 2026-10-30): the product model is `typesafe/jev-router` on OpenRouter (paid), used for everything.** Other candidates are no longer compared. The checks below still run once a key exists.
+
+**Jev Router notes:** A router that picks the model per request.
+Unverified: which models it routes between, whether the response names the model that answered,
+whether it can be limited to an allowlist, real price (compare page says "Free", likely launch pricing),
+tool-calling quality. Use only if all three hold: it reports the model used per turn (so the ledger stays
+meaningful), it supports an allowlist, and it passes the scenarios. First test: ~20 scripted turns
+(serial read-back, off-scope request), check the raw response for a model field, compare cost against a
+pinned open model. Needs an OpenRouter key in `~/Documents/projects/.env` (never printed or committed).
+
+## Business model
+
+Agent as a service: widget on the owner's site, we host the engine, flat monthly fee per site with a cap
+on conversations/voice minutes. Multi-tenant from day one (per-site config, actions and logs). Premium:
+self-hosted for regulated clients.
 
 ## Done when
 
