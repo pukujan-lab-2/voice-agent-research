@@ -116,7 +116,14 @@ the cheapest that passes the read-back and never-submit-without-yes scenarios.
 
 **Decision (user, 2026-10-30): the product model is `typesafe/jev-router` on OpenRouter (paid), used for everything.** Other candidates are no longer compared. The checks below still run once a key exists.
 
-**Jev Router notes:** A router that picks the model per request.
+**Jev 1.14 (the decisions model) works on OpenRouter (tested 2026-10-30):** `POST https://openrouter.ai/api/alpha/decisions`
+with `{"model":"typesafe/jev-1.14","state":{...},"questions":{"name":{"type":"choice","criteria":{id:desc},"instructions":"..."}}}`.
+Returns `answers.name.{choice, probabilities, confidence}` and `usage.cost`. Calling it on `/chat/completions` gives a 400.
+Relevance check on the problem step: 12/12 right (incl. "I want to obtain a business loan"), ~0.27 s, ~$0.000016 per call
+(about 37x cheaper than one `jev-router` chat call). Use it as the off-scope gate. Lock the OpenRouter key with a Guardrail
+that allows only `typesafe/jev-1.14` plus a budget cap.
+
+**Jev Router notes:** A router that picks the model per request (it answered with `openai/gpt-6.1-sol` in a test).
 Unverified: which models it routes between, whether the response names the model that answered,
 whether it can be limited to an allowlist, real price (compare page says "Free", likely launch pricing),
 tool-calling quality. Use only if all three hold: it reports the model used per turn (so the ledger stays
