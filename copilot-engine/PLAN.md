@@ -50,7 +50,9 @@ public posting, secrets, deleting data. Everything else gets built and reported.
       `tools/paddle_read.py` -> Markdown, `tools/paddle_passages.py` -> 89 passages (tables one row per line, header
       repeated, <=650 chars); every number checked against the PDF text layer: 0 flagged. Result 17/18 (tables 11/12),
       ~$0.001. The miss quoted the filing table instead of the $5 footnote for married filing separately.
-      Verdict: use a vision reader for new manuals. Serve it with vLLM (WSL or a GPU box), not the native pipeline.
+      Verdict: use a vision reader for new manuals, run the light way: same model as 8-bit GGUF in llama.cpp (~1-2 GB),
+      GPU host first, CPU fallback. Recheck 17/18 once on that build (fall back to the BF16 file if it drops).
+      Owner: Octo ingest (proposed on Octo #365 with these results); the copilot keeps the number check as a final guard.
       Note: the test needs OPENROUTER_JEV_KEY mapped from `openrouter_jev_only` in the .env, else every answer is "I don't know".
 
 ## Next, in this order (each ends with tests added to the ledger)
