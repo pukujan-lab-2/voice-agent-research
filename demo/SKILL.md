@@ -8,6 +8,18 @@ description: Build and re-record the "website voice copilot" before/after concep
 Folder: `chatbots/demo/` (repo `Pukujan/voice-agent-research`, public). Read `README.md` for the file
 map. This file is the procedure and the lessons.
 
+## Who the video is for (get this right first)
+
+The **audience is the business owner**, not the end user. The buyer is a business that wants more
+people to actually use its existing website and keeps customer details in house. The customers in
+the five stories are proof of what the owner gets. Feedback on the first cut (a viewer thought it
+was an end-user product): lead with the owner's problem, show the one-line install on the
+existing site, show that customer data stays in the business's own systems, then show the five
+customers, and close by addressing businesses. The `biz` scenes in `script.py` (`kind="owner"`,
+`"install"`, `"inhouse"`) do this; persona labels name the business ("Brookside Pediatrics
+customer"). Big competitors (e.g. a Meta assistant) are generic and face adoption and privacy
+problems; this one is a per-site add-on, which is the angle for niche, expertise-heavy sites.
+
 ## The idea the video sells
 
 A voice call to a copilot that lives **on one website** and walks you through it step by step:

@@ -121,6 +121,35 @@ p{margin:0 0 12px;color:var(--muted);font-size:14px;line-height:1.5}
 .st .b{color:#fca5a5;font:700 22px ui-monospace,Menlo,monospace}.st .a{color:#c4b5fd;font:800 26px ui-monospace,Menlo,monospace}
 #outro .tag{font-size:21px;color:#ddd6fe}
 #outro .fine{font-size:12px;color:#71717a}
+
+/* business pitch scenes */
+#biz{flex-direction:column;align-items:center;justify-content:center;gap:26px;text-align:center;background:radial-gradient(circle at 50% 30%,#1e1b4b,#0b0c10 70%)}
+#biz h1{font-size:40px;margin:0;max-width:980px;letter-spacing:-.02em}
+#biz .kicker{font-size:15px;letter-spacing:.14em;text-transform:uppercase;color:#a5b4fc;font-weight:700}
+#biz .cards{display:grid;grid-template-columns:repeat(3,300px);gap:16px}
+#biz .card{background:#ffffff0d;border:1px solid #ffffff22;border-radius:16px;padding:20px 22px;text-align:left;animation:bizIn .6s ease both}
+#biz .card:nth-child(2){animation-delay:.5s}#biz .card:nth-child(3){animation-delay:1s}
+#biz .card b{display:block;font-size:19px;margin-bottom:8px}#biz .card span{color:#c7c9d1;font-size:15px;line-height:1.45}
+#biz pre{margin:0;background:#0f172a;border:1px solid #6366f155;border-radius:14px;padding:18px 24px;color:#c4b5fd;font:600 17px/1.55 ui-monospace,Menlo,monospace;text-align:left;box-shadow:0 14px 50px #6d4aff33;animation:bizIn .6s ease both}
+#biz .chips{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+#biz .chips i{font-style:normal;background:#6d4aff33;border:1px solid #8b5cf6;border-radius:999px;padding:8px 16px;font-size:16px;font-weight:650;animation:bizIn .6s ease both}
+#biz .chips i:nth-child(2){animation-delay:.5s}#biz .chips i:nth-child(3){animation-delay:1s}
+#biz .flow{display:flex;align-items:center;gap:14px}
+#biz .node{background:#ffffff10;border:1px solid #ffffff2a;border-radius:16px;padding:16px 20px;width:230px;animation:bizIn .6s ease both}
+#biz .node b{display:block;font-size:18px;margin-bottom:4px}#biz .node small{color:#a1a1aa;font-size:13px}
+#biz .node.mine{border-color:#8b5cf6;background:#6d4aff22}
+#biz .node.home{border-color:#34d399;background:#10b98115;animation-delay:1s}
+#biz .arrow{font-size:28px;color:#8b5cf6}
+#biz .note{color:#ddd6fe;font-size:19px;max-width:860px;line-height:1.45}
+@keyframes bizIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+html.vertical #biz{gap:22px}
+html.vertical #biz h1{font-size:32px;padding:0 34px}
+html.vertical #biz .cards{grid-template-columns:1fr;width:620px;gap:12px}
+html.vertical #biz pre{font-size:15px;padding:16px 18px;margin:0 30px}
+html.vertical #biz .flow{flex-direction:column;gap:6px}html.vertical #biz .arrow{transform:rotate(90deg);font-size:24px}
+html.vertical #biz .node{width:520px}
+html.vertical #biz .note{font-size:17px;padding:0 36px}
+html.vertical #biz .chips{padding:0 30px}
 /* site specific */
 .peds .logo{background:#0ea5e9}.peds .top{border-bottom:3px solid #0ea5e9}
 .appl .logo{background:#ea580c}.it .logo{background:#2563eb}.ag .logo{background:#111}.rt .logo{background:#15803d}
@@ -418,8 +447,9 @@ html.vertical #outro .fine{text-align:center;padding:0 40px}
   <div class="cm"><h3>Coding agents</h3><small>e.g. Claude Code, Codex</small><ul><li>Built for developers</li><li>Works in code and terminals</li><li>Not for a site's customers</li></ul></div>
   <div class="cm us"><h3>Website copilot</h3><small>installed by the website itself</small><ul><li>Knows only that one site</li><li>Can only use that site's actions</li><li>Asks you step by step, on a voice call</li><li>Checks with you before it acts</li></ul></div>
 </div></div>
-<div class="full" id="outro"><h1>Same tasks. A very different feeling.</h1><div id="stats"></div>
-  <div class="tag">Websites that talk back, guide you, and ask before they act.</div>
+<div class="full" id="biz"></div>
+<div class="full" id="outro"><h1>For businesses that want people to actually use their website.</h1><div id="stats"></div>
+  <div class="tag">Add it to your existing site. Your customers get a guide. Your data stays yours.</div>
   <div class="fine">Concept demo · scripted scenario · fictional people and businesses · “without” timings sped up and illustrative</div></div>
 <div id="subs"><div class="box" id="subBox"></div></div>
 
@@ -445,10 +475,11 @@ function glow(e){ e.classList.add('glow'); setTimeout(()=>e.classList.remove('gl
 
 const A = {
   scene(e){
-    for(const id of ['title','clip','outro','compare']) $('#'+id).classList.remove('on');
+    for(const id of ['title','clip','outro','compare','biz']) $('#'+id).classList.remove('on');
     $('#subBox').style.display='none';
     document.documentElement.classList.remove('inapp');
     if(e.name==='title'){ $('#tH').textContent=e.title; $('#tP').textContent=e.sub||''; $('#title').classList.add('on'); hud(false); return; }
+    if(e.name==='biz'){ renderBiz(e.kind); $('#biz').classList.add('on'); hud(false); return; }
     if(e.name==='compare'){ $('#compare').classList.remove('hi'); $('#compare').classList.add('on'); hud(false); return; }
     if(e.name==='outro'){ renderStats(); $('#outro').classList.add('on'); hud(false); return; }
     // app
@@ -540,6 +571,24 @@ function bubble(cls, text){ const d=document.createElement('div'); d.className='
 async function streamText(d, text, sub, sec){ const words=text.split(' '); const step=sec*1000/words.length; for(let i=1;i<=words.length;i++){ d.textContent=words.slice(0,i).join(' '); await sleep(step); } if(sub){ const s=document.createElement('span'); s.className='tr'; s.textContent=sub; d.appendChild(s); } }
 function hud(on){ $('#label').style.display=on?'inline-block':'none'; $('#who').style.display=on?'inline-block':'none'; if(!on) $('#clock').style.display='none'; }
 function buildPdf(seed=1){ const box=$('#ap-lines'); if(!box) return; let h=''; for(let i=0;i<38;i++){ const w=40+((i*37+seed*13)%55); h+=`<div class="ln" style="width:${w}%"></div>`; } box.innerHTML=h; }
+function renderBiz(kind){
+  const T={
+    owner:`<div class="kicker">If you run a business</div><h1>Your website. Your customers. Your problem.</h1><div class="cards">
+      <div class="card"><b>Customers get stuck</b><span>Long forms, unclear fields, errors. They give up halfway.</span></div>
+      <div class="card"><b>Your team repeats itself</b><span>The same questions and the same phone calls, all day.</span></div>
+      <div class="card"><b>Details get mistyped</b><span>Serial numbers, IDs and codes arrive wrong.</span></div></div>`,
+    install:`<div class="kicker">The fix</div><h1>Add a copilot to the website you already have.</h1>
+      <pre>&lt;script src="https://copilot.example.com/widget.js"
+        data-site="yourbusiness.com"&gt;&lt;/script&gt;</pre>
+      <div class="chips"><i>One line added</i><i>No rebuild</i><i>Your site stays yours</i></div>`,
+    inhouse:`<div class="kicker">Built for your business</div><h1>Your customers' details stay in house.</h1>
+      <div class="flow"><div class="node"><b>Your customer</b><small>on a voice call</small></div><div class="arrow">→</div>
+      <div class="node mine"><b>Copilot</b><small>lives on your site</small></div><div class="arrow">→</div>
+      <div class="node home"><b>Your forms &amp; systems</b><small>your data stays here</small></div></div>
+      <div class="note">It only knows your site and only uses actions you allow. Nothing goes to an outside agent roaming the web.</div>`
+  };
+  $('#biz').innerHTML=T[kind]||'';
+}
 function renderStats(){
   $('#stats').innerHTML = S.order.map(k=>{ const s=S.stats[k]; return `<div class="st"><b>${s.name}</b><small>${s.task}</small><div style="margin-top:10px"><small>without</small><div class="b">${fmt(s.before||0)}</div><small>with copilot</small><div class="a">${fmt(s.after||0)}</div></div></div>`; }).join('');
 }

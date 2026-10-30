@@ -54,11 +54,19 @@ def persona(key, title, task):
 
 SCENES = [
     # ---------- Intro ----------
-    act("scene", 0.3, name="title", title="Every website has a form.", sub="Most people just want someone to help."),
-    say("narrator", "Every website has a form. Most people just want someone to help.", after=0.7),
+    act("scene", 0.3, name="title", title="Is your website hard to use?", sub="A voice copilot you add to the website you already have."),
+    say("narrator", "If you run a business, you know this problem. People land on your website, hit a long form, and give up. Or they call, and tie up your staff.", after=0.7),
+
+    # ---------- The business: problem, fix, data stays in house ----------
+    act("scene", 0.3, name="biz", kind="owner"),
+    say("narrator", "Customers get stuck. Your team answers the same questions all day. And details like serial numbers get mistyped.", after=1.0),
+    act("scene", 0.3, name="biz", kind="install"),
+    say("narrator", "The fix is a copilot that you add to the website you already have. One line of code. It doesn't replace your site. It sits on top of it.", after=1.0),
+    act("scene", 0.3, name="biz", kind="inhouse"),
+    say("narrator", "It only knows your site, and it only uses actions you allow. Your customers' details stay in house. Here's what your customers get.", after=1.0),
 
     # ---------- 1. Aisha ----------
-    persona("aisha", "Aisha", "Booking her son's checkup, one hand free"),
+    persona("aisha", "Aisha", "Brookside Pediatrics customer · booking a checkup"),
     clip("mom_before", lower="Aisha · booking Leo's checkup · one hand free"),
     act("scene", 0.6, name="app", site="peds", mode="before"),
     act("clock", 0, start=0, rate=15),
@@ -104,7 +112,7 @@ SCENES = [
     say("copilot", "All set. I hope Leo has a good checkup!", after=0.2),
 
     # ---------- 2. Marcus ----------
-    persona("marcus", "Marcus", "Dishwasher error, wet hands"),
+    persona("marcus", "Marcus", "Halvorsen Home customer · dishwasher error"),
     clip("dad_before", lower="Marcus · dishwasher error E24 · wet hands"),
     act("scene", 0.6, name="app", site="appliance", mode="before"),
     act("clock", 0, start=0, rate=15),
@@ -152,7 +160,7 @@ SCENES = [
     say("marcus", "Huh. It's draining. Nice.", after=0.4),
 
     # ---------- 3. Daniel ----------
-    persona("daniel", "Daniel", "VPN down, client call at 2 PM"),
+    persona("daniel", "Daniel", "Cobalt IT Desk customer · VPN down"),
     clip("office_before", lower="Daniel · VPN down · client call at 2 PM"),
     act("scene", 0.6, name="app", site="itdesk", mode="before"),
     act("clock", 0, start=0, rate=15),
@@ -202,7 +210,7 @@ SCENES = [
     say("daniel", "Oh, that worked. Nice.", after=0.4),
 
     # ---------- 4. Sofia (Spanish) ----------
-    persona("sofia", "Sofia", "Buying a website for her yoga studio"),
+    persona("sofia", "Sofia", "Lumen & Pine customer · buying a website"),
     clip("buyer_before", lower="Sofia · buying a website for her yoga studio"),
     act("scene", 0.6, name="app", site="agency", mode="before"),
     act("clock", 0, start=0, rate=15),
@@ -247,7 +255,7 @@ SCENES = [
     say("sofia", "¡Qué fácil!", sub="That was easy!", after=0.5),
 
     # ---------- 5. Harold ----------
-    persona("harold", "Harold, 74", "Updating his retirement beneficiary"),
+    persona("harold", "Harold, 74", "Evergreen Retirement member · updating a beneficiary"),
     clip("elder_before", lower="Harold, 74 · updating his retirement beneficiary"),
     act("scene", 0.6, name="app", site="retire", mode="before"),
     act("clock", 0, start=0, rate=15),
@@ -292,13 +300,13 @@ SCENES = [
 
     # ---------- How it's different ----------
     act("scene", 0.3, name="compare"),
-    say("narrator", "This isn't a browser agent that roams the web for you, and it isn't a coding agent for developers.", after=0.4),
+    say("narrator", "This isn't a browser agent that roams the web for your customer, and it isn't a coding agent for developers.", after=0.4),
     act("compareHi", 0),
-    say("narrator", "Each website installs its own copilot. It only knows that site, it can only use that site's actions, and it walks you through step by step, asking before it does anything.", after=1.2),
+    say("narrator", "It's yours. You install it on your own website. It only knows your site, only uses your actions, keeps customer details in house, and walks people through step by step, asking before it acts.", after=1.2),
 
     # ---------- Outro ----------
     act("scene", 0.3, name="outro"),
-    say("narrator", "Five people. Five websites. Each with a copilot that asks, guides, and checks before it acts.", after=3.0),
+    say("narrator", "Five businesses. Five customers who finished without a phone call. Add a copilot to the website you already have, and keep your customers' details in house.", after=3.0),
 ]
 
 
