@@ -3,6 +3,7 @@
 //   POST /api/understand  Jev's on-topic gate for one free-text answer (inner model: rules, or a local LFM at LLAMA_URL)
 //   POST /api/search      Octo RAG search inside one allow-listed demo manual; every passage comes back signed
 //   POST /api/judge       Jev picks which signed passage answers the question (or none)
+//   POST /api/log         an error from the widget in a visitor's browser, written to the server log
 //   POST /api/sentences   Jev picks the answering sentences of a signed passage
 // Nothing here decides what the copilot does; it only answers those questions. Requests are size- and rate-limited, and
 // Jev calls have a daily cap, so the open demo can't be used as a free model relay.
@@ -24,13 +25,32 @@ const clip = (s: unknown, n: number) => (typeof s === 'string' ? s.slice(0, n) :
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
 
 // offlinePassages: the same passages as in Octo, for running with no keys (keyword search + word-overlap judge).
+// One line per problem, to stdout (the systemd journal on gravebuster). Never keys, never what a visitor typed.
+const log = (msg: string) => console.error(`${new Date().toISOString()} ${msg.replace(/\s+/g, ' ')}`);
+
 export function createApi(env: ApiEnv, opts: { offlinePassages?: Record<string, Passage[]> } = {}) {
   const offline = env.OFFLINE === '1';
   if (!offline && !(env.OPENROUTER_JEV_KEY && env.OCTO_KEY && env.OCTO_WORKSPACE)) throw new Error('missing OPENROUTER_JEV_KEY, OCTO_KEY or OCTO_WORKSPACE (or set OFFLINE=1)');
   const jevUrl = env.JEV_URL || JEV_URL;
   const inner: Model = env.LLAMA_URL ? new LlamaModel(env.LLAMA_URL, 'lfm') : new RuleModel();
   const gate = offline ? null : new JevGate(inner, { key: env.OPENROUTER_JEV_KEY, url: jevUrl });
-  const judge: Judge = offline ? new OverlapJudge() : new JevJudge({ key: env.OPENROUTER_JEV_KEY, url: jevUrl });
+  const jev = offline ? null : new JevJudge({ key: env.OPENROUTER_JEV_KEY, url: jevUrl });
+  const overlap = new OverlapJudge();
+  // When Jev is overloaded or down, the word-overlap judge stands in, so a covered question isn't answered "I don't know".
+  const judge: Judge = !jev ? overlap : {
+    async pick(q, ps) {
+      const id = await jev.pick(q, ps);
+      if (!jev.lastError) return id;
+      log(`judge: ${jev.lastError}, using word overlap`);
+      return overlap.pick(q, ps);
+    },
+    async sentences(q, ss) {
+      const idx = await jev.sentences(q, ss);
+      if (!jev.lastError) return idx;
+      log(`sentences: ${jev.lastError}, using word overlap`);
+      return overlap.sentences ? overlap.sentences(q, ss) : [];
+    },
+  };
   const retrievers = new Map<string, Retriever>();
   const retriever = (label: string): Retriever => {
     let r = retrievers.get(label);
@@ -103,6 +123,11 @@ export function createApi(env: ApiEnv, opts: { offlinePassages?: Record<string, 
       if (!p || !judge.sentences || !sents.length || !sents.every(s => s && p.text.includes(s)) || !jevAllowed()) return json({ idx: [] });
       return json({ idx: await judge.sentences(clip(b.question, 300), sents) });
     }
+    if (path === '/api/log') {
+      // Errors the widget hit in a visitor's browser (speech, page errors), so real failures show up in the journal.
+      log(`client ${clip(b.where, 40)}: ${clip(b.message, 300)} | ${clip(b.page, 80)} | ${clip(b.ua, 160)}`);
+      return json({ ok: true });
+    }
     return json({ error: 'not found' }, 404);
   }
 
@@ -112,12 +137,19 @@ export function createApi(env: ApiEnv, opts: { offlinePassages?: Record<string, 
       const path = new URL(req.url).pathname;
       if (path === '/api/health') return json({ ok: true, mode: offline ? 'offline' : 'live' });
       if (req.method !== 'POST') return json({ error: 'POST only' }, 405);
-      if (limited(ip || req.headers.get('cf-connecting-ip') || 'local')) return json({ error: 'slow down' }, 429);
+      if (limited(ip || req.headers.get('cf-connecting-ip') || 'local')) { log(`${path} 429 rate limit`); return json({ error: 'slow down' }, 429); }
       const raw = await req.text();
-      if (raw.length > 32_000) return json({ error: 'too large' }, 413);
+      if (raw.length > 32_000) { log(`${path} 413`); return json({ error: 'too large' }, 413); }
       let b: any;
-      try { b = JSON.parse(raw); } catch { return json({ error: 'bad json' }, 400); }
-      try { return await route(path, b); } catch { return json({ error: 'backend error' }, 502); }
+      try { b = JSON.parse(raw); } catch { log(`${path} 400 bad json`); return json({ error: 'bad json' }, 400); }
+      try {
+        const r = await route(path, b);
+        if (r.status >= 400) log(`${path} ${r.status}`);
+        return r;
+      } catch (e) {
+        log(`${path} failed: ${(e as Error).stack ?? e}`);
+        return json({ error: 'backend error' }, 502);
+      }
     },
   };
 }

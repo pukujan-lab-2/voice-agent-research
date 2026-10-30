@@ -8,7 +8,7 @@ import { Guide, type Manual } from '../../../copilot-engine/src/guide.ts';
 import { flowFromPage, readInPage, type PageForm } from '../../../copilot-engine/src/page.ts';
 import type { Flow } from '../../../copilot-engine/src/types.ts';
 import { DomFiller } from './dom-filler.ts';
-import { RemoteJudge, RemoteModel, RemoteRetriever } from './remote.ts';
+import { RemoteJudge, RemoteModel, RemoteRetriever, report } from './remote.ts';
 
 type Config = {
   business: string;
@@ -117,7 +117,7 @@ function status(s: 'ready' | 'listening' | 'speaking' | 'thinking' | 'muted' | '
   pill.textContent = { ready: 'Ready', listening: 'Listening…', speaking: 'Speaking…', thinking: 'Thinking…', muted: 'Mic off', text: 'Text chat' }[s];
 }
 
-function add(who: 'bot' | 'user', text: string) {
+function add(who: 'bot' | 'user', text: string, say = true) {
   const d = document.createElement('div');
   d.className = `msg ${who}`;
   let html = esc(text);
@@ -126,7 +126,7 @@ function add(who: 'bot' | 'user', text: string) {
   d.innerHTML = html;
   log.append(d);
   log.scrollTop = log.scrollHeight;
-  if (who === 'bot') { last.innerHTML = html; if (voice) void speakThenListen(text); }
+  if (who === 'bot') { last.innerHTML = html; if (voice && say) void speakThenListen(text); }
 }
 
 // ---- Voice: speak each reply, then listen for one answer. Never listens while speaking, so it can't hear itself.
@@ -139,14 +139,19 @@ let speechSeq = 0;
 function speak(text: string): Promise<void> {
   if (!canSpeak) return Promise.resolve();
   return new Promise(resolve => {
-    speechSynthesis.cancel();
+    // Cancelling an idle synthesizer right before speaking can drop the next utterance on iOS.
+    if (speechSynthesis.speaking || speechSynthesis.pending) speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text.replace(/·/g, ',').replace(/\s+/g, ' '));
     u.lang = 'en-US';
     u.rate = cfg.large ? 0.92 : 1;
-    const done = () => { clearTimeout(t); resolve(); };
-    // Some mobile browsers never fire onend; don't wait forever.
+    let started = false;
+    const done = () => { clearTimeout(t); clearTimeout(s); resolve(); };
+    // Some mobile browsers never fire onend, or never start at all; don't wait forever.
     const t = setTimeout(done, 1500 + text.length * 80);
-    u.onend = done; u.onerror = done;
+    const s = setTimeout(() => { if (!started) { report('tts', 'speech never started'); done(); } }, 3000);
+    u.onstart = () => { started = true; };
+    u.onend = done;
+    u.onerror = (e: any) => { if (!['interrupted', 'canceled'].includes(e.error)) report('tts', e.error); done(); };
     speechSynthesis.speak(u);
   });
 }
@@ -164,37 +169,47 @@ function stopListening() {
   if (rec) { rec.onend = null; rec.onresult = null; rec.onerror = null; try { rec.abort(); } catch { /* not started */ } rec = null; }
 }
 
-function listen() {
+// fromTap: started by the person's own tap. Safari may refuse a microphone that wasn't, so then we ask for a tap.
+function listen(fromTap = false) {
   if (!voice || muted || busy || !SR) { if (voice) status(muted ? 'muted' : 'ready'); return; }
   stopListening();
   const r = new SR();
   rec = r;
   r.lang = 'en-US'; r.interimResults = true; r.continuous = false; r.maxAlternatives = 1;
-  let final = '';
+  let final = '', interim = '';
   r.onresult = (e: any) => {
-    let interim = '';
+    interim = '';
     for (let i = e.resultIndex; i < e.results.length; i++) {
       if (e.results[i].isFinal) final += e.results[i][0].transcript; else interim += e.results[i][0].transcript;
     }
     heard.textContent = (final || interim).trim();
   };
   r.onerror = (e: any) => {
-    if (e.error === 'not-allowed' || e.error === 'service-not-allowed' || e.error === 'audio-capture') {
-      // Mic blocked or missing: keep the call going as text.
+    if (e.error === 'no-speech' || e.error === 'aborted') return;
+    report('speech', `${e.error}${fromTap ? ' (after tap)' : ''}`);
+    if (e.error === 'not-allowed' && !fromTap) {
+      // Probably only because no tap started it: one tap on the mic starts it from a tap.
+      rec = null; muted = true; micState(); textRow.hidden = false;
+      add('bot', 'Tap "Tap to talk" to answer by voice, or type your answer below.', false);
+      return;
+    }
+    if (['not-allowed', 'service-not-allowed', 'audio-capture', 'network', 'language-not-supported'].includes(e.error)) {
+      // Mic blocked, missing or unusable: keep the call going as text.
       rec = null; toText("I can't use the microphone here, so let's carry on by typing. Your answers go in the box below.");
     }
   };
   r.onend = () => {
     if (rec !== r) return;
     rec = null;
-    const said = final.trim();
+    // Safari sometimes ends without marking the last result final; what it heard is still the answer.
+    const said = (final || interim).trim();
     heard.textContent = '';
     if (said) { quietTries = 0; void send(said); return; }
     // Silence: listen again a couple of times, then wait for a tap on the mic.
     if (voice && !muted && ++quietTries < 3) listen();
     else if (voice) { muted = true; micState(); }
   };
-  try { r.start(); status('listening'); micState(); } catch { status('ready'); }
+  try { r.start(); status('listening'); micState(); } catch (e) { report('speech', `start failed: ${(e as Error).message}`); rec = null; muted = true; micState(); textRow.hidden = false; }
 }
 
 function micState() {
@@ -287,7 +302,9 @@ const isQuestion = (t: string) => /\?\s*$/.test(t) || /^\s*(what|where|which|how
 
 let busy = false;
 async function send(text: string) {
-  if (busy || !text.trim()) return;
+  // Dictation adds a full stop ("SPF-204118."), which a page's own format check would refuse. A "?" stays: it marks a question.
+  text = text.trim().replace(/[.!,;:]+$/, '').trim();
+  if (busy || !text) return;
   busy = true; host.dataset.busy = '1'; status('thinking'); stopListening();
   add('user', text);
   let reply = '';
@@ -301,6 +318,7 @@ async function send(text: string) {
   } catch (e) {
     reply = "Sorry, something went wrong on my side. Nothing was sent. Please try again.";
     console.error(e);
+    report('send', `${(e as Error).message} @ ${((e as Error).stack ?? '').split('\n')[1]?.trim() ?? ''}`);
   }
   busy = false; delete host.dataset.busy;
   if (reply) add('bot', reply); else if (voice) listen();
@@ -332,11 +350,11 @@ textRow.onsubmit = e => { e.preventDefault(); const t = input.value; input.value
 $<HTMLButtonElement>('.call').onclick = () => open(true);
 $<HTMLButtonElement>('.type').onclick = () => open(false);
 $<HTMLButtonElement>('.end').onclick = close;
-$<HTMLButtonElement>('.kbd').onclick = () => { if (textRow.hidden) toText(); else { textRow.hidden = true; voice = true; muted = false; micState(); listen(); } };
+$<HTMLButtonElement>('.kbd').onclick = () => { if (textRow.hidden) toText(); else { textRow.hidden = true; voice = true; muted = false; micState(); listen(true); } };
 micBtn.onclick = () => {
   if (!voice) { voice = true; textRow.hidden = true; }
   muted = !muted; quietTries = 0; micState();
-  if (muted) { stopListening(); status('muted'); } else { if (canSpeak) speechSynthesis.cancel(); listen(); }
+  if (muted) { stopListening(); status('muted'); } else { if (canSpeak) speechSynthesis.cancel(); listen(true); }
 };
 $<HTMLButtonElement>('.min').onclick = () => {
   panel.classList.toggle('mini');

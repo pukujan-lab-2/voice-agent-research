@@ -211,8 +211,8 @@ await scene('itdesk', '/itdesk/new/', async ({ page, say, val }) => {
 });
 
 await scene('pension', '/pension/forms/r17/', async ({ page, say, val }) => {
-  await say('SPF-204118');
-  check('member number typed in', (await val('#member')) === 'SPF-204118');
+  await say('SPF-204118.');
+  check('member number typed in, despite the full stop dictation adds', (await val('#member')) === 'SPF-204118');
   await say('Michael');
   await say('Reyes');
   check('beneficiary name typed in', (await val('#bfirst')) === 'Michael' && (await val('#blast')) === 'Reyes');
@@ -261,7 +261,7 @@ if (!only.length || only.includes('voice')) {
       stop() { this.abort(); }
     }
     w.SpeechRecognition = FakeSR; w.webkitSpeechRecognition = FakeSR;
-    Object.defineProperty(w, 'speechSynthesis', { value: { cancel() {}, speak(u: any) { w.__spoken.push(u.text); setTimeout(() => u.onend?.(), 10); } } });
+    Object.defineProperty(w, 'speechSynthesis', { value: { cancel() {}, speak(u: any) { w.__spoken.push(u.text); setTimeout(() => { u.onstart?.(); u.onend?.(); }, 10); } } });
   });
   await page.goto(`${srv.url}/clinic/book/?guest=1`);
   const spoken = () => page.evaluate(() => (window as any).__spoken.length as number);
@@ -279,7 +279,7 @@ if (!only.length || only.includes('voice')) {
   const hello = await page.evaluate(() => (window as any).__spoken[0] as string);
   check('the call opens by speaking the first question', /child's full name/.test(hello), hello);
   check('in a call the text box is hidden', await page.locator('#copilot-widget .text').isHidden());
-  await talk('Leo Rahman');
+  await talk('Leo Rahman.');
   check('spoken name typed in', (await page.$eval('#child', e => (e as HTMLInputElement).value)) === 'Leo Rahman');
   let r = await talk('a checkup please');
   check('spoken "checkup" picks Well-child checkup, then the read-back is spoken', (await page.$eval('#visit', e => (e as HTMLSelectElement).value)) === 'wellchild' && /Here's what I have/.test(r), r);

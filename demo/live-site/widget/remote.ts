@@ -12,6 +12,18 @@ async function post(path: string, body: unknown): Promise<any> {
   return r.json();
 }
 
+// Errors in the visitor's browser go to the server log (at most 10 per page), so failures on real phones can be seen.
+let reported = 0;
+export function report(where: string, message: string) {
+  if (++reported > 10) return;
+  try {
+    void fetch(`${API_BASE}/api/log`, { method: 'POST', keepalive: true, headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ where, message: String(message).slice(0, 300), page: location.pathname, ua: navigator.userAgent }) }).catch(() => {});
+  } catch { /* never let reporting break the page */ }
+}
+addEventListener('error', e => report('page', `${e.message} @ ${e.filename?.split('/').pop()}:${e.lineno}`));
+addEventListener('unhandledrejection', e => report('promise', String((e as PromiseRejectionEvent).reason?.message ?? (e as PromiseRejectionEvent).reason)));
+
 // Jev decides whether a free-text answer is on topic; a failure is only ever "ask again".
 export class RemoteModel implements Model {
   name = 'remote';

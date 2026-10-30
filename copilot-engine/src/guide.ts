@@ -140,6 +140,9 @@ export class OverlapJudge implements Judge {
 export class JevJudge implements Judge {
   calls = 0;
   cost = 0;
+  // Why the last call got no answer from Jev (HTTP status, timeout); empty when Jev answered. Lets a caller tell
+  // "no passage answers" apart from "Jev was down" and fall back.
+  lastError = '';
   private key?: string;
   private url: string;
   constructor(opts: { key?: string; url?: string } = {}) {
@@ -151,18 +154,12 @@ export class JevJudge implements Judge {
     const criteria: Record<string, string> = { none: 'None of the passages answers the question' };
     passages.forEach((p, i) => { criteria[`p${i}`] = `This passage answers the question: "${p.text}"`; });
     try {
-      const r = await fetch(this.url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${this.key}`, 'User-Agent': 'copilot-engine/0.1' },
-        body: JSON.stringify({
-          model: 'typesafe/jev-1.14',
-          state: { question },
-          questions: { source: { type: 'choice', criteria, instructions: 'Pick the passage that directly answers the question. Pick none if no passage does; a passage on the same topic that does not answer it is none.' } },
-        }),
-        signal: AbortSignal.timeout(20000),
+      const j = await this.decide({
+        model: 'typesafe/jev-1.14',
+        state: { question },
+        questions: { source: { type: 'choice', criteria, instructions: 'Pick the passage that directly answers the question. Pick none if no passage does; a passage on the same topic that does not answer it is none.' } },
       });
-      if (!r.ok) return '';
-      const j = await r.json();
+      if (!j) return '';
       this.calls++; this.cost += j.usage?.cost ?? 0;
       const a = j.answers?.source;
       const i = typeof a?.choice === 'string' && a.choice.startsWith('p') ? +a.choice.slice(1) : -1;
@@ -177,15 +174,9 @@ export class JevJudge implements Judge {
     const criteria: Record<string, string> = {};
     sentences.forEach((t, i) => { criteria[`s${i}`] = `This sentence answers the question: "${t}"`; });
     try {
-      const r = await fetch(this.url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${this.key}`, 'User-Agent': 'copilot-engine/0.1' },
-        body: JSON.stringify({ model: 'typesafe/jev-1.14', state: { question },
-          questions: { sentence: { type: 'choice', criteria, instructions: 'Pick the sentence that most directly answers the question.' } } }),
-        signal: AbortSignal.timeout(20000),
-      });
-      if (!r.ok) return [];
-      const j = await r.json();
+      const j = await this.decide({ model: 'typesafe/jev-1.14', state: { question },
+        questions: { sentence: { type: 'choice', criteria, instructions: 'Pick the sentence that most directly answers the question.' } } });
+      if (!j) return [];
       this.calls++; this.cost += j.usage?.cost ?? 0;
       const probs: Record<string, number> = j.answers?.sentence?.probabilities ?? {};
       // the best sentence, plus a runner-up only when Jev rates it almost as high (an answer split across two sentences)
@@ -193,6 +184,26 @@ export class JevJudge implements Judge {
       const keep = ranked.filter(([, p], i) => i === 0 || (i === 1 && p >= 0.3));
       return keep.map(([k]) => +k.slice(1)).filter(i => i >= 0 && i < sentences.length);
     } catch { return []; }
+  }
+
+  // One decision call, retried once when the provider is overloaded or down; null (and lastError set) if it never answers.
+  private async decide(body: unknown): Promise<any> {
+    this.lastError = '';
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const r = await fetch(this.url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${this.key}`, 'User-Agent': 'copilot-engine/0.1' },
+          body: JSON.stringify(body),
+          signal: AbortSignal.timeout(20000),
+        });
+        if (r.ok) { this.lastError = ''; return await r.json(); }
+        this.lastError = `jev ${r.status}`;
+        if (r.status < 500 && r.status !== 429) return null;
+      } catch (e) { this.lastError = `jev ${(e as Error).name}`; }
+      if (attempt === 0) await new Promise(res => setTimeout(res, 700));
+    }
+    return null;
   }
 }
 

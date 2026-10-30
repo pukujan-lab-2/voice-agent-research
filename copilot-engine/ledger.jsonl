@@ -1304,3 +1304,157 @@
 {"ts":"2026-10-30T19:14:14.630Z","set":"live-site","backend":"offline","scenario":"voice: spoken hand-back: press Next yourself","pass":true}
 {"ts":"2026-10-30T19:14:14.630Z","set":"live-site","backend":"offline","scenario":"voice: the call never pressed Next","pass":true}
 {"ts":"2026-10-30T19:14:14.630Z","set":"live-site","backend":"offline","scenario":"voice: ending the call closes the panel","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"keys: no key appears in any file served to the browser","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"clinic: page carries the fictional-company banner and noindex","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"clinic: opens on the booking form and asks for the child","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"clinic: child name typed in","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"clinic: \"checkup\" picks Well-child checkup","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"clinic: hands step 1 back: press Next yourself","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"clinic: next step starts by itself: Mornings or afternoons","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"clinic: morning radio checked","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"clinic: Tuesday slot selected","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"clinic: next step starts by itself: parent or guardian","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"clinic: phone read back before it is kept","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"clinic: email read back","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"clinic: review card lists step 3","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"clinic: final hand-back names Book visit and the reminder box","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"clinic: all step-3 fields filled, reminder untouched","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"clinic: copilot sent nothing and never left the page","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"clinic: pressing the button shows \"Demo: nothing was sent\", and no POST left the browser","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"appliance: page carries the fictional-company banner and noindex","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"appliance: walk-through starts at step 1 of the E24 fix","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"appliance: E24 answered from the manual with a page","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"appliance: the citation links to that page of the manual","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"appliance: \"next\" moves to step 2","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"appliance: warranty answered with page 8","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"appliance: outside the manual: \"I don't know\"","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"appliance: side question during the form is answered from the manual, then the form goes on","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"appliance: serial read back","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"appliance: a \"no\" asks again and keeps nothing","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"appliance: \"L as in Lima\" read back","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"appliance: serial typed in after the yes","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"appliance: error code E24 selected","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"appliance: description typed in","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"appliance: hand-back: press Request visit yourself","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"appliance: copilot sent nothing and never left the page","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"appliance: pressing the button shows \"Demo: nothing was sent\", and no POST left the browser","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"pricing: page carries the fictional-company banner and noindex","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"pricing: business name typed in","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"pricing: Growth plan checked","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"pricing: budget $1,000 to $3,000","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"pricing: review card","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"pricing: \"change the budget\" re-asks only the budget","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"pricing: budget changed, back to the card","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"pricing: hand-back: press Request a quote yourself","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"pricing: every field filled","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"pricing: copilot sent nothing and never left the page","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"pricing: pressing the button shows \"Demo: nothing was sent\", and no POST left the browser","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"itdesk: page carries the fictional-company banner and noindex","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"itdesk: category Network","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"itdesk: service VPN","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"itdesk: the page's own pattern rejects a bad asset tag, and the copilot asks again","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"itdesk: asset tag typed in","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"itdesk: impact: just me","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"itdesk: urgency High","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"itdesk: off-topic request is turned down and nothing is typed","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"itdesk: description typed in","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"itdesk: hand-back: press Submit ticket yourself","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"itdesk: copilot sent nothing and never left the page","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"itdesk: pressing the button shows \"Demo: nothing was sent\", and no POST left the browser","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"pension: page carries the fictional-company banner and noindex","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"pension: member number typed in, despite the full stop dictation adds","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"pension: beneficiary name typed in","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"pension: payee code explained from the R-17 guide, page 3, then back to the form","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"pension: processing time answered with page 4","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"pension: not in the guide: \"I don't know\"","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"pension: \"my son\" picks payee code C","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"pension: share 100","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"pension: primary checked and review card shown","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"pension: hand-back names the button and the box to tick","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"pension: consent box left for the person","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"pension: copilot sent nothing and never left the page","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"pension: pressing the button shows \"Demo: nothing was sent\", and no POST left the browser","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"voice: the call opens by speaking the first question","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"voice: in a call the text box is hidden","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"voice: spoken name typed in","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"voice: spoken \"checkup\" picks Well-child checkup, then the read-back is spoken","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"voice: spoken hand-back: press Next yourself","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"voice: the call never pressed Next","pass":true}
+{"ts":"2026-10-30T20:14:22.576Z","set":"live-site","backend":"live","scenario":"voice: ending the call closes the panel","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"keys: no key appears in any file served to the browser","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"clinic: page carries the fictional-company banner and noindex","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"clinic: opens on the booking form and asks for the child","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"clinic: child name typed in","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"clinic: \"checkup\" picks Well-child checkup","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"clinic: hands step 1 back: press Next yourself","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"clinic: next step starts by itself: Mornings or afternoons","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"clinic: morning radio checked","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"clinic: Tuesday slot selected","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"clinic: next step starts by itself: parent or guardian","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"clinic: phone read back before it is kept","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"clinic: email read back","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"clinic: review card lists step 3","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"clinic: final hand-back names Book visit and the reminder box","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"clinic: all step-3 fields filled, reminder untouched","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"clinic: copilot sent nothing and never left the page","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"clinic: pressing the button shows \"Demo: nothing was sent\", and no POST left the browser","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"appliance: page carries the fictional-company banner and noindex","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"appliance: walk-through starts at step 1 of the E24 fix","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"appliance: E24 answered from the manual with a page","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"appliance: the citation links to that page of the manual","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"appliance: \"next\" moves to step 2","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"appliance: warranty answered with page 8","pass":false}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"appliance: outside the manual: \"I don't know\"","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"appliance: side question during the form is answered from the manual, then the form goes on","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"appliance: serial read back","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"appliance: a \"no\" asks again and keeps nothing","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"appliance: \"L as in Lima\" read back","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"appliance: serial typed in after the yes","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"appliance: error code E24 selected","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"appliance: description typed in","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"appliance: hand-back: press Request visit yourself","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"appliance: copilot sent nothing and never left the page","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"appliance: pressing the button shows \"Demo: nothing was sent\", and no POST left the browser","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"pricing: page carries the fictional-company banner and noindex","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"pricing: business name typed in","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"pricing: Growth plan checked","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"pricing: budget $1,000 to $3,000","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"pricing: review card","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"pricing: \"change the budget\" re-asks only the budget","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"pricing: budget changed, back to the card","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"pricing: hand-back: press Request a quote yourself","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"pricing: every field filled","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"pricing: copilot sent nothing and never left the page","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"pricing: pressing the button shows \"Demo: nothing was sent\", and no POST left the browser","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"itdesk: page carries the fictional-company banner and noindex","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"itdesk: category Network","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"itdesk: service VPN","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"itdesk: the page's own pattern rejects a bad asset tag, and the copilot asks again","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"itdesk: asset tag typed in","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"itdesk: impact: just me","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"itdesk: urgency High","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"itdesk: off-topic request is turned down and nothing is typed","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"itdesk: description typed in","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"itdesk: hand-back: press Submit ticket yourself","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"itdesk: copilot sent nothing and never left the page","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"itdesk: pressing the button shows \"Demo: nothing was sent\", and no POST left the browser","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"pension: page carries the fictional-company banner and noindex","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"pension: member number typed in, despite the full stop dictation adds","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"pension: beneficiary name typed in","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"pension: payee code explained from the R-17 guide, page 3, then back to the form","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"pension: processing time answered with page 4","pass":false}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"pension: not in the guide: \"I don't know\"","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"pension: \"my son\" picks payee code C","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"pension: share 100","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"pension: primary checked and review card shown","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"pension: hand-back names the button and the box to tick","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"pension: consent box left for the person","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"pension: copilot sent nothing and never left the page","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"pension: pressing the button shows \"Demo: nothing was sent\", and no POST left the browser","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"voice: the call opens by speaking the first question","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"voice: in a call the text box is hidden","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"voice: spoken name typed in","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"voice: spoken \"checkup\" picks Well-child checkup, then the read-back is spoken","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"voice: spoken hand-back: press Next yourself","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"voice: the call never pressed Next","pass":true}
+{"ts":"2026-10-30T20:14:34.349Z","set":"live-site","backend":"offline","scenario":"voice: ending the call closes the panel","pass":true}
