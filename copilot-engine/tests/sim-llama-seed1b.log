@@ -1,0 +1,28 @@
+
+500 conversations, 5136 user turns, 6901 checks, model=llama, seed=1, 106s
+
+FAIL interjection_offscope_keeps_values       316/370
+FAIL submitted_problem                        401/446
+FAIL interjection_small_keeps_values          134/161
+FAIL submitted_name                           421/446
+FAIL non_answer_not_filled                    119/121
+ok   abandoned_never_submits                  54/54
+ok   change_name_applied                      171/171
+ok   completes_in_time                        446/446
+ok   interjection_early_keeps_values          135/135
+ok   interjection_early_no_submit             135/135
+ok   interjection_empty_keeps_values          180/180
+ok   interjection_empty_no_submit             180/180
+ok   interjection_hedge_keeps_values          330/330
+ok   interjection_hedge_no_submit             330/330
+ok   interjection_offscope_no_submit          370/370
+ok   interjection_small_no_submit             161/161
+ok   never_submits_twice                      500/500
+ok   serial_was_read_back                     446/446
+ok   submits_only_after_clear_yes             500/500
+ok   submitted_no_empty_values                446/446
+ok   submitted_serial                         446/446
+ok   submitted_time                           446/446
+ok   wait_no_submit                           81/81
+
+checks failed: 153/6901

@@ -1,0 +1,1 @@
+node tests/sim.ts --llama --n 500 --conc 3 > tests/sim-llama-run1.log 2>&1  3.90s user 0.66s system 1% cpu 6:04.81 total

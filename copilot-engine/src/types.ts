@@ -1,4 +1,4 @@
-export type FieldKind = 'text' | 'serial' | 'choice';
+export type FieldKind = 'text' | 'name' | 'serial' | 'choice';
 
 export interface Field {
   name: string;

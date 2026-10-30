@@ -27,15 +27,48 @@ export const formatSerial = (s: string): string => s.match(/.{1,4}/g)?.join('-')
 
 export type YesNo = 'yes' | 'no' | 'unclear';
 const HEDGE = /\b(maybe|not sure|unsure|i guess|depends|hmm+|um+|uh+|let me think)\b/i;
-const NO = /\b(no|nope|wait|not yet|stop|cancel|hold on|don'?t)\b/i;
+const NO = /\b(no|nope|nah|wait|not yet|stop|cancel|hold on|don'?t|wrong|incorrect|not (right|correct|quite|really)|isn'?t (right|correct)|that'?s not)\b/i;
 const YES = /\b(yes|yeah|yep|go ahead|confirm|submit it|do it|go for it|absolutely|please do|sure|correct|that'?s right|right)\b/i;
 
 // A hedge or a "no" always beats a "yes", and anything unclear is never a yes.
+// A yes must be short and not a question: "sure, how much does it cost?" is not a confirmation.
 export function yesNo(text: string): YesNo {
   if (HEDGE.test(text)) return 'unclear';
   if (NO.test(text)) return 'no';
-  if (YES.test(text)) return 'yes';
+  if (YES.test(text) && !text.includes('?') && text.trim().split(/\s+/).length <= 8) return 'yes';
   return 'unclear';
 }
 
 export const wantsChange = (text: string): boolean => /\b(change|fix|correct that|different)\b/i.test(text);
+
+// Small talk, filler and silence are never answers. Code handles them so the model cannot turn "thanks" into a name.
+const FILLER = /^\s*(hello|hi|hey|thanks|thank you|one (sec|second|moment)|just a (sec|second|moment)|hold on( a (sec|second))?|what|pardon|sorry|are you there|okay|ok|um+|uh+|er|hmm+|give me a (sec|second|moment)|let me think|can you repeat( that)?|come again|never ?mind)\W*$/i;
+export function isFiller(text: string): boolean {
+  const t = text.trim();
+  return t === '' || FILLER.test(t) || (HEDGE.test(t) && t.split(/\s+/).length <= 4);
+}
+
+const NAME_STOP = new Set(['what', 'where', 'when', 'why', 'how', 'who', 'can', 'could', 'would', 'do', 'does', 'is', 'are', 'was', 'the', 'a', 'an', 'my', 'your', 'it', 'that', 'this', 'please', 'thanks', 'thank', 'hello', 'yes', 'no', 'not', 'much', 'i', 'we', 'you', 'about', 'for', 'with', 'and', 'or', 'to', 'of', 'in', 'on', 'have', 'need', 'want', 'help', 'me', 'sorry', 'okay', 'ok', 'hmm', 'um', 'uh', 'maybe', 'sure', 'wait']);
+
+// "um, my name is Priya Rossi" -> "Priya Rossi". Returns '' when the text is not plausibly just a name.
+export function parseName(said: string): string {
+  let t = said.trim().replace(/[\u2019]/g, "'").replace(/[.!]+$/, '');
+  t = t.replace(/^(?:(?:um|uh|er|so|well|hi|hello|actually|sorry)[,\s]+)+/i, '');
+  t = t.replace(/^(?:(?:change|make|set) (?:my )?name (?:to|as)|my name(?:'s| is)|name(?:'s| is)|it(?:'s| is)|this is|i(?:'m| am)|call me|they call me|you can call me)\s+/i, '');
+  t = t.replace(/^(?:actually|really|just|now)\s+/i, '');
+  t = t.replace(/,?\s+not\s+.+$/i, '').replace(/\s+(?:here|speaking|calling)$/i, '').replace(/[,;]+$/, '').trim();
+  const words = t.split(/\s+/);
+  if (!t || t.includes('?') || /\d/.test(t) || words.length > 4) return '';
+  if (words.some(w => NAME_STOP.has(w.toLowerCase().replace(/[^a-z']/g, '')))) return '';
+  if (!words.every(w => /^[A-Za-z][A-Za-z'.\-]*$/.test(w))) return '';
+  return t;
+}
+
+// Does every word of the model's cleaned-up value actually appear in what the customer said?
+export function grounded(value: string, said: string): boolean {
+  const tok = (x: string) => x.toLowerCase().match(/[a-z0-9]+/g) ?? [];
+  const have = new Set(tok(said));
+  return tok(value).length > 0 && tok(value).every(w => have.has(w));
+}
+
+export const stripFiller = (t: string): string => t.trim().replace(/^(?:(?:um|uh|er|so|well|basically|like)[,\s]+)+/i, '').trim();

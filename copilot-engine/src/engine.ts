@@ -1,5 +1,5 @@
 import type { Field, Flow, Hooks, Model } from './types.ts';
-import { formatSerial, spokenToSerial, validSerial, wantsChange, yesNo } from './guard.ts';
+import { formatSerial, grounded, isFiller, parseName, spokenToSerial, stripFiller, validSerial, wantsChange, yesNo } from './guard.ts';
 
 type State = 'ask' | 'verify' | 'review' | 'change' | 'done';
 
@@ -35,6 +35,9 @@ export class Copilot {
     return say;
   }
 
+  // Name of the field currently being asked (used by simulators and UIs to show progress).
+  current(): string { return this.field().name; }
+
   private field(): Field { return this.flow.fields[this.idx]; }
   private question(): string { return this.field().question; }
   private show(f: Field): string { return f.kind === 'serial' ? formatSerial(this.values[f.name]) : this.values[f.name]; }
@@ -67,42 +70,60 @@ export class Copilot {
     return this.question();
   }
 
+  // "actually my name is Amira" / "sorry, it's Amira, not Marcus" after the name was already given.
+  private nameCorrection(said: string): string {
+    const nameField = this.flow.fields.find(f => f.kind === 'name');
+    if (!nameField || nameField === this.field() || this.values[nameField.name] === undefined) return '';
+    if (!/^\s*(actually|sorry|no,? wait|i meant|i mean|correction|change|make that)\b|\bmy name\b/i.test(said)) return '';
+    return parseName(said);
+  }
+
   private async onAsk(said: string): Promise<string> {
     const f = this.field();
+    const q = this.question();
+    // Silence, filler and small talk are never answers.
+    if (isFiller(said)) return `No problem, take your time. ${q}`;
+    const fixed = this.nameCorrection(said);
+    if (fixed) {
+      const nameField = this.flow.fields.find(x => x.kind === 'name')!;
+      this.values[nameField.name] = fixed;
+      return `Got it, I changed your ${nameField.label} to ${fixed}. ${q}`;
+    }
     if (f.kind === 'serial') {
       const s = spokenToSerial(said);
       if (validSerial(s)) { this.pending = s; this.state = 'verify'; return `I heard ${formatSerial(s)}. Is that right?`; }
       return `I didn't catch a full serial number. ${f.hint ?? ''} ${f.question}`.replace(/\s+/g, ' ');
     }
-    // A bare yes/no is never an answer to a text or choice question, so "yes, submit it" cannot do anything here.
+    // A bare yes/no is never an answer to a text, name or choice question, so "yes, submit it" cannot do anything here.
     if (yesNo(said) !== 'unclear' && said.trim().split(/\s+/).length <= 6 && !this.matchesOption(f, said)) {
-      return `I haven't submitted anything yet. ${this.question()}`;
+      return `I haven't submitted anything yet. ${q}`;
+    }
+    if (f.kind === 'name') {
+      const n = parseName(said);
+      if (n) { this.values[f.name] = n; return this.advance(); }
+      return `Sorry, I didn't catch your ${f.label}. ${q}`;
     }
     if (f.kind === 'choice') {
+      // Code decides choices; the model is never allowed to guess one.
       const hit = this.matchChoice(f, said);
       if (hit) { this.values[f.name] = hit; return this.advance(); }
+      return `Sorry, I need one of these: ${(f.options ?? []).join(' or ')}. ${q}`;
     }
     const u = await this.model.understand({ flow: this.flow, field: f, said, values: this.values });
-    if (u.action === 'off_scope') return `${this.flow.scope} ${this.question()}`;
-    if (u.action === 'change' && u.field && u.value?.trim()) {
-      const target = this.flow.fields.find(x => x.name === u.field);
-      if (target && target.kind !== 'serial' && target !== f && this.values[target.name] !== undefined) {
-        const v = this.clean(target, u.value);
-        if (v) { this.values[target.name] = v; return `Got it, I changed your ${target.label} to ${v}. ${this.question()}`; }
-      }
-    }
-    if (u.action === 'fill' && u.value?.trim()) {
-      const v = this.clean(f, u.value);
+    if (u.action === 'off_scope') return `${this.flow.scope} ${q}`;
+    if (u.action === 'fill') {
+      // Keep the customer's own words: use the model's cleaned value only if it adds nothing the customer did not say.
+      const own = stripFiller(said);
+      const v = u.value?.trim() && grounded(u.value, said) ? u.value.trim() : own;
       if (v) { this.values[f.name] = v; return this.advance(); }
     }
-    return `Sorry, I didn't catch that. ${this.question()}`;
+    return `Sorry, I didn't catch that. ${q}`;
   }
 
-  // Whole-word match against the options and their synonyms. Exactly one option must match, or it is not an answer.
   private matchChoice(f: Field, said: string): string {
     const t = said.toLowerCase();
     const hits = (f.options ?? []).filter(o =>
-      [o, ...(f.synonyms?.[o] ?? [])].some(w => new RegExp(`(^|[^a-z])${w.toLowerCase().replace(/\./g, '\\.')}($|[^a-z])`).test(t)));
+      [o, ...(f.synonyms?.[o] ?? [])].some(w => new RegExp(`(^|[^a-z])${w.toLowerCase().replace(/\./g, '\\.')}s?($|[^a-z])`).test(t)));
     return hits.length === 1 ? hits[0] : '';
   }
 

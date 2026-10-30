@@ -7,7 +7,7 @@ export const halvorsen: Flow = {
   scope: 'I can only help with Halvorsen Home warranty claims here.',
   doneMessage: "Your claim is submitted. You'll get a confirmation by email.",
   fields: [
-    { name: 'name', label: 'name', question: "What's your name?", kind: 'text' },
+    { name: 'name', label: 'name', question: "What's your name?", kind: 'name' },
     {
       name: 'serial', label: 'serial number', kind: 'serial', aliases: ['serial'],
       question: "What's the serial number on the inside of the door? Say the digits and letters slowly.",

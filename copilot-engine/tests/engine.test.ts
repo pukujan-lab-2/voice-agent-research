@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { scenarios } from './scenarios.ts';
 import { RuleModel } from '../src/models.ts';
-import { spokenToSerial, validSerial, yesNo } from '../src/guard.ts';
+import { grounded, isFiller, parseName, spokenToSerial, validSerial, yesNo } from '../src/guard.ts';
 
 for (const s of scenarios) {
   test(s.name, async () => {
@@ -25,5 +25,27 @@ test('yes/no never treats hedges as yes', () => {
   assert.equal(yesNo('yes go ahead'), 'yes');
   assert.equal(yesNo('no, wait'), 'no');
   assert.equal(yesNo('go for it'), 'yes');
-  assert.equal(yesNo('not really'), 'unclear');
+  for (const t of ['wrong', 'not right', "that's not correct", 'nah', 'no, not right']) assert.equal(yesNo(t), 'no', t);
+  assert.equal(yesNo('sure, how much does it cost?'), 'unclear');
+  assert.equal(yesNo('yes I think the right price for this repair would be about two hundred dollars is that fine'), 'unclear');
+  assert.equal(yesNo('not really'), 'no');
+});
+
+test('names are parsed from natural phrasing and nothing else', () => {
+  assert.equal(parseName('um, my name is Priya Rossi'), 'Priya Rossi');
+  assert.equal(parseName("sorry, it's Amira, not Marcus"), 'Amira');
+  assert.equal(parseName('actually change my name to Amira'), 'Amira');
+  assert.equal(parseName('Yuki Khan here'), 'Yuki Khan');
+  assert.equal(parseName('sorry, my name is actually Amira'), 'Amira');
+  for (const t of ['thanks', 'hello?', 'how much does it cost', 'Can they do cosmetic services?', 'my card is blocked', 'sorry', 'okay', 'I need help with my card', '']) assert.equal(parseName(t), '', t);
+});
+
+test('filler and silence are never answers', () => {
+  for (const t of ['', '  ', 'thanks', 'hello?', 'are you there', 'one second', 'um...', "I'm not sure", 'maybe']) assert.ok(isFiller(t), t);
+  assert.ok(!isFiller('it shows error E24'));
+});
+
+test('model values must be grounded in what the customer said', () => {
+  assert.ok(grounded('shows E24', "it shows E24 and there's water"));
+  assert.ok(!grounded('Halvorsen Home', 'thanks'));
 });
