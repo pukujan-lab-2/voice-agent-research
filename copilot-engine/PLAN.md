@@ -1,4 +1,37 @@
-# Copilot engine: build plan
+# Copilot engine: master plan (status as of 2026-10-30)
+
+Defaults chosen so work can run without stopping to ask. Things that still need the owner: spending money,
+public posting, secrets, deleting data. Everything else gets built and reported.
+
+## Done
+- [x] Direction: add-on copilot for business owners' existing sites; agent as a service; data stays in house.
+- [x] Model choice: open models only, no Claude in the product. Small local model for understanding answers.
+- [x] LFM3-1.7B (Q4_K_M) on the Windows PC's RTX 4060 via llama.cpp b12000 (CUDA 12.4 build; the 13.4 build
+      is too new for the 592.00 driver). Idle sleep: see `ops/llama-windows.md`.
+- [x] Engine core in text (`src/`): one question at a time, serial read-back, confirm card, submit gate, off-scope
+      refusal, change-an-earlier-answer. Zero dependencies (Node 24 runs TS directly).
+- [x] Guard rules in code (serials incl. phonetic words, yes/no with hedges, choice synonyms).
+- [x] Scenarios: 7/7 with LFM3, plus 9 unit tests with a stand-in model; holdout set 16/16 (the 2 misses it found
+      were fixed, so write fresh holdout cases before trusting the score again).
+- [x] Octo RAG: DMV, Medicare 2027 and IRS Pub 17 loaded (38 docs); 15 questions, right passage in top 3 for 13/15.
+
+## Next, in this order (each ends with tests added to the ledger)
+1. [ ] Manual-guidance mode: split a manual into numbered steps offline (owner reviews), walk one step at a time,
+       answer side questions from retrieval only, say "I don't know" otherwise. Pairs with the booking-flow mode.
+2. [ ] Site adapter + a real demo backend (Brookside booking): the flow's `submit` calls the owner's own API.
+3. [ ] Page adapter: PageAgent (alibaba/page-agent, MIT) as the in-page layer; fill-and-never-submit on a practice
+       form (demoqa.com practice form), then real forms.
+4. [ ] Form + manual demos: Medicare (CMS-40B + Medicare & You), DMV (address form + handbook), IRS (W-4 + Pub 17).
+       Fill and answer questions about the form, never submit.
+5. [ ] Voice: Pipecat, Whisper speech-to-text, engine, text-to-speech (ElevenLabs for demos). Say "let me check
+       the manual" while retrieval runs (1-2 s is fine).
+6. [ ] Widget: one script tag, per-site config, multi-tenant from the start, usage caps.
+7. [ ] Model bake-off on the holdout set: other small open models, LFM3 8-bit, `typesafe/jev-router` (needs an
+       OpenRouter key in `~/Documents/projects/.env`; must report the model used, support an allowlist).
+8. [ ] Re-cut the demo video with real screen recordings of the working copilot.
+9. [ ] Self-hosted tier for regulated clients; pricing; first pilot.
+
+## Original design notes
 
 Goal: make the copilot from the demo video real. A voice or chat guide that walks a person through a
 website step by step, asks before it acts, and keeps the business's customer data in house.

@@ -1,0 +1,53 @@
+{"ts":"2026-10-30T14:44:53.615Z","engine":"0.1.0","model":"llama","scenario":"1 serial read-back, mishear, correction","pass":true,"detail":""}
+{"ts":"2026-10-30T14:44:54.163Z","engine":"0.1.0","model":"llama","scenario":"2 off-scope is declined, then the task resumes","pass":false,"detail":"Got it, I changed your problem to can you order me a pizza?. What's the problem?"}
+{"ts":"2026-10-30T14:44:54.628Z","engine":"0.1.0","model":"llama","scenario":"3 changing an earlier answer changes only that field","pass":true,"detail":""}
+{"ts":"2026-10-30T14:44:54.834Z","engine":"0.1.0","model":"llama","scenario":"4 a yes before the confirm card submits nothing","pass":true,"detail":""}
+{"ts":"2026-10-30T14:44:56.370Z","engine":"0.1.0","model":"llama","scenario":"5 silence, maybe and wait never submit; a clear yes does","pass":false,"detail":"submits=0 state=ask fin=\"I haven't submitted anything yet. Would you like a visit in the morning or the afternoon?\""}
+{"ts":"2026-10-30T14:44:57.110Z","engine":"0.1.0","model":"llama","scenario":"5b wait at the card submits nothing and offers changes","pass":false,"detail":"I haven't submitted anything yet. Would you like a visit in the morning or the afternoon?"}
+{"ts":"2026-10-30T14:44:58.298Z","engine":"0.1.0","model":"llama","scenario":"5c a change request at the card re-asks only that field","pass":false,"detail":"time=afternoon state=ask"}
+{"ts":"2026-10-30T14:45:18.274Z","engine":"0.1.0","model":"llama","scenario":"1 serial read-back, mishear, correction","pass":true,"detail":""}
+{"ts":"2026-10-30T14:45:18.741Z","engine":"0.1.0","model":"llama","scenario":"2 off-scope is declined, then the task resumes","pass":true,"detail":""}
+{"ts":"2026-10-30T14:45:19.192Z","engine":"0.1.0","model":"llama","scenario":"3 changing an earlier answer changes only that field","pass":true,"detail":""}
+{"ts":"2026-10-30T14:45:19.410Z","engine":"0.1.0","model":"llama","scenario":"4 a yes before the confirm card submits nothing","pass":true,"detail":""}
+{"ts":"2026-10-30T14:45:19.864Z","engine":"0.1.0","model":"llama","scenario":"5 silence, maybe and wait never submit; a clear yes does","pass":true,"detail":""}
+{"ts":"2026-10-30T14:45:20.318Z","engine":"0.1.0","model":"llama","scenario":"5b wait at the card submits nothing and offers changes","pass":true,"detail":""}
+{"ts":"2026-10-30T14:45:20.760Z","engine":"0.1.0","model":"llama","scenario":"5c a change request at the card re-asks only that field","pass":true,"detail":""}
+{"ts":"2026-10-30T14:45:40.068Z","set":"holdout","model":"llama","scenario":"serial as digits and spaces","pass":true}
+{"ts":"2026-10-30T14:45:40.324Z","set":"holdout","model":"llama","scenario":"serial typed in one go","pass":true}
+{"ts":"2026-10-30T14:45:40.547Z","set":"holdout","model":"llama","scenario":"serial with phonetic words","pass":false}
+{"ts":"2026-10-30T14:45:40.766Z","set":"holdout","model":"llama","scenario":"serial too short asks again","pass":true}
+{"ts":"2026-10-30T14:45:41.527Z","set":"holdout","model":"llama","scenario":"time: mornings work best","pass":true}
+{"ts":"2026-10-30T14:45:42.039Z","set":"holdout","model":"llama","scenario":"time: I'd rather come after lunch","pass":true}
+{"ts":"2026-10-30T14:45:42.733Z","set":"holdout","model":"llama","scenario":"time: either is not an answer","pass":true}
+{"ts":"2026-10-30T14:45:43.242Z","set":"holdout","model":"llama","scenario":"problem: free description","pass":true}
+{"ts":"2026-10-30T14:45:43.814Z","set":"holdout","model":"llama","scenario":"off-scope: return policy","pass":true}
+{"ts":"2026-10-30T14:45:44.281Z","set":"holdout","model":"llama","scenario":"off-scope: joke","pass":true}
+{"ts":"2026-10-30T14:45:44.720Z","set":"holdout","model":"llama","scenario":"correct the name mid-flow","pass":true}
+{"ts":"2026-10-30T14:45:45.174Z","set":"holdout","model":"llama","scenario":"review: \"yep that is right\" submits","pass":true}
+{"ts":"2026-10-30T14:45:45.629Z","set":"holdout","model":"llama","scenario":"review: \"go for it\" submits","pass":false}
+{"ts":"2026-10-30T14:45:46.095Z","set":"holdout","model":"llama","scenario":"review: \"sounds good\" never submits by accident (either result is safe)","pass":true}
+{"ts":"2026-10-30T14:45:46.556Z","set":"holdout","model":"llama","scenario":"review: \"not really\" does not submit","pass":true}
+{"ts":"2026-10-30T14:45:47.004Z","set":"holdout","model":"llama","scenario":"review: \"I think so\" does not submit","pass":true}
+{"ts":"2026-10-30T14:45:59.849Z","engine":"0.1.0","model":"llama","scenario":"1 serial read-back, mishear, correction","pass":true,"detail":""}
+{"ts":"2026-10-30T14:46:00.317Z","engine":"0.1.0","model":"llama","scenario":"2 off-scope is declined, then the task resumes","pass":true,"detail":""}
+{"ts":"2026-10-30T14:46:00.756Z","engine":"0.1.0","model":"llama","scenario":"3 changing an earlier answer changes only that field","pass":true,"detail":""}
+{"ts":"2026-10-30T14:46:00.976Z","engine":"0.1.0","model":"llama","scenario":"4 a yes before the confirm card submits nothing","pass":true,"detail":""}
+{"ts":"2026-10-30T14:46:01.434Z","engine":"0.1.0","model":"llama","scenario":"5 silence, maybe and wait never submit; a clear yes does","pass":true,"detail":""}
+{"ts":"2026-10-30T14:46:01.893Z","engine":"0.1.0","model":"llama","scenario":"5b wait at the card submits nothing and offers changes","pass":true,"detail":""}
+{"ts":"2026-10-30T14:46:02.348Z","engine":"0.1.0","model":"llama","scenario":"5c a change request at the card re-asks only that field","pass":true,"detail":""}
+{"ts":"2026-10-30T14:46:02.704Z","set":"holdout","model":"llama","scenario":"serial as digits and spaces","pass":true}
+{"ts":"2026-10-30T14:46:02.947Z","set":"holdout","model":"llama","scenario":"serial typed in one go","pass":true}
+{"ts":"2026-10-30T14:46:03.173Z","set":"holdout","model":"llama","scenario":"serial with phonetic words","pass":true}
+{"ts":"2026-10-30T14:46:03.400Z","set":"holdout","model":"llama","scenario":"serial too short asks again","pass":true}
+{"ts":"2026-10-30T14:46:04.097Z","set":"holdout","model":"llama","scenario":"time: mornings work best","pass":true}
+{"ts":"2026-10-30T14:46:04.553Z","set":"holdout","model":"llama","scenario":"time: I'd rather come after lunch","pass":true}
+{"ts":"2026-10-30T14:46:05.255Z","set":"holdout","model":"llama","scenario":"time: either is not an answer","pass":true}
+{"ts":"2026-10-30T14:46:05.763Z","set":"holdout","model":"llama","scenario":"problem: free description","pass":true}
+{"ts":"2026-10-30T14:46:06.290Z","set":"holdout","model":"llama","scenario":"off-scope: return policy","pass":true}
+{"ts":"2026-10-30T14:46:06.754Z","set":"holdout","model":"llama","scenario":"off-scope: joke","pass":true}
+{"ts":"2026-10-30T14:46:07.194Z","set":"holdout","model":"llama","scenario":"correct the name mid-flow","pass":true}
+{"ts":"2026-10-30T14:46:07.660Z","set":"holdout","model":"llama","scenario":"review: \"yep that is right\" submits","pass":true}
+{"ts":"2026-10-30T14:46:08.132Z","set":"holdout","model":"llama","scenario":"review: \"go for it\" submits","pass":true}
+{"ts":"2026-10-30T14:46:08.605Z","set":"holdout","model":"llama","scenario":"review: \"sounds good\" never submits by accident (either result is safe)","pass":true}
+{"ts":"2026-10-30T14:46:09.069Z","set":"holdout","model":"llama","scenario":"review: \"not really\" does not submit","pass":true}
+{"ts":"2026-10-30T14:46:09.525Z","set":"holdout","model":"llama","scenario":"review: \"I think so\" does not submit","pass":true}
