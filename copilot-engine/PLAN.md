@@ -34,10 +34,21 @@ public posting, secrets, deleting data. Everything else gets built and reported.
       reviewed: false). Octo search is filtered to one manual by title prefix (Octo has no query filter yet).
       Jev picks the passage (gate on P(none) <= 0.25) and the 1-2 sentences to read back. 16/16 on Medicare questions
       written before the first run (14/16 first run, both misses were safe "I don't know"); 0.7 s, ~$0.00006 per question.
+- [x] Table test, IRS Pub 17 (2025) PDF pp 9-11 and 95-98 (`tests/guide-irs.ts`, 18 questions written before any run,
+      12 answered only from tables). Same pages loaded into Octo two ways: our text splitter (`tools/manual_passages.py`,
+      74 passages) and Docling 2.145 run locally (`tools/docling_passages.py`, layout + table structure, 62 chunks).
+      Results (same each of 3 runs): splitter 13/18 (tables 7/12), Docling 18/18 (tables 12/12); ~2.6 s, ~$0.0012 per run.
+      Honest grade: 4 Docling passes are lumps from the over-65/blind table (Table 10-2), e.g. "Married filing jointly
+      = $33,100 34,700 36,300 37,900": the right number is there but the person must pick it. So 14/18 fully answered.
+      The splitter's misses were worse: 2 quoted a different table's $31,500/$15,750 as if it applied (wrong for that
+      person), 2 quoted a bare header, 1 safe "I don't know". Docling took ~30 s per page on CPU (one-time, at load).
+      Confound: both loads share one workspace and Octo search has no filter, so the retriever over-fetched 10x.
+      Verdict: load new manuals with Docling. Next: split Docling's lumped table cells into one line per row
+      ("Married filing jointly, 3 boxes: $36,300") before upload, and add a test that fails on lumps.
 
 ## Next, in this order (each ends with tests added to the ledger)
 1. [~] Manual-guidance mode (core + one real manual done): still to do: an owner review screen for drafted steps,
-       a fresh Medicare question set, then a second manual (IRS). Original note: split a real manual into numbered steps offline (owner reviews), walk one step at a time,
+       a fresh Medicare question set; IRS table test done (Docling wins), row-splitting for lumped tables next. Original note: split a real manual into numbered steps offline (owner reviews), walk one step at a time,
        answer side questions from retrieval only, say "I don't know" otherwise. Pairs with the booking-flow mode.
 2. [ ] Site adapter + a real demo backend (Brookside booking): the flow's `submit` calls the owner's own API.
 3. [~] Page adapter (`src/page.ts`, test `npm run page -- --real`): done for a practice form we host plus two public

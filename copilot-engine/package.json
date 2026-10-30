@@ -10,6 +10,7 @@
     "scenarios:llama": "node tests/run.ts --llama",
     "holdout2": "node tests/holdout2.ts",
     "guide": "node tests/guide.ts",
+    "guide-irs": "node tests/guide-irs.ts",
     "sim": "node tests/sim.ts",
     "page": "node tests/page.ts"
   },

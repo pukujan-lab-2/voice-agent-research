@@ -199,10 +199,12 @@ export class OctoRetriever implements Retriever {
   private workspaceId: string;
   private titlePrefix?: string;
   private allowed?: Promise<Set<string>>;
+  private overfetch: number;
   // titlePrefix keeps answers to one manual: a workspace can hold many, and Octo search has no filter, so the
   // retriever learns that manual's document versions once and drops passages from any other document.
-  constructor(opts: { base?: string; key: string; workspaceId: string; titlePrefix?: string }) {
+  constructor(opts: { base?: string; key: string; workspaceId: string; titlePrefix?: string; overfetch?: number }) {
     this.base = opts.base ?? 'https://octodb.design-bakery.com/api';
+    this.overfetch = opts.overfetch ?? 5;
     this.key = opts.key;
     this.workspaceId = opts.workspaceId;
     this.titlePrefix = opts.titlePrefix;
@@ -230,7 +232,7 @@ export class OctoRetriever implements Retriever {
       const r = await fetch(`${this.base}/rag/query`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${this.key}`, 'User-Agent': 'copilot-engine/0.1' },
-        body: JSON.stringify({ workspaceId: this.workspaceId, query, limit: allowed ? k * 5 : k }),
+        body: JSON.stringify({ workspaceId: this.workspaceId, query, limit: allowed ? k * this.overfetch : k }),
         signal: AbortSignal.timeout(20000),
       });
       if (!r.ok) return [];
