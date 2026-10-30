@@ -11,7 +11,7 @@ Never print them, paste them into chat, or commit them.
 | Key | Guardrail | Allowed | Budget | Tested |
 |---|---|---|---|---|
 | `jev-only` | `jev` | `~typesafe/jev-latest`, `typesafe/jev-1.14` | $20/month | Jev works on the decisions endpoint; jev-router, free and paid models refused (404) |
-| `free-only` | `free-only` | 6 named `:free` models | $0.01/month | Nemotron x2 and Laguna work; paid, Jev and jev-router refused |
+| `free-only` | `free-only` | 5 named `:free` models (no Gemma) | $0.01/month | Nemotron x2 and Laguna work; Gemma, paid, Jev and jev-router refused |
 
 ## Hard rule for every agent
 
@@ -57,10 +57,10 @@ Then grant the chatbots agent access to both items.
 
 > RULE: never use "openrouter/free" or any auto-router. Always type one exact model name from this list.
 > If it fails, pick another name from the list yourself.
-> OpenRouter key locked to 6 named free models (guardrail "free-only", $0.01/month cap). Send POST
+> OpenRouter key locked to 5 named free models (guardrail "free-only", $0.01/month cap). Send POST
 > https://openrouter.ai/api/v1/chat/completions with one of:
 > nvidia/nemotron-3.5-super-vl:free (vision, JSON), nvidia/nemotron-3-ultra-550b-a55b:free (largest),
-> poolside/laguna-s-2.1:free (coding), and google/gemma-4-31b-it:free (JSON; often busy, so retry on 429).
+> and poolside/laguna-s-2.1:free (coding). Google Gemma models are not allowed.
 > thinkingmachines/inkling:free and inkling-small:free work only inside agent apps listed on
 > openrouter.ai/apps; direct API calls get 403.
 > Paid models are refused. Free providers may log prompts, so never send customer or personal data.
