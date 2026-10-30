@@ -448,6 +448,50 @@ if (!only.length || only.includes('layout')) {
   await ctx.close();
 }
 
+// The call timer, the warm-up ping at call start, and the wait line while a slow model call runs. The model is made slow
+// on purpose here (each /api/understand held 1.5 s), and the warm-up is held until the first answer, so it is cold.
+if (!only.length || only.includes('wait')) {
+  current = 'wait';
+  console.log('\n== wait /pricing/quote');
+  const page = await browser.newPage();
+  const warms: number[] = [];
+  let releaseWarm = () => {};
+  const warmHeld = new Promise<void>(r => { releaseWarm = r; });
+  await page.route('**/api/warm', async route => { warms.push(Date.now()); await warmHeld; await route.continue(); });
+  await page.route('**/api/understand', async route => { await new Promise(r => setTimeout(r, 1500)); await route.continue(); });
+  await page.goto(`${srv.url}/pricing/quote?guest=1`);
+  await page.waitForFunction(() => (window as any).copilot?.getSnapshot().mounted, null, { timeout: 15_000 });
+  await page.click(T('call-type'));
+  await settle(page, 0);
+  check('the call start sends one warm-up ping', warms.length === 1, warms.length);
+  const t0 = (await page.textContent(T('call-timer'))) ?? '';
+  await page.waitForTimeout(2200);
+  const t1 = (await page.textContent(T('call-timer'))) ?? '';
+  check('the call timer shows m:ss and ticks', /^0:0[0-1]$/.test(t0) && /^0:0[2-3]$/.test(t1), [t0, t1]);
+  // The first answer goes to the model while it is still loading.
+  let n = await bots(page);
+  await page.fill(T('call-input'), 'Prana Yoga Studio');
+  await page.click(T('call-send'));
+  const cold = await page.waitForSelector(T('call-wait'), { timeout: 3000 }).then(e => e.textContent()).catch(() => null);
+  check('a slow first answer shows "Warming up the assistant… about 2 s"', /^Warming up the assistant… about [12] s$/.test(cold ?? ''), cold);
+  await settle(page, n);
+  check('the wait line goes away with the answer', await page.locator(T('call-wait')).count() === 0 && /Prana Yoga Studio/.test(await lastBot(page)), await lastBot(page));
+  releaseWarm();
+  await page.waitForTimeout(300);
+  // Answers the copilot reads back (name, email) and choices never go to the model, so they show no wait line.
+  const send = async (t: string) => { const n = await bots(page); await page.fill(T('call-input'), t); await page.click(T('call-send')); await settle(page, n); };
+  for (const t of ['yes', 'Sofia Marin', 'yes', 'sofia at example dot com', 'yes', 'Growth', 'yes', 'around three thousand', 'yes']) await send(t);
+  check('quick answers show no wait line', await page.locator(T('call-wait')).count() === 0);
+  // Once warm, a slow answer says "Thinking…" with the warm estimate.
+  n = await bots(page);
+  await page.fill(T('call-input'), 'a website with online class booking');
+  await page.click(T('call-send'));
+  const warm = await page.waitForSelector(T('call-wait'), { timeout: 3000 }).then(e => e.textContent()).catch(() => null);
+  check('a slow answer once warm shows "Thinking… about 3 s"', /^Thinking… about [23] s$/.test(warm ?? ''), warm);
+  await settle(page, n);
+  await page.close();
+}
+
 await browser.close();
 await srv.close();
 const pass = results.filter(r => r.ok).length;

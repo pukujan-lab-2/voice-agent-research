@@ -38,6 +38,11 @@ export class RemoteModel implements Model {
   }
 }
 
+// Wakes the local model on the server (it unloads after a few idle minutes). Resolves when it has loaded.
+export async function warmUp(): Promise<void> {
+  try { await post('/api/warm', {}); } catch { /* the first answer just takes a little longer */ }
+}
+
 // Octo RAG search, limited by the server to one manual.
 export class RemoteRetriever implements Retriever {
   private manual: string;

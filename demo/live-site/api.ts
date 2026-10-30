@@ -5,6 +5,7 @@
 //   POST /api/judge       Jev picks which signed passage answers the question (or none)
 //   POST /api/log         an error from the widget in a visitor's browser, written to the server log
 //   POST /api/sentences   Jev picks the answering sentences of a signed passage
+//   POST /api/warm        wakes the local LFM (it sleeps when idle) while the call's greeting plays; never calls Jev
 // Nothing here decides what the copilot does; it only answers those questions. Requests are size- and rate-limited, and
 // Jev calls have a daily cap, so the open demo can't be used as a free model relay.
 import { JevJudge, KeywordRetriever, OctoRetriever, OverlapJudge, type Judge, type Passage, type Retriever } from '../../copilot-engine/src/guide.ts';
@@ -27,6 +28,8 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
 // offlinePassages: the same passages as in Octo, for running with no keys (keyword search + word-overlap judge).
 // One line per problem, to stdout (the systemd journal on gravebuster). Never keys, never what a visitor typed.
 const log = (msg: string) => console.error(`${new Date().toISOString()} ${msg.replace(/\s+/g, ' ')}`);
+
+const WARM_FIELD: Field = { name: 'warm', label: 'warm-up', question: 'Say hello.', kind: 'text' };
 
 export function createApi(env: ApiEnv, opts: { offlinePassages?: Record<string, Passage[]> } = {}) {
   const offline = env.OFFLINE === '1';
@@ -80,6 +83,7 @@ export function createApi(env: ApiEnv, opts: { offlinePassages?: Record<string, 
   const perMin = Number(env.RATE_PER_MIN) || 40;
   const cap = Number(env.JEV_DAILY_CAP) || 2000;
   let day = '', jevToday = 0;
+  let warming: Promise<void> | null = null;
   const jevAllowed = () => {
     const d = new Date().toISOString().slice(0, 10);
     if (d !== day) { day = d; jevToday = 0; }
@@ -123,6 +127,16 @@ export function createApi(env: ApiEnv, opts: { offlinePassages?: Record<string, 
       if (!p || !judge.sentences || !sents.length || !sents.every(s => s && p.text.includes(s)) || !jevAllowed()) return json({ idx: [] });
       return json({ idx: await judge.sentences(clip(b.question, 300), sents) });
     }
+    if (path === '/api/warm') {
+      // One tiny call to the local model so it loads now, not on the visitor's first answer. At most one at a time.
+      if (offline || !env.LLAMA_URL) return json({ ok: true, model: 'rules' });
+      warming ??= inner.understand({
+        flow: { id: 'warm', business: 'warm-up', scope: '', intro: '', doneMessage: '', fields: [WARM_FIELD] },
+        field: WARM_FIELD, said: 'hello', values: {},
+      }).then(() => undefined, () => undefined).finally(() => { warming = null; });
+      await warming;
+      return json({ ok: true, model: 'lfm' });
+    }
     if (path === '/api/log') {
       // Errors the widget hit in a visitor's browser (speech, page errors), so real failures show up in the journal.
       log(`client ${clip(b.where, 40)}: ${clip(b.message, 300)} | ${clip(b.page, 80)} | ${clip(b.ua, 160)}`);
@@ -137,7 +151,8 @@ export function createApi(env: ApiEnv, opts: { offlinePassages?: Record<string, 
       const path = new URL(req.url).pathname;
       if (path === '/api/health') return json({ ok: true, mode: offline ? 'offline' : 'live' });
       if (req.method !== 'POST') return json({ error: 'POST only' }, 405);
-      if (limited(ip || req.headers.get('cf-connecting-ip') || 'local')) { log(`${path} 429 rate limit`); return json({ error: 'slow down' }, 429); }
+      // The warm-up is free (no Jev, one at a time), so it does not use up the visitor's answers.
+      if (path !== '/api/warm' && limited(ip || req.headers.get('cf-connecting-ip') || 'local')) { log(`${path} 429 rate limit`); return json({ error: 'slow down' }, 429); }
       const raw = await req.text();
       if (raw.length > 32_000) { log(`${path} 413`); return json({ error: 'too large' }, 413); }
       let b: any;

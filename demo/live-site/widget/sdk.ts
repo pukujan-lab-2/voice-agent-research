@@ -15,9 +15,9 @@
 import { Copilot } from '../../../copilot-engine/src/engine.ts';
 import { Guide, type Manual } from '../../../copilot-engine/src/guide.ts';
 import { flowFromPage, readInPage, type PageForm } from '../../../copilot-engine/src/page.ts';
-import type { Flow } from '../../../copilot-engine/src/types.ts';
+import type { Flow, Model } from '../../../copilot-engine/src/types.ts';
 import { DomFiller } from './dom-filler.ts';
-import { RemoteJudge, RemoteModel, RemoteRetriever, report } from './remote.ts';
+import { RemoteJudge, RemoteModel, RemoteRetriever, report, warmUp } from './remote.ts';
 
 export type Config = {
   business: string;
@@ -43,6 +43,8 @@ export type Snapshot = {
   can: string[];
   large: boolean;
   messages: Message[];
+  startedAt: number;                   // when the call started (ms since the epoch), for the call timer; 0 when no call
+  wait: { text: string; until: number } | null; // a slow model call: what to show, and when it should be done (ms)
 };
 
 const SR: any = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -53,7 +55,7 @@ let snap: Snapshot = blank();
 const subs = new Set<() => void>();
 function blank(): Snapshot {
   return { mounted: false, open: false, voice: false, mic: SR ? 'off' : 'unavailable', textInput: false, status: 'idle', busy: false,
-    heard: '', mode: 'form', modes: [], business: '', can: [], large: false, messages: [] };
+    heard: '', mode: 'form', modes: [], business: '', can: [], large: false, messages: [], startedAt: 0, wait: null };
 }
 function set(p: Partial<Snapshot>) {
   snap = { ...snap, ...p };
@@ -166,7 +168,27 @@ function toText(msg?: string) {
 }
 
 // ---- Form mode: the page adapter reads the visible form, the engine asks one question at a time.
-const model = new RemoteModel();
+// The server's local model unloads after about five idle minutes. A call wakes it while the greeting plays, and a model
+// call that takes a while shows how long it should take: about 2 s while the model loads, about 3 s once it is loaded.
+const IDLE_MS = 290_000;
+let modelUsedAt = 0;
+const remoteModel = new RemoteModel();
+const model: Model = {
+  name: 'remote',
+  async understand(input) {
+    const t0 = Date.now();
+    const cold = t0 - modelUsedAt > IDLE_MS;
+    const show = setTimeout(() => set({ wait: cold
+      ? { text: 'Warming up the assistant…', until: t0 + 2000 }
+      : { text: 'Thinking…', until: t0 + 3000 } }), 600);
+    try { return await remoteModel.understand(input); }
+    finally { clearTimeout(show); modelUsedAt = Date.now(); if (snap.wait) set({ wait: null }); }
+  },
+};
+function warm() {
+  if (Date.now() - modelUsedAt < IDLE_MS) return;
+  void warmUp().then(() => { modelUsedAt = Date.now(); });
+}
 let copilot: Copilot | null = null;
 let flow: Flow | null = null;
 let form: PageForm | null = null;
@@ -280,7 +302,8 @@ function start({ voice = false }: { voice?: boolean } = {}) {
   if (!cfg) return;
   const v = voice && (canSpeak || !!SR);
   muted = !SR;
-  set({ open: true, voice: v, textInput: !v || !SR, status: v ? 'idle' : 'text' });
+  set({ open: true, voice: v, textInput: !v || !SR, status: v ? 'idle' : 'text', startedAt: snap.open ? snap.startedAt : Date.now() });
+  warm();
   // Called from the tap itself, so mobile browsers allow the first spoken reply.
   if (!snap.messages.length) setMode(snap.mode);
   else if (v) void speakThenListen([...snap.messages].reverse().find(m => m.who === 'bot')?.text ?? '');
@@ -289,7 +312,7 @@ function start({ voice = false }: { voice?: boolean } = {}) {
 
 function end() {
   stopListening(); if (canSpeak) speechSynthesis.cancel(); speechSeq++;
-  set({ open: false, voice: false, heard: '', status: 'idle' });
+  set({ open: false, voice: false, heard: '', status: 'idle', startedAt: 0, wait: null });
   document.querySelectorAll('[data-copilot-active]').forEach(e => e.removeAttribute('data-copilot-active'));
 }
 

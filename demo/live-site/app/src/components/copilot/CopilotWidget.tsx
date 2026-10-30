@@ -77,6 +77,13 @@ function renderMessageText(msg: CopilotMessage) {
   return parts;
 }
 
+/** mm:ss since the call started. */
+function callTime(startedAt: number | undefined, now: number): string {
+  if (!startedAt) return "0:00";
+  const s = Math.max(0, Math.floor((now - startedAt) / 1000));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
+
 /** The caption shows the end of the copilot's last message: that is where its question is. */
 function captionOf(msg: CopilotMessage): CopilotMessage {
   const sentences = msg.text.match(/[^.!?]+[.!?]+["')]*\s*|[^.!?]+$/g) ?? [msg.text];
@@ -101,6 +108,15 @@ export function CopilotWidget() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const drag = useRef<{ y: number; moved: boolean } | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+
+  // The call timer ticks every second; a wait countdown ticks faster so it reads smoothly.
+  useEffect(() => {
+    if (!snapshot.open) return;
+    const t = setInterval(() => setNow(Date.now()), snapshot.wait ? 250 : 1000);
+    setNow(Date.now());
+    return () => clearInterval(t);
+  }, [snapshot.open, snapshot.wait]);
 
   useEffect(() => {
     const onResize = () => setIsMobile(window.innerWidth < 768);
@@ -306,6 +322,9 @@ export function CopilotWidget() {
           <span className={cn(large && "text-base")}>
             {statusLabel(snapshot.status)}
           </span>
+          <span className="copilot-timer" data-testid="call-timer" aria-label="Call time">
+            {callTime(snapshot.startedAt, now)}
+          </span>
         </div>
         <div className="copilot-controls-row">
           <button
@@ -359,6 +378,19 @@ export function CopilotWidget() {
           </button>
         </div>
       </div>
+
+      {/* a slow model call: what is happening, and a countdown */}
+      {snapshot.wait && (
+        <div className="copilot-wait" data-testid="call-wait" role="status">
+          <span className="copilot-spinner" aria-hidden="true" />
+          <span>
+            {snapshot.wait.text}{" "}
+            {snapshot.wait.until > now
+              ? `about ${Math.ceil((snapshot.wait.until - now) / 1000)} s`
+              : "almost there"}
+          </span>
+        </div>
+      )}
 
       {/* compact: the copilot's last line as a caption; a tap opens the transcript */}
       {!expanded && (

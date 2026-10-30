@@ -60,6 +60,10 @@ export interface CopilotSnapshot {
   can: string[];
   large: boolean;
   messages: CopilotMessage[];
+  /** When the call started (ms since the epoch); 0 when no call. */
+  startedAt?: number;
+  /** A slow model call: what to show, and when it should be done (ms since the epoch). */
+  wait?: { text: string; until: number } | null;
 }
 
 export interface Copilot {

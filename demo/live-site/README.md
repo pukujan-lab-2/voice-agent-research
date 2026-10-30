@@ -55,7 +55,8 @@ npm test              # drives all 5 scenes plus a voice call (stubbed speech) e
 
 Key names: `openrouter_jev_only` → `OPENROUTER_JEV_KEY`, `octo_db_chatbots` → `OCTO_KEY`,
 `octo_db_chatbots_workspace` → `OCTO_WORKSPACE` (environment variables of those names win). `LLAMA_URL` swaps the
-rules behind Jev for a local LFM.
+rules behind Jev for a local LFM. On gravebuster that is LFM3-1.7B in the Docker container `copilot-llm`
+(127.0.0.1:11436, unloads after 300 s idle), set in `~/apps/copilot-demo/env`; the deploy below never touches that file.
 
 A call opens as a compact bar (status, Mute / Keyboard / End, and the copilot's last line as a caption) so the page
 and the highlighted field stay in view; the handle (tap or drag) or the caption opens the whole conversation. That bar
@@ -63,7 +64,13 @@ was written by hand in `app/src/components/copilot/CopilotWidget.tsx` and `app/s
 a new ABA run must keep it. Every answer is read back for a yes, and "go back" or "change the …" returns to any
 earlier answer and then to the open question.
 
-Results (2026-10-30): live 141/141. The layout scene checks the compact bar at 390×664, 375×560 and 360×640: at most a
+The status row shows how long the call has run (m:ss). When a call starts, the page sends `POST /api/warm` (one tiny
+call to the local LFM, never Jev, not counted against the visitor's rate limit), so the model loads while the greeting
+plays. If an answer still takes more than 0.6 s, a line under the status says "Warming up the assistant… about 2 s"
+(no model call in the last ~5 minutes) or "Thinking… about 3 s" and counts down.
+
+Results (2026-10-30): live 147/147, offline 145/147 (the same two manual questions as below). The `wait` scene slows
+`/api/understand` to check the timer, the single warm-up ping, and both wait lines. Before that: live 141/141. The layout scene checks the compact bar at 390×664, 375×560 and 360×640: at most a
 fifth of the screen in a voice call, the asked field highlighted above it, the page still scrolling, expand and
 collapse by caption and handle, every control on screen when typing, and a small corner window on desktop. Other scenes
 cover the three iPhone call bugs (a name the recogniser finalises twice, "you wrote the name twice, can you fix it"
