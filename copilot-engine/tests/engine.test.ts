@@ -49,3 +49,23 @@ test('model values must be grounded in what the customer said', () => {
   assert.ok(grounded('shows E24', "it shows E24 and there's water"));
   assert.ok(!grounded('Halvorsen Home', 'thanks'));
 });
+
+test('a yes with a condition attached never submits; asking for a person is not an answer', async () => {
+  const { Copilot } = await import('../src/engine.ts');
+  const { halvorsen } = await import('../src/flows/halvorsen.ts');
+  const S = 'four four one zero, seven two, B as in bravo, K, nine, X, one, one';
+  for (const said of ['yes but change the time', 'yes, except the problem is wrong', 'yes wait', 'yeah though the name is off']) {
+    let n = 0;
+    const c = new Copilot(halvorsen, new RuleModel(), { submit: () => { n++; } });
+    c.start();
+    for (const s of ['Priya', S, 'yes', 'the oven door will not close', 'morning']) await c.turn(s);
+    await c.turn(said);
+    assert.equal(n, 0, said);
+  }
+  const c = new Copilot(halvorsen, new RuleModel(), { submit: () => {} });
+  c.start();
+  for (const s of ['Priya', S, 'yes']) await c.turn(s);
+  const r = await c.turn('can I talk to a real person');
+  assert.equal(c.values.problem, undefined);
+  assert.match(r, /can't transfer/);
+});

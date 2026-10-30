@@ -1,15 +1,17 @@
 // Conversation simulator: seeded users with realistic mess talk to the engine; each conversation is checked
-// against safety invariants. Usage: node tests/sim.ts [--llama] [--n 500] [--seed 1] [--conc 3]
+// against safety invariants. Usage: node tests/sim.ts [--llama] [--jev] [--n 500] [--seed 1] [--conc 3]
 // Off-scope and filler utterances come from tests/data/*.json (run `python3 tests/fetch_datasets.py` first).
 import fs from 'node:fs';
 import { Copilot } from '../src/engine.ts';
 import { halvorsen } from '../src/flows/halvorsen.ts';
 import { formatSerial } from '../src/guard.ts';
-import { LlamaModel, RuleModel } from '../src/models.ts';
+import { JevGate, LlamaModel, RuleModel } from '../src/models.ts';
 
 const arg = (k: string, d: string) => { const i = process.argv.indexOf(k); return i > 0 ? process.argv[i + 1] : d; };
 const N = +arg('--n', '500'), SEED = +arg('--seed', '1'), CONC = +arg('--conc', '3');
-const model = process.argv.includes('--llama') ? new LlamaModel() : new RuleModel();
+const base = process.argv.includes('--llama') ? new LlamaModel() : new RuleModel();
+// --jev puts the Jev on-topic gate in front (key from OPENROUTER_JEV_KEY, URL from JEV_URL).
+const model = process.argv.includes('--jev') ? new JevGate(base) : base;
 const load = (f: string): string[] => JSON.parse(fs.readFileSync(new URL(`./data/${f}.json`, import.meta.url), 'utf8'));
 // Real short confirmations ("Sure, that's correct.") appear in the SGD turns; they are yeses, not off-scope requests.
 const SHORT_YES = (u: string) => u.split(/\s+/).length <= 8 && /\b(yes|yeah|sure|correct|right|ok|okay|go ahead|confirm)\b/i.test(u);
@@ -170,4 +172,5 @@ for (const [k, s] of [...stats].sort((a, b) => b[1].fail - a[1].fail || a[0].loc
 console.log(`\nchecks failed: ${fails}/${total}`);
 const outFile = new URL(`./sim-${model.name}-seed${SEED}.json`, import.meta.url);
 fs.writeFileSync(outFile, JSON.stringify({ model: model.name, seed: SEED, conversations: N, turns, total, fails, failures: [...stats].filter(([, s]) => s.fail).map(([k, s]) => ({ check: k, failed: s.fail, of: s.n, examples: s.ex.map(e => ({ id: e.id, why: e.checks[0].detail, transcript: e.transcript })) })) }, null, 1));
-fs.appendFileSync(new URL('../ledger.jsonl', import.meta.url), JSON.stringify({ ts: new Date().toISOString(), set: 'sim', model: model.name, seed: SEED, conversations: N, turns, checks: total, failed: fails }) + '\n');
+fs.appendFileSync(new URL('../ledger.jsonl', import.meta.url), JSON.stringify({ ts: new Date().toISOString(), set: 'sim', model: model.name, seed: SEED, conversations: N, turns, checks: total, failed: fails, ...(model instanceof JevGate ? { jev_calls: model.calls, jev_cost_usd: +model.cost.toFixed(6) } : {}) }) + '\n');
+if (model instanceof JevGate) console.log(`Jev: ${model.calls} calls, $${model.cost.toFixed(5)}`);

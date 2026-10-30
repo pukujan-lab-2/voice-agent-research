@@ -14,9 +14,19 @@ public posting, secrets, deleting data. Everything else gets built and reported.
 - [x] Scenarios: 7/7 with LFM3, plus 9 unit tests with a stand-in model; holdout set 16/16 (the 2 misses it found
       were fixed, so write fresh holdout cases before trusting the score again).
 - [x] Octo RAG: DMV, Medicare 2027 and IRS Pub 17 loaded (38 docs); 15 questions, right passage in top 3 for 13/15.
+      (Those docs were deleted on request; the 7 demo DW-500 manual passages are loaded there now.)
+- [x] Jev 1.14 on-topic gate (`JevGate` in `src/models.ts`) in front of LFM3 on free-text questions. 500 conversations,
+      seed 3: failed checks 117 -> 49 of ~6,900; off-topic kept out 84% -> 93.5%; safety checks 100% both ways.
+      568 Jev calls cost $0.012. Model locked to Jev in code; key locked to Jev by an OpenRouter guardrail.
+- [x] Fresh holdout (`tests/holdout2.ts`, 30 cases): found a real bug ("yes but change the time" submitted at the
+      confirm card). Fixed: a yes with "but/except/wait..." or a field name never submits. Asking for a person is
+      answered in code. Rules model 22/30, Jev + rules 27/30 before the fix to the Jev prompt. Write holdout3 next.
+- [x] Manual-guidance mode core (`src/guide.ts`): steps walked one at a time, navigation in code, side questions
+      answered only by quoting a manual passage (Octo search + Jev picks the passage or says none), else
+      "I don't know". 21/21 with Octo + Jev (case set written with the code, not a holdout yet).
 
 ## Next, in this order (each ends with tests added to the ledger)
-1. [ ] Manual-guidance mode: split a manual into numbered steps offline (owner reviews), walk one step at a time,
+1. [~] Manual-guidance mode (core done): still to do: split a real manual into numbered steps offline (owner reviews), walk one step at a time,
        answer side questions from retrieval only, say "I don't know" otherwise. Pairs with the booking-flow mode.
 2. [ ] Site adapter + a real demo backend (Brookside booking): the flow's `submit` calls the owner's own API.
 3. [ ] Page adapter: PageAgent (alibaba/page-agent, MIT) as the in-page layer; fill-and-never-submit on a practice

@@ -142,3 +142,229 @@
 {"ts":"2026-10-30T15:08:46.806Z","set":"holdout","model":"llama","scenario":"review: \"not really\" does not submit","pass":true}
 {"ts":"2026-10-30T15:08:47.055Z","set":"holdout","model":"llama","scenario":"review: \"I think so\" does not submit","pass":true}
 {"ts":"2026-10-30T15:08:47.205Z","set":"sim","model":"rules","seed":2,"conversations":500,"turns":5199,"checks":7027,"failed":193}
+{"ts":"2026-10-30T15:53:52.345Z","set":"sim","model":"jev+rules","seed":9,"conversations":20,"turns":203,"checks":268,"failed":1,"jev_calls":24,"jev_cost_usd":0.000486}
+{"ts":"2026-10-30T15:54:00.543Z","set":"sim","model":"jev+rules","seed":9,"conversations":20,"turns":203,"checks":268,"failed":1,"jev_calls":24,"jev_cost_usd":0.000486}
+{"ts":"2026-10-30T15:54:43.905Z","set":"holdout2","model":"rules","scenario":"problem: power bill went up","pass":true}
+{"ts":"2026-10-30T15:54:43.907Z","set":"holdout2","model":"rules","scenario":"problem: card reader","pass":true}
+{"ts":"2026-10-30T15:54:43.907Z","set":"holdout2","model":"rules","scenario":"problem: smells like burning","pass":true}
+{"ts":"2026-10-30T15:54:43.907Z","set":"holdout2","model":"rules","scenario":"problem: short","pass":true}
+{"ts":"2026-10-30T15:54:43.907Z","set":"holdout2","model":"rules","scenario":"problem: with a story","pass":true}
+{"ts":"2026-10-30T15:54:43.907Z","set":"holdout2","model":"rules","scenario":"problem: ice maker","pass":true}
+{"ts":"2026-10-30T15:54:43.907Z","set":"holdout2","model":"rules","scenario":"problem: error code only","pass":true}
+{"ts":"2026-10-30T15:54:43.907Z","set":"holdout2","model":"rules","scenario":"problem: booking word inside","pass":true}
+{"ts":"2026-10-30T15:54:43.907Z","set":"holdout2","model":"rules","scenario":"off-topic: mortgage","pass":false}
+{"ts":"2026-10-30T15:54:43.907Z","set":"holdout2","model":"rules","scenario":"off-topic: flight","pass":false}
+{"ts":"2026-10-30T15:54:43.908Z","set":"holdout2","model":"rules","scenario":"off-topic: buy new appliance","pass":false}
+{"ts":"2026-10-30T15:54:43.908Z","set":"holdout2","model":"rules","scenario":"off-topic: football","pass":false}
+{"ts":"2026-10-30T15:54:43.908Z","set":"holdout2","model":"rules","scenario":"off-topic: write an essay","pass":false}
+{"ts":"2026-10-30T15:54:43.908Z","set":"holdout2","model":"rules","scenario":"off-topic: prompt injection","pass":false}
+{"ts":"2026-10-30T15:54:43.908Z","set":"holdout2","model":"rules","scenario":"off-topic: talk to a human","pass":false}
+{"ts":"2026-10-30T15:54:43.908Z","set":"holdout2","model":"rules","scenario":"unclear: let me think","pass":false}
+{"ts":"2026-10-30T15:54:43.908Z","set":"holdout2","model":"rules","scenario":"unclear: you know","pass":false}
+{"ts":"2026-10-30T15:54:43.908Z","set":"holdout2","model":"rules","scenario":"serial: with dashes typed","pass":true}
+{"ts":"2026-10-30T15:54:43.908Z","set":"holdout2","model":"rules","scenario":"serial: \"double one\"","pass":true}
+{"ts":"2026-10-30T15:54:43.908Z","set":"holdout2","model":"rules","scenario":"serial: one character short","pass":true}
+{"ts":"2026-10-30T15:54:43.908Z","set":"holdout2","model":"rules","scenario":"name: two words","pass":true}
+{"ts":"2026-10-30T15:54:43.908Z","set":"holdout2","model":"rules","scenario":"name: question is not a name","pass":true}
+{"ts":"2026-10-30T15:54:43.909Z","set":"holdout2","model":"rules","scenario":"time: first thing","pass":true}
+{"ts":"2026-10-30T15:54:43.909Z","set":"holdout2","model":"rules","scenario":"time: any time is not a choice","pass":true}
+{"ts":"2026-10-30T15:54:43.909Z","set":"holdout2","model":"rules","scenario":"time: both named is not a choice","pass":true}
+{"ts":"2026-10-30T15:54:43.909Z","set":"holdout2","model":"rules","scenario":"review: \"yes please submit it\"","pass":true}
+{"ts":"2026-10-30T15:54:43.909Z","set":"holdout2","model":"rules","scenario":"review: \"yes but change the time\"","pass":false}
+{"ts":"2026-10-30T15:54:43.909Z","set":"holdout2","model":"rules","scenario":"review: \"hold on\"","pass":true}
+{"ts":"2026-10-30T15:54:43.909Z","set":"holdout2","model":"rules","scenario":"review: \"is it free?\"","pass":true}
+{"ts":"2026-10-30T15:54:43.910Z","set":"holdout2","model":"rules","scenario":"review: \"submit\" alone","pass":true}
+{"ts":"2026-10-30T15:54:44.381Z","set":"holdout2","model":"jev+rules","scenario":"problem: power bill went up","pass":true}
+{"ts":"2026-10-30T15:54:44.580Z","set":"holdout2","model":"jev+rules","scenario":"problem: card reader","pass":true}
+{"ts":"2026-10-30T15:54:44.767Z","set":"holdout2","model":"jev+rules","scenario":"problem: smells like burning","pass":true}
+{"ts":"2026-10-30T15:54:44.989Z","set":"holdout2","model":"jev+rules","scenario":"problem: short","pass":true}
+{"ts":"2026-10-30T15:54:45.152Z","set":"holdout2","model":"jev+rules","scenario":"problem: with a story","pass":true}
+{"ts":"2026-10-30T15:54:45.333Z","set":"holdout2","model":"jev+rules","scenario":"problem: ice maker","pass":true}
+{"ts":"2026-10-30T15:54:45.513Z","set":"holdout2","model":"jev+rules","scenario":"problem: error code only","pass":true}
+{"ts":"2026-10-30T15:54:45.659Z","set":"holdout2","model":"jev+rules","scenario":"problem: booking word inside","pass":true}
+{"ts":"2026-10-30T15:54:45.816Z","set":"holdout2","model":"jev+rules","scenario":"off-topic: mortgage","pass":true}
+{"ts":"2026-10-30T15:54:45.993Z","set":"holdout2","model":"jev+rules","scenario":"off-topic: flight","pass":true}
+{"ts":"2026-10-30T15:54:46.210Z","set":"holdout2","model":"jev+rules","scenario":"off-topic: buy new appliance","pass":true}
+{"ts":"2026-10-30T15:54:46.400Z","set":"holdout2","model":"jev+rules","scenario":"off-topic: football","pass":true}
+{"ts":"2026-10-30T15:54:46.667Z","set":"holdout2","model":"jev+rules","scenario":"off-topic: write an essay","pass":true}
+{"ts":"2026-10-30T15:54:46.834Z","set":"holdout2","model":"jev+rules","scenario":"off-topic: prompt injection","pass":false}
+{"ts":"2026-10-30T15:54:46.979Z","set":"holdout2","model":"jev+rules","scenario":"off-topic: talk to a human","pass":false}
+{"ts":"2026-10-30T15:54:47.193Z","set":"holdout2","model":"jev+rules","scenario":"unclear: let me think","pass":true}
+{"ts":"2026-10-30T15:54:47.342Z","set":"holdout2","model":"jev+rules","scenario":"unclear: you know","pass":true}
+{"ts":"2026-10-30T15:54:47.342Z","set":"holdout2","model":"jev+rules","scenario":"serial: with dashes typed","pass":true}
+{"ts":"2026-10-30T15:54:47.343Z","set":"holdout2","model":"jev+rules","scenario":"serial: \"double one\"","pass":true}
+{"ts":"2026-10-30T15:54:47.343Z","set":"holdout2","model":"jev+rules","scenario":"serial: one character short","pass":true}
+{"ts":"2026-10-30T15:54:47.343Z","set":"holdout2","model":"jev+rules","scenario":"name: two words","pass":true}
+{"ts":"2026-10-30T15:54:47.344Z","set":"holdout2","model":"jev+rules","scenario":"name: question is not a name","pass":true}
+{"ts":"2026-10-30T15:54:47.517Z","set":"holdout2","model":"jev+rules","scenario":"time: first thing","pass":true}
+{"ts":"2026-10-30T15:54:47.715Z","set":"holdout2","model":"jev+rules","scenario":"time: any time is not a choice","pass":true}
+{"ts":"2026-10-30T15:54:47.856Z","set":"holdout2","model":"jev+rules","scenario":"time: both named is not a choice","pass":true}
+{"ts":"2026-10-30T15:54:48.004Z","set":"holdout2","model":"jev+rules","scenario":"review: \"yes please submit it\"","pass":true}
+{"ts":"2026-10-30T15:54:48.144Z","set":"holdout2","model":"jev+rules","scenario":"review: \"yes but change the time\"","pass":false}
+{"ts":"2026-10-30T15:54:48.419Z","set":"holdout2","model":"jev+rules","scenario":"review: \"hold on\"","pass":true}
+{"ts":"2026-10-30T15:54:48.558Z","set":"holdout2","model":"jev+rules","scenario":"review: \"is it free?\"","pass":true}
+{"ts":"2026-10-30T15:54:48.770Z","set":"holdout2","model":"jev+rules","scenario":"review: \"submit\" alone","pass":true}
+{"ts":"2026-10-30T15:55:26.791Z","set":"holdout2","model":"rules","scenario":"problem: power bill went up","pass":true}
+{"ts":"2026-10-30T15:55:26.793Z","set":"holdout2","model":"rules","scenario":"problem: card reader","pass":true}
+{"ts":"2026-10-30T15:55:26.793Z","set":"holdout2","model":"rules","scenario":"problem: smells like burning","pass":true}
+{"ts":"2026-10-30T15:55:26.793Z","set":"holdout2","model":"rules","scenario":"problem: short","pass":true}
+{"ts":"2026-10-30T15:55:26.793Z","set":"holdout2","model":"rules","scenario":"problem: with a story","pass":true}
+{"ts":"2026-10-30T15:55:26.793Z","set":"holdout2","model":"rules","scenario":"problem: ice maker","pass":true}
+{"ts":"2026-10-30T15:55:26.793Z","set":"holdout2","model":"rules","scenario":"problem: error code only","pass":true}
+{"ts":"2026-10-30T15:55:26.793Z","set":"holdout2","model":"rules","scenario":"problem: booking word inside","pass":true}
+{"ts":"2026-10-30T15:55:26.793Z","set":"holdout2","model":"rules","scenario":"off-topic: mortgage","pass":false}
+{"ts":"2026-10-30T15:55:26.793Z","set":"holdout2","model":"rules","scenario":"off-topic: flight","pass":false}
+{"ts":"2026-10-30T15:55:26.793Z","set":"holdout2","model":"rules","scenario":"off-topic: buy new appliance","pass":false}
+{"ts":"2026-10-30T15:55:26.794Z","set":"holdout2","model":"rules","scenario":"off-topic: football","pass":false}
+{"ts":"2026-10-30T15:55:26.794Z","set":"holdout2","model":"rules","scenario":"off-topic: write an essay","pass":false}
+{"ts":"2026-10-30T15:55:26.794Z","set":"holdout2","model":"rules","scenario":"off-topic: prompt injection","pass":false}
+{"ts":"2026-10-30T15:55:26.794Z","set":"holdout2","model":"rules","scenario":"off-topic: talk to a human","pass":true}
+{"ts":"2026-10-30T15:55:26.794Z","set":"holdout2","model":"rules","scenario":"unclear: let me think","pass":false}
+{"ts":"2026-10-30T15:55:26.794Z","set":"holdout2","model":"rules","scenario":"unclear: you know","pass":false}
+{"ts":"2026-10-30T15:55:26.794Z","set":"holdout2","model":"rules","scenario":"serial: with dashes typed","pass":true}
+{"ts":"2026-10-30T15:55:26.794Z","set":"holdout2","model":"rules","scenario":"serial: \"double one\"","pass":true}
+{"ts":"2026-10-30T15:55:26.794Z","set":"holdout2","model":"rules","scenario":"serial: one character short","pass":true}
+{"ts":"2026-10-30T15:55:26.794Z","set":"holdout2","model":"rules","scenario":"name: two words","pass":true}
+{"ts":"2026-10-30T15:55:26.794Z","set":"holdout2","model":"rules","scenario":"name: question is not a name","pass":true}
+{"ts":"2026-10-30T15:55:26.795Z","set":"holdout2","model":"rules","scenario":"time: first thing","pass":true}
+{"ts":"2026-10-30T15:55:26.795Z","set":"holdout2","model":"rules","scenario":"time: any time is not a choice","pass":true}
+{"ts":"2026-10-30T15:55:26.795Z","set":"holdout2","model":"rules","scenario":"time: both named is not a choice","pass":true}
+{"ts":"2026-10-30T15:55:26.795Z","set":"holdout2","model":"rules","scenario":"review: \"yes please submit it\"","pass":true}
+{"ts":"2026-10-30T15:55:26.795Z","set":"holdout2","model":"rules","scenario":"review: \"yes but change the time\"","pass":true}
+{"ts":"2026-10-30T15:55:26.796Z","set":"holdout2","model":"rules","scenario":"review: \"hold on\"","pass":true}
+{"ts":"2026-10-30T15:55:26.796Z","set":"holdout2","model":"rules","scenario":"review: \"is it free?\"","pass":true}
+{"ts":"2026-10-30T15:55:26.796Z","set":"holdout2","model":"rules","scenario":"review: \"submit\" alone","pass":true}
+{"ts":"2026-10-30T15:55:26.862Z","set":"holdout","model":"rules","scenario":"serial as digits and spaces","pass":true}
+{"ts":"2026-10-30T15:55:26.864Z","set":"holdout","model":"rules","scenario":"serial typed in one go","pass":true}
+{"ts":"2026-10-30T15:55:26.864Z","set":"holdout","model":"rules","scenario":"serial with phonetic words","pass":true}
+{"ts":"2026-10-30T15:55:26.864Z","set":"holdout","model":"rules","scenario":"serial too short asks again","pass":true}
+{"ts":"2026-10-30T15:55:26.865Z","set":"holdout","model":"rules","scenario":"time: mornings work best","pass":true}
+{"ts":"2026-10-30T15:55:26.865Z","set":"holdout","model":"rules","scenario":"time: I'd rather come after lunch","pass":true}
+{"ts":"2026-10-30T15:55:26.866Z","set":"holdout","model":"rules","scenario":"time: either is not an answer","pass":true}
+{"ts":"2026-10-30T15:55:26.866Z","set":"holdout","model":"rules","scenario":"problem: free description","pass":true}
+{"ts":"2026-10-30T15:55:26.866Z","set":"holdout","model":"rules","scenario":"off-scope: return policy","pass":false}
+{"ts":"2026-10-30T15:55:26.866Z","set":"holdout","model":"rules","scenario":"off-scope: joke","pass":true}
+{"ts":"2026-10-30T15:55:26.866Z","set":"holdout","model":"rules","scenario":"correct the name mid-flow","pass":true}
+{"ts":"2026-10-30T15:55:26.866Z","set":"holdout","model":"rules","scenario":"review: \"yep that is right\" submits","pass":true}
+{"ts":"2026-10-30T15:55:26.867Z","set":"holdout","model":"rules","scenario":"review: \"go for it\" submits","pass":true}
+{"ts":"2026-10-30T15:55:26.867Z","set":"holdout","model":"rules","scenario":"review: \"sounds good\" never submits by accident (either result is safe)","pass":true}
+{"ts":"2026-10-30T15:55:26.867Z","set":"holdout","model":"rules","scenario":"review: \"not really\" does not submit","pass":true}
+{"ts":"2026-10-30T15:55:26.867Z","set":"holdout","model":"rules","scenario":"review: \"I think so\" does not submit","pass":true}
+{"ts":"2026-10-30T15:55:31.343Z","set":"holdout","model":"rules","scenario":"serial as digits and spaces","pass":true}
+{"ts":"2026-10-30T15:55:31.345Z","set":"holdout","model":"rules","scenario":"serial typed in one go","pass":true}
+{"ts":"2026-10-30T15:55:31.345Z","set":"holdout","model":"rules","scenario":"serial with phonetic words","pass":true}
+{"ts":"2026-10-30T15:55:31.345Z","set":"holdout","model":"rules","scenario":"serial too short asks again","pass":true}
+{"ts":"2026-10-30T15:55:31.346Z","set":"holdout","model":"rules","scenario":"time: mornings work best","pass":true}
+{"ts":"2026-10-30T15:55:31.346Z","set":"holdout","model":"rules","scenario":"time: I'd rather come after lunch","pass":true}
+{"ts":"2026-10-30T15:55:31.347Z","set":"holdout","model":"rules","scenario":"time: either is not an answer","pass":true}
+{"ts":"2026-10-30T15:55:31.347Z","set":"holdout","model":"rules","scenario":"problem: free description","pass":true}
+{"ts":"2026-10-30T15:55:31.347Z","set":"holdout","model":"rules","scenario":"off-scope: return policy","pass":false}
+{"ts":"2026-10-30T15:55:31.347Z","set":"holdout","model":"rules","scenario":"off-scope: joke","pass":true}
+{"ts":"2026-10-30T15:55:31.347Z","set":"holdout","model":"rules","scenario":"correct the name mid-flow","pass":true}
+{"ts":"2026-10-30T15:55:31.347Z","set":"holdout","model":"rules","scenario":"review: \"yep that is right\" submits","pass":true}
+{"ts":"2026-10-30T15:55:31.348Z","set":"holdout","model":"rules","scenario":"review: \"go for it\" submits","pass":true}
+{"ts":"2026-10-30T15:55:31.348Z","set":"holdout","model":"rules","scenario":"review: \"sounds good\" never submits by accident (either result is safe)","pass":true}
+{"ts":"2026-10-30T15:55:31.348Z","set":"holdout","model":"rules","scenario":"review: \"not really\" does not submit","pass":true}
+{"ts":"2026-10-30T15:55:31.348Z","set":"holdout","model":"rules","scenario":"review: \"I think so\" does not submit","pass":true}
+{"ts":"2026-10-30T15:55:31.457Z","set":"holdout","model":"rules","scenario":"serial as digits and spaces","pass":true}
+{"ts":"2026-10-30T15:55:31.458Z","set":"holdout","model":"rules","scenario":"serial typed in one go","pass":true}
+{"ts":"2026-10-30T15:55:31.458Z","set":"holdout","model":"rules","scenario":"serial with phonetic words","pass":true}
+{"ts":"2026-10-30T15:55:31.459Z","set":"holdout","model":"rules","scenario":"serial too short asks again","pass":true}
+{"ts":"2026-10-30T15:55:31.459Z","set":"holdout","model":"rules","scenario":"time: mornings work best","pass":true}
+{"ts":"2026-10-30T15:55:31.460Z","set":"holdout","model":"rules","scenario":"time: I'd rather come after lunch","pass":true}
+{"ts":"2026-10-30T15:55:31.460Z","set":"holdout","model":"rules","scenario":"time: either is not an answer","pass":true}
+{"ts":"2026-10-30T15:55:31.460Z","set":"holdout","model":"rules","scenario":"problem: free description","pass":true}
+{"ts":"2026-10-30T15:55:31.460Z","set":"holdout","model":"rules","scenario":"off-scope: return policy","pass":false}
+{"ts":"2026-10-30T15:55:31.460Z","set":"holdout","model":"rules","scenario":"off-scope: joke","pass":true}
+{"ts":"2026-10-30T15:55:31.461Z","set":"holdout","model":"rules","scenario":"correct the name mid-flow","pass":true}
+{"ts":"2026-10-30T15:55:31.461Z","set":"holdout","model":"rules","scenario":"review: \"yep that is right\" submits","pass":true}
+{"ts":"2026-10-30T15:55:31.461Z","set":"holdout","model":"rules","scenario":"review: \"go for it\" submits","pass":true}
+{"ts":"2026-10-30T15:55:31.461Z","set":"holdout","model":"rules","scenario":"review: \"sounds good\" never submits by accident (either result is safe)","pass":true}
+{"ts":"2026-10-30T15:55:31.461Z","set":"holdout","model":"rules","scenario":"review: \"not really\" does not submit","pass":true}
+{"ts":"2026-10-30T15:55:31.461Z","set":"holdout","model":"rules","scenario":"review: \"I think so\" does not submit","pass":true}
+{"ts":"2026-10-30T15:56:57.042Z","set":"guide","judge":"overlap","scenario":"next moves on","pass":true}
+{"ts":"2026-10-30T15:56:57.043Z","set":"guide","judge":"overlap","scenario":"\"ok, done\" moves on","pass":true}
+{"ts":"2026-10-30T15:56:57.043Z","set":"guide","judge":"overlap","scenario":"back goes back","pass":true}
+{"ts":"2026-10-30T15:56:57.043Z","set":"guide","judge":"overlap","scenario":"back at step 1 stays","pass":true}
+{"ts":"2026-10-30T15:56:57.043Z","set":"guide","judge":"overlap","scenario":"repeat stays","pass":true}
+{"ts":"2026-10-30T15:56:57.043Z","set":"guide","judge":"overlap","scenario":"filler waits","pass":true}
+{"ts":"2026-10-30T15:56:57.044Z","set":"guide","judge":"overlap","scenario":"last step finishes","pass":true}
+{"ts":"2026-10-30T15:56:57.044Z","set":"guide","judge":"overlap","scenario":"stop ends","pass":true}
+{"ts":"2026-10-30T15:56:57.044Z","set":"guide","judge":"overlap","scenario":"statement is not a step","pass":true}
+{"ts":"2026-10-30T15:56:57.045Z","set":"guide","judge":"overlap","scenario":"how often","pass":true}
+{"ts":"2026-10-30T15:56:57.045Z","set":"guide","judge":"overlap","scenario":"wire brush","pass":true}
+{"ts":"2026-10-30T15:56:57.045Z","set":"guide","judge":"overlap","scenario":"does not click","pass":true}
+{"ts":"2026-10-30T15:56:57.045Z","set":"guide","judge":"overlap","scenario":"E24","pass":true}
+{"ts":"2026-10-30T15:56:57.045Z","set":"guide","judge":"overlap","scenario":"where is the switch","pass":true}
+{"ts":"2026-10-30T15:56:57.045Z","set":"guide","judge":"overlap","scenario":"question keeps the step","pass":true}
+{"ts":"2026-10-30T15:56:57.045Z","set":"guide","judge":"overlap","scenario":"price of a new filter","pass":true}
+{"ts":"2026-10-30T15:56:57.046Z","set":"guide","judge":"overlap","scenario":"oven question","pass":true}
+{"ts":"2026-10-30T15:56:57.046Z","set":"guide","judge":"overlap","scenario":"filter brand","pass":true}
+{"ts":"2026-10-30T15:56:57.046Z","set":"guide","judge":"overlap","scenario":"warranty length is answerable","pass":false}
+{"ts":"2026-10-30T15:56:57.046Z","set":"guide","judge":"overlap","scenario":"dish soap","pass":true}
+{"ts":"2026-10-30T15:56:57.046Z","set":"guide","judge":"overlap","scenario":"unrelated","pass":true}
+{"ts":"2026-10-30T15:56:57.110Z","set":"guide","judge":"jev","scenario":"next moves on","pass":true}
+{"ts":"2026-10-30T15:56:57.111Z","set":"guide","judge":"jev","scenario":"\"ok, done\" moves on","pass":true}
+{"ts":"2026-10-30T15:56:57.112Z","set":"guide","judge":"jev","scenario":"back goes back","pass":true}
+{"ts":"2026-10-30T15:56:57.112Z","set":"guide","judge":"jev","scenario":"back at step 1 stays","pass":true}
+{"ts":"2026-10-30T15:56:57.112Z","set":"guide","judge":"jev","scenario":"repeat stays","pass":true}
+{"ts":"2026-10-30T15:56:57.112Z","set":"guide","judge":"jev","scenario":"filler waits","pass":true}
+{"ts":"2026-10-30T15:56:57.112Z","set":"guide","judge":"jev","scenario":"last step finishes","pass":true}
+{"ts":"2026-10-30T15:56:57.112Z","set":"guide","judge":"jev","scenario":"stop ends","pass":true}
+{"ts":"2026-10-30T15:56:57.113Z","set":"guide","judge":"jev","scenario":"statement is not a step","pass":true}
+{"ts":"2026-10-30T15:56:57.420Z","set":"guide","judge":"jev","scenario":"how often","pass":true}
+{"ts":"2026-10-30T15:56:57.590Z","set":"guide","judge":"jev","scenario":"wire brush","pass":true}
+{"ts":"2026-10-30T15:56:57.752Z","set":"guide","judge":"jev","scenario":"does not click","pass":true}
+{"ts":"2026-10-30T15:56:57.920Z","set":"guide","judge":"jev","scenario":"E24","pass":true}
+{"ts":"2026-10-30T15:56:58.101Z","set":"guide","judge":"jev","scenario":"where is the switch","pass":true}
+{"ts":"2026-10-30T15:56:58.279Z","set":"guide","judge":"jev","scenario":"question keeps the step","pass":true}
+{"ts":"2026-10-30T15:56:58.444Z","set":"guide","judge":"jev","scenario":"price of a new filter","pass":true}
+{"ts":"2026-10-30T15:56:58.578Z","set":"guide","judge":"jev","scenario":"oven question","pass":true}
+{"ts":"2026-10-30T15:56:58.798Z","set":"guide","judge":"jev","scenario":"filter brand","pass":true}
+{"ts":"2026-10-30T15:56:59.059Z","set":"guide","judge":"jev","scenario":"warranty length is answerable","pass":true}
+{"ts":"2026-10-30T15:56:59.203Z","set":"guide","judge":"jev","scenario":"dish soap","pass":true}
+{"ts":"2026-10-30T15:56:59.204Z","set":"guide","judge":"jev","scenario":"unrelated","pass":true}
+{"ts":"2026-10-30T15:57:05.275Z","set":"guide","judge":"overlap","scenario":"next moves on","pass":true}
+{"ts":"2026-10-30T15:57:05.276Z","set":"guide","judge":"overlap","scenario":"\"ok, done\" moves on","pass":true}
+{"ts":"2026-10-30T15:57:05.276Z","set":"guide","judge":"overlap","scenario":"back goes back","pass":true}
+{"ts":"2026-10-30T15:57:05.276Z","set":"guide","judge":"overlap","scenario":"back at step 1 stays","pass":true}
+{"ts":"2026-10-30T15:57:05.276Z","set":"guide","judge":"overlap","scenario":"repeat stays","pass":true}
+{"ts":"2026-10-30T15:57:05.277Z","set":"guide","judge":"overlap","scenario":"filler waits","pass":true}
+{"ts":"2026-10-30T15:57:05.277Z","set":"guide","judge":"overlap","scenario":"last step finishes","pass":true}
+{"ts":"2026-10-30T15:57:05.277Z","set":"guide","judge":"overlap","scenario":"stop ends","pass":true}
+{"ts":"2026-10-30T15:57:05.278Z","set":"guide","judge":"overlap","scenario":"statement is not a step","pass":true}
+{"ts":"2026-10-30T15:57:05.279Z","set":"guide","judge":"overlap","scenario":"how often","pass":true}
+{"ts":"2026-10-30T15:57:05.279Z","set":"guide","judge":"overlap","scenario":"wire brush","pass":true}
+{"ts":"2026-10-30T15:57:05.279Z","set":"guide","judge":"overlap","scenario":"does not click","pass":true}
+{"ts":"2026-10-30T15:57:05.279Z","set":"guide","judge":"overlap","scenario":"E24","pass":true}
+{"ts":"2026-10-30T15:57:05.279Z","set":"guide","judge":"overlap","scenario":"where is the switch","pass":true}
+{"ts":"2026-10-30T15:57:05.279Z","set":"guide","judge":"overlap","scenario":"question keeps the step","pass":true}
+{"ts":"2026-10-30T15:57:05.279Z","set":"guide","judge":"overlap","scenario":"price of a new filter","pass":true}
+{"ts":"2026-10-30T15:57:05.279Z","set":"guide","judge":"overlap","scenario":"oven question","pass":true}
+{"ts":"2026-10-30T15:57:05.279Z","set":"guide","judge":"overlap","scenario":"filter brand","pass":true}
+{"ts":"2026-10-30T15:57:05.279Z","set":"guide","judge":"overlap","scenario":"warranty length is answerable","pass":false}
+{"ts":"2026-10-30T15:57:05.279Z","set":"guide","judge":"overlap","scenario":"dish soap","pass":true}
+{"ts":"2026-10-30T15:57:05.280Z","set":"guide","judge":"overlap","scenario":"unrelated","pass":true}
+{"ts":"2026-10-30T15:57:41.738Z","set":"guide","judge":"jev","retriever":"octo","scenario":"next moves on","pass":true}
+{"ts":"2026-10-30T15:57:41.740Z","set":"guide","judge":"jev","retriever":"octo","scenario":"\"ok, done\" moves on","pass":true}
+{"ts":"2026-10-30T15:57:41.740Z","set":"guide","judge":"jev","retriever":"octo","scenario":"back goes back","pass":true}
+{"ts":"2026-10-30T15:57:41.740Z","set":"guide","judge":"jev","retriever":"octo","scenario":"back at step 1 stays","pass":true}
+{"ts":"2026-10-30T15:57:41.740Z","set":"guide","judge":"jev","retriever":"octo","scenario":"repeat stays","pass":true}
+{"ts":"2026-10-30T15:57:41.740Z","set":"guide","judge":"jev","retriever":"octo","scenario":"filler waits","pass":true}
+{"ts":"2026-10-30T15:57:41.740Z","set":"guide","judge":"jev","retriever":"octo","scenario":"last step finishes","pass":true}
+{"ts":"2026-10-30T15:57:41.740Z","set":"guide","judge":"jev","retriever":"octo","scenario":"stop ends","pass":true}
+{"ts":"2026-10-30T15:57:41.741Z","set":"guide","judge":"jev","retriever":"octo","scenario":"statement is not a step","pass":true}
+{"ts":"2026-10-30T15:57:42.585Z","set":"guide","judge":"jev","retriever":"octo","scenario":"how often","pass":true}
+{"ts":"2026-10-30T15:57:43.037Z","set":"guide","judge":"jev","retriever":"octo","scenario":"wire brush","pass":true}
+{"ts":"2026-10-30T15:57:43.533Z","set":"guide","judge":"jev","retriever":"octo","scenario":"does not click","pass":true}
+{"ts":"2026-10-30T15:57:43.929Z","set":"guide","judge":"jev","retriever":"octo","scenario":"E24","pass":true}
+{"ts":"2026-10-30T15:57:44.417Z","set":"guide","judge":"jev","retriever":"octo","scenario":"where is the switch","pass":true}
+{"ts":"2026-10-30T15:57:44.940Z","set":"guide","judge":"jev","retriever":"octo","scenario":"question keeps the step","pass":true}
+{"ts":"2026-10-30T15:57:45.461Z","set":"guide","judge":"jev","retriever":"octo","scenario":"price of a new filter","pass":true}
+{"ts":"2026-10-30T15:57:45.871Z","set":"guide","judge":"jev","retriever":"octo","scenario":"oven question","pass":true}
+{"ts":"2026-10-30T15:57:46.267Z","set":"guide","judge":"jev","retriever":"octo","scenario":"filter brand","pass":true}
+{"ts":"2026-10-30T15:57:46.681Z","set":"guide","judge":"jev","retriever":"octo","scenario":"warranty length is answerable","pass":true}
+{"ts":"2026-10-30T15:57:47.111Z","set":"guide","judge":"jev","retriever":"octo","scenario":"dish soap","pass":true}
+{"ts":"2026-10-30T15:57:47.561Z","set":"guide","judge":"jev","retriever":"octo","scenario":"unrelated","pass":true}
+{"ts":"2026-10-30T15:58:58.383Z","set":"sim","model":"llama","seed":3,"conversations":500,"turns":5106,"checks":6890,"failed":117}
+{"ts":"2026-10-30T15:59:12.670Z","set":"sim","model":"jev+llama","seed":3,"conversations":500,"turns":5110,"checks":6893,"failed":49,"jev_calls":568,"jev_cost_usd":0.011902}

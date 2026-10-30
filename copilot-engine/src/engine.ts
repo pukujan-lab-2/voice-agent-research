@@ -5,6 +5,10 @@ type State = 'ask' | 'verify' | 'review' | 'change' | 'done';
 
 // Asks one question at a time, reads back serials, shows a confirm card, and only then calls hooks.submit.
 // The model only helps understand free-form answers; every safety decision is made here in code.
+// Words that attach a condition to a yes, or ask for a person instead of the assistant.
+const BUT = /\b(but|except|although|though|however|wait|unless)\b/i;
+const WANTS_HUMAN = /\b(real person|human|representative|operator|live agent|someone real)\b/i;
+
 export class Copilot {
   values: Record<string, string> = {};
   state: State = 'ask';
@@ -79,6 +83,7 @@ export class Copilot {
   }
 
   private async onAsk(said: string): Promise<string> {
+    if (WANTS_HUMAN.test(said)) return `I'm an automated assistant, so I can't transfer you, but I can finish this with you. ${this.flow.fields[this.idx].question}`;
     const f = this.field();
     const q = this.question();
     // Silence, filler and small talk are never answers.
@@ -142,7 +147,7 @@ export class Copilot {
     const s = spokenToSerial(said);
     if (validSerial(s) && yesNo(said) === 'unclear') { this.pending = s; return `I heard ${formatSerial(s)}. Is that right?`; }
     const yn = yesNo(said);
-    if (yn === 'yes') { this.values[f.name] = this.pending; this.pending = ''; return this.advance(); }
+    if (yn === 'yes' && !BUT.test(said)) { this.values[f.name] = this.pending; this.pending = ''; return this.advance(); }
     if (yn === 'no') { this.pending = ''; this.state = 'ask'; return `Okay, let's try again, a little slower. ${f.question}`; }
     return `Sorry, is ${formatSerial(this.pending)} correct? Please say yes or no.`;
   }
@@ -150,12 +155,13 @@ export class Copilot {
   private async onReview(said: string): Promise<string> {
     const target = this.findField(said);
     const yn = yesNo(said);
-    if (yn === 'yes') {
+    // A yes only submits when nothing else is attached: "yes but change the time" is a change request.
+    if (yn === 'yes' && !target && !wantsChange(said) && !BUT.test(said)) {
       await this.hooks.submit({ ...this.values });
       this.state = 'done';
       return this.flow.doneMessage;
     }
-    if (target && yn !== 'yes') return this.reask(target);
+    if (target) return this.reask(target);
     if (yn === 'no' || wantsChange(said)) { this.state = 'change'; return "No problem, I haven't submitted anything. Which answer would you like to change?"; }
     return `I need a clear yes before I submit. ${this.card()}`;
   }
