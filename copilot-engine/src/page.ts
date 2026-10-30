@@ -49,7 +49,9 @@ export function readInPage(): PageForm {
   const yourself: string[] = [];
   const seenRadio = new Set<string>();
   let n = 0;
-  const els = Array.from(document.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>('input,select,textarea'));
+  // A page can mark its main form, so a site search box or a newsletter field in the header is not read as part of it.
+  const scope: ParentNode = document.querySelector('[data-copilot-form]') ?? document;
+  const els = Array.from(scope.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>('input,select,textarea'));
   for (const el of els) {
     const type = el instanceof HTMLInputElement ? el.type.toLowerCase() : el.tagName.toLowerCase();
     if (['hidden', 'submit', 'button', 'reset', 'image'].includes(type)) continue;

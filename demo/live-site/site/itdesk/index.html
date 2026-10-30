@@ -1,64 +1,25 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
-<title>Cobblefin IT Desk Ticket</title>
+<title>Cobblefin IT Desk</title>
 <link rel="stylesheet" href="/assets/site.css">
 <style>:root { --accent: #0369a1; }</style>
 <script src="/assets/demo.js" defer></script>
-<script type="module" src="/copilot/widget.js"></script>
 </head>
-<body data-gate data-scene="itdesk">
-<header class="topbar"><a class="brand" href="/itdesk/">Cobblefin IT Desk <small>fictional</small></a><span class="who"></span></header>
+<body data-gate>
+<header class="topbar" data-site="itdesk"></header>
 <main class="wrap">
-  <h1>New incident ticket</h1>
-  <p class="muted">Tell us what's broken. Fields marked with a pattern are checked by the page.</p>
-  <div class="persona" data-persona-box hidden></div>
-  <form class="card" id="ticket" data-demo-form autocomplete="off">
-    <label for="cat">Category</label>
-    <select id="cat" name="cat" required data-copilot-ask="What kind of problem is it">
-      <option value="">Choose one</option>
-      <option value="net" data-copilot-also="vpn, wifi, wi-fi, internet">Network</option>
-      <option value="hw" data-copilot-also="laptop, screen, keyboard, printer">Hardware</option>
-      <option value="sw" data-copilot-also="app, program">Software</option>
-      <option value="acct" data-copilot-also="password, login, locked out">Accounts and access</option>
-    </select>
-    <label for="svc">Affected service</label>
-    <select id="svc" name="svc" required data-copilot-ask="Which service is affected">
-      <option value="">Choose one</option>
-      <option value="vpn" data-copilot-also="vpn, remote">VPN and remote access</option>
-      <option value="mail" data-copilot-also="mail, outlook">Email</option>
-      <option value="wifi" data-copilot-also="wifi, wi-fi, wireless">Office Wi-Fi</option>
-      <option value="print" data-copilot-also="printer, printing">Printing</option>
-    </select>
-    <label for="asset">Asset tag</label>
-    <input id="asset" name="asset" required pattern="CF-[0-9]{4}" title="Like CF-1234"
-      data-copilot-ask="What's the asset tag on your laptop? It looks like CF and four digits.">
-    <p class="hint">On the sticker under your laptop, like CF-1234.</p>
-    <fieldset data-copilot-ask="Who is affected">
-      <legend>Impact</legend>
-      <input type="radio" id="i1" name="impact" value="me" required data-copilot-also="only me, just me"><label for="i1">Just me</label>
-      <input type="radio" id="i2" name="impact" value="team" data-copilot-also="my team, whole team"><label for="i2">My team</label>
-      <input type="radio" id="i3" name="impact" value="office" data-copilot-also="everyone, whole office"><label for="i3">Whole office</label>
-    </fieldset>
-    <label for="urg">Urgency</label>
-    <select id="urg" name="urg" required data-copilot-ask="How urgent is it">
-      <option value="">Choose one</option>
-      <option value="low" data-copilot-also="not urgent, whenever">Low</option>
-      <option value="med" data-copilot-also="today, sometime today">Medium</option>
-      <option value="high" data-copilot-also="urgent, asap, blocked">High</option>
-    </select>
-    <label for="desc">Describe the problem</label>
-    <textarea id="desc" name="desc" minlength="10" required data-copilot-ask="In a sentence, what's going wrong?"></textarea>
-    <label for="email">Your work email</label>
-    <input id="email" name="email" type="email" required placeholder="made up, for the demo">
-    <button type="submit">Submit ticket</button>
-  </form>
+<section class="hero"><h1>IT Desk</h1><p class="lead">Report a problem, or check the knowledge base for a quick fix first.</p>
+<span class="status">● All systems normal</span><br>
+<a class="btn" href="/itdesk/new/">New ticket</a> <a class="btn secondary" href="/itdesk/kb/">Knowledge base</a></section>
+<div class="grid">
+<div class="card"><h3>VPN won't connect?</h3><p class="muted">Try the backup gateway first.</p><a href="/itdesk/kb/">How to switch</a></div>
+<div class="card"><h3>Locked out?</h3><p class="muted">Reset your password from any office PC.</p><a href="/itdesk/kb/">Steps</a></div>
+</div>
 </main>
-<script type="application/json" id="copilot-config">
-{ "business": "Cobblefin IT Desk", "form": "ticket",
-  "can": ["File this ticket with you", "Explain the fields", "You press Submit ticket yourself"] }
-</script>
+<footer class="site">A fictional company made up for a software demo. No real business, person or product.</footer>
+
 </body>
 </html>

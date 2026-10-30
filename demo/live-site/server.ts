@@ -38,8 +38,19 @@ function offlinePassages(): Record<string, Passage[]> {
   return out;
 }
 
-const TYPES: Record<string, string> = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
+// The marketing page answers on its own hostname; everything else is the demo sites and their API.
+const MARKETING_HOST = process.env.MARKETING_HOST ?? 'copilot.design-bakery.com';
+const HEADERS = { 'X-Robots-Tag': 'noindex, nofollow', 'Referrer-Policy': 'no-referrer', 'X-Frame-Options': 'DENY',
+  'X-Content-Type-Options': 'nosniff', 'Permissions-Policy': 'camera=(), microphone=(self), geolocation=()' };
+const TYPES: Record<string, string> = { '.mp4': 'video/mp4', '.jpg': 'image/jpeg', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
   '.json': 'application/json', '.txt': 'text/plain; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png' };
+
+// Behind the Cloudflare Tunnel every request comes from localhost; the visitor's address is in CF-Connecting-IP.
+function visitor(req: http.IncomingMessage): string {
+  const local = ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress ?? '');
+  const cf = req.headers['cf-connecting-ip'];
+  return local && typeof cf === 'string' ? cf : req.socket.remoteAddress ?? '';
+}
 
 export async function start(opts: { port?: number; host?: string; offline?: boolean } = {}) {
   const env = loadEnv();
@@ -48,21 +59,37 @@ export async function start(opts: { port?: number; host?: string; offline?: bool
   const dist = path.join(here, 'dist');
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url ?? '/', 'http://local');
-    res.setHeader('X-Robots-Tag', 'noindex, nofollow');
-    if (url.pathname.startsWith('/api/')) {
+    for (const [k, v] of Object.entries(HEADERS)) res.setHeader(k, v);
+    const marketing = (req.headers.host ?? '').split(':')[0] === MARKETING_HOST;
+    if (!marketing && url.pathname.startsWith('/api/')) {
       const chunks: Buffer[] = [];
       for await (const c of req) chunks.push(c as Buffer);
       const r = await api.handle(new Request(`http://local${url.pathname}`, { method: req.method, headers: { 'content-type': 'application/json' },
-        body: req.method === 'POST' ? Buffer.concat(chunks) : undefined }), req.socket.remoteAddress ?? '');
+        body: req.method === 'POST' ? Buffer.concat(chunks) : undefined }), visitor(req));
       res.writeHead(r.status, Object.fromEntries(r.headers));
       res.end(Buffer.from(await r.arrayBuffer()));
       return;
     }
-    let file = path.normalize(path.join(dist, decodeURIComponent(url.pathname)));
-    if (!file.startsWith(dist)) { res.writeHead(403); res.end(); return; }
+    const base = marketing ? path.join(dist, '_marketing') : dist;
+    let file = path.normalize(path.join(base, decodeURIComponent(url.pathname)));
+    if (!file.startsWith(base)) { res.writeHead(403); res.end(); return; }
     if (fs.existsSync(file) && fs.statSync(file).isDirectory()) file = path.join(file, 'index.html');
     if (!fs.existsSync(file)) { res.writeHead(404, { 'Content-Type': 'text/plain' }); res.end('Not found'); return; }
-    res.writeHead(200, { 'Content-Type': TYPES[path.extname(file)] ?? 'application/octet-stream', 'Cache-Control': 'no-store' });
+    const size = fs.statSync(file).size;
+    const type = TYPES[path.extname(file)] ?? 'application/octet-stream';
+    const cache = /\.(mp4|jpg|png)$/.test(file) ? 'public, max-age=86400' : 'no-cache';
+    // Byte ranges: Safari will only play a video that is served in ranges.
+    const range = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range ?? '');
+    if (range && (range[1] || range[2])) {
+      const startAt = range[1] ? +range[1] : Math.max(0, size - +range[2]);
+      const endAt = range[1] && range[2] ? Math.min(+range[2], size - 1) : size - 1;
+      if (startAt >= size || startAt > endAt) { res.writeHead(416, { 'Content-Range': `bytes */${size}` }); res.end(); return; }
+      res.writeHead(206, { 'Content-Type': type, 'Content-Range': `bytes ${startAt}-${endAt}/${size}`, 'Content-Length': endAt - startAt + 1, 'Accept-Ranges': 'bytes', 'Cache-Control': cache });
+      fs.createReadStream(file, { start: startAt, end: endAt }).pipe(res);
+      return;
+    }
+    res.writeHead(200, { 'Content-Type': type, 'Content-Length': size, 'Accept-Ranges': 'bytes', 'Cache-Control': cache });
+    if (req.method === 'HEAD') { res.end(); return; }
     fs.createReadStream(file).pipe(res);
   });
   await new Promise<void>(r => server.listen(opts.port ?? 0, opts.host ?? '127.0.0.1', r));

@@ -74,7 +74,7 @@ async function scene(name: string, url: string, run: (c: Ctx) => Promise<void>) 
     return r;
   };
   const val = (sel: string) => page.$eval(sel, el => (el as HTMLInputElement).value);
-  await page.click('#copilot-widget .launch');
+  await page.click('#copilot-widget .type');
   await settle(0);
   console.log(`      < ${(await lastBot()).slice(0, 200)}`);
   await run({ page, say, val, sent });
@@ -99,7 +99,7 @@ const nextStep = async (page: Page, say0: string) => {
   check(`next step starts by itself: ${say0}`, /On to the next part/.test(r) && r.includes(say0), r);
 };
 
-await scene('clinic', '/clinic/', async ({ page, say, val }) => {
+await scene('clinic', '/clinic/book/', async ({ page, say, val }) => {
   const first = (await page.locator('#copilot-widget .msg.bot').first().textContent()) ?? '';
   check('opens on the booking form and asks for the child', /fill in this booking form/.test(first) && /child's full name/.test(first), first);
   await say('Leo Rahman');
@@ -129,7 +129,7 @@ await scene('clinic', '/clinic/', async ({ page, say, val }) => {
     && (await val('#email')) === 'aisha@example.com' && !(await page.isChecked('#remind')));
 });
 
-await scene('appliance', '/appliance/', async ({ page, say, val }) => {
+await scene('appliance', '/appliance/support/', async ({ page, say, val }) => {
   await page.click('#copilot-widget .tabs button[data-mode=guide]');
   await page.waitForFunction(() => /Step 1 of 6/.test(document.getElementById('copilot-widget')!.shadowRoot!.querySelector('.msg.bot:last-child')?.textContent ?? ''));
   check('walk-through starts at step 1 of the E24 fix', true);
@@ -166,7 +166,7 @@ await scene('appliance', '/appliance/', async ({ page, say, val }) => {
   check('hand-back: press Request visit yourself', /press Request visit yourself/.test(r), r);
 });
 
-await scene('pricing', '/pricing/', async ({ page, say, val }) => {
+await scene('pricing', '/pricing/quote/', async ({ page, say, val }) => {
   await say('Prana Yoga Studio');
   check('business name typed in', (await val('#biz')) === 'Prana Yoga Studio');
   await say('Sofia Marin');
@@ -187,7 +187,7 @@ await scene('pricing', '/pricing/', async ({ page, say, val }) => {
   check('every field filled', (await val('#contact')) === 'Sofia Marin' && (await val('#email')) === 'sofia@example.com' && (await val('#needs')) === 'a website with online class booking');
 });
 
-await scene('itdesk', '/itdesk/', async ({ page, say, val }) => {
+await scene('itdesk', '/itdesk/new/', async ({ page, say, val }) => {
   await say("it's a network problem");
   check('category Network', (await val('#cat')) === 'net');
   await say('the VPN');
@@ -210,13 +210,13 @@ await scene('itdesk', '/itdesk/', async ({ page, say, val }) => {
   check('hand-back: press Submit ticket yourself', /press Submit ticket yourself/.test(r), r);
 });
 
-await scene('pension', '/pension/', async ({ page, say, val }) => {
+await scene('pension', '/pension/forms/r17/', async ({ page, say, val }) => {
   await say('SPF-204118');
   check('member number typed in', (await val('#member')) === 'SPF-204118');
   await say('Michael');
   await say('Reyes');
   check('beneficiary name typed in', (await val('#bfirst')) === 'Michael' && (await val('#blast')) === 'Reyes');
-  let r = await say('What is a payee code?');
+  let r = await say('what is a payee code');
   check('payee code explained from the R-17 guide, page 3, then back to the form',
     /\(page 3\)/.test(r) && /related to you/.test(r) && /Back to the form: How is this person related to you/.test(r), r);
   r = await say('How long does processing take if I send it online?');
@@ -233,6 +233,63 @@ await scene('pension', '/pension/', async ({ page, say, val }) => {
   check('hand-back names the button and the box to tick', /press Submit form R-17 yourself/.test(r) && /I agree this form replaces/.test(r), r);
   check('consent box left for the person', !(await page.isChecked('#replace')));
 });
+
+// Voice call: the browser's speech services are replaced by stubs. The fake microphone "hears" queued sentences,
+// and the fake speaker records what the copilot says. The widget, engine and backend are the real ones.
+if (!only.length || only.includes('voice')) {
+  current = 'voice';
+  console.log('\n== voice /clinic/book/');
+  const page = await browser.newPage();
+  await page.addInitScript(() => {
+    const w = window as any;
+    w.__heard = [] as string[]; w.__spoken = [] as string[]; w.__listening = 0;
+    class FakeSR {
+      onresult: any; onend: any; onerror: any; lang = ''; interimResults = false; continuous = false; maxAlternatives = 1; done = false;
+      start() {
+        w.__listening++;
+        const tick = () => {
+          if (this.done) return;
+          const t = w.__heard.shift();
+          if (t === undefined) { setTimeout(tick, 50); return; }
+          this.done = true; w.__listening--;
+          this.onresult?.({ resultIndex: 0, results: [Object.assign([{ transcript: t }], { isFinal: true })] });
+          this.onend?.();
+        };
+        setTimeout(tick, 50);
+      }
+      abort() { if (!this.done) { this.done = true; w.__listening--; } }
+      stop() { this.abort(); }
+    }
+    w.SpeechRecognition = FakeSR; w.webkitSpeechRecognition = FakeSR;
+    Object.defineProperty(w, 'speechSynthesis', { value: { cancel() {}, speak(u: any) { w.__spoken.push(u.text); setTimeout(() => u.onend?.(), 10); } } });
+  });
+  await page.goto(`${srv.url}/clinic/book/?guest=1`);
+  const spoken = () => page.evaluate(() => (window as any).__spoken.length as number);
+  const talk = async (t: string) => {
+    const n = await spoken();
+    await page.waitForFunction(() => (window as any).__listening > 0, null, { timeout: 30_000 });
+    await page.evaluate(t => (window as any).__heard.push(t), t);
+    await page.waitForFunction(n => (window as any).__spoken.length > n && (window as any).__listening > 0, n, { timeout: 60_000 });
+    const r = await page.evaluate(() => (window as any).__spoken.at(-1) as string);
+    console.log(`      > (spoken) ${t}\n      < (spoken) ${r.slice(0, 200)}`);
+    return r;
+  };
+  await page.click('#copilot-widget .call');
+  await page.waitForFunction(() => (window as any).__spoken.length > 0);
+  const hello = await page.evaluate(() => (window as any).__spoken[0] as string);
+  check('the call opens by speaking the first question', /child's full name/.test(hello), hello);
+  check('in a call the text box is hidden', await page.locator('#copilot-widget .text').isHidden());
+  await talk('Leo Rahman');
+  check('spoken name typed in', (await page.$eval('#child', e => (e as HTMLInputElement).value)) === 'Leo Rahman');
+  let r = await talk('a checkup please');
+  check('spoken "checkup" picks Well-child checkup, then the read-back is spoken', (await page.$eval('#visit', e => (e as HTMLSelectElement).value)) === 'wellchild' && /Here's what I have/.test(r), r);
+  r = await talk('yes');
+  check('spoken hand-back: press Next yourself', /press Next yourself/.test(r), r);
+  check('the call never pressed Next', await page.locator('fieldset[data-step]').first().isVisible());
+  await page.click('#copilot-widget .end');
+  check('ending the call closes the panel', await page.locator('#copilot-widget .panel').isHidden());
+  await page.close();
+}
 
 await browser.close();
 await srv.close();
