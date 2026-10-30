@@ -704,3 +704,57 @@
 {"ts":"2026-10-30T16:51:12.376Z","set":"guide-irs","load":"docling","judge":"jev","retriever":"octo","scenario":"How do I file my California state taxes?","pass":true}
 {"ts":"2026-10-30T16:51:14.877Z","set":"guide-irs","load":"docling","judge":"jev","retriever":"octo","scenario":"What is the tax rate on long-term capital gains?","pass":true}
 {"ts":"2026-10-30T16:51:17.316Z","set":"guide-irs","load":"docling","judge":"jev","retriever":"octo","scenario":"Can you recommend a good tax preparer?","pass":true}
+{"ts":"2026-10-30T17:53:36.138Z","set":"guide-irs","load":"paddle","judge":"jev","retriever":"octo","scenario":"I'm single and under 65. How much do I have to earn before I must file?","pass":false}
+{"ts":"2026-10-30T17:53:40.031Z","set":"guide-irs","load":"paddle","judge":"jev","retriever":"octo","scenario":"I'm single and 67. What income means I have to file?","pass":false}
+{"ts":"2026-10-30T17:53:43.214Z","set":"guide-irs","load":"paddle","judge":"jev","retriever":"octo","scenario":"We're married filing jointly and both over 65. When do we have to file?","pass":false}
+{"ts":"2026-10-30T17:53:46.857Z","set":"guide-irs","load":"paddle","judge":"jev","retriever":"octo","scenario":"What's the filing threshold for married filing separately?","pass":false}
+{"ts":"2026-10-30T17:53:50.338Z","set":"guide-irs","load":"paddle","judge":"jev","retriever":"octo","scenario":"I'm head of household and over 65. What's my filing threshold?","pass":false}
+{"ts":"2026-10-30T17:53:53.668Z","set":"guide-irs","load":"paddle","judge":"jev","retriever":"octo","scenario":"I'm a qualifying surviving spouse under 65. When must I file?","pass":false}
+{"ts":"2026-10-30T17:53:57.116Z","set":"guide-irs","load":"paddle","judge":"jev","retriever":"octo","scenario":"What's the standard deduction for head of household?","pass":false}
+{"ts":"2026-10-30T17:54:00.866Z","set":"guide-irs","load":"paddle","judge":"jev","retriever":"octo","scenario":"Married filing jointly, one of us was born before 1961. What is our standard deduction?","pass":false}
+{"ts":"2026-10-30T17:54:04.508Z","set":"guide-irs","load":"paddle","judge":"jev","retriever":"octo","scenario":"Married filing jointly, we were both born before 1961 and we are both blind. Standard deduction?","pass":false}
+{"ts":"2026-10-30T17:54:08.235Z","set":"guide-irs","load":"paddle","judge":"jev","retriever":"octo","scenario":"I'm single, blind, and born in 1958. What's my standard deduction?","pass":false}
+{"ts":"2026-10-30T17:54:11.879Z","set":"guide-irs","load":"paddle","judge":"jev","retriever":"octo","scenario":"Married filing separately with 3 boxes checked: what standard deduction?","pass":false}
+{"ts":"2026-10-30T17:54:15.910Z","set":"guide-irs","load":"paddle","judge":"jev","retriever":"octo","scenario":"If someone can claim me as a dependent, what is the minimum standard deduction?","pass":false}
+{"ts":"2026-10-30T17:54:18.653Z","set":"guide-irs","load":"paddle","judge":"jev","retriever":"octo","scenario":"When am I considered 65?","pass":false}
+{"ts":"2026-10-30T17:54:22.351Z","set":"guide-irs","load":"paddle","judge":"jev","retriever":"octo","scenario":"My spouse files separately and itemizes. Can I take the standard deduction?","pass":false}
+{"ts":"2026-10-30T17:54:25.483Z","set":"guide-irs","load":"paddle","judge":"jev","retriever":"octo","scenario":"Which states are community property states?","pass":false}
+{"ts":"2026-10-30T17:54:28.945Z","set":"guide-irs","load":"paddle","judge":"jev","retriever":"octo","scenario":"How do I file my California state taxes?","pass":true}
+{"ts":"2026-10-30T17:54:33.031Z","set":"guide-irs","load":"paddle","judge":"jev","retriever":"octo","scenario":"What is the tax rate on long-term capital gains?","pass":true}
+{"ts":"2026-10-30T17:54:36.836Z","set":"guide-irs","load":"paddle","judge":"jev","retriever":"octo","scenario":"Can you recommend a good tax preparer?","pass":true}
+{"ts":"2026-10-30T17:55:39.599Z","set":"guide-irs","load":"paddle","judge":"jev","retriever":"octo","scenario":"I'm single and under 65. How much do I have to earn before I must file?","pass":false}
+{"ts":"2026-10-30T17:55:43.251Z","set":"guide-irs","load":"paddle","judge":"jev","retriever":"octo","scenario":"I'm single and 67. What income means I have to file?","pass":false}
+{"ts":"2026-10-30T17:55:46.404Z","set":"guide-irs","load":"paddle","judge":"jev","retriever":"octo","scenario":"We're married filing jointly and both over 65. When do we have to file?","pass":false}
+{"ts":"2026-10-30T17:55:49.836Z","set":"guide-irs","load":"paddle","judge":"jev","retriever":"octo","scenario":"What's the filing threshold for married filing separately?","pass":false}
+{"ts":"2026-10-30T17:55:53.301Z","set":"guide-irs","load":"paddle","judge":"jev","retriever":"octo","scenario":"I'm head of household and over 65. What's my filing threshold?","pass":false}
+{"ts":"2026-10-30T17:55:56.575Z","set":"guide-irs","load":"paddle","judge":"jev","retriever":"octo","scenario":"I'm a qualifying surviving spouse under 65. When must I file?","pass":false}
+{"ts":"2026-10-30T17:55:59.918Z","set":"guide-irs","load":"paddle","judge":"jev","retriever":"octo","scenario":"What's the standard deduction for head of household?","pass":false}
+{"ts":"2026-10-30T17:56:03.692Z","set":"guide-irs","load":"paddle","judge":"jev","retriever":"octo","scenario":"Married filing jointly, one of us was born before 1961. What is our standard deduction?","pass":false}
+{"ts":"2026-10-30T17:56:07.376Z","set":"guide-irs","load":"paddle","judge":"jev","retriever":"octo","scenario":"Married filing jointly, we were both born before 1961 and we are both blind. Standard deduction?","pass":false}
+{"ts":"2026-10-30T17:56:11.035Z","set":"guide-irs","load":"paddle","judge":"jev","retriever":"octo","scenario":"I'm single, blind, and born in 1958. What's my standard deduction?","pass":false}
+{"ts":"2026-10-30T17:56:14.707Z","set":"guide-irs","load":"paddle","judge":"jev","retriever":"octo","scenario":"Married filing separately with 3 boxes checked: what standard deduction?","pass":false}
+{"ts":"2026-10-30T17:56:18.996Z","set":"guide-irs","load":"paddle","judge":"jev","retriever":"octo","scenario":"If someone can claim me as a dependent, what is the minimum standard deduction?","pass":false}
+{"ts":"2026-10-30T17:56:21.874Z","set":"guide-irs","load":"paddle","judge":"jev","retriever":"octo","scenario":"When am I considered 65?","pass":false}
+{"ts":"2026-10-30T17:56:25.483Z","set":"guide-irs","load":"paddle","judge":"jev","retriever":"octo","scenario":"My spouse files separately and itemizes. Can I take the standard deduction?","pass":false}
+{"ts":"2026-10-30T17:56:28.539Z","set":"guide-irs","load":"paddle","judge":"jev","retriever":"octo","scenario":"Which states are community property states?","pass":false}
+{"ts":"2026-10-30T17:56:32.253Z","set":"guide-irs","load":"paddle","judge":"jev","retriever":"octo","scenario":"How do I file my California state taxes?","pass":true}
+{"ts":"2026-10-30T17:56:35.985Z","set":"guide-irs","load":"paddle","judge":"jev","retriever":"octo","scenario":"What is the tax rate on long-term capital gains?","pass":true}
+{"ts":"2026-10-30T17:56:39.640Z","set":"guide-irs","load":"paddle","judge":"jev","retriever":"octo","scenario":"Can you recommend a good tax preparer?","pass":true}
+{"ts":"2026-10-30T17:56:55.989Z","set":"guide-irs","load":"paddle","judge":"jev","retriever":"octo","scenario":"I'm single and under 65. How much do I have to earn before I must file?","pass":true}
+{"ts":"2026-10-30T17:56:59.930Z","set":"guide-irs","load":"paddle","judge":"jev","retriever":"octo","scenario":"I'm single and 67. What income means I have to file?","pass":true}
+{"ts":"2026-10-30T17:57:03.234Z","set":"guide-irs","load":"paddle","judge":"jev","retriever":"octo","scenario":"We're married filing jointly and both over 65. When do we have to file?","pass":true}
+{"ts":"2026-10-30T17:57:06.856Z","set":"guide-irs","load":"paddle","judge":"jev","retriever":"octo","scenario":"What's the filing threshold for married filing separately?","pass":false}
+{"ts":"2026-10-30T17:57:10.426Z","set":"guide-irs","load":"paddle","judge":"jev","retriever":"octo","scenario":"I'm head of household and over 65. What's my filing threshold?","pass":true}
+{"ts":"2026-10-30T17:57:14.227Z","set":"guide-irs","load":"paddle","judge":"jev","retriever":"octo","scenario":"I'm a qualifying surviving spouse under 65. When must I file?","pass":true}
+{"ts":"2026-10-30T17:57:18.004Z","set":"guide-irs","load":"paddle","judge":"jev","retriever":"octo","scenario":"What's the standard deduction for head of household?","pass":true}
+{"ts":"2026-10-30T17:57:22.044Z","set":"guide-irs","load":"paddle","judge":"jev","retriever":"octo","scenario":"Married filing jointly, one of us was born before 1961. What is our standard deduction?","pass":true}
+{"ts":"2026-10-30T17:57:26.004Z","set":"guide-irs","load":"paddle","judge":"jev","retriever":"octo","scenario":"Married filing jointly, we were both born before 1961 and we are both blind. Standard deduction?","pass":true}
+{"ts":"2026-10-30T17:57:29.895Z","set":"guide-irs","load":"paddle","judge":"jev","retriever":"octo","scenario":"I'm single, blind, and born in 1958. What's my standard deduction?","pass":true}
+{"ts":"2026-10-30T17:57:33.868Z","set":"guide-irs","load":"paddle","judge":"jev","retriever":"octo","scenario":"Married filing separately with 3 boxes checked: what standard deduction?","pass":true}
+{"ts":"2026-10-30T17:57:38.058Z","set":"guide-irs","load":"paddle","judge":"jev","retriever":"octo","scenario":"If someone can claim me as a dependent, what is the minimum standard deduction?","pass":true}
+{"ts":"2026-10-30T17:57:41.009Z","set":"guide-irs","load":"paddle","judge":"jev","retriever":"octo","scenario":"When am I considered 65?","pass":true}
+{"ts":"2026-10-30T17:57:44.880Z","set":"guide-irs","load":"paddle","judge":"jev","retriever":"octo","scenario":"My spouse files separately and itemizes. Can I take the standard deduction?","pass":true}
+{"ts":"2026-10-30T17:57:48.258Z","set":"guide-irs","load":"paddle","judge":"jev","retriever":"octo","scenario":"Which states are community property states?","pass":true}
+{"ts":"2026-10-30T17:57:51.886Z","set":"guide-irs","load":"paddle","judge":"jev","retriever":"octo","scenario":"How do I file my California state taxes?","pass":true}
+{"ts":"2026-10-30T17:57:55.696Z","set":"guide-irs","load":"paddle","judge":"jev","retriever":"octo","scenario":"What is the tax rate on long-term capital gains?","pass":true}
+{"ts":"2026-10-30T17:57:59.563Z","set":"guide-irs","load":"paddle","judge":"jev","retriever":"octo","scenario":"Can you recommend a good tax preparer?","pass":true}

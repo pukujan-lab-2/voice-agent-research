@@ -45,6 +45,13 @@ public posting, secrets, deleting data. Everything else gets built and reported.
       Confound: both loads share one workspace and Octo search has no filter, so the retriever over-fetched 10x.
       Verdict: load new manuals with Docling. Next: split Docling's lumped table cells into one line per row
       ("Married filing jointly, 3 boxes: $36,300") before upload, and add a test that fails on lumps.
+      Vision OCR (2026-10-30): PaddleOCR-VL-1.6 (OmniDocBench #4, 0.9B) on the Windows RTX 4060, native Paddle
+      pipeline: ~9 min for 7 pages, peaked ~14 GB committed RAM + full 8 GB VRAM (froze the laptop once).
+      `tools/paddle_read.py` -> Markdown, `tools/paddle_passages.py` -> 89 passages (tables one row per line, header
+      repeated, <=650 chars); every number checked against the PDF text layer: 0 flagged. Result 17/18 (tables 11/12),
+      ~$0.001. The miss quoted the filing table instead of the $5 footnote for married filing separately.
+      Verdict: use a vision reader for new manuals. Serve it with vLLM (WSL or a GPU box), not the native pipeline.
+      Note: the test needs OPENROUTER_JEV_KEY mapped from `openrouter_jev_only` in the .env, else every answer is "I don't know".
 
 ## Next, in this order (each ends with tests added to the ledger)
 1. [~] Manual-guidance mode (core + one real manual done): still to do: an owner review screen for drafted steps,

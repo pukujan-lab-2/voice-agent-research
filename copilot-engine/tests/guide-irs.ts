@@ -1,11 +1,11 @@
 // Table test: IRS Publication 17 (2025), PDF pages 9-11 and 95-98, loaded into Octo two ways and asked the same questions.
 // Questions written 2026-10-30 before either load was run. Most answers sit in table rows (filing thresholds, standard deduction).
 // Answers must quote the manual with the right number, or say "I don't know". Never a made-up answer.
-// Run: node tests/guide-irs.ts plain|docling   (needs OPENROUTER_JEV_KEY, JEV_URL, OCTO_KEY, OCTO_WORKSPACE)
+// Run: node tests/guide-irs.ts plain|docling|paddle   (needs OPENROUTER_JEV_KEY, JEV_URL, OCTO_KEY, OCTO_WORKSPACE)
 import fs from 'node:fs';
 import { Guide, JevJudge, OctoRetriever, type Manual } from '../src/guide.ts';
 
-const set = process.argv[2] === 'docling' ? 'docling' : 'plain';
+const set = ['docling', 'paddle'].includes(process.argv[2]) ? process.argv[2] : 'plain';
 const M: Manual = {
   id: `irs-pub17-${set}`, title: 'IRS Publication 17 (2025): filing and standard deduction', business: 'the IRS tax guide',
   steps: [{ n: 1, page: 9, text: 'Check whether you must file a return.' }, { n: 2, page: 97, text: 'Find your standard deduction.' }],
