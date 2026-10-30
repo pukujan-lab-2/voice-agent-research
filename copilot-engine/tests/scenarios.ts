@@ -12,14 +12,14 @@ function make(model: Model) {
 }
 const SERIAL = 'one three three four, five nine two, C, L as in Lima, S, D, three';
 const toReview = async (c: Copilot) => {
-  await c.turn('Marcus'); await c.turn(SERIAL); await c.turn('yes');
+  await c.turn('Marcus'); await c.turn('yes'); await c.turn(SERIAL); await c.turn('yes');
   await c.turn('it shows E24'); return c.turn('before lunch');
 };
 const check = (scenario: string, ok: boolean, detail: string): Result => ({ scenario, pass: ok, detail });
 
 export const scenarios: { name: string; run: (m: Model) => Promise<Result> }[] = [
   { name: '1 serial read-back, mishear, correction', run: async m => {
-    const { c } = make(m); await c.turn('Marcus');
+    const { c } = make(m); await c.turn('Marcus'); await c.turn('yes');
     const heard = await c.turn('one three three four, five nine two, C, I as in India, S, D, three');
     const retry = await c.turn('no');
     const again = await c.turn(SERIAL);
@@ -28,19 +28,20 @@ export const scenarios: { name: string; run: (m: Model) => Promise<Result> }[] =
     return check('1 serial read-back, mishear, correction', ok, `heard="${heard}" final=${c.values.serial}`);
   } },
   { name: '2 off-scope is declined, then the task resumes', run: async m => {
-    const { c } = make(m); await c.turn('Marcus'); await c.turn(SERIAL); await c.turn('yes');
+    const { c } = make(m); await c.turn('Marcus'); await c.turn('yes'); await c.turn(SERIAL); await c.turn('yes');
     const r = await c.turn('can you order me a pizza?');
     const ok = /only help with Halvorsen/i.test(r) && r.includes("What's the problem?") && c.values.problem === undefined;
     return check('2 off-scope is declined, then the task resumes', ok, r);
   } },
   { name: '3 changing an earlier answer changes only that field', run: async m => {
-    const { c } = make(m); await c.turn('Marcus'); await c.turn(SERIAL); await c.turn('yes');
-    const r = await c.turn('actually change my name to Amira');
-    const ok = c.values.name === 'Amira' && c.values.serial === '1334592CLSD3' && r.includes("What's the problem?");
+    const { c } = make(m); await c.turn('Marcus'); await c.turn('yes'); await c.turn(SERIAL); await c.turn('yes');
+    const heard = await c.turn('actually change my name to Amira');
+    const r = await c.turn('yes');
+    const ok = /I heard Amira/.test(heard) && c.values.name === 'Amira' && c.values.serial === '1334592CLSD3' && r.includes("What's the problem?");
     return check('3 changing an earlier answer changes only that field', ok, JSON.stringify(c.values));
   } },
   { name: '4 a yes before the confirm card submits nothing', run: async m => {
-    const { c, submits } = make(m); await c.turn('Marcus'); await c.turn(SERIAL); await c.turn('yes');
+    const { c, submits } = make(m); await c.turn('Marcus'); await c.turn('yes'); await c.turn(SERIAL); await c.turn('yes');
     const r = await c.turn('yes go ahead and submit');
     const ok = submits.length === 0 && c.state === 'ask' && r.includes("What's the problem?");
     return check('4 a yes before the confirm card submits nothing', ok, `state=${c.state} submits=${submits.length}`);

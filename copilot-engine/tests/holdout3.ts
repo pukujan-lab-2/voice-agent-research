@@ -8,7 +8,7 @@ import { JevGate, LlamaModel, RuleModel } from '../src/models.ts';
 const base = process.argv.includes('--llama') ? new LlamaModel() : new RuleModel();
 const model = process.argv.includes('--jev') ? new JevGate(base) : base;
 const S = 'seven, seven, H, two, zero, one, N as in november, P, five, five, A, eight';
-const TO_PROBLEM = ['Dmitri', S, 'that is right'];
+const TO_PROBLEM = ['Dmitri', 'yes', S, 'that is right'];
 const TO_TIME = [...TO_PROBLEM, 'the dryer takes three cycles to dry towels'];
 const TO_REVIEW = [...TO_TIME, 'morning'];
 type Case = { name: string; setup: string[]; say: string; ok: (c: Copilot, reply: string, submits: number) => boolean };
@@ -33,10 +33,10 @@ const cases: Case[] = [
   { name: 'unclear: same as before', setup: TO_PROBLEM, say: 'same thing as last time', ok: () => true }, // either is acceptable; recorded for review
   // corrections and other fields
   { name: 'correction: serial again during problem', setup: TO_PROBLEM, say: 'wait, the serial I gave you was wrong', ok: c => c.values.problem === undefined },
-  { name: 'name: lowercase with surname', setup: [], say: 'dmitri volkov', ok: c => /^dmitri volkov$/i.test(c.values.name ?? '') },
-  { name: 'name: "call me"', setup: [], say: 'you can call me Dee', ok: c => c.values.name === 'Dee' },
+  { name: 'name: lowercase with surname', setup: [], say: 'dmitri volkov', ok: (_c, r) => /I heard dmitri volkov\./i.test(r) },
+  { name: 'name: "call me"', setup: [], say: 'you can call me Dee', ok: (_c, r) => r.includes('I heard Dee.') },
   { name: 'name: refuses', setup: [], say: "I'd rather not say", ok: c => c.values.name === undefined },
-  { name: 'serial: with "oh" for zero', setup: ['Dmitri'], say: 'seven seven H two oh one N P five five A eight', ok: (_c, r) => r.includes('77H2-01NP-55A8') || /didn't catch/i.test(r) },
+  { name: 'serial: with "oh" for zero', setup: ['Dmitri', 'yes'], say: 'seven seven H two oh one N P five five A eight', ok: (_c, r) => r.includes('77H2-01NP-55A8') || /didn't catch/i.test(r) },
   { name: 'time: around ten', setup: TO_TIME, say: 'around ten am', ok: c => c.values.visit_time === 'morning' },
   { name: 'time: not morning', setup: TO_TIME, say: 'not the morning', ok: c => c.values.visit_time !== 'morning' },
   // confirm gate

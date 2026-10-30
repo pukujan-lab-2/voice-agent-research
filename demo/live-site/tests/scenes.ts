@@ -109,9 +109,20 @@ const nextStep = async (page: Page, say0: string) => {
 await scene('clinic', '/clinic/book', async ({ page, say, val }) => {
   const first = await page.evaluate(() => (window as any).copilot.getSnapshot().messages.find((m: any) => m.who === 'bot')?.text ?? '');
   check('opens on the booking form and asks for the child', /fill in this booking form/.test(first) && /child's full name/.test(first), first);
-  await say('Leo Rahman');
-  check('child name typed in', (await val('#child')) === 'Leo Rahman');
-  let r = await say('a checkup please');
+  // A doubled name (as an iPhone once heard it) is read back; the person misses it and says yes, then fixes it later.
+  let r = await say('Leo Rahman Leo Rahman');
+  check('name read back before it is typed in', /^I heard Leo Rahman Leo Rahman\. Is that right\?$/.test(r) && (await val('#child')) === '', r);
+  await say('yes');
+  check('child name typed in after the yes', (await val('#child')) === 'Leo Rahman Leo Rahman');
+  r = await say('You actually wrote the name twice, can you fix it');
+  check('a correction during the next question goes back to the name and reads out what it holds',
+    /^Sure, let's fix that\. I have the child's full name as Leo Rahman Leo Rahman\./.test(r) && /child's full name\?$/.test(r) && !/I need one of these/.test(r), r);
+  r = await say('Leo Rahman');
+  check('the new name is read back too', /^I heard Leo Rahman\. Is that right\?$/.test(r), r);
+  r = await say('yes');
+  check('name fixed, then back to the question that was open', (await val('#child')) === 'Leo Rahman' && /^Thanks, that's fixed\. .*Well-child checkup/.test(r)
+    && (await val('#visit')) === '', r);
+  r = await say('a checkup please');
   check('"checkup" picks Well-child checkup', (await val('#visit')) === 'wellchild' && /Here's what I have/.test(r), r);
   r = await say('yes');
   check('hands step 1 back: press Next yourself', /press Next yourself/.test(r), r);
@@ -123,6 +134,7 @@ await scene('clinic', '/clinic/book', async ({ page, say, val }) => {
   await say('yes');
   await nextStep(page, 'parent or guardian');
   await say('Aisha Rahman');
+  await say('yes');
   r = await say('five five five, zero one zero, four four two two');
   check('phone read back before it is kept', /I heard 5550104422/.test(r) && (await val('#phone')) === '', r);
   await say('yes');
@@ -154,6 +166,10 @@ await scene('appliance', '/appliance/support', async ({ page, say, val }) => {
   r = await say('Where do I find the serial number?');
   check('side question during the form is answered from the manual, then the form goes on',
     /\(page 1\)/.test(r) && /sticker/.test(r) && /Back to the form: Can you read me the serial number/.test(r), r);
+  r = await say('LS 5734SSTD');
+  check('a spaced, short serial says what was heard and what is wrong',
+    r.startsWith("I heard LS57-34SS-TD, that's 10 characters; the serial has 12, like 1334-592C-LSD3. Read it in groups of four.") && (await val('#serial')) === '', r);
+  check('no keyboard offer while typing', !/Keyboard/.test(r), r);
   r = await say('one three three four five nine two C, I, S, D, three');
   check('serial read back', /I heard 1334-592C-ISD3/.test(r), r);
   r = await say('no');
@@ -165,6 +181,7 @@ await scene('appliance', '/appliance/support', async ({ page, say, val }) => {
   await say('E24');
   check('error code E24 selected', (await val('#code')) === 'E24');
   await say('Marcus Hall');
+  await say('yes');
   await say('marcus at example dot com');
   await say('yes');
   await say('it shows E24 and there is water at the bottom');
@@ -177,6 +194,7 @@ await scene('pricing', '/pricing/quote', async ({ page, say, val }) => {
   await say('Prana Yoga Studio');
   check('business name typed in', (await val('#biz')) === 'Prana Yoga Studio');
   await say('Sofia Marin');
+  await say('yes');
   await say('sofia at example dot com');
   await say('yes');
   await say('Growth');
@@ -221,7 +239,9 @@ await scene('pension', '/pension/forms/r17', async ({ page, say, val }) => {
   await say('SPF-204118.');
   check('member number typed in, despite the full stop dictation adds', (await val('#member')) === 'SPF-204118');
   await say('Michael');
+  await say('yes');
   await say('Reyes');
+  await say('yes');
   check('beneficiary name typed in', (await val('#bfirst')) === 'Michael' && (await val('#blast')) === 'Reyes');
   let r = await say('what is a payee code');
   check('payee code explained from the R-17 guide, page 3, then back to the form',
@@ -259,7 +279,9 @@ if (!only.length || only.includes('voice')) {
           const t = w.__heard.shift();
           if (t === undefined) { setTimeout(tick, 50); return; }
           this.done = true; w.__listening--;
-          this.onresult?.({ resultIndex: 0, results: [Object.assign([{ transcript: t }], { isFinal: true })] });
+          // An array is one utterance that the recogniser finalises more than once, as iOS WebKit does.
+          const finals = (Array.isArray(t) ? t : [t]).map((x: string) => Object.assign([{ transcript: x }], { isFinal: true }));
+          finals.forEach((_r: unknown, i: number) => this.onresult?.({ resultIndex: i, results: finals.slice(0, i + 1) }));
           this.onend?.();
         };
         setTimeout(tick, 50);
@@ -273,13 +295,13 @@ if (!only.length || only.includes('voice')) {
   await page.goto(`${srv.url}/clinic/book?guest=1`);
   await page.waitForFunction(() => (window as any).copilot?.getSnapshot().mounted, null, { timeout: 15_000 });
   const spoken = () => page.evaluate(() => (window as any).__spoken.length as number);
-  const talk = async (t: string) => {
+  const talk = async (t: string | string[]) => {
     const n = await spoken();
     await page.waitForFunction(() => (window as any).__listening > 0, null, { timeout: 30_000 });
     await page.evaluate(t => (window as any).__heard.push(t), t);
     await page.waitForFunction(n => (window as any).__spoken.length > n && (window as any).__listening > 0, n, { timeout: 60_000 });
     const r = await page.evaluate(() => (window as any).__spoken.at(-1) as string);
-    console.log(`      > (spoken) ${t}\n      < (spoken) ${r.slice(0, 200)}`);
+    console.log(`      > (spoken) ${[t].flat().join(' | ')}\n      < (spoken) ${r.slice(0, 200)}`);
     return r;
   };
   await page.click(T('call-start'));
@@ -287,15 +309,37 @@ if (!only.length || only.includes('voice')) {
   const hello = await page.evaluate(() => (window as any).__spoken[0] as string);
   check('the call opens by speaking the first question', /child's full name/.test(hello), hello);
   check('in a call the text box is hidden', await page.locator(T('call-input')).isHidden());
-  await talk('Leo Rahman.');
-  check('spoken name typed in', (await page.$eval('#child', e => (e as HTMLInputElement).value)) === 'Leo Rahman');
-  let r = await talk('a checkup please');
+  let r = await talk(['Pooja Bajracharya.', 'PUJANBAJRACHARYA']);
+  check('a name the recogniser finalises twice is heard once and read back', /^I heard Pooja Bajracharya\. Is that right\?$/.test(r), r);
+  r = await talk('yes');
+  check('spoken name typed in once', (await page.$eval('#child', e => (e as HTMLInputElement).value)) === 'Pooja Bajracharya', r);
+  r = await talk('a checkup please');
   check('spoken "checkup" picks Well-child checkup, then the read-back is spoken', (await page.$eval('#visit', e => (e as HTMLSelectElement).value)) === 'wellchild' && /Here's what I have/.test(r), r);
   r = await talk('yes');
   check('spoken hand-back: press Next yourself', /press Next yourself/.test(r), r);
   check('the call never pressed Next', await page.locator('fieldset[data-step]').first().isVisible());
   await page.click(T('call-end'));
   check('ending the call closes the panel', await page.locator(T('call-panel')).isHidden());
+
+  // A serial by voice: spaced and short, then too short, then spoken letter names.
+  console.log('\n== voice /appliance/support');
+  await page.goto(`${srv.url}/appliance/support?guest=1`);
+  await page.waitForFunction(() => (window as any).copilot?.getSnapshot().mounted, null, { timeout: 15_000 });
+  await page.evaluate(() => { (window as any).__spoken.length = 0; });
+  await page.click(T('call-start'));
+  await page.waitForFunction(() => (window as any).__spoken.length > 0);
+  const ask = await page.evaluate(() => (window as any).__spoken[0] as string);
+  check('the appliance call asks for the serial first', /serial number/.test(ask), ask);
+  r = await talk('LS 5734SSTD');
+  check('spoken short serial: what was heard and what is wrong, no keyboard offer yet',
+    r.startsWith("I heard LS57-34SS-TD, that's 10 characters; the serial has 12, like 1334-592C-LSD3. Read it in groups of four.") && !/Keyboard/.test(r), r);
+  r = await talk('one three three four');
+  check('second miss offers the keyboard', /that's 4 characters/.test(r) && /You can also type it with Keyboard\./.test(r), r);
+  r = await talk('one three three four five nine two see el ess dee three');
+  check('spoken letter names ("see el ess dee") are letters', /^I heard 1334-592C-LSD3\. Is that right\?$/.test(r), r);
+  r = await talk('yes');
+  check('serial typed in after the yes', (await page.$eval('#serial', e => (e as HTMLInputElement).value)) === '1334592CLSD3', r);
+  await page.click(T('call-end'));
   await page.close();
 }
 

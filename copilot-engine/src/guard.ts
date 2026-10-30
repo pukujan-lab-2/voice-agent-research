@@ -5,21 +5,49 @@ const DIGITS: Record<string, string> = {
 
 const NATO = 'alfa alpha bravo charlie delta echo foxtrot golf hotel india juliet juliett kilo lima mike november oscar papa quebec romeo sierra tango uniform victor whiskey xray yankee zulu'.split(' ');
 const LETTER: Record<string, string> = Object.fromEntries(NATO.map(w => [w, w === 'xray' ? 'X' : w[0].toUpperCase()]));
+// Letter names as speech recognisers write them ("ess", "double-u"). Only words that are rarely anything else in a serial.
+const SPOKEN: Record<string, string> = {
+  ay: 'A', bee: 'B', cee: 'C', see: 'C', sea: 'C', dee: 'D', ee: 'E', ef: 'F', eff: 'F', gee: 'G', aitch: 'H', haitch: 'H',
+  jay: 'J', kay: 'K', el: 'L', ell: 'L', em: 'M', en: 'N', pee: 'P', cue: 'Q', queue: 'Q', ar: 'R', ess: 'S', es: 'S',
+  tee: 'T', vee: 'V', doubleu: 'W', doubleyou: 'W', ex: 'X', zed: 'Z', zee: 'Z',
+};
 
-// "It's one three three four, C, L as in Lima, S" -> "1334CLS"
+// "It's one three three four, C, L as in Lima, S" -> "1334CLS". "LS 5734SSTD" -> "LS5734SSTD": spaces, dashes and
+// letter groups the recogniser wrote in capitals are kept; "double five" -> "55".
 export function spokenToSerial(text: string): string {
   let t = text.replace(/(\w)['’](s|re|m|ll|d|ve|t)\b/gi, '$1'); // "it's" must not become the letter S
-  t = t.replace(/\b([a-z])\s+as\s+in\s+\w+/gi, '$1');
-  const out: string[] = [];
-  for (const tok of t.match(/[A-Za-z0-9]+/g) ?? []) {
+  t = t.replace(/\b([a-z])\s+as\s+in\s+\w+/gi, '$1').replace(/\bdouble[\s-]+(u|you)\b/gi, 'doubleu');
+  const one = (tok: string): string => {
     const w = tok.toLowerCase();
-    if (w in DIGITS) out.push(DIGITS[w]);
-    else if (w in LETTER) out.push(LETTER[w]);
-    else if (/^\d+$/.test(tok)) out.push(tok);
-    else if (tok.length === 1 && /[a-z]/i.test(tok)) out.push(tok.toUpperCase());
-    else if (/^[A-Za-z0-9]{2,}$/.test(tok) && /\d/.test(tok) && /[A-Za-z]/.test(tok)) out.push(tok.toUpperCase());
+    if (w in DIGITS) return DIGITS[w];
+    if (w in LETTER) return LETTER[w];
+    if (w in SPOKEN) return SPOKEN[w];
+    if (/^\d+$/.test(tok)) return tok;
+    if (tok.length === 1 && /[a-z]/i.test(tok)) return tok.toUpperCase();
+    // Mixed groups ("5734SSTD") and capital letter groups ("LS", "SSTD") are read out characters, not words.
+    if (/^[A-Za-z0-9]{2,}$/.test(tok) && /\d/.test(tok) && /[A-Za-z]/.test(tok)) return tok.toUpperCase();
+    if (/^[A-Z]{2,6}$/.test(tok) && !/^(OK|TV|USA|UK)$/.test(tok)) return tok;
+    return '';
+  };
+  const out: string[] = [];
+  const toks = t.match(/[A-Za-z0-9]+/g) ?? [];
+  for (let i = 0; i < toks.length; i++) {
+    const w = toks[i].toLowerCase();
+    if ((w === 'double' || w === 'triple') && i + 1 < toks.length) {
+      const c = one(toks[i + 1]);
+      if (c.length === 1) { out.push(c.repeat(w === 'double' ? 2 : 3)); i++; continue; }
+    }
+    out.push(one(toks[i]));
   }
   return out.join('');
+}
+
+// Why a spoken serial is not a serial yet, in words a caller can act on; '' when it is valid or nothing was heard.
+export function serialProblem(raw: string, example = '1334-592C-LSD3'): string {
+  if (!raw || validSerial(raw)) return '';
+  const n = raw.length;
+  const what = n === 12 ? 'that has no digits' : `that's ${n} character${n === 1 ? '' : 's'}`;
+  return `I heard ${formatSerial(raw)}, ${what}; the serial has 12, like ${example}. Read it in groups of four.`;
 }
 
 export const validSerial = (s: string): boolean => /^[A-Z0-9]{12}$/.test(s) && /\d/.test(s);

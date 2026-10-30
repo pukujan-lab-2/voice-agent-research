@@ -117,11 +117,17 @@ function listen(fromTap = false) {
   r.lang = 'en-US'; r.interimResults = true; r.continuous = false; r.maxAlternatives = 1;
   let final = '', interim = '';
   r.onresult = (e: any) => {
+    // One utterance, one answer: iOS WebKit can send a second final result that re-recognises the same words
+    // ("Pooja Bajracharya" then "PUJANBAJRACHARYA"), so the first final is the answer and the rest is ignored.
+    if (final) return;
     interim = '';
     for (let i = e.resultIndex; i < e.results.length; i++) {
-      if (e.results[i].isFinal) final += e.results[i][0].transcript; else interim += e.results[i][0].transcript;
+      const t = e.results[i][0].transcript;
+      if (e.results[i].isFinal) { final = t; break; }
+      interim += t;
     }
     set({ heard: (final || interim).trim() });
+    if (final) { try { r.stop(); } catch { /* already stopping */ } }
   };
   r.onerror = (e: any) => {
     if (e.error === 'no-speech' || e.error === 'aborted') return;
@@ -255,7 +261,11 @@ async function send(text: string) {
     else if (copilot.state === 'done') reply = `I've handed the form back to you. Please check it and press ${form!.submit} yourself.`;
     // A side question during a form is answered from the manual (or "I don't know"); then the form carries on.
     else if (lookup && isQuestion(text)) reply = `${await lookup.lookup(text)} Back to the form: ${currentAsk()}`.trim();
-    else reply = await copilot.turn(text);
+    else {
+      // After two misses on a serial, email or phone, a caller is offered the keyboard (the call panel's button).
+      flow!.typeOffer = snap.voice ? 'You can also type it with Keyboard.' : '';
+      reply = await copilot.turn(text);
+    }
   } catch (e) {
     reply = "Sorry, something went wrong on my side. Nothing was sent. Please try again.";
     console.error(e);

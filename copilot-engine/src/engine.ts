@@ -1,5 +1,5 @@
 import type { Field, FieldKind, Flow, Hooks, Model } from './types.ts';
-import { formatSerial, grounded, isFiller, parseName, spokenToEmail, spokenToPhone, spokenToSerial, stripFiller, validSerial, wantsChange, yesNo } from './guard.ts';
+import { formatSerial, grounded, isFiller, parseName, serialProblem, spokenToEmail, spokenToPhone, spokenToSerial, stripFiller, validSerial, wantsChange, yesNo } from './guard.ts';
 
 type State = 'ask' | 'verify' | 'review' | 'change' | 'done';
 
@@ -8,12 +8,21 @@ type State = 'ask' | 'verify' | 'review' | 'change' | 'done';
 // Words that attach a condition to a yes, or ask for a person instead of the assistant.
 const BUT = /\b(but|except|although|though|however|wait|unless|if|as long as|provided|assuming|only)\b/i;
 const WANTS_HUMAN = /\b(real person|human|representative|operator|live agent|someone real)\b/i;
-// Answers that are easy to mishear are read back and need a yes before they are kept.
-const READBACK: Partial<Record<FieldKind, { parse: (said: string) => string; show: (v: string) => string; miss: string }>> = {
-  serial: { parse: s => { const v = spokenToSerial(s); return validSerial(v) ? v : ''; }, show: formatSerial, miss: 'serial number' },
+// A reply about an earlier answer rather than the current question. STRONG needs no field name ("you wrote it twice"
+// means the last answer); FIX needs one ("fix the name").
+const STRONG_FIX = /\b(you (actually |just )?(wrote|put|typed|entered|filled( in)?|spelled|spelt|got)|twice|go back|previous (one|answer|question)|last (one|answer|question)|(that|it)('s| was| is) (wrong|not right|incorrect|misspelled)|(you made|that's) a mistake|typo)\b/i;
+const FIX = /\b(fix|change|wrong|correct|update|edit|misspel+ed|spelled|spelt|mistake|actually|sorry|i meant|i mean|make that|no,? wait)\b|\bmy name\b/i;
+// Answers that are easy to mishear are read back and need a yes before they are kept. `problem` says what was wrong
+// with an answer that did not parse, so the caller can fix it instead of just hearing the question again.
+type Readback = { parse: (said: string) => string; show: (v: string) => string; miss: string; problem?: (said: string) => string };
+const READBACK: Partial<Record<FieldKind, Readback>> = {
+  name: { parse: parseName, show: v => v, miss: 'name' },
+  serial: { parse: s => { const v = spokenToSerial(s); return validSerial(v) ? v : ''; }, show: formatSerial, miss: 'serial number', problem: s => serialProblem(spokenToSerial(s)) },
   email: { parse: spokenToEmail, show: v => v, miss: 'email address' },
   phone: { parse: spokenToPhone, show: v => v, miss: 'phone number' },
 };
+
+const escape = (x: string) => x.replace(/[.*+?^$()|[\]\\{}]/g, '\\$&');
 
 export class Copilot {
   values: Record<string, string> = {};
@@ -22,6 +31,9 @@ export class Copilot {
   private idx = 0;
   private pending = '';
   private backToReview = false;
+  private resume = -1; // the field to go back to after fixing an earlier answer mid-flow
+  private lastSet = ''; // the most recently kept field, which "you wrote it twice" refers to
+  private misses: Record<string, number> = {};
   private flow: Flow;
   private model: Model;
   private hooks: Hooks;
@@ -57,6 +69,8 @@ export class Copilot {
     const no = await this.hooks.fill?.(f, v);
     if (no) return no;
     this.values[f.name] = v;
+    this.lastSet = f.name;
+    this.misses[f.name] = 0;
     return '';
   }
 
@@ -87,6 +101,7 @@ export class Copilot {
   }
 
   private advance(): string {
+    if (this.resume >= 0) { this.idx = this.resume; this.resume = -1; this.state = 'ask'; return `Thanks, that's fixed. ${this.question()}`; }
     if (this.backToReview) { this.backToReview = false; this.state = 'review'; return this.card(); }
     this.idx += 1;
     if (this.idx >= this.flow.fields.length) { this.state = 'review'; return this.card(); }
@@ -94,12 +109,49 @@ export class Copilot {
     return this.question();
   }
 
-  // "actually my name is Amira" / "sorry, it's Amira, not Marcus" after the name was already given.
-  private nameCorrection(said: string): string {
-    const nameField = this.flow.fields.find(f => f.kind === 'name');
-    if (!nameField || nameField === this.field() || this.values[nameField.name] === undefined) return '';
-    if (!/^\s*(actually|sorry|no,? wait|i meant|i mean|correction|change|make that)\b|\bmy name\b/i.test(said)) return '';
-    return parseName(said);
+  // "You wrote the name twice, can you fix it" / "actually my name is Amira" while another question is open: go back to
+  // that field, read back what it holds and ask for the new value (or read back the new value if it was said), then
+  // carry on from the question that was open. Code decides; the model is never asked.
+  private correction(said: string): string {
+    const cur = this.field();
+    const answered = (f: Field) => f !== cur && this.values[f.name] !== undefined;
+    const t = said.toLowerCase();
+    const named = this.flow.fields.filter(answered).filter(f => this.mentions(f, t));
+    let target: Field | undefined;
+    if (named.length && FIX.test(said)) target = named.find(f => f.name === this.lastSet) ?? named[named.length - 1];
+    else if (STRONG_FIX.test(said)) target = this.flow.fields.find(f => f.name === this.lastSet && answered(f));
+    if (!target) return '';
+    // "Sick visit, sorry" answers the open question; it is not about an earlier one.
+    if (cur.kind === 'choice' && this.matchChoice(cur, said)) return '';
+    if (this.state === 'ask' && READBACK[cur.kind]?.parse(said) && cur.kind !== 'name') return '';
+    if (this.resume < 0) this.resume = this.idx;
+    this.idx = this.flow.fields.indexOf(target);
+    this.pending = '';
+    // The new value may be in the same sentence: "actually change my name to Amira".
+    const v = target.kind === 'name' ? parseName(said) : '';
+    if (v && v.toLowerCase() !== this.values[target.name].toLowerCase()) {
+      this.pending = v; this.state = 'verify';
+      return `Sure. I heard ${v} for the ${target.label}. Is that right?`;
+    }
+    this.state = 'ask';
+    return `Sure, let's fix that. I have the ${target.label} as ${this.show(target)}. ${target.question}`;
+  }
+
+  // Does the reply name this field? Its name, label, aliases, or the label's last word ("the name" for "child's full name").
+  private mentions(f: Field, t: string): boolean {
+    const last = f.label.toLowerCase().split(/\s+/).pop() ?? '';
+    const words = [f.name, f.label, ...(f.aliases ?? []), ...(last.length > 3 ? [last] : [])];
+    return words.some(a => new RegExp(`\\b${escape(a.toLowerCase())}\\b`).test(t));
+  }
+
+  // A read-back answer that did not parse: say what was wrong, and after two misses offer the keyboard.
+  private missed(f: Field, rb: Readback, said: string): string {
+    const n = (this.misses[f.name] = (this.misses[f.name] ?? 0) + 1);
+    const offer = n >= 2 && this.flow.typeOffer ? ` ${this.flow.typeOffer}` : '';
+    const problem = rb.problem?.(said);
+    if (problem) return `${problem}${offer} ${f.question}`.replace(/\s+/g, ' ');
+    if (f.kind === 'name') return `Sorry, I didn't catch your ${f.label}.${offer} ${f.question}`;
+    return `I didn't catch a full ${rb.miss}. ${f.hint ?? ''}${offer} ${f.question}`.replace(/\s+/g, ' ');
   }
 
   private async onAsk(said: string): Promise<string> {
@@ -108,27 +160,19 @@ export class Copilot {
     const q = this.question();
     // Silence, filler and small talk are never answers.
     if (isFiller(said)) return `No problem, take your time. ${q}`;
-    const fixed = this.nameCorrection(said);
-    if (fixed) {
-      const nameField = this.flow.fields.find(x => x.kind === 'name')!;
-      const no = await this.set(nameField, fixed);
-      if (no) return `${no} ${q}`;
-      return `Got it, I changed your ${nameField.label} to ${fixed}. ${q}`;
-    }
+    const fixed = this.correction(said);
+    if (fixed) return fixed;
     const rb = READBACK[f.kind];
     if (rb) {
+      // A bare yes or no to a name question is not a name ("Yeah" is nobody's name here), and nothing has been submitted.
+      if (f.kind === 'name' && yesNo(said) !== 'unclear' && said.trim().split(/\s+/).length <= 6) return `I haven't submitted anything yet. ${q}`;
       const s = rb.parse(said);
       if (s) { this.pending = s; this.state = 'verify'; return `I heard ${rb.show(s)}. Is that right?`; }
-      return `I didn't catch a full ${rb.miss}. ${f.hint ?? ''} ${f.question}`.replace(/\s+/g, ' ');
+      return this.missed(f, rb, said);
     }
     // A bare yes/no is never an answer to a text, name or choice question, so "yes, submit it" cannot do anything here.
     if (yesNo(said) !== 'unclear' && said.trim().split(/\s+/).length <= 6 && !this.matchesOption(f, said)) {
       return `I haven't submitted anything yet. ${q}`;
-    }
-    if (f.kind === 'name') {
-      const n = parseName(said);
-      if (n) return this.keep(f, n);
-      return `Sorry, I didn't catch your ${f.label}. ${q}`;
     }
     if (f.kind === 'choice') {
       // Code decides choices; the model is never allowed to guess one.
@@ -169,11 +213,22 @@ export class Copilot {
   private async onVerify(said: string): Promise<string> {
     const f = this.field();
     const rb = READBACK[f.kind]!;
+    // "No, you wrote the name wrong" while a different answer is being read back is about that other answer.
+    const t = said.toLowerCase();
+    if (this.flow.fields.some(x => x !== f && this.values[x.name] !== undefined && this.mentions(x, t))) {
+      const fixed = this.correction(said);
+      if (fixed) return fixed;
+    }
     const s = rb.parse(said);
     if (s && yesNo(said) === 'unclear') { this.pending = s; return `I heard ${rb.show(s)}. Is that right?`; }
     const yn = yesNo(said);
     if (yn === 'yes' && !BUT.test(said)) { const v = this.pending; this.pending = ''; return this.keep(f, v); }
-    if (yn === 'no') { this.pending = ''; this.state = 'ask'; return `Okay, let's try again, a little slower. ${f.question}`; }
+    if (yn === 'no') {
+      this.pending = ''; this.state = 'ask';
+      const n = (this.misses[f.name] = (this.misses[f.name] ?? 0) + 1);
+      const offer = n >= 2 && this.flow.typeOffer ? ` ${this.flow.typeOffer}` : '';
+      return `Okay, let's try again, a little slower.${offer} ${f.question}`;
+    }
     return `Sorry, is ${rb.show(this.pending)} correct? Please say yes or no.`;
   }
 

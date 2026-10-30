@@ -8,7 +8,7 @@ import { JevGate, LlamaModel, RuleModel } from '../src/models.ts';
 const base = process.argv.includes('--llama') ? new LlamaModel() : new RuleModel();
 const model = process.argv.includes('--jev') ? new JevGate(base) : base;
 const S = 'four four one zero, seven two, B as in bravo, K, nine, X, one, one';
-const TO_PROBLEM = ['Priya', S, 'yes'];
+const TO_PROBLEM = ['Priya', 'yes', S, 'yes'];
 const TO_TIME = [...TO_PROBLEM, 'the oven door will not close'];
 const TO_REVIEW = [...TO_TIME, 'morning'];
 type Case = { name: string; setup: string[]; say: string; ok: (c: Copilot, reply: string, submits: number) => boolean };
@@ -35,11 +35,11 @@ const cases: Case[] = [
   { name: 'unclear: let me think', setup: TO_PROBLEM, say: 'let me think how to describe it', ok: c => !filled(c) },
   { name: 'unclear: you know', setup: TO_PROBLEM, say: 'you know, the usual', ok: c => !filled(c) },
   // serials
-  { name: 'serial: with dashes typed', setup: ['Priya'], say: '4410-72BK-9X11', ok: (_c, r) => r.includes('4410-72BK-9X11') },
-  { name: 'serial: "double one"', setup: ['Priya'], say: 'four four one zero seven two B K nine X double one', ok: (_c, r) => r.includes('4410-72BK-9X11') || /didn't catch/i.test(r) },
-  { name: 'serial: one character short', setup: ['Priya'], say: '4410 72BK 9X1', ok: (c, r) => /didn't catch|12/i.test(r) && c.state === 'ask' },
+  { name: 'serial: with dashes typed', setup: ['Priya', 'yes'], say: '4410-72BK-9X11', ok: (_c, r) => r.includes('4410-72BK-9X11') },
+  { name: 'serial: "double one"', setup: ['Priya', 'yes'], say: 'four four one zero seven two B K nine X double one', ok: (_c, r) => r.includes('4410-72BK-9X11') || /didn't catch/i.test(r) },
+  { name: 'serial: one character short', setup: ['Priya', 'yes'], say: '4410 72BK 9X1', ok: (c, r) => /didn't catch|12/i.test(r) && c.state === 'ask' },
   // names
-  { name: 'name: two words', setup: [], say: "it's Priya Raman", ok: c => c.values.name === 'Priya Raman' },
+  { name: 'name: two words', setup: [], say: "it's Priya Raman", ok: (c, r) => r.includes('I heard Priya Raman') && c.values.name === undefined },
   { name: 'name: question is not a name', setup: [], say: 'why do you need my name?', ok: c => c.values.name === undefined },
   // times
   { name: 'time: first thing', setup: TO_TIME, say: 'first thing in the morning please', ok: c => c.values.visit_time === 'morning' },

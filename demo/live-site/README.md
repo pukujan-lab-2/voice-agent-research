@@ -57,8 +57,10 @@ Key names: `openrouter_jev_only` → `OPENROUTER_JEV_KEY`, `octo_db_chatbots` �
 `octo_db_chatbots_workspace` → `OCTO_WORKSPACE` (environment variables of those names win). `LLAMA_URL` swaps the
 rules behind Jev for a local LFM.
 
-Results (2026-10-30), against the ABA app: live 97/97, including a layout scene that opens the call panel at
-390×664, 375×560 and 360×640 and requires every call control to be on screen. Offline 95/97: the word-overlap stand-in
+Results (2026-10-30), against the ABA app: live 109/109, including a layout scene that opens the call panel at
+390×664, 375×560 and 360×640 and requires every call control to be on screen, and the three iPhone call bugs (a name
+the recogniser finalises twice, "you wrote the name twice, can you fix it" mid-flow, a spaced or short spoken serial
+with the keyboard offered after two misses). Offline 107/109: the word-overlap stand-in
 picks the wrong passage for two manual questions, which is what Jev is there for. After deploying, both public
 hostnames were checked in Chromium (desktop) and WebKit (iPhone 13): the copilot fills the clinic form and answers E24
 from the live manual with a page link, with no page errors. Voice was tested with stubbed browser speech; a real

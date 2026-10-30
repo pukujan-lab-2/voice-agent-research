@@ -18,6 +18,7 @@ export interface Flow {
   scope: string; // what to say when the request is off-scope
   doneMessage: string;
   reviewAsk?: string; // what the review card asks; default offers to submit
+  typeOffer?: string; // added after a second miss on a read-back field, e.g. "You can also type it with Keyboard."
   fields: Field[];
 }
 

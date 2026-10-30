@@ -48,9 +48,11 @@ function watch(page: Page, start: string) {
   const c = new Copilot(flow, new RuleModel(), hooks);
   const val = (sel: string) => page.$eval(sel, el => (el as HTMLInputElement).value);
   c.start();
-  await c.turn('Priya Raman');
-  check('name is typed in as soon as it is accepted', (await val('#full_name')) === 'Priya Raman');
-  let r = await c.turn('priya at');
+  let r = await c.turn('Priya Raman');
+  check('name is read back before it is typed in', /I heard Priya Raman/.test(r) && (await val('#full_name')) === '', r);
+  await c.turn('yes');
+  check('name is typed in as soon as it is confirmed', (await val('#full_name')) === 'Priya Raman');
+  r = await c.turn('priya at');
   check('half an email is asked again', /didn't catch a full email/.test(r) && (await val('[name=email]')) === '', r);
   r = await c.turn('priya dot raman at example dot com');
   check('email is read back before it is kept', /I heard priya\.raman@example\.com/.test(r) && (await val('[name=email]')) === '', r);
