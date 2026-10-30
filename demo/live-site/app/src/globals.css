@@ -1,0 +1,1432 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   Base
+   ============================================================ */
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 252 60% 52%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 250 30% 96%;
+    --secondary-foreground: 252 60% 30%;
+    --muted: 250 20% 96%;
+    --muted-foreground: 250 10% 45%;
+    --accent: 252 60% 95%;
+    --accent-foreground: 252 60% 30%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 250 20% 90%;
+    --input: 250 20% 90%;
+    --ring: 252 60% 52%;
+    --radius: 0.625rem;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overflow-x: hidden;
+  }
+
+  /* Prevent iPhone zoom on focus: inputs at least 16px */
+  input, select, textarea {
+    font-size: 16px;
+  }
+
+  /* Ensure hidden attribute works (Tailwind preflight does this, but be safe) */
+  [hidden] {
+    display: none !important;
+  }
+}
+
+/* ============================================================
+   Site theme tokens
+   ============================================================ */
+
+/* Clinic: soft teal and warm white */
+[data-site="clinic"] {
+  --site-bg: 168 45% 97%;
+  --site-surface: 0 0% 100%;
+  --site-text: 195 40% 20%;
+  --site-muted: 190 15% 45%;
+  --site-accent: 174 60% 38%;
+  --site-accent-fg: 0 0% 100%;
+  --site-accent-soft: 174 50% 92%;
+  --site-border: 174 25% 85%;
+  --site-header-bg: 174 35% 16%;
+}
+
+/* Appliance: graphite and orange */
+[data-site="appliance"] {
+  --site-bg: 0 0% 96%;
+  --site-surface: 0 0% 100%;
+  --site-text: 210 20% 18%;
+  --site-muted: 210 10% 40%;
+  --site-accent: 25 90% 50%;
+  --site-accent-fg: 0 0% 100%;
+  --site-accent-soft: 25 90% 94%;
+  --site-border: 210 12% 88%;
+  --site-header-bg: 210 25% 14%;
+}
+
+/* Pricing / Larchmoss: near-black and lime */
+[data-site="pricing"] {
+  --site-bg: 90 10% 97%;
+  --site-surface: 0 0% 100%;
+  --site-text: 90 5% 12%;
+  --site-muted: 90 5% 40%;
+  --site-accent: 75 85% 48%;
+  --site-accent-fg: 90 10% 10%;
+  --site-accent-soft: 75 60% 90%;
+  --site-border: 90 8% 86%;
+  --site-header-bg: 90 10% 8%;
+}
+
+/* IT desk: navy and sky blue */
+[data-site="itdesk"] {
+  --site-bg: 210 30% 97%;
+  --site-surface: 0 0% 100%;
+  --site-text: 215 35% 18%;
+  --site-muted: 210 15% 42%;
+  --site-accent: 205 75% 52%;
+  --site-accent-fg: 0 0% 100%;
+  --site-accent-soft: 205 70% 92%;
+  --site-border: 210 20% 86%;
+  --site-header-bg: 215 40% 16%;
+}
+
+/* Pension: forest green and cream, larger text */
+[data-site="pension"] {
+  --site-bg: 42 40% 95%;
+  --site-surface: 42 30% 98%;
+  --site-text: 150 25% 15%;
+  --site-muted: 150 10% 38%;
+  --site-accent: 142 45% 30%;
+  --site-accent-fg: 42 40% 96%;
+  --site-accent-soft: 142 35% 88%;
+  --site-border: 140 15% 82%;
+  --site-header-bg: 142 40% 20%;
+  --site-font-scale: 1.12;
+}
+
+/* ============================================================
+   Demo banner
+   ============================================================ */
+
+.demo-banner {
+  background: hsl(42 90% 50% / 0.12);
+  border-bottom: 1px solid hsl(42 90% 50% / 0.25);
+  color: hsl(40 80% 25%);
+  font-size: 0.8125rem;
+  line-height: 1.35;
+  padding: 0.5rem 1rem;
+  text-align: center;
+}
+
+.demo-banner strong { font-weight: 700; }
+[data-site="pension"] .demo-banner { font-size: 0.9375rem; }
+
+/* ============================================================
+   Site layout
+   ============================================================ */
+
+.site-wrap {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: hsl(var(--site-bg));
+  color: hsl(var(--site-text));
+  font-size: calc(1rem * var(--site-font-scale, 1));
+}
+
+.site-header {
+  background: hsl(var(--site-header-bg));
+  color: hsl(var(--site-bg) / 0.95);
+  position: sticky;
+  top: 0;
+  z-index: 40;
+}
+
+.site-header-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  height: 3.5rem;
+}
+
+[data-site="pension"] .site-header-inner { height: 4rem; }
+
+.site-logo {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 700;
+  font-size: 1.125rem;
+  white-space: nowrap;
+  color: hsl(var(--site-bg) / 0.98);
+  text-decoration: none;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.site-logo-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-site="pension"] .site-logo { font-size: 1.25rem; }
+
+.site-logo-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.5rem;
+  background: hsl(var(--site-accent));
+  color: hsl(var(--site-accent-fg));
+  flex-shrink: 0;
+}
+
+.site-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-left: 0.5rem;
+}
+
+.site-nav a {
+  color: hsl(var(--site-bg) / 0.85);
+  font-size: 0.875rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.375rem;
+  text-decoration: none;
+  transition: background 0.15s;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+
+[data-site="pension"] .site-nav a { font-size: 1rem; }
+
+.site-nav a:hover {
+  background: hsl(var(--site-bg) / 0.12);
+  color: hsl(var(--site-bg) / 1);
+}
+
+.site-header-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.site-search-wrap { position: relative; }
+
+.site-search-desktop { position: relative; }
+
+.site-search-input {
+  background: hsl(var(--site-bg) / 0.15);
+  border: 1px solid hsl(var(--site-bg) / 0.25);
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem 0.5rem 2rem;
+  color: hsl(var(--site-bg) / 0.95);
+  font-size: 0.875rem;
+  width: 160px;
+  min-height: 40px;
+  outline: none;
+}
+
+[data-site="pension"] .site-search-input { font-size: 1rem; width: 200px; }
+
+.site-search-input::placeholder { color: hsl(var(--site-bg) / 0.55); }
+
+.site-search-input:focus {
+  border-color: hsl(var(--site-accent));
+  background: hsl(var(--site-bg) / 0.25);
+}
+
+.site-search-icon {
+  position: absolute;
+  left: 0.625rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: hsl(var(--site-bg) / 0.6);
+}
+
+/* Mobile search toggle button — icon only, collapses the fixed-width input */
+.site-search-toggle {
+  display: none;
+  background: hsl(var(--site-bg) / 0.15);
+  border: 1px solid hsl(var(--site-bg) / 0.25);
+  border-radius: 0.5rem;
+  color: hsl(var(--site-bg) / 0.9);
+  min-width: 40px;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+/* Mobile search row — full-width, drops below header */
+.site-search-mobile {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  padding: 0.5rem 1rem;
+  background: hsl(var(--site-header-bg));
+  z-index: 39;
+}
+
+.site-search-mobile-bar {
+  position: relative;
+}
+
+.site-search-mobile .site-search-input {
+  width: 100%;
+  min-height: 44px;
+}
+
+.site-search-mobile .site-search-icon {
+  left: 0.75rem;
+}
+
+.site-search-results {
+  position: absolute;
+  top: calc(100% + 0.25rem);
+  right: 0;
+  width: 300px;
+  max-width: calc(100vw - 2rem);
+  background: hsl(0 0% 100%);
+  border: 1px solid hsl(var(--site-border));
+  border-radius: 0.5rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  z-index: 50;
+  overflow: hidden;
+}
+
+.site-search-results a {
+  display: block;
+  padding: 0.625rem 0.875rem;
+  color: hsl(var(--site-text));
+  font-size: 0.875rem;
+  text-decoration: none;
+  border-bottom: 1px solid hsl(var(--site-border) / 0.5);
+}
+
+[data-site="pension"] .site-search-results a { font-size: 1rem; }
+
+.site-search-results a:last-child { border-bottom: none; }
+.site-search-results a:hover { background: hsl(var(--site-accent-soft)); }
+
+.site-search-results .search-title { font-weight: 600; display: block; }
+.site-search-results .search-kw { font-size: 0.75rem; color: hsl(var(--site-muted)); }
+
+.site-guest-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+  color: hsl(var(--site-bg) / 0.7);
+  white-space: nowrap;
+}
+
+.site-guest-badge a {
+  color: hsl(var(--site-bg) / 0.85);
+  text-decoration: underline;
+  font-size: 0.75rem;
+}
+
+.site-nav-toggle {
+  display: none;
+  background: none;
+  border: none;
+  color: hsl(var(--site-bg) / 0.9);
+  padding: 0.5rem;
+  min-width: 44px;
+  min-height: 44px;
+}
+
+@media (max-width: 860px) {
+  .site-nav {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: hsl(var(--site-header-bg));
+    flex-direction: column;
+    align-items: stretch;
+    padding: 0.5rem;
+    gap: 0;
+    z-index: 40;
+  }
+  .site-nav.open { display: flex; }
+  .site-nav a { padding: 0.75rem 1rem; border-radius: 0.375rem; width: 100%; }
+  .site-nav-toggle { display: flex; align-items: center; justify-content: center; }
+  .site-search-desktop { display: none; }
+  .site-search-toggle { display: inline-flex; }
+  .site-search-mobile.open { display: block; }
+  .site-logo { font-size: 1rem; }
+  [data-site="pension"] .site-logo { font-size: 1.125rem; }
+}
+
+@media (max-width: 480px) {
+  .site-guest-badge { display: none; }
+}
+
+.site-main { flex: 1; width: 100%; }
+
+.site-container {
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+}
+
+/* Constrain form pages to a single aligned column ~640px */
+.site-container:has(.copilot-form) {
+  max-width: 640px;
+}
+
+.site-container-wide {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+}
+
+@media (max-width: 640px) {
+  .site-container, .site-container-wide { padding: 1.25rem 1rem; }
+}
+
+.site-footer {
+  background: hsl(var(--site-header-bg) / 0.95);
+  color: hsl(var(--site-bg) / 0.8);
+  padding: 2rem 1rem;
+  font-size: 0.8125rem;
+}
+
+[data-site="pension"] .site-footer { font-size: 0.9375rem; }
+
+.site-footer-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.site-footer a { color: hsl(var(--site-bg) / 0.85); text-decoration: none; }
+.site-footer a:hover { text-decoration: underline; }
+
+/* ============================================================
+   Site hero
+   ============================================================ */
+
+.site-hero {
+  background: hsl(var(--site-accent-soft));
+  border-bottom: 1px solid hsl(var(--site-border));
+}
+
+.site-hero-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 3rem 1rem;
+  text-align: center;
+}
+
+[data-site="pension"] .site-hero-inner { padding: 3.5rem 1rem; }
+
+.site-hero h1 {
+  font-size: clamp(1.5rem, 5vw, 2.25rem);
+  font-weight: 800;
+  color: hsl(var(--site-text));
+  margin-bottom: 0.75rem;
+  line-height: 1.2;
+}
+
+[data-site="pension"] .site-hero h1 { font-size: clamp(1.75rem, 5vw, 2.5rem); }
+
+.site-hero p {
+  font-size: clamp(1rem, 2.5vw, 1.125rem);
+  color: hsl(var(--site-muted));
+  max-width: 36rem;
+  margin: 0 auto;
+}
+
+[data-site="pension"] .site-hero p { font-size: clamp(1.125rem, 2.5vw, 1.25rem); }
+
+/* ============================================================
+   Cards & content
+   ============================================================ */
+
+.site-card {
+  background: hsl(var(--site-surface));
+  border: 1px solid hsl(var(--site-border));
+  border-radius: var(--radius);
+  padding: 1.5rem;
+}
+
+.site-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1rem;
+}
+
+.site-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background: hsl(var(--site-accent));
+  color: hsl(var(--site-accent-fg));
+  font-weight: 600;
+  font-size: 0.9375rem;
+  padding: 0.625rem 1.25rem;
+  border-radius: 0.5rem;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  min-height: 44px;
+  transition: filter 0.15s, transform 0.1s;
+}
+
+[data-site="pension"] .site-btn { font-size: 1.0625rem; padding: 0.75rem 1.5rem; }
+
+.site-btn:hover { filter: brightness(1.08); }
+.site-btn:active { transform: translateY(1px); }
+
+.site-btn-outline {
+  background: transparent;
+  color: hsl(var(--site-accent));
+  border: 1px solid hsl(var(--site-accent));
+}
+
+.site-btn-outline:hover { background: hsl(var(--site-accent-soft)); }
+
+/* ============================================================
+   Forms
+   ============================================================ */
+
+.copilot-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  max-width: 100%;
+  margin: 0;
+}
+
+.copilot-form label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.375rem;
+  font-size: 0.9375rem;
+  color: hsl(var(--site-text));
+}
+
+[data-site="pension"] .copilot-form label,
+[data-site="pension"] .copilot-form legend { font-size: 1.125rem; }
+
+[data-site="pension"] .copilot-form input,
+[data-site="pension"] .copilot-form select,
+[data-site="pension"] .copilot-form textarea { font-size: 1.125rem; padding: 0.75rem; }
+
+.copilot-form input,
+.copilot-form select,
+.copilot-form textarea {
+  display: block;
+  width: 100%;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid hsl(var(--site-border));
+  border-radius: 0.5rem;
+  background: hsl(var(--site-surface));
+  color: hsl(var(--site-text));
+  font-size: 16px;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.copilot-form input:focus,
+.copilot-form select:focus,
+.copilot-form textarea:focus {
+  border-color: hsl(var(--site-accent));
+  box-shadow: 0 0 0 3px hsl(var(--site-accent) / 0.2);
+}
+
+/* Show error styling only after the user has interacted with a field or
+   tried to submit. :user-invalid fires after focus + blur on an invalid
+   field; .attempted is set by JS on a failed Next/submit for older browsers. */
+.copilot-form input:user-invalid,
+.copilot-form select:user-invalid,
+.copilot-form textarea:user-invalid {
+  border-color: hsl(0 70% 55%);
+}
+
+.copilot-form.attempted input:invalid,
+.copilot-form.attempted select:invalid,
+.copilot-form.attempted textarea:invalid {
+  border-color: hsl(0 70% 55%);
+}
+
+.copilot-form textarea { min-height: 100px; resize: vertical; }
+
+.copilot-form fieldset { border: none; padding: 0; margin: 0; }
+
+.copilot-form legend {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  font-size: 0.9375rem;
+  color: hsl(var(--site-text));
+}
+
+.copilot-form .radio-row,
+.copilot-form .check-row { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+
+.copilot-form .radio-item,
+.copilot-form .check-item { display: flex; align-items: center; gap: 0.5rem; }
+
+.copilot-form .radio-item input,
+.copilot-form .check-item input { width: 1.125rem; height: 1.125rem; flex-shrink: 0; }
+
+.copilot-form .radio-item label,
+.copilot-form .check-item label { font-weight: 400; margin: 0; cursor: pointer; }
+
+.copilot-form button[type="submit"] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background: hsl(var(--site-accent));
+  color: hsl(var(--site-accent-fg));
+  font-weight: 700;
+  font-size: 1rem;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  border: none;
+  cursor: pointer;
+  min-height: 48px;
+  align-self: flex-start;
+}
+
+[data-site="pension"] .copilot-form button[type="submit"] { font-size: 1.125rem; padding: 0.875rem 1.75rem; }
+.copilot-form button[type="submit"]:hover { filter: brightness(1.08); }
+
+/* step indicator */
+.step-indicator {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.5rem;
+  font-size: 0.875rem;
+  color: hsl(var(--site-muted));
+}
+
+.step-indicator .step-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  background: hsl(var(--site-border));
+  color: hsl(var(--site-muted));
+  font-weight: 700;
+  font-size: 0.8125rem;
+}
+
+.step-indicator .step-dot.active {
+  background: hsl(var(--site-accent));
+  color: hsl(var(--site-accent-fg));
+}
+
+.step-indicator .step-sep { color: hsl(var(--site-border)); }
+
+/* glow ring for the field the copilot is asking about */
+[data-copilot-active] {
+  outline: 3px solid hsl(var(--site-accent) / 0.6) !important;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 6px hsl(var(--site-accent) / 0.15) !important;
+  border-radius: 0.5rem;
+  transition: box-shadow 0.2s, outline 0.2s;
+}
+
+.info-panel {
+  background: hsl(var(--site-accent-soft));
+  border: 1px solid hsl(var(--site-accent) / 0.3);
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+  font-size: 0.875rem;
+}
+
+[data-site="pension"] .info-panel { font-size: 1rem; }
+
+.error-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.error-table th,
+.error-table td {
+  padding: 0.625rem 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid hsl(var(--site-border));
+}
+
+.error-table th { font-weight: 700; background: hsl(var(--site-accent-soft)); }
+.error-table code { font-family: monospace; font-weight: 700; color: hsl(var(--site-accent)); }
+
+/* ============================================================
+   Guest gate
+   ============================================================ */
+
+.guest-gate {
+  min-height: 60vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+}
+
+.guest-gate-card {
+  max-width: 400px;
+  width: 100%;
+  text-align: center;
+  background: hsl(var(--site-surface));
+  border: 1px solid hsl(var(--site-border));
+  border-radius: var(--radius);
+  padding: 2.5rem 2rem;
+}
+
+.guest-gate-card h2 { font-size: 1.25rem; font-weight: 700; margin-bottom: 0.5rem; color: hsl(var(--site-text)); }
+.guest-gate-card p { font-size: 0.9375rem; color: hsl(var(--site-muted)); margin-bottom: 1.5rem; }
+
+/* ============================================================
+   Copilot bar & panel
+   ============================================================ */
+
+.copilot-bar {
+  position: fixed;
+  left: 50%;
+  bottom: calc(0.75rem + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 50;
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  background: hsl(0 0% 100%);
+  border: 1px solid hsl(var(--site-border, 250 20% 90%));
+  border-radius: 999px;
+  padding: 0.375rem 0.5rem;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.15);
+  max-width: calc(100vw - 1.5rem);
+}
+
+.copilot-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: hsl(142 60% 42%);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.9375rem;
+  padding: 0.625rem 1.25rem;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+  min-height: 44px;
+  white-space: nowrap;
+  transition: filter 0.15s;
+}
+
+.copilot-btn-primary:hover { filter: brightness(1.1); }
+
+.copilot-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  background: transparent;
+  color: hsl(var(--site-text, 222 84% 5%));
+  font-weight: 500;
+  font-size: 0.875rem;
+  padding: 0.625rem 0.875rem;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+  min-height: 44px;
+  white-space: nowrap;
+}
+
+.copilot-btn-ghost:hover { background: hsl(var(--site-accent-soft, 250 60% 95%)); }
+
+.copilot-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.25);
+  z-index: 55;
+}
+
+.copilot-panel {
+  background: hsl(0 0% 100%);
+  display: flex;
+  flex-direction: column;
+  z-index: 60;
+}
+
+.copilot-panel-mobile {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: 1rem 1rem 0 0;
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.2);
+  max-height: 85vh;
+  max-height: 85dvh;
+  padding-bottom: env(safe-area-inset-bottom);
+  transition: transform 0.2s ease;
+}
+
+.copilot-panel-minimised { max-height: 3.5rem; overflow: hidden; }
+
+.copilot-panel-desktop {
+  position: fixed;
+  right: 1.5rem;
+  bottom: 1.5rem;
+  width: 400px;
+  max-width: calc(100vw - 3rem);
+  max-height: 540px;
+  border: 1px solid hsl(250 20% 88%);
+  border-radius: 1rem;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+}
+
+.copilot-panel-large .copilot-business { font-size: 1.125rem; }
+.copilot-panel-large .copilot-promise { font-size: 0.875rem; }
+.copilot-panel-large .copilot-message { font-size: 1.0625rem; }
+.copilot-panel-large .copilot-mic-btn span,
+.copilot-panel-large .copilot-control-btn span,
+.copilot-panel-large .copilot-end-btn span { font-size: 1rem; }
+
+.copilot-drag-handle { display: flex; justify-content: center; padding: 0.5rem 0 0.25rem; }
+.copilot-drag-handle span { width: 2.5rem; height: 0.25rem; border-radius: 999px; background: hsl(250 10% 80%); }
+
+.copilot-header { padding: 0.75rem 1rem 0.5rem; border-bottom: 1px solid hsl(250 20% 92%); flex-shrink: 0; }
+.copilot-header-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; }
+.copilot-header-info { flex: 1; min-width: 0; }
+
+.copilot-business {
+  font-weight: 700;
+  font-size: 1rem;
+  color: hsl(222 84% 5%);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.copilot-promise { font-size: 0.75rem; color: hsl(250 10% 45%); margin-top: 0.125rem; }
+.copilot-header-controls { display: flex; gap: 0.25rem; flex-shrink: 0; }
+
+.copilot-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 0.5rem;
+  border: none;
+  background: hsl(250 20% 95%);
+  color: hsl(222 84% 15%);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.copilot-icon-btn:hover { background: hsl(250 20% 90%); }
+
+.copilot-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: hsl(142 60% 35%);
+}
+
+/* animated status indicators */
+.copilot-bars { display: inline-flex; align-items: end; gap: 2px; height: 14px; }
+.copilot-bars span { width: 3px; background: hsl(142 60% 42%); border-radius: 999px; animation: copilot-bar-bounce 0.8s ease-in-out infinite; }
+.copilot-bars span:nth-child(1) { height: 6px; animation-delay: 0s; }
+.copilot-bars span:nth-child(2) { height: 10px; animation-delay: 0.1s; }
+.copilot-bars span:nth-child(3) { height: 14px; animation-delay: 0.2s; }
+.copilot-bars span:nth-child(4) { height: 8px; animation-delay: 0.3s; }
+
+@keyframes copilot-bar-bounce { 0%, 100% { transform: scaleY(0.4); } 50% { transform: scaleY(1); } }
+
+.copilot-mic-wave { display: inline-flex; align-items: center; gap: 2px; height: 14px; }
+.copilot-mic-wave span { width: 3px; background: hsl(142 60% 42%); border-radius: 999px; animation: copilot-wave 1.2s ease-in-out infinite; }
+.copilot-mic-wave span:nth-child(1) { height: 4px; animation-delay: 0s; }
+.copilot-mic-wave span:nth-child(2) { height: 8px; animation-delay: 0.15s; }
+.copilot-mic-wave span:nth-child(3) { height: 12px; animation-delay: 0.3s; }
+.copilot-mic-wave span:nth-child(4) { height: 8px; animation-delay: 0.45s; }
+.copilot-mic-wave span:nth-child(5) { height: 4px; animation-delay: 0.6s; }
+
+@keyframes copilot-wave { 0%, 100% { transform: scaleY(0.5); } 50% { transform: scaleY(1.2); } }
+
+.copilot-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid hsl(250 20% 85%);
+  border-top-color: hsl(252 60% 52%);
+  border-radius: 50%;
+  animation: copilot-spin 0.7s linear infinite;
+}
+
+@keyframes copilot-spin { to { transform: rotate(360deg); } }
+
+.copilot-chips { display: flex; flex-wrap: wrap; gap: 0.375rem; margin-top: 0.5rem; }
+.copilot-chip {
+  display: inline-block;
+  font-size: 0.6875rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 999px;
+  background: hsl(252 60% 96%);
+  color: hsl(252 60% 35%);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* Compact header on short screens: single-line promise, scrollable chips row */
+@media (max-height: 740px) {
+  .copilot-panel-mobile .copilot-promise {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .copilot-panel-mobile .copilot-chips {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .copilot-panel-mobile .copilot-chips::-webkit-scrollbar { display: none; }
+  /* Hide chips while typing to save vertical space */
+  .copilot-panel-mobile[data-typing="true"] .copilot-chips { display: none; }
+  .copilot-panel-mobile .copilot-status { margin-top: 0.25rem; }
+  .copilot-panel-mobile .copilot-header { padding: 0.5rem 1rem 0.375rem; }
+  .copilot-panel-mobile .copilot-tabs { margin-top: 0.375rem; }
+}
+
+.copilot-tabs {
+  display: flex;
+  gap: 0.25rem;
+  margin-top: 0.625rem;
+  background: hsl(250 20% 95%);
+  border-radius: 0.5rem;
+  padding: 0.25rem;
+}
+
+.copilot-tab {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.5rem;
+  border-radius: 0.375rem;
+  border: none;
+  background: transparent;
+  color: hsl(250 10% 45%);
+  cursor: pointer;
+  min-height: 36px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.copilot-tab-active {
+  background: hsl(0 0% 100%);
+  color: hsl(252 60% 40%);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.copilot-messages {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0.75rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  scroll-behavior: smooth;
+}
+
+.copilot-panel-desktop .copilot-messages { max-height: 240px; }
+
+.copilot-empty { text-align: center; font-size: 0.8125rem; color: hsl(250 10% 55%); padding: 1rem 0; }
+
+.copilot-message {
+  max-width: 85%;
+  font-size: 0.875rem;
+  line-height: 1.4;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.75rem;
+  word-wrap: break-word;
+}
+
+.copilot-message-bot {
+  align-self: flex-start;
+  background: hsl(250 20% 95%);
+  color: hsl(222 84% 12%);
+  border-bottom-left-radius: 0.25rem;
+}
+
+.copilot-message-user {
+  align-self: flex-end;
+  background: hsl(252 60% 52%);
+  color: hsl(0 0% 100%);
+  border-bottom-right-radius: 0.25rem;
+}
+
+.copilot-cite { color: inherit; text-decoration: underline; font-weight: 600; }
+.copilot-message-user .copilot-cite { color: hsl(0 0% 90%); }
+
+.copilot-heard {
+  font-style: italic;
+  font-size: 0.75rem;
+  color: hsl(250 10% 55%);
+  padding: 0.25rem 0.5rem;
+  align-self: flex-start;
+}
+
+.copilot-controls { border-top: 1px solid hsl(250 20% 92%); padding: 0.625rem 1rem; flex-shrink: 0; }
+.copilot-controls-row { display: flex; gap: 0.5rem; align-items: center; }
+
+.copilot-mic-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background: hsl(250 20% 95%);
+  color: hsl(222 84% 15%);
+  font-weight: 700;
+  font-size: 0.875rem;
+  padding: 0.625rem;
+  border-radius: 0.75rem;
+  border: none;
+  cursor: pointer;
+  min-height: 48px;
+  transition: background 0.15s;
+}
+
+.copilot-mic-on { background: hsl(142 60% 42%); color: #fff; }
+.copilot-mic-on:hover { filter: brightness(1.1); }
+.copilot-mic-disabled { opacity: 0.5; cursor: not-allowed; }
+
+.copilot-control-btn {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.125rem;
+  background: hsl(250 20% 95%);
+  color: hsl(222 84% 15%);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  padding: 0.5rem 0.625rem;
+  border-radius: 0.75rem;
+  border: none;
+  cursor: pointer;
+  min-height: 48px;
+  min-width: 56px;
+  transition: background 0.15s;
+}
+
+.copilot-control-btn:hover { background: hsl(250 20% 90%); }
+
+.copilot-end-btn {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.125rem;
+  background: hsl(0 80% 55%);
+  color: #fff;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  padding: 0.5rem 0.625rem;
+  border-radius: 0.75rem;
+  border: none;
+  cursor: pointer;
+  min-height: 48px;
+  min-width: 56px;
+  transition: filter 0.15s;
+}
+
+.copilot-end-btn:hover { filter: brightness(1.1); }
+
+.copilot-input-row { display: flex; gap: 0.5rem; margin-top: 0.625rem; }
+
+.copilot-text-input {
+  flex: 1;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid hsl(250 20% 88%);
+  border-radius: 0.5rem;
+  font-size: 16px;
+  outline: none;
+  background: hsl(0 0% 100%);
+  color: hsl(222 84% 5%);
+  min-height: 44px;
+}
+
+.copilot-text-input:focus {
+  border-color: hsl(252 60% 52%);
+  box-shadow: 0 0 0 3px hsl(252 60% 52% / 0.2);
+}
+
+.copilot-send-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 0.5rem;
+  border: none;
+  background: hsl(252 60% 52%);
+  color: #fff;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.copilot-send-btn:hover { filter: brightness(1.1); }
+
+.copilot-footnote {
+  font-size: 0.6875rem;
+  color: hsl(250 10% 55%);
+  text-align: center;
+  padding: 0.375rem 1rem 0.5rem;
+  flex-shrink: 0;
+}
+
+/* ============================================================
+   Marketing page
+   ============================================================ */
+
+.mkt-hero { position: relative; overflow: hidden; background: hsl(0 0% 99%); }
+
+.mkt-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 60% 50% at 50% 0%, hsl(252 60% 96%), transparent),
+    radial-gradient(ellipse 40% 40% at 80% 20%, hsl(252 60% 94%), transparent);
+  pointer-events: none;
+}
+
+.mkt-hero-inner {
+  position: relative;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 5rem 1.5rem 4rem;
+  text-align: center;
+}
+
+.mkt-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: hsl(252 60% 40%);
+  background: hsl(252 60% 96%);
+  border: 1px solid hsl(252 60% 90%);
+  border-radius: 999px;
+  padding: 0.375rem 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.mkt-hero h1 {
+  font-size: clamp(2rem, 6vw, 3.5rem);
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: hsl(222 47% 11%);
+  margin-bottom: 1.25rem;
+}
+
+.mkt-hero h1 .accent {
+  background: linear-gradient(135deg, hsl(252 60% 55%), hsl(265 60% 50%));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.mkt-hero .sub {
+  font-size: clamp(1.0625rem, 2.5vw, 1.25rem);
+  color: hsl(250 10% 40%);
+  max-width: 38rem;
+  margin: 0 auto 2rem;
+  line-height: 1.5;
+}
+
+.mkt-hero-btns { display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; }
+
+.mkt-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: hsl(252 60% 52%);
+  color: #fff;
+  font-weight: 700;
+  font-size: 1rem;
+  padding: 0.875rem 1.75rem;
+  border-radius: 0.75rem;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  min-height: 48px;
+  transition: filter 0.15s, transform 0.1s;
+  box-shadow: 0 4px 14px hsl(252 60% 52% / 0.3);
+}
+
+.mkt-btn-primary:hover { filter: brightness(1.1); transform: translateY(-1px); }
+
+.mkt-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: hsl(0 0% 100%);
+  color: hsl(252 60% 40%);
+  font-weight: 600;
+  font-size: 1rem;
+  padding: 0.875rem 1.75rem;
+  border-radius: 0.75rem;
+  border: 1px solid hsl(252 60% 85%);
+  cursor: pointer;
+  text-decoration: none;
+  min-height: 48px;
+  transition: background 0.15s;
+}
+
+.mkt-btn-secondary:hover { background: hsl(252 60% 97%); }
+
+.mkt-section { max-width: 1000px; margin: 0 auto; padding: 4rem 1.5rem; }
+
+.mkt-section-title {
+  font-size: clamp(1.5rem, 4vw, 2rem);
+  font-weight: 800;
+  color: hsl(222 47% 11%);
+  text-align: center;
+  margin-bottom: 0.75rem;
+  letter-spacing: -0.01em;
+}
+
+.mkt-section-sub {
+  font-size: 1.0625rem;
+  color: hsl(250 10% 40%);
+  text-align: center;
+  max-width: 36rem;
+  margin: 0 auto 2.5rem;
+}
+
+.mkt-safe-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; }
+
+.mkt-safe-card {
+  background: hsl(0 0% 100%);
+  border: 1px solid hsl(250 20% 92%);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  text-align: left;
+}
+
+.mkt-safe-card .icon-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.75rem;
+  background: hsl(252 60% 96%);
+  color: hsl(252 60% 52%);
+  margin-bottom: 0.75rem;
+}
+
+.mkt-safe-card h3 { font-size: 1rem; font-weight: 700; color: hsl(222 47% 11%); margin-bottom: 0.25rem; }
+.mkt-safe-card p { font-size: 0.875rem; color: hsl(250 10% 40%); line-height: 1.5; }
+
+.mkt-steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.5rem; }
+.mkt-step { text-align: center; }
+
+.mkt-step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  background: hsl(252 60% 52%);
+  color: #fff;
+  font-weight: 800;
+  font-size: 1.125rem;
+  margin-bottom: 0.75rem;
+}
+
+.mkt-step h3 { font-size: 1.0625rem; font-weight: 700; color: hsl(222 47% 11%); margin-bottom: 0.375rem; }
+.mkt-step p { font-size: 0.9375rem; color: hsl(250 10% 40%); line-height: 1.5; }
+
+.mkt-demo-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; }
+
+.mkt-demo-card {
+  background: hsl(0 0% 100%);
+  border: 1px solid hsl(250 20% 92%);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  transition: box-shadow 0.2s, transform 0.15s;
+}
+
+.mkt-demo-card:hover { box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08); transform: translateY(-2px); }
+
+.mkt-demo-card .demo-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 0.75rem;
+  flex-shrink: 0;
+}
+
+.mkt-demo-card h3 { font-size: 1.125rem; font-weight: 700; color: hsl(222 47% 11%); }
+.mkt-demo-card p { font-size: 0.875rem; color: hsl(250 10% 40%); line-height: 1.5; flex: 1; }
+
+.mkt-demo-card .demo-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: hsl(252 60% 52%);
+  text-decoration: none;
+  min-height: 44px;
+}
+
+.mkt-demo-card .demo-link:hover { text-decoration: underline; }
+
+.mkt-video-wrap { max-width: 800px; margin: 0 auto; }
+
+.mkt-video-tag {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: hsl(252 60% 40%);
+  background: hsl(252 60% 96%);
+  border-radius: 999px;
+  padding: 0.25rem 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.mkt-video-caption { font-size: 0.875rem; color: hsl(250 10% 40%); margin-top: 0.75rem; line-height: 1.5; }
+
+.mkt-footer {
+  background: hsl(222 47% 11%);
+  color: hsl(0 0% 70%);
+  padding: 2.5rem 1.5rem;
+  text-align: center;
+  font-size: 0.875rem;
+}
+
+.mkt-footer a { color: hsl(0 0% 85%); }
+
+/* ============================================================
+   Sent page
+   ============================================================ */
+
+.sent-page {
+  min-height: 80vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+  background: hsl(0 0% 98%);
+}
+
+.sent-card {
+  max-width: 480px;
+  width: 100%;
+  text-align: center;
+  background: hsl(0 0% 100%);
+  border: 1px solid hsl(250 20% 92%);
+  border-radius: 1rem;
+  padding: 3rem 2rem;
+}
+
+.sent-card .check-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 4rem;
+  height: 4rem;
+  border-radius: 50%;
+  background: hsl(142 60% 42% / 0.12);
+  color: hsl(142 60% 35%);
+  margin-bottom: 1.25rem;
+}
+
+.sent-card h1 { font-size: 1.5rem; font-weight: 800; color: hsl(222 47% 11%); margin-bottom: 0.75rem; }
+.sent-card p { font-size: 1rem; color: hsl(250 10% 40%); margin-bottom: 1.5rem; line-height: 1.5; }
+.sent-card .sent-links { display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; }
+
+/* ============================================================
+   Misc
+   ============================================================ */
+
+.prose-site { max-width: 720px; margin: 0 auto; line-height: 1.65; }
+
+.prose-site h1 {
+  font-size: clamp(1.5rem, 4vw, 2rem);
+  font-weight: 800;
+  margin-bottom: 1rem;
+  color: hsl(var(--site-text));
+}
+
+.prose-site h2 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin-top: 1.5rem;
+  margin-bottom: 0.5rem;
+  color: hsl(var(--site-text));
+}
+
+[data-site="pension"] .prose-site h2 { font-size: 1.375rem; }
+
+.prose-site p { font-size: 1rem; color: hsl(var(--site-text)); margin-bottom: 0.75rem; }
+
+[data-site="pension"] .prose-site p { font-size: 1.125rem; line-height: 1.7; }
+
+.prose-site ul { padding-left: 1.25rem; margin-bottom: 0.75rem; }
+.prose-site li { font-size: 1rem; color: hsl(var(--site-text)); margin-bottom: 0.25rem; }
+
+[data-site="pension"] .prose-site li { font-size: 1.125rem; }

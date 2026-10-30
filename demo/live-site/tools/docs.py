@@ -1,6 +1,6 @@
 """Turn the fictional demo documents in docs-src/ into (1) page Markdown + a text layer for the existing Octo loader
 copilot-engine/tools/paddle_passages.py, (2) data/<label>.passages.json, the same passages for the offline backend,
-and (3) site/docs/<name>.html, the readable document the copilot's page citations link to.
+and (3) static/docs/<name>.html, the readable document the copilot's page citations link to.
 Usage:
   python3 tools/docs.py            # build only, prints the passages
   python3 tools/docs.py --upload   # also load them into Octo as "manual:<label> p<page> #<i>" (skips a label already there)
@@ -52,8 +52,9 @@ def page_html(title, pages):
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow"><title>{html.escape(title)} (fictional)</title>
-<link rel="stylesheet" href="/assets/site.css"><script src="/assets/demo.js" defer></script></head>
-<body class="doc"><main class="wrap"><h1>{html.escape(title)}</h1>
+<link rel="stylesheet" href="/docs/docs.css"></head>
+<body><div class="demo-banner"><b>Demo, fictional company.</b> This business, its people and its documents are made up.</div>
+<main class="wrap"><h1>{html.escape(title)}</h1>
 <p class="muted">A fictional document written for this demo. Nothing in it describes a real product, fund or company.</p>
 {body}
 </main></body></html>
@@ -86,8 +87,8 @@ if __name__ == "__main__":
         (HERE / "data" / f"{label}.passages.json").write_text(json.dumps(
             {"label": label, "title": title, "passages": [{"id": f"{label}-{i}", "page": q["page"], "text": q["text"]} for i, q in enumerate(ps)]},
             indent=1, ensure_ascii=False), encoding="utf-8")
-        (HERE / "site" / "docs").mkdir(parents=True, exist_ok=True)
-        (HERE / "site" / "docs" / f"{name}.html").write_text(page_html(title, pages), encoding="utf-8")
+        (HERE / "static" / "docs").mkdir(parents=True, exist_ok=True)
+        (HERE / "static" / "docs" / f"{name}.html").write_text(page_html(title, pages), encoding="utf-8")
         print(f"{label}: {len(pages)} pages, {len(ps)} passages")
         for q in ps:
             print(f"   p{q['page']} {len(q['text']):3d}c {q['text'][:90]!r}")

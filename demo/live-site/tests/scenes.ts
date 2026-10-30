@@ -1,4 +1,4 @@
-// End to end, one scene per fictional site: a real browser enters as a guest, opens the copilot widget, talks to it,
+// End to end, one scene per fictional site: a real browser enters as a guest, opens the copilot call panel, talks to it,
 // and checks the copilot's answers and the fields it filled. The copilot must never submit and nothing may be sent;
 // at the end of each scene the "person" presses the button and gets "Demo: nothing was sent".
 // Run: node build.ts && node tests/scenes.ts [--offline] [scene...]
@@ -36,6 +36,19 @@ const check = (name: string, ok: boolean, got?: unknown) => {
   check('no key appears in any file served to the browser', files.every(f => { const t = fs.readFileSync(f, 'utf8'); return secrets.every(s => !t.includes(s)); }));
 }
 
+// The app's panel is drawn by the React app; what the copilot said is read from the SDK snapshot, the panel's source.
+const T = (id: string) => `[data-testid="${id}"]`;
+const BOT = `${T('call-message')}[data-who="bot"]`;
+const bots = (page: Page) => page.evaluate(() => ((window as any).copilot?.getSnapshot().messages ?? []).filter((m: any) => m.who === 'bot').length as number);
+const lastBot = (page: Page) => page.evaluate(() => {
+  const ms = ((window as any).copilot.getSnapshot().messages as any[]).filter(m => m.who === 'bot');
+  return (ms.at(-1)?.text ?? '') as string;
+});
+const settle = (page: Page, n: number) => page.waitForFunction(n => {
+  const s = (window as any).copilot?.getSnapshot();
+  return s && !s.busy && s.messages.filter((m: any) => m.who === 'bot').length > n && !document.querySelector('[data-testid="call-panel"][data-busy="true"]');
+}, n, { timeout: 60_000 });
+
 type Ctx = { page: Page; say: (t: string) => Promise<string>; val: (sel: string) => Promise<string>; sent: string[] };
 
 async function scene(name: string, url: string, run: (c: Ctx) => Promise<void>) {
@@ -52,38 +65,32 @@ async function scene(name: string, url: string, run: (c: Ctx) => Promise<void>) 
     else if (!allowLeave && r.isNavigationRequest() && r.frame() === page.mainFrame() && u.pathname !== url) sent.push(`navigated to ${u.pathname}`);
   });
   page.on('pageerror', e => sent.push(`page error: ${e.message}`));
-  await page.goto(`${srv.url}/`);
-  await page.click('#guest');
-  await page.goto(`${srv.url}${url}`);
+  await page.goto(`${srv.url}${url}?guest=1`);
   allowLeave = false;
-  check('page carries the fictional-company banner and noindex', /Demo, fictional company/.test(await page.textContent('.demo-banner') ?? '')
+  check('page carries the fictional-company banner and noindex', /Demo, fictional company/.test(await page.textContent(T('demo-banner')) ?? '')
     && (await page.getAttribute('meta[name=robots]', 'content'))?.includes('noindex') === true);
-  const bots = () => page.locator('#copilot-widget .msg.bot').count();
-  const lastBot = async () => (await page.locator('#copilot-widget .msg.bot').last().textContent()) ?? '';
-  const settle = (n: number) => page.waitForFunction(n => {
-    const h = document.getElementById('copilot-widget')!;
-    return !h.dataset.busy && h.shadowRoot!.querySelectorAll('.msg.bot').length > n;
-  }, n, { timeout: 60_000 });
   const say = async (t: string) => {
-    const n = await bots();
-    await page.fill('#copilot-widget #copilot-input', t);
-    await page.press('#copilot-widget #copilot-input', 'Enter');
-    await settle(n);
-    const r = await lastBot();
+    const n = await bots(page);
+    await page.fill(T('call-input'), t);
+    await page.click(T('call-send'));
+    await settle(page, n);
+    const r = await lastBot(page);
     console.log(`      > ${t}\n      < ${r.slice(0, 200)}`);
     return r;
   };
   const val = (sel: string) => page.$eval(sel, el => (el as HTMLInputElement).value);
-  await page.click('#copilot-widget .type');
-  await settle(0);
-  console.log(`      < ${(await lastBot()).slice(0, 200)}`);
+  await page.waitForFunction(() => (window as any).copilot?.getSnapshot().mounted, null, { timeout: 15_000 });
+  await page.click(T('call-type'));
+  await settle(page, 0);
+  console.log(`      < ${(await lastBot(page)).slice(0, 200)}`);
   await run({ page, say, val, sent });
   check('copilot sent nothing and never left the page', sent.length === 0, sent);
+  check('the panel shows every copilot message', await page.locator(BOT).count() === await bots(page), [await page.locator(BOT).count(), await bots(page)]);
   // The person presses the button themself: the fake endpoint keeps everything in the browser.
   allowLeave = true;
   for (const box of await page.$$('input[type=checkbox][required]')) await box.check(); // ticks are the person's job
   await page.click('[data-copilot-submit]');
-  await page.waitForURL(/\/sent\.html/);
+  await page.waitForURL(/\/sent$/);
   check('pressing the button shows "Demo: nothing was sent", and no POST left the browser',
     (await page.textContent('#sent')) === 'Demo: nothing was sent' && sent.length === 0, sent);
   await page.close();
@@ -91,16 +98,16 @@ async function scene(name: string, url: string, run: (c: Ctx) => Promise<void>) 
 
 const nextStep = async (page: Page, say0: string) => {
   // the person presses Next; the copilot picks up the new step by itself
-  const n = await page.locator('#copilot-widget .msg.bot').count();
+  const n = await bots(page);
   await page.click('fieldset[data-step]:not([hidden]) [data-copilot-submit]');
-  await page.waitForFunction(n => document.getElementById('copilot-widget')!.shadowRoot!.querySelectorAll('.msg.bot').length > n, n);
-  const r = (await page.locator('#copilot-widget .msg.bot').last().textContent()) ?? '';
+  await settle(page, n);
+  const r = await lastBot(page);
   console.log(`      [person presses Next]\n      < ${r}`);
   check(`next step starts by itself: ${say0}`, /On to the next part/.test(r) && r.includes(say0), r);
 };
 
-await scene('clinic', '/clinic/book/', async ({ page, say, val }) => {
-  const first = (await page.locator('#copilot-widget .msg.bot').first().textContent()) ?? '';
+await scene('clinic', '/clinic/book', async ({ page, say, val }) => {
+  const first = await page.evaluate(() => (window as any).copilot.getSnapshot().messages.find((m: any) => m.who === 'bot')?.text ?? '');
   check('opens on the booking form and asks for the child', /fill in this booking form/.test(first) && /child's full name/.test(first), first);
   await say('Leo Rahman');
   check('child name typed in', (await val('#child')) === 'Leo Rahman');
@@ -129,21 +136,21 @@ await scene('clinic', '/clinic/book/', async ({ page, say, val }) => {
     && (await val('#email')) === 'aisha@example.com' && !(await page.isChecked('#remind')));
 });
 
-await scene('appliance', '/appliance/support/', async ({ page, say, val }) => {
-  await page.click('#copilot-widget .tabs button[data-mode=guide]');
-  await page.waitForFunction(() => /Step 1 of 6/.test(document.getElementById('copilot-widget')!.shadowRoot!.querySelector('.msg.bot:last-child')?.textContent ?? ''));
+await scene('appliance', '/appliance/support', async ({ page, say, val }) => {
+  await page.click(T('call-mode-guide'));
+  await page.waitForFunction(() => ((window as any).copilot.getSnapshot().messages as any[]).some(m => m.who === 'bot' && /Step 1 of 6/.test(m.text)));
   check('walk-through starts at step 1 of the E24 fix', true);
   let r = await say('What does E24 mean?');
   check('E24 answered from the manual with a page', /^The manual says \(page [67]\)/.test(r) && /drain/i.test(r), r);
   check('the citation links to that page of the manual',
-    /\/docs\/hdw500-manual\.html#page-[67]$/.test(await page.locator('#copilot-widget .msg.bot a').last().getAttribute('href') ?? ''));
+    /\/docs\/hdw500-manual\.html#page-[67]$/.test(await page.locator(`${BOT} a`).last().getAttribute('href') ?? ''));
   r = await say('next');
   check('"next" moves to step 2', /^Step 2 of 6/.test(r), r);
   r = await say('How long is the warranty?');
   check('warranty answered with page 8', /\(page 8\)/.test(r) && /2-year/.test(r), r);
   r = await say('Can you recommend a good plumber?');
   check('outside the manual: "I don\'t know"', /^I don't know/.test(r), r);
-  await page.click('#copilot-widget .tabs button[data-mode=form]');
+  await page.click(T('call-mode-form'));
   r = await say('Where do I find the serial number?');
   check('side question during the form is answered from the manual, then the form goes on',
     /\(page 1\)/.test(r) && /sticker/.test(r) && /Back to the form: Can you read me the serial number/.test(r), r);
@@ -166,7 +173,7 @@ await scene('appliance', '/appliance/support/', async ({ page, say, val }) => {
   check('hand-back: press Request visit yourself', /press Request visit yourself/.test(r), r);
 });
 
-await scene('pricing', '/pricing/quote/', async ({ page, say, val }) => {
+await scene('pricing', '/pricing/quote', async ({ page, say, val }) => {
   await say('Prana Yoga Studio');
   check('business name typed in', (await val('#biz')) === 'Prana Yoga Studio');
   await say('Sofia Marin');
@@ -187,7 +194,7 @@ await scene('pricing', '/pricing/quote/', async ({ page, say, val }) => {
   check('every field filled', (await val('#contact')) === 'Sofia Marin' && (await val('#email')) === 'sofia@example.com' && (await val('#needs')) === 'a website with online class booking');
 });
 
-await scene('itdesk', '/itdesk/new/', async ({ page, say, val }) => {
+await scene('itdesk', '/itdesk/new', async ({ page, say, val }) => {
   await say("it's a network problem");
   check('category Network', (await val('#cat')) === 'net');
   await say('the VPN');
@@ -210,7 +217,7 @@ await scene('itdesk', '/itdesk/new/', async ({ page, say, val }) => {
   check('hand-back: press Submit ticket yourself', /press Submit ticket yourself/.test(r), r);
 });
 
-await scene('pension', '/pension/forms/r17/', async ({ page, say, val }) => {
+await scene('pension', '/pension/forms/r17', async ({ page, say, val }) => {
   await say('SPF-204118.');
   check('member number typed in, despite the full stop dictation adds', (await val('#member')) === 'SPF-204118');
   await say('Michael');
@@ -238,7 +245,7 @@ await scene('pension', '/pension/forms/r17/', async ({ page, say, val }) => {
 // and the fake speaker records what the copilot says. The widget, engine and backend are the real ones.
 if (!only.length || only.includes('voice')) {
   current = 'voice';
-  console.log('\n== voice /clinic/book/');
+  console.log('\n== voice /clinic/book');
   const page = await browser.newPage();
   await page.addInitScript(() => {
     const w = window as any;
@@ -263,7 +270,8 @@ if (!only.length || only.includes('voice')) {
     w.SpeechRecognition = FakeSR; w.webkitSpeechRecognition = FakeSR;
     Object.defineProperty(w, 'speechSynthesis', { value: { cancel() {}, speak(u: any) { w.__spoken.push(u.text); setTimeout(() => { u.onstart?.(); u.onend?.(); }, 10); } } });
   });
-  await page.goto(`${srv.url}/clinic/book/?guest=1`);
+  await page.goto(`${srv.url}/clinic/book?guest=1`);
+  await page.waitForFunction(() => (window as any).copilot?.getSnapshot().mounted, null, { timeout: 15_000 });
   const spoken = () => page.evaluate(() => (window as any).__spoken.length as number);
   const talk = async (t: string) => {
     const n = await spoken();
@@ -274,11 +282,11 @@ if (!only.length || only.includes('voice')) {
     console.log(`      > (spoken) ${t}\n      < (spoken) ${r.slice(0, 200)}`);
     return r;
   };
-  await page.click('#copilot-widget .call');
+  await page.click(T('call-start'));
   await page.waitForFunction(() => (window as any).__spoken.length > 0);
   const hello = await page.evaluate(() => (window as any).__spoken[0] as string);
   check('the call opens by speaking the first question', /child's full name/.test(hello), hello);
-  check('in a call the text box is hidden', await page.locator('#copilot-widget .text').isHidden());
+  check('in a call the text box is hidden', await page.locator(T('call-input')).isHidden());
   await talk('Leo Rahman.');
   check('spoken name typed in', (await page.$eval('#child', e => (e as HTMLInputElement).value)) === 'Leo Rahman');
   let r = await talk('a checkup please');
@@ -286,9 +294,36 @@ if (!only.length || only.includes('voice')) {
   r = await talk('yes');
   check('spoken hand-back: press Next yourself', /press Next yourself/.test(r), r);
   check('the call never pressed Next', await page.locator('fieldset[data-step]').first().isVisible());
-  await page.click('#copilot-widget .end');
-  check('ending the call closes the panel', await page.locator('#copilot-widget .panel').isHidden());
+  await page.click(T('call-end'));
+  check('ending the call closes the panel', await page.locator(T('call-panel')).isHidden());
   await page.close();
+}
+
+// Phone layout: with the panel open in text mode on short phone screens, every call control is fully on screen and no
+// page scrolls sideways. (A layout that only fits an 812px-tall screen once hid the text box on an iPhone 13.)
+if (!only.length || only.includes('layout')) {
+  current = 'layout';
+  console.log('\n== layout');
+  for (const [w, h] of [[390, 664], [375, 560], [360, 640]]) {
+    const ctx = await browser.newContext({ viewport: { width: w, height: h }, isMobile: true, hasTouch: true });
+    for (const url of ['/clinic/book', '/appliance/support', '/pricing/quote', '/itdesk/new', '/pension/forms/r17']) {
+      const page = await ctx.newPage();
+      await page.goto(`${srv.url}${url}?guest=1`);
+      await page.waitForFunction(() => (window as any).copilot?.getSnapshot().mounted, null, { timeout: 15_000 });
+      const wide = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
+      await page.click(T('call-type'));
+      await settle(page, 0);
+      const off = await page.evaluate(ids => ids.filter(id => {
+        const e = document.querySelector(`[data-testid="${id}"]`);
+        if (!e) return true;
+        const r = e.getBoundingClientRect();
+        return r.top < 0 || r.left < 0 || r.bottom > innerHeight + 0.5 || r.right > innerWidth + 0.5 || r.height < 1;
+      }), ['call-input', 'call-send', 'call-mic', 'call-keyboard', 'call-end']);
+      check(`${w}x${h} ${url}: no sideways scroll, every call control on screen`, wide <= 0 && off.length === 0, { wide, off });
+      await page.close();
+    }
+    await ctx.close();
+  }
 }
 
 await browser.close();

@@ -1,4 +1,4 @@
-// Local (or MacBook Pro) host for the demo: serves dist/ and the /api backend on one origin.
+// Host for the demo: serves dist/ (the app, the copilot, the manuals, the media) and the /api backend on one origin.
 // Keys come from the environment, or from ~/Documents/projects/.env (this Mac) / ~/.hack_env (the Pro), mapped to the
 // names the engine uses. Values are never printed.
 // Run: node build.ts && node server.ts [--offline]     (PORT=8787, HOST=127.0.0.1 by default)
@@ -38,11 +38,9 @@ function offlinePassages(): Record<string, Passage[]> {
   return out;
 }
 
-// The marketing page answers on its own hostname; everything else is the demo sites and their API.
-const MARKETING_HOST = process.env.MARKETING_HOST ?? 'copilot.design-bakery.com';
 const HEADERS = { 'X-Robots-Tag': 'noindex, nofollow', 'Referrer-Policy': 'no-referrer', 'X-Frame-Options': 'DENY',
   'X-Content-Type-Options': 'nosniff', 'Permissions-Policy': 'camera=(), microphone=(self), geolocation=()' };
-const TYPES: Record<string, string> = { '.mp4': 'video/mp4', '.jpg': 'image/jpeg', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
+const TYPES: Record<string, string> = { '.mp4': 'video/mp4', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.ico': 'image/x-icon', '.woff2': 'font/woff2', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
   '.json': 'application/json', '.txt': 'text/plain; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png' };
 
 // Behind the Cloudflare Tunnel every request comes from localhost; the visitor's address is in CF-Connecting-IP.
@@ -60,8 +58,7 @@ export async function start(opts: { port?: number; host?: string; offline?: bool
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url ?? '/', 'http://local');
     for (const [k, v] of Object.entries(HEADERS)) res.setHeader(k, v);
-    const marketing = (req.headers.host ?? '').split(':')[0] === MARKETING_HOST;
-    if (!marketing && url.pathname.startsWith('/api/')) {
+    if (url.pathname.startsWith('/api/')) {
       const chunks: Buffer[] = [];
       for await (const c of req) chunks.push(c as Buffer);
       const r = await api.handle(new Request(`http://local${url.pathname}`, { method: req.method, headers: { 'content-type': 'application/json' },
@@ -70,14 +67,15 @@ export async function start(opts: { port?: number; host?: string; offline?: bool
       res.end(Buffer.from(await r.arrayBuffer()));
       return;
     }
-    const base = marketing ? path.join(dist, '_marketing') : dist;
-    let file = path.normalize(path.join(base, decodeURIComponent(url.pathname)));
-    if (!file.startsWith(base)) { res.writeHead(403); res.end(); return; }
+    let file = path.normalize(path.join(dist, decodeURIComponent(url.pathname)));
+    if (!file.startsWith(dist)) { res.writeHead(403); res.end(); return; }
     if (fs.existsSync(file) && fs.statSync(file).isDirectory()) file = path.join(file, 'index.html');
+    // The app routes in the browser: a page address with no file behind it gets the app's index.html.
+    if (!fs.existsSync(file) && !path.extname(url.pathname)) file = path.join(dist, 'index.html');
     if (!fs.existsSync(file)) { res.writeHead(404, { 'Content-Type': 'text/plain' }); res.end('Not found'); return; }
     const size = fs.statSync(file).size;
     const type = TYPES[path.extname(file)] ?? 'application/octet-stream';
-    const cache = /\.(mp4|jpg|png)$/.test(file) ? 'public, max-age=86400' : 'no-cache';
+    const cache = url.pathname.startsWith('/assets/') ? 'public, max-age=31536000, immutable' : /\.(mp4|jpg|png)$/.test(file) ? 'public, max-age=86400' : 'no-cache';
     // Byte ranges: Safari will only play a video that is served in ranges.
     const range = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range ?? '');
     if (range && (range[1] || range[2])) {

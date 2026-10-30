@@ -26,9 +26,8 @@ export class DomFiller implements Hooks {
     if (p.tag === 'radio') {
       const r = Array.from(document.querySelectorAll<HTMLInputElement>(sel)).find(x => x.dataset.copilotOption === value);
       if (!r) return gone;
-      r.checked = true;
-      r.dispatchEvent(new Event('input', { bubbles: true }));
-      r.dispatchEvent(new Event('change', { bubbles: true }));
+      // A click, as a person would: frameworks that track radios through click events see it too.
+      if (!r.checked) r.click();
       return;
     }
     const el = document.querySelector<Box>(sel);
