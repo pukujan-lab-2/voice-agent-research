@@ -53,7 +53,9 @@ questions, which is what Jev is there for. Layout checked at 375, 768 and 1280 p
 ## Hosting
 
 `server.ts` runs on gravebuster as the systemd user service `copilot-demo` (`~/apps/copilot-demo`, 127.0.0.1:8790,
-keys in `~/apps/copilot-demo/env`, mode 600), behind its own Cloudflare Tunnel `copilot-demo`:
+keys in `~/apps/copilot-demo/env`, mode 600), behind its own remotely managed Cloudflare Tunnel `copilot-demo`
+(user service `copilot-demo-tunnel`, binary and token file in `~/apps/copilot-demo/tunnel/`). The tunnel's routes live
+in the Cloudflare dashboard; changing the port or adding a hostname means changing them there too:
 
 - `https://demo.design-bakery.com`: the five sites and `/api` on the same origin
 - `https://copilot.design-bakery.com`: the marketing page (picked by Host header, `MARKETING_HOST`); the concept videos
