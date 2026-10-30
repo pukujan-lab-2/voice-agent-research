@@ -1,3 +1,4 @@
 tests/data/
 tests/sim-*.json
 tests/sim-*.log
+node_modules/

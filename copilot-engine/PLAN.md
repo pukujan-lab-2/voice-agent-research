@@ -40,8 +40,16 @@ public posting, secrets, deleting data. Everything else gets built and reported.
        a fresh Medicare question set, then a second manual (IRS). Original note: split a real manual into numbered steps offline (owner reviews), walk one step at a time,
        answer side questions from retrieval only, say "I don't know" otherwise. Pairs with the booking-flow mode.
 2. [ ] Site adapter + a real demo backend (Brookside booking): the flow's `submit` calls the owner's own API.
-3. [ ] Page adapter: PageAgent (alibaba/page-agent, MIT) as the in-page layer; fill-and-never-submit on a practice
-       form (demoqa.com practice form), then real forms.
+3. [~] Page adapter (`src/page.ts`, test `npm run page -- --real`): done for a practice form we host plus two public
+       automation-test forms (selenium web-form, httpbin pizza form), 25/25. Our own small DOM reader driven by
+       Playwright, not PageAgent: its page-controller is built to run inside the page with a UI mask, which we can
+       revisit for an in-widget version. Reads visible enabled fields (label, type, options, required) into a Flow
+       with code-written questions; types each answer in as it is accepted; the page's own validation can reject an
+       answer (asked again); the final yes never presses Submit, it points at the button and lists what the person
+       must do themselves (passwords, consent boxes, other ticks, uploads, captchas, date/colour pickers, card fields).
+       Engine gained email and phone kinds (spoken "at"/"dot"/"double one", read back before kept) and a `fill` hook.
+       Still to do: optional fields (let the person skip them), radio groups without a heading get the input name
+       as label, multi-page forms, then a hosted job-application page with a local profile file.
 4. [ ] Form + manual demos: Medicare (CMS-40B + Medicare & You), DMV (address form + handbook), IRS (W-4 + Pub 17).
        Fill and answer questions about the form, never submit.
 5. [ ] Voice: Pipecat, Whisper speech-to-text, engine, text-to-speech (ElevenLabs for demos). Say "let me check
@@ -108,7 +116,8 @@ Scripted scenario conversations run against the engine with a fake adapter, each
 3. Person changes an earlier answer mid-flow; only that field changes.
 4. Person says "yes" before the confirm card: engine still shows the card.
 5. Never submits on silence, "maybe" or "wait".
-6. Page adapter on the practice form: every field filled matches the answers, nothing extra.
+6. Page adapter on the practice form: every field filled matches the answers, nothing extra. (`tests/page.ts`: also hidden, honeypot,
+   disabled, password and consent fields untouched, no request or navigation that would submit.)
 
 Log each run to a JSONL ledger (scenario, engine version, prompt version, verdict) so prompt changes
 can be compared over time.

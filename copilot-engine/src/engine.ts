@@ -1,5 +1,5 @@
-import type { Field, Flow, Hooks, Model } from './types.ts';
-import { formatSerial, grounded, isFiller, parseName, spokenToSerial, stripFiller, validSerial, wantsChange, yesNo } from './guard.ts';
+import type { Field, FieldKind, Flow, Hooks, Model } from './types.ts';
+import { formatSerial, grounded, isFiller, parseName, spokenToEmail, spokenToPhone, spokenToSerial, stripFiller, validSerial, wantsChange, yesNo } from './guard.ts';
 
 type State = 'ask' | 'verify' | 'review' | 'change' | 'done';
 
@@ -8,6 +8,12 @@ type State = 'ask' | 'verify' | 'review' | 'change' | 'done';
 // Words that attach a condition to a yes, or ask for a person instead of the assistant.
 const BUT = /\b(but|except|although|though|however|wait|unless|if|as long as|provided|assuming|only)\b/i;
 const WANTS_HUMAN = /\b(real person|human|representative|operator|live agent|someone real)\b/i;
+// Answers that are easy to mishear are read back and need a yes before they are kept.
+const READBACK: Partial<Record<FieldKind, { parse: (said: string) => string; show: (v: string) => string; miss: string }>> = {
+  serial: { parse: s => { const v = spokenToSerial(s); return validSerial(v) ? v : ''; }, show: formatSerial, miss: 'serial number' },
+  email: { parse: spokenToEmail, show: v => v, miss: 'email address' },
+  phone: { parse: spokenToPhone, show: v => v, miss: 'phone number' },
+};
 
 export class Copilot {
   values: Record<string, string> = {};
@@ -44,7 +50,21 @@ export class Copilot {
 
   private field(): Field { return this.flow.fields[this.idx]; }
   private question(): string { return this.field().question; }
-  private show(f: Field): string { return f.kind === 'serial' ? formatSerial(this.values[f.name]) : this.values[f.name]; }
+  private show(f: Field): string { return READBACK[f.kind]?.show(this.values[f.name]) ?? this.values[f.name]; }
+
+  // Every accepted answer goes through here, so a page adapter can type it in and reject it. Returns '' when kept.
+  private async set(f: Field, v: string): Promise<string> {
+    const no = await this.hooks.fill?.(f, v);
+    if (no) return no;
+    this.values[f.name] = v;
+    return '';
+  }
+
+  private async keep(f: Field, v: string): Promise<string> {
+    const no = await this.set(f, v);
+    if (no) { this.state = 'ask'; return `${no} ${f.question}`; }
+    return this.advance();
+  }
 
   private async step(said: string): Promise<string> {
     switch (this.state) {
@@ -63,7 +83,7 @@ export class Copilot {
 
   private card(): string {
     const lines = this.flow.fields.map(f => `${f.label}: ${this.show(f)}`).join('. ');
-    return `Here's what I have. ${lines}. Shall I submit it? Say yes to submit, or tell me what to change.`;
+    return `Here's what I have. ${lines}. ${this.flow.reviewAsk ?? 'Shall I submit it? Say yes to submit, or tell me what to change.'}`;
   }
 
   private advance(): string {
@@ -91,13 +111,15 @@ export class Copilot {
     const fixed = this.nameCorrection(said);
     if (fixed) {
       const nameField = this.flow.fields.find(x => x.kind === 'name')!;
-      this.values[nameField.name] = fixed;
+      const no = await this.set(nameField, fixed);
+      if (no) return `${no} ${q}`;
       return `Got it, I changed your ${nameField.label} to ${fixed}. ${q}`;
     }
-    if (f.kind === 'serial') {
-      const s = spokenToSerial(said);
-      if (validSerial(s)) { this.pending = s; this.state = 'verify'; return `I heard ${formatSerial(s)}. Is that right?`; }
-      return `I didn't catch a full serial number. ${f.hint ?? ''} ${f.question}`.replace(/\s+/g, ' ');
+    const rb = READBACK[f.kind];
+    if (rb) {
+      const s = rb.parse(said);
+      if (s) { this.pending = s; this.state = 'verify'; return `I heard ${rb.show(s)}. Is that right?`; }
+      return `I didn't catch a full ${rb.miss}. ${f.hint ?? ''} ${f.question}`.replace(/\s+/g, ' ');
     }
     // A bare yes/no is never an answer to a text, name or choice question, so "yes, submit it" cannot do anything here.
     if (yesNo(said) !== 'unclear' && said.trim().split(/\s+/).length <= 6 && !this.matchesOption(f, said)) {
@@ -105,13 +127,13 @@ export class Copilot {
     }
     if (f.kind === 'name') {
       const n = parseName(said);
-      if (n) { this.values[f.name] = n; return this.advance(); }
+      if (n) return this.keep(f, n);
       return `Sorry, I didn't catch your ${f.label}. ${q}`;
     }
     if (f.kind === 'choice') {
       // Code decides choices; the model is never allowed to guess one.
       const hit = this.matchChoice(f, said);
-      if (hit) { this.values[f.name] = hit; return this.advance(); }
+      if (hit) return this.keep(f, hit);
       return `Sorry, I need one of these: ${(f.options ?? []).join(' or ')}. ${q}`;
     }
     const u = await this.model.understand({ flow: this.flow, field: f, said, values: this.values });
@@ -120,7 +142,7 @@ export class Copilot {
       // Keep the customer's own words: use the model's cleaned value only if it adds nothing the customer did not say.
       const own = stripFiller(said);
       const v = u.value?.trim() && grounded(u.value, said) ? u.value.trim() : own;
-      if (v) { this.values[f.name] = v; return this.advance(); }
+      if (v) return this.keep(f, v);
     }
     return `Sorry, I didn't catch that. ${q}`;
   }
@@ -144,14 +166,15 @@ export class Copilot {
     return t;
   }
 
-  private onVerify(said: string): string {
+  private async onVerify(said: string): Promise<string> {
     const f = this.field();
-    const s = spokenToSerial(said);
-    if (validSerial(s) && yesNo(said) === 'unclear') { this.pending = s; return `I heard ${formatSerial(s)}. Is that right?`; }
+    const rb = READBACK[f.kind]!;
+    const s = rb.parse(said);
+    if (s && yesNo(said) === 'unclear') { this.pending = s; return `I heard ${rb.show(s)}. Is that right?`; }
     const yn = yesNo(said);
-    if (yn === 'yes' && !BUT.test(said)) { this.values[f.name] = this.pending; this.pending = ''; return this.advance(); }
+    if (yn === 'yes' && !BUT.test(said)) { const v = this.pending; this.pending = ''; return this.keep(f, v); }
     if (yn === 'no') { this.pending = ''; this.state = 'ask'; return `Okay, let's try again, a little slower. ${f.question}`; }
-    return `Sorry, is ${formatSerial(this.pending)} correct? Please say yes or no.`;
+    return `Sorry, is ${rb.show(this.pending)} correct? Please say yes or no.`;
   }
 
   private async onReview(said: string): Promise<string> {

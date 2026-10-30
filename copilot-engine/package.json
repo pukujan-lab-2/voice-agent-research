@@ -10,6 +10,10 @@
     "scenarios:llama": "node tests/run.ts --llama",
     "holdout2": "node tests/holdout2.ts",
     "guide": "node tests/guide.ts",
-    "sim": "node tests/sim.ts"
+    "sim": "node tests/sim.ts",
+    "page": "node tests/page.ts"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.64.1"
   }
 }

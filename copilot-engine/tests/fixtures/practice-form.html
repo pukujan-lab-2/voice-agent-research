@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Halvorsen Home - book a repair visit</title>
+<style>
+  body { font: 16px system-ui, sans-serif; max-width: 520px; margin: 32px auto; padding: 0 16px; }
+  label { display: block; margin-top: 14px; }
+  input, select, textarea { display: block; width: 100%; padding: 6px; margin-top: 4px; box-sizing: border-box; }
+  fieldset { margin-top: 14px; }
+  fieldset label, .check label { display: inline; }
+  fieldset input, .check input { display: inline; width: auto; }
+  .trap { display: none; }
+  button { margin-top: 20px; padding: 8px 16px; }
+</style>
+</head>
+<body>
+<h1>Book a repair visit</h1>
+<!-- Practice form for the copilot page adapter. Submitting only counts; nothing is sent anywhere. -->
+<form id="book" action="/nowhere" method="post">
+  <input type="hidden" name="csrf" value="practice-token">
+
+  <label for="full_name">Full name</label>
+  <input id="full_name" name="full_name" autocomplete="name" required>
+
+  <label>Email
+    <input type="email" name="email" required>
+  </label>
+
+  <input type="tel" name="phone" aria-label="Phone number" placeholder="Phone">
+
+  <label for="appliance">Appliance</label>
+  <select id="appliance" name="appliance" required>
+    <option value="">Choose one</option>
+    <option value="dw">Dishwasher</option>
+    <option value="wm">Washing machine</option>
+    <option value="fr">Fridge</option>
+    <option value="ov">Oven</option>
+  </select>
+
+  <label for="problem">What is wrong?</label>
+  <textarea id="problem" name="problem" rows="3" minlength="10" required></textarea>
+
+  <fieldset>
+    <legend>Visit time</legend>
+    <input type="radio" id="t_am" name="visit_time" value="am" required><label for="t_am">Morning</label>
+    <input type="radio" id="t_pm" name="visit_time" value="pm"><label for="t_pm">Afternoon</label>
+  </fieldset>
+
+  <label for="account">Account number</label>
+  <input id="account" name="account" value="HH-000" disabled>
+
+  <label for="pw">Create a password</label>
+  <input id="pw" type="password" name="password">
+
+  <div class="trap"><label for="website">Website</label><input id="website" name="website"></div>
+
+  <div class="check">
+    <input type="checkbox" id="terms" name="terms" required>
+    <label for="terms">I agree to the terms and conditions</label>
+  </div>
+
+  <button type="submit">Book visit</button>
+</form>
+<script>
+  window.__submitted = 0;
+  document.getElementById('book').addEventListener('submit', e => { e.preventDefault(); window.__submitted++; });
+</script>
+</body>
+</html>

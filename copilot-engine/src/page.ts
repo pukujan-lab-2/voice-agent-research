@@ -1,0 +1,167 @@
+// Page adapter: reads a web form into a Flow and types confirmed answers into it. It never presses Submit.
+// The page is driven from outside with Playwright; the engine still makes every decision in code.
+import type { Page } from 'playwright-core';
+import type { Field, Flow, Hooks } from './types.ts';
+
+export type PageField = {
+  id: string; // data-copilot-id set on the element (on every radio of a group)
+  tag: 'input' | 'select' | 'textarea' | 'radio';
+  type: string;
+  label: string;
+  name: string;
+  required: boolean;
+  autocomplete: string;
+  options?: { label: string; value: string }[];
+};
+export type PageForm = { fields: PageField[]; yourself: string[]; submit: string };
+
+// Runs inside the page. Visible, enabled fields only; hidden, honeypot, disabled and read-only fields are ignored.
+// Things a person must do themselves (consent, passwords, payment, uploads, captchas) are listed, never touched.
+function readInPage(): PageForm {
+  const clean = (s: string | null | undefined) => (s ?? '').replace(/\s+/g, ' ').replace(/\s*[*:]\s*$/, '').trim();
+  const visible = (el: Element) => {
+    const r = el.getBoundingClientRect();
+    const cs = getComputedStyle(el);
+    return r.width > 0 && r.height > 0 && cs.visibility !== 'hidden' && cs.display !== 'none' && !el.closest('[hidden],[aria-hidden="true"]');
+  };
+  const labelOf = (el: HTMLElement): string => {
+    if (el.id) {
+      const l = document.querySelector(`label[for="${CSS.escape(el.id)}"]`);
+      if (l) return clean(l.textContent);
+    }
+    const wrap = el.closest('label');
+    if (wrap) {
+      const c = wrap.cloneNode(true) as HTMLElement;
+      c.querySelectorAll('input,select,textarea').forEach(x => x.remove());
+      if (clean(c.textContent)) return clean(c.textContent);
+    }
+    const by = el.getAttribute('aria-labelledby');
+    if (by) return clean(by.split(/\s+/).map(id => document.getElementById(id)?.textContent).join(' '));
+    return clean(el.getAttribute('aria-label') || el.getAttribute('placeholder') || el.getAttribute('title') || el.getAttribute('name'));
+  };
+  const SENSITIVE = /\b(card|cvv|cvc|security code|expir|iban|routing|account number|sort code|ssn|social security|passport|pin)\b/i;
+  const CONSENT = /\b(agree|terms|consent|privacy|accept|subscribe|newsletter|marketing)\b/i;
+  const fields: PageField[] = [];
+  const yourself: string[] = [];
+  const seenRadio = new Set<string>();
+  let n = 0;
+  const els = Array.from(document.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>('input,select,textarea'));
+  for (const el of els) {
+    const type = el instanceof HTMLInputElement ? el.type.toLowerCase() : el.tagName.toLowerCase();
+    if (['hidden', 'submit', 'button', 'reset', 'image'].includes(type)) continue;
+    if (el.disabled || (el as HTMLInputElement).readOnly || !visible(el)) continue;
+    const label = labelOf(el);
+    const auto = (el.getAttribute('autocomplete') ?? '').toLowerCase();
+    const nameAttr = el.getAttribute('name') ?? '';
+    if (type === 'password') { yourself.push(`fill in "${label}"`); continue; }
+    if (type === 'file') { yourself.push(`upload the file for "${label}"`); continue; }
+    if (/captcha/i.test(nameAttr + ' ' + el.id + ' ' + label)) { yourself.push('complete the captcha'); continue; }
+    if (auto.startsWith('cc-') || SENSITIVE.test(label) || SENSITIVE.test(nameAttr.replace(/[_-]/g, ' '))) { yourself.push(`fill in "${label}"`); continue; }
+    if (['date', 'time', 'datetime-local', 'month', 'week', 'color', 'range'].includes(type)) { yourself.push(`pick "${label}"`); continue; }
+    if (type === 'checkbox') {
+      // Ticks are the person's call. A group of boxes under one heading is listed once by its heading.
+      const group = clean(el.closest('fieldset')?.querySelector('legend')?.textContent);
+      const item = CONSENT.test(label) ? `read and tick "${label}"` : `decide on "${group || label}"`;
+      if (!yourself.includes(item)) yourself.push(item);
+      continue;
+    }
+    if (type === 'radio') {
+      const group = nameAttr || el.id;
+      if (seenRadio.has(group)) continue;
+      seenRadio.add(group);
+      const radios = Array.from(document.querySelectorAll<HTMLInputElement>(`input[type=radio][name="${CSS.escape(group)}"]`)).filter(r => !r.disabled && visible(r));
+      const id = `c${n++}`;
+      const options = radios.map(r => ({ label: labelOf(r), value: r.value }));
+      radios.forEach((r, i) => { r.dataset.copilotId = id; r.dataset.copilotOption = options[i].label; });
+      const legend = el.closest('fieldset')?.querySelector('legend');
+      fields.push({ id, tag: 'radio', type, label: clean(legend?.textContent) || group, name: group, required: radios.some(r => r.required), autocomplete: auto, options });
+      continue;
+    }
+    const id = `c${n++}`;
+    el.dataset.copilotId = id;
+    const f: PageField = { id, tag: el.tagName.toLowerCase() as PageField['tag'], type, label, name: nameAttr, required: el.required, autocomplete: auto };
+    if (el instanceof HTMLSelectElement) f.options = Array.from(el.options).filter(o => o.value !== '' && !o.disabled).map(o => ({ label: clean(o.textContent), value: o.value }));
+    fields.push(f);
+  }
+  const form = fields.length ? document.querySelector(`[data-copilot-id="${fields[0].id}"]`)?.closest('form') : null;
+  const btn = (form ?? document).querySelector<HTMLElement>('button[type=submit],input[type=submit],button:not([type])');
+  if (btn) btn.dataset.copilotSubmit = '1';
+  return { fields, yourself, submit: btn ? clean(btn.textContent || (btn as HTMLInputElement).value) || 'Submit' : 'Submit' };
+}
+
+export async function readForm(page: Page): Promise<PageForm> {
+  return page.evaluate(readInPage);
+}
+
+const or = (xs: string[]) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} or ${xs[xs.length - 1]}`);
+
+// Turns the fields into a Flow. Kinds and questions are written by code from the page, not by a model.
+export function flowFromPage(form: PageForm, opts: { business: string; id?: string }): Flow {
+  const fields: Field[] = form.fields.map(p => {
+    const label = p.label || p.name;
+    const low = label.toLowerCase();
+    const ask = /\?$/.test(label) ? label : '';
+    if (p.options) {
+      const names = p.options.map(o => o.label);
+      return { name: p.id, label: low, kind: 'choice', options: names, question: `${ask ? ask.replace(/\?$/, "") : `Which ${low}`}: ${or(names)}?` };
+    }
+    if (p.type === 'email' || p.autocomplete === 'email' || /\be-?mail\b/.test(low))
+      return { name: p.id, label: low, kind: 'email', question: "What's your email address? You can say it like name at example dot com." };
+    if (p.type === 'tel' || p.autocomplete.startsWith('tel') || /\b(phone|mobile|telephone)\b/.test(low))
+      return { name: p.id, label: low, kind: 'phone', question: "What's your phone number?" };
+    if (['name', 'given-name', 'family-name'].includes(p.autocomplete) || (/\bname$/.test(low) && !/\b(company|business|user|organi[sz]ation|product|pet|file|street|account|domain)\b/.test(low)))
+      return { name: p.id, label: low, kind: 'name', question: `What's your ${low}?` };
+    return { name: p.id, label: low, kind: 'text', question: ask || `What should I put for ${low}?` };
+  });
+  const todo = form.yourself.length ? ` Before you do, please ${or(form.yourself)} yourself.` : '';
+  return {
+    id: opts.id ?? 'page-form',
+    business: opts.business,
+    intro: `Hi, I can help you fill in this ${opts.business} form. I'll type your answers in, and you press ${form.submit} yourself at the end.`,
+    scope: 'I can only help you fill in this form here.',
+    reviewAsk: `Is that all correct? Say yes and I'll hand it back to you to press ${form.submit}, or tell me what to change.`,
+    doneMessage: `Everything is filled in. Please check the page and press ${form.submit} yourself.${todo}`,
+    fields,
+  };
+}
+
+// Engine hooks for a page: type each confirmed answer in, reject what the page itself rejects, never submit.
+export class PageFiller implements Hooks {
+  handedBack = false;
+  private page: Page;
+  private form: PageForm;
+  constructor(page: Page, form: PageForm) {
+    this.page = page;
+    this.form = form;
+  }
+
+  async fill(field: Field, value: string): Promise<string | void> {
+    const p = this.form.fields.find(x => x.id === field.name);
+    if (!p) return "I can't find that box on the page any more.";
+    const sel = `[data-copilot-id="${p.id}"]`;
+    if (p.tag === 'radio') {
+      await this.page.check(`${sel}[data-copilot-option="${value.replace(/"/g, '\\"')}"]`);
+      return;
+    }
+    if (p.tag === 'select') {
+      const opt = p.options!.find(o => o.label === value)!;
+      await this.page.selectOption(sel, opt.value);
+      return;
+    }
+    await this.page.fill(sel, value);
+    const msg = await this.page.$eval(sel, el => ((el as HTMLInputElement).checkValidity() ? '' : (el as HTMLInputElement).validationMessage));
+    if (msg) {
+      await this.page.fill(sel, '');
+      return `The page didn't accept that: ${msg.replace(/\s+$/, '')}`;
+    }
+  }
+
+  // Never clicks. Points at the button so the person can check the page and press it.
+  async submit(): Promise<void> {
+    this.handedBack = true;
+    await this.page.evaluate(() => {
+      const b = document.querySelector<HTMLElement>('[data-copilot-submit]');
+      if (b) { b.style.outline = '3px solid #e8a400'; b.style.outlineOffset = '3px'; b.scrollIntoView({ block: 'center' }); }
+    });
+  }
+}

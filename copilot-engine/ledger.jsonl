@@ -643,3 +643,28 @@
 {"ts":"2026-10-30T16:12:50.068Z","set":"guide","judge":"jev","retriever":"octo","scenario":"warranty length is answerable","pass":true}
 {"ts":"2026-10-30T16:12:50.639Z","set":"guide","judge":"jev","retriever":"octo","scenario":"dish soap","pass":true}
 {"ts":"2026-10-30T16:12:51.141Z","set":"guide","judge":"jev","retriever":"octo","scenario":"unrelated","pass":true}
+{"ts":"2026-10-30T16:20:33.212Z","set":"page","scenario":"reads the six visible fields in order","pass":true}
+{"ts":"2026-10-30T16:20:33.212Z","set":"page","scenario":"kinds come from the page","pass":true}
+{"ts":"2026-10-30T16:20:33.212Z","set":"page","scenario":"hidden, honeypot and disabled fields are ignored","pass":true}
+{"ts":"2026-10-30T16:20:33.212Z","set":"page","scenario":"password and consent go on the do-it-yourself list","pass":true}
+{"ts":"2026-10-30T16:20:33.212Z","set":"page","scenario":"select options are read","pass":true}
+{"ts":"2026-10-30T16:20:33.212Z","set":"page","scenario":"name is typed in as soon as it is accepted","pass":true}
+{"ts":"2026-10-30T16:20:33.212Z","set":"page","scenario":"half an email is asked again","pass":true}
+{"ts":"2026-10-30T16:20:33.212Z","set":"page","scenario":"email is read back before it is kept","pass":true}
+{"ts":"2026-10-30T16:20:33.212Z","set":"page","scenario":"email is typed in after the yes","pass":true}
+{"ts":"2026-10-30T16:20:33.212Z","set":"page","scenario":"spoken phone number is read back","pass":true}
+{"ts":"2026-10-30T16:20:33.212Z","set":"page","scenario":"\"submit it now\" at a question submits nothing","pass":true}
+{"ts":"2026-10-30T16:20:33.212Z","set":"page","scenario":"choice is selected in the dropdown","pass":true}
+{"ts":"2026-10-30T16:20:33.212Z","set":"page","scenario":"page validation rejects a too-short answer and asks again","pass":true}
+{"ts":"2026-10-30T16:20:33.212Z","set":"page","scenario":"problem is typed in","pass":true}
+{"ts":"2026-10-30T16:20:33.212Z","set":"page","scenario":"radio is checked","pass":true}
+{"ts":"2026-10-30T16:20:33.212Z","set":"page","scenario":"review card hands back instead of submitting","pass":true}
+{"ts":"2026-10-30T16:20:33.212Z","set":"page","scenario":"final yes never presses Submit","pass":true}
+{"ts":"2026-10-30T16:20:33.212Z","set":"page","scenario":"final message names the button and the do-it-yourself list","pass":true}
+{"ts":"2026-10-30T16:20:33.212Z","set":"page","scenario":"consent box stays unticked","pass":true}
+{"ts":"2026-10-30T16:20:33.212Z","set":"page","scenario":"password, honeypot, disabled and hidden fields untouched","pass":true}
+{"ts":"2026-10-30T16:20:33.212Z","set":"page","scenario":"submit button is pointed at","pass":true}
+{"ts":"2026-10-30T16:20:33.212Z","set":"page","scenario":"www.selenium.dev: every field filled","pass":true}
+{"ts":"2026-10-30T16:20:33.212Z","set":"page","scenario":"www.selenium.dev: nothing submitted","pass":true}
+{"ts":"2026-10-30T16:20:33.212Z","set":"page","scenario":"httpbin.org: every field filled","pass":true}
+{"ts":"2026-10-30T16:20:33.212Z","set":"page","scenario":"httpbin.org: nothing submitted","pass":true}

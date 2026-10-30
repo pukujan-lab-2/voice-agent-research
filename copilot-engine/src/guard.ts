@@ -74,3 +74,26 @@ export function grounded(value: string, said: string): boolean {
 }
 
 export const stripFiller = (t: string): string => t.trim().replace(/^(?:(?:um|uh|er|so|well|basically|like)[,\s]+)+/i, '').trim();
+
+// "priya dot raman at gmail dot com" -> "priya.raman@gmail.com". Returns '' when it is not a plausible email.
+export function spokenToEmail(text: string): string {
+  let t = text.trim().toLowerCase().replace(/[’]/g, "'").replace(/[.!]+$/, '');
+  t = t.replace(/^(?:(?:um|uh|so|well|sure|okay|ok)[,\s]+)*(?:(?:my |the )?e-?mail(?: address)?(?: is|'s)?|it(?:'s| is))\s+/, '');
+  t = t.replace(/\s+(?:at|at sign)\s+/g, '@').replace(/\s+dot\s+/g, '.').replace(/\s*(?:underscore)\s*/g, '_').replace(/\s*(?:dash|hyphen)\s*/g, '-');
+  t = t.replace(/\s+/g, '');
+  return validEmail(t) ? t : '';
+}
+export const validEmail = (s: string): boolean => /^[a-z0-9._%+-]+@[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,}$/i.test(s);
+
+// "oh seven seven double one, two three four five six" -> "07711 23456" style digits; '' unless 7-15 digits.
+export function spokenToPhone(text: string): string {
+  const t = text.toLowerCase().replace(/\b(double|triple) (\w+)/g, (_m, n: string, d: string) => Array(n === 'double' ? 2 : 3).fill(d).join(' '));
+  const out: string[] = [];
+  const plus = /^\s*(\+|plus\b)/.test(t);
+  for (const tok of t.match(/[a-z]+|\d+/g) ?? []) {
+    if (tok in DIGITS) out.push(DIGITS[tok]);
+    else if (/^\d+$/.test(tok)) out.push(tok);
+  }
+  const d = out.join('');
+  return d.length >= 7 && d.length <= 15 ? (plus ? '+' : '') + d : '';
+}

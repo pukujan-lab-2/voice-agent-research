@@ -1,4 +1,4 @@
-export type FieldKind = 'text' | 'name' | 'serial' | 'choice';
+export type FieldKind = 'text' | 'name' | 'serial' | 'choice' | 'email' | 'phone';
 
 export interface Field {
   name: string;
@@ -17,6 +17,7 @@ export interface Flow {
   intro: string;
   scope: string; // what to say when the request is off-scope
   doneMessage: string;
+  reviewAsk?: string; // what the review card asks; default offers to submit
   fields: Field[];
 }
 
@@ -33,4 +34,7 @@ export interface Model {
 
 export interface Hooks {
   submit(values: Record<string, string>): Promise<void> | void;
+  // Called as each answer is accepted (a page adapter types it into the form). Return a message to reject the value
+  // (for example the page's own validation message); the field is then asked again.
+  fill?(field: Field, value: string): Promise<string | void> | string | void;
 }
