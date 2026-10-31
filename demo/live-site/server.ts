@@ -29,8 +29,8 @@ export function loadEnv(): ApiEnv {
   return env;
 }
 
-function offlinePassages(): Record<string, Passage[]> {
-  const out: Record<string, Passage[]> = {};
+function offlinePassages(): Record<string, (Passage & { source?: string; section?: string; url?: string })[]> {
+  const out: ReturnType<typeof offlinePassages> = {};
   for (const f of fs.readdirSync(path.join(here, 'data')).filter(f => f.endsWith('.passages.json'))) {
     const d = JSON.parse(fs.readFileSync(path.join(here, 'data', f), 'utf8'));
     out[d.label] = d.passages;
@@ -40,7 +40,7 @@ function offlinePassages(): Record<string, Passage[]> {
 
 const HEADERS = { 'X-Robots-Tag': 'noindex, nofollow', 'Referrer-Policy': 'no-referrer', 'X-Frame-Options': 'DENY',
   'X-Content-Type-Options': 'nosniff', 'Permissions-Policy': 'camera=(), microphone=(self), geolocation=()' };
-const TYPES: Record<string, string> = { '.mp4': 'video/mp4', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.ico': 'image/x-icon', '.woff2': 'font/woff2', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
+const TYPES: Record<string, string> = { '.mp4': 'video/mp4', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.ico': 'image/x-icon', '.woff2': 'font/woff2', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
   '.json': 'application/json', '.txt': 'text/plain; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png' };
 
 // Behind the Cloudflare Tunnel every request comes from localhost; the visitor's address is in CF-Connecting-IP.
@@ -61,7 +61,7 @@ export async function start(opts: { port?: number; host?: string; offline?: bool
     if (url.pathname.startsWith('/api/')) {
       const chunks: Buffer[] = [];
       for await (const c of req) chunks.push(c as Buffer);
-      const r = await api.handle(new Request(`http://local${url.pathname}`, { method: req.method, headers: { 'content-type': 'application/json' },
+      const r = await api.handle(new Request(`http://local${url.pathname}${url.search}`, { method: req.method, headers: { 'content-type': 'application/json' },
         body: req.method === 'POST' ? Buffer.concat(chunks) : undefined }), visitor(req));
       res.writeHead(r.status, Object.fromEntries(r.headers));
       res.end(Buffer.from(await r.arrayBuffer()));

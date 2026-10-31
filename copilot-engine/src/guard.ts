@@ -42,6 +42,32 @@ export function spokenToSerial(text: string): string {
   return out.join('');
 }
 
+// Spoken numbers inside a code: "C P two thousand" -> "C P 2000", "five oh one" stays digit by digit,
+// "twenty one" -> "21". Only what codes need; a serial is still read digit by digit.
+const TENS: Record<string, number> = { ten: 10, eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15, sixteen: 16, seventeen: 17,
+  eighteen: 18, nineteen: 19, twenty: 20, thirty: 30, forty: 40, fifty: 50, sixty: 60, seventy: 70, eighty: 80, ninety: 90 };
+const UNIT: Record<string, number> = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9 };
+export function spokenNumbers(text: string): string {
+  return text
+    .replace(/\b(one|two|three|four|five|six|seven|eight|nine)\s+thousand(?:\s+(?:and\s+)?(one|two|three|four|five|six|seven|eight|nine))?\b/gi,
+      (_, a, b) => String(UNIT[a.toLowerCase()] * 1000 + (b ? UNIT[b.toLowerCase()] : 0)))
+    .replace(/\b(one|two|three|four|five|six|seven|eight|nine)\s+hundred(?:\s+(?:and\s+)?(one|two|three|four|five|six|seven|eight|nine))?\b/gi,
+      (_, a, b) => String(UNIT[a.toLowerCase()] * 100 + (b ? UNIT[b.toLowerCase()] : 0)))
+    .replace(/\b(twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)[\s-]+(one|two|three|four|five|six|seven|eight|nine)\b/gi,
+      (_, a, b) => String(TENS[a.toLowerCase()] + UNIT[b.toLowerCase()]))
+    .replace(/\b(ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)\b/gi,
+      a => String(TENS[a.toLowerCase()]));
+}
+
+// A short code with letters and digits ("CP2000", "LTR 3172", "CP 14"), or '' when what was said isn't one.
+export function spokenToCode(text: string): string {
+  const v = spokenToSerial(spokenNumbers(text));
+  return /^[A-Z0-9]{2,10}$/.test(v) && /\d/.test(v) && /[A-Z]/.test(v) ? v : '';
+}
+
+// "CP2000" -> "C, P, 2, 0, 0, 0": how a code or a name is read back so every character can be checked.
+export const spellOut = (v: string, sep = ', '): string => [...v.replace(/[^A-Za-z0-9]/g, '')].map(c => c.toUpperCase()).join(sep);
+
 // Why a spoken serial is not a serial yet, in words a caller can act on; '' when it is valid or nothing was heard.
 export function serialProblem(raw: string, example = '1334-592C-LSD3'): string {
   if (!raw || validSerial(raw)) return '';

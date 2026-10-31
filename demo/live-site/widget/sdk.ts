@@ -11,6 +11,8 @@
 //   copilot.setMode(m)           'form' or 'guide' (walk through the manual), when both exist
 //   copilot.setCovered(px)       how much of the bottom of the window the panel covers, so the asked field stays visible
 //   copilot.end()                hang up
+//   copilot.showSource(id) / copilot.closeSource()   open the source of an earlier answer / close the source viewer
+//   copilot.onNavigate(fn)       the site's client-side navigate, so the copilot can change page without ending the call
 //   copilot.subscribe(fn) / copilot.getSnapshot()   the state to draw (works with React's useSyncExternalStore)
 import { Copilot } from '../../../copilot-engine/src/engine.ts';
 import { Guide, type Manual } from '../../../copilot-engine/src/guide.ts';
@@ -24,10 +26,20 @@ export type Config = {
   form?: string; // the form's name in the copilot's intro; leave out on a page with no form
   can?: string[];
   large?: boolean;
-  manual?: { label: string; title: string; doc?: string; steps: Manual['steps'] };
+  manual?: { label: string; title: string; doc?: string; steps: Manual['steps']; unknown?: string };
+  // A question desk over a document library (no steps to walk through): every answer is quoted from the library with
+  // its source linked; a question about the visitor's own situation is never answered, it is offered a consultation.
+  desk?: { greeting: string; advice: string; book?: { text: string; href: string } };
+  note?: string;   // one short clause said once per call, inside the greeting ("this is a demo site, so no real details please")
+  pages?: { path: string; title: string; also?: string[]; form?: boolean }[]; // the site's pages, for "take me to pricing"
+  guidePage?: string; // the site's page for one guide: `${guidePage}/${doc}` (?page=N for a PDF, #anchor for an article)
 };
+// The document an answer was quoted from, shown by the site's source viewer while snapshot.source is set. doc is the
+// library id (GET /api/library/doc?doc=…); page is the printed PDF's page (PDF sources), anchor the section (articles).
+export type Source = { label: string; title: string; credit: string; doc: string; page?: number; anchor?: string; href: string; quote: string[]; found: boolean | null };
 export type Status = 'idle' | 'speaking' | 'listening' | 'thinking' | 'muted' | 'text';
-export type Message = { id: number; who: 'bot' | 'user'; text: string; links: { page: number; href: string }[] };
+// links: parts of the text to show as links (a manual page "(page 3)", a cited source, a booking page)
+export type Message = { id: number; who: 'bot' | 'user'; text: string; links: { text: string; href: string; page?: number }[]; source?: Source };
 export type Snapshot = {
   mounted: boolean;
   open: boolean;                       // a call is on
@@ -37,16 +49,18 @@ export type Snapshot = {
   status: Status;
   busy: boolean;
   heard: string;                       // what the mic is hearing right now
-  mode: 'form' | 'guide';
-  modes: ('form' | 'guide')[];
+  mode: Mode;
+  modes: Mode[];
   business: string;
   can: string[];
   large: boolean;
   messages: Message[];
   startedAt: number;                   // when the call started (ms since the epoch), for the call timer; 0 when no call
   wait: { text: string; until: number } | null; // a slow model call: what to show, and when it should be done (ms)
+  source: Source | null;               // the source viewer's document, or null when it is closed
 };
 
+type Mode = 'form' | 'guide' | 'ask';
 const SR: any = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 const canSpeak = 'speechSynthesis' in window;
 
@@ -55,7 +69,7 @@ let snap: Snapshot = blank();
 const subs = new Set<() => void>();
 function blank(): Snapshot {
   return { mounted: false, open: false, voice: false, mic: SR ? 'off' : 'unavailable', textInput: false, status: 'idle', busy: false,
-    heard: '', mode: 'form', modes: [], business: '', can: [], large: false, messages: [], startedAt: 0, wait: null };
+    heard: '', mode: 'form', modes: [], business: '', can: [], large: false, messages: [], startedAt: 0, wait: null, source: null };
 }
 function set(p: Partial<Snapshot>) {
   snap = { ...snap, ...p };
@@ -64,10 +78,18 @@ function set(p: Partial<Snapshot>) {
 }
 
 let msgId = 0;
-function add(who: 'bot' | 'user', text: string, say = true) {
+let noted = false;
+// "Hi, I'm X's assistant. Ask me…" -> "Hi, I'm X's assistant, and this is a demo site, so no real details please. Ask me…"
+function withNote(text: string, note: string): string {
+  const i = text.search(/[.!?](\s|$)/);
+  return i > 0 ? `${text.slice(0, i)}, and ${note}${text.slice(i)}` : `${text} Quick note: ${note}.`;
+}
+function add(who: 'bot' | 'user', text: string, say = true, extra: Message['links'] = [], source?: Source) {
   const links = who === 'bot' && cfg?.manual?.doc
-    ? [...text.matchAll(/\(page (\d+)\)/g)].map(m => ({ page: +m[1], href: `${cfg!.manual!.doc}#page-${m[1]}` })) : [];
-  set({ messages: [...snap.messages, { id: ++msgId, who, text, links }] });
+    ? [...text.matchAll(/\(page (\d+)\)/g)].map(m => ({ text: m[0], page: +m[1], href: `${cfg!.manual!.doc}#page-${m[1]}` })) : [];
+  // The demo note is said once per call, inside the first greeting.
+  if (who === 'bot' && cfg?.note && !noted) { noted = true; text = withNote(text, cfg.note); }
+  set({ messages: [...snap.messages, { id: ++msgId, who, text, links: [...links, ...extra.filter(l => text.includes(l.text))], ...(source ? { source } : {}) }] });
   if (who === 'bot' && snap.voice && say) void speakThenListen(text);
 }
 
@@ -203,9 +225,42 @@ function startForm() {
   if (cfg!.form) flow.intro = `Hi, I'm the ${cfg!.business} copilot. I can fill in this ${cfg!.form} form with you, one question at a time. I'll type your answers in, and you press ${form.submit} yourself at the end.`;
   if (parts++) flow.intro = `Thanks. On to the next part.`;
   firstEl = document.querySelector(`[data-copilot-id="${form.fields[0].id}"]`);
-  copilot = new Copilot(flow, model, new DomFiller(form));
-  add('bot', copilot.start());
+  const filler = new DomFiller(form);
+  copilot = new Copilot(flow, model, filler);
+  const draft = takeDraft();
+  if (draft) {
+    // Back on a form left half filled during this call: its answers go back in and the open question is asked.
+    for (const f of flow.fields) if (draft[f.name] !== undefined) void filler.fill(f, draft[f.name]);
+    add('bot', copilot.restore(draft, 'Back to the form. Your earlier answers are still filled in.'));
+  } else {
+    if (carried) flow.intro = `Here's the ${cfg!.form} form. I'll fill it in with you, one question at a time, and you press ${form.submit} yourself at the end.`;
+    add('bot', copilot.start());
+  }
   highlight();
+}
+
+// ---- Drafts: a form left mid-call (the caller asked for another page) keeps its answers for this browser tab.
+const draftKey = () => `copilot-draft:${location.pathname}`;
+function saveDraft() {
+  if (!form || !copilot || !flow) return;
+  const values: Record<string, string> = { ...copilot.values };
+  // Boxes the person typed into themselves count as answered too.
+  for (const p of form.fields) {
+    if (values[p.id] !== undefined || p.tag === 'radio' || p.tag === 'select') continue;
+    const v = document.querySelector<HTMLInputElement>(`[data-copilot-id="${p.id}"]`)?.value?.trim();
+    if (v) values[p.id] = v;
+  }
+  try {
+    if (Object.keys(values).length && copilot.state !== 'done') sessionStorage.setItem(draftKey(), JSON.stringify(values));
+    else sessionStorage.removeItem(draftKey());
+  } catch { /* storage off: the form starts over */ }
+}
+function takeDraft(): Record<string, string> | null {
+  try {
+    const raw = sessionStorage.getItem(draftKey());
+    sessionStorage.removeItem(draftKey());
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
 }
 
 // Mark the field being asked ([data-copilot-active], for the site to style) and keep it above the panel.
@@ -254,10 +309,12 @@ let guide: Guide | null = null;
 let manual: Manual | null = null;
 let lookup: Guide | null = null;
 
-function setMode(m: 'form' | 'guide') {
+function setMode(m: Mode) {
   if (!snap.modes.includes(m)) return;
   set({ mode: m });
-  if (m === 'guide' && manual) {
+  if (m === 'ask') {
+    if (!snap.messages.length) add('bot', cfg!.desk!.greeting);
+  } else if (m === 'guide' && manual) {
     guide ??= new Guide(manual, new RemoteRetriever(manual.id), new RemoteJudge());
     add('bot', guide.log.length ? 'Back to the walk-through. Say "repeat" to hear the step again.' : guide.start());
   } else if (m === 'form') {
@@ -265,6 +322,235 @@ function setMode(m: 'form' | 'guide') {
   }
   highlight();
 }
+
+// ---- Desk: questions about the visitor's own situation go to a person; anything else is quoted from the library.
+const ADVICE = /\b((?<!(what|how|where|when|who) )should (i|we) (?!(do|bring|expect|send|contact|call|mail|include|use|report|keep)\b)|shall (i|we)|how much (will|would|should) (i|we)|(will|would) (i|we) (owe|get back|have to pay|be audited)|what('s| is| will be) (my|our) (refund|tax bill|tax)\b|am i (better|worse) off|are we (better|worse) off|is it (better|worth it|smart|wise) (for me|for us|to)|do you (recommend|think i|think we)|what would you (do|recommend)|(better|best) for (me|us)|can you (do|file|prepare|review) (my|our)|help me (decide|choose)|which is better for)/i;
+const BOOK = /\b(book|schedule|set up|make) (a |an |my )?(consult(ation)?|appointment|meeting|call)\b|\b(talk|speak) (to|with) (a|an|someone|somebody|a real) ?(preparer|accountant|person|human|cpa|expert)?\b/i;
+
+async function deskReply(text: string): Promise<{ reply: string; links: Message['links']; source?: Source }> {
+  const d = cfg!.desk!;
+  const book = d.book && !location.pathname.startsWith(d.book.href) ? [{ text: d.book.text, href: d.book.href }] : [];
+  if (BOOK.test(text)) {
+    return book.length ? { reply: `Happy to. Open ${d.book!.text} and I'll fill in the intake form with you, one question at a time.`, links: book }
+      : { reply: `We're on the booking form. ${currentAsk()}`.trim(), links: [] };
+  }
+  if (ADVICE.test(text)) return { reply: `${d.advice}${book.length ? ` Open ${d.book!.text} to pick a time.` : ''}`, links: book };
+  const reply = await lookup!.lookup(text);
+  const p = lookup!.last;
+  if (!p?.cite) return { reply, links: [] };
+  const links = [{ text: p.cite.title, href: p.cite.url }];
+  const src = sourceOf(p.cite, lookup!.lastQuote, p.page);
+  if (!src) return { reply, links };
+  // The site shows the source next to the answer: open it, find the quoted words, highlight them, then say so.
+  const found = await openSource(src);
+  const quote = reply.slice(reply.indexOf('says: ') + 6);
+  if (found === null) return { reply, links, source: src }; // this page has no viewer
+  return {
+    reply: found ? `I've opened ${src.title}${src.page ? `, page ${src.page}` : sectionOf(p.cite.title) ? `, ${sectionOf(p.cite.title)}` : ''}. The highlighted part says: ${quote}`
+      : `I've opened ${src.title}, but I couldn't find the exact line on that page. ${reply}`,
+    links, source: snap.source ?? src,
+  };
+}
+
+// ---- Sources: each library answer's document, opened in the site's viewer with the quoted words highlighted.
+const LONG: Record<string, string> = { 'IRS Pub': 'IRS Publication', 'IRS FAQ': 'the IRS FAQ' };
+const sectionOf = (citeTitle: string) => (citeTitle.includes(', ') ? citeTitle.slice(citeTitle.indexOf(', ') + 2) : '');
+function sourceOf(cite: { title: string; url: string; doc?: string; anchor?: string }, quote: string[], page?: number): Source | null {
+  if (!cfg?.guidePage || !cite.doc) return null;
+  const short = cite.title === 'The IRS.gov FAQ' ? 'IRS FAQ' : cite.title.split(', ')[0];
+  const title = Object.entries(LONG).reduce((t, [a, b]) => t.startsWith(a) ? b + t.slice(a.length) : t, short);
+  const section = sectionOf(cite.title);
+  return { label: page ? `${short} · p. ${page}` : section ? `${short} · ${section}` : short, title, credit: `Source: ${title.replace(/^the /, '')} (public domain)`,
+    doc: cite.doc, page, anchor: cite.anchor, href: cite.url, quote: quote.filter(Boolean), found: null };
+}
+
+const viewerBody = () => document.querySelector<HTMLElement>('[data-copilot-source-body]');
+
+// Shows the source and highlights its quote. true: highlighted; false: the document is shown but the words weren't
+// found in it (no highlight then, never a guess); null: this page has no source viewer.
+async function openSource(src: Source): Promise<boolean | null> {
+  if (CSS_HL) CSS_HL.delete('copilot-quote');
+  set({ source: { ...src, found: null } });
+  const body = await settled(() => viewerBody(), 15000);
+  if (!body) { set({ source: null }); return null; }
+  const ranges = locate(body, src.quote);
+  const found = !!ranges && !!CSS_HL;
+  if (found) {
+    CSS_HL!.set('copilot-quote', new (window as any).Highlight(...ranges!));
+    scrollWithin(body, ranges![0].getBoundingClientRect());
+  } else if (src.anchor) {
+    const h = body.querySelector(`[id="${CSS.escape(src.anchor)}"]`);
+    if (h) scrollWithin(body, h.getBoundingClientRect());
+  }
+  if (snap.source?.doc === src.doc) set({ source: { ...src, found } });
+  return found;
+}
+
+// Waits until the viewer has rendered its document: the body exists, nothing in it is still loading (a PDF page's text
+// layer marks itself data-loading until pdf.js has drawn it) and its text has stopped changing.
+async function settled(get: () => HTMLElement | null, ms: number): Promise<HTMLElement | null> {
+  const t0 = Date.now();
+  let last = -1, same = 0;
+  while (Date.now() - t0 < ms) {
+    const el = get();
+    const n = el && !el.querySelector('[data-loading]') ? el.textContent?.length ?? -1 : -1;
+    if (el && n > 40 && n === last) { if (++same >= 2) return el; } else same = 0;
+    last = n;
+    await new Promise(r => setTimeout(r, 120));
+  }
+  const el = get();
+  return el && (el.textContent?.length ?? 0) > 40 ? el : null;
+}
+
+const CSS_HL: Map<string, unknown> | null = (window as any).CSS?.highlights && (window as any).Highlight ? (CSS as any).highlights : null;
+if (CSS_HL && !document.getElementById('copilot-quote-style')) {
+  const st = document.createElement('style');
+  st.id = 'copilot-quote-style';
+  st.textContent = '::highlight(copilot-quote){background-color:rgba(255,214,102,.65);color:inherit}';
+  document.head.appendChild(st);
+}
+
+// Finds every quoted sentence in the rendered document, word for word: letters and digits must match exactly, while
+// spacing, punctuation, line-end hyphens and ligatures (a PDF's text layer has all of these) are ignored. A table row
+// quoted as "a | b | c" is found cell by cell. Returns null unless every part is found, in order and close together.
+function locate(root: HTMLElement, quote: string[]): Range[] | null {
+  const map: [Text, number][] = [];
+  let flat = '';
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  for (let n = walker.nextNode() as Text | null; n; n = walker.nextNode() as Text | null) {
+    for (let i = 0; i < n.data.length; i++) {
+      for (const c of loose(n.data[i])) { flat += c; map.push([n, i]); }
+    }
+  }
+  const parts = quote.flatMap(q => q.split(/\s*\|\s*|\n+/)).map(loose).filter(q => q.length >= 3);
+  if (!parts.length) return null;
+  const ranges: Range[] = [];
+  let from = 0, first = -1;
+  for (const part of parts) {
+    const at = flat.indexOf(part, from);
+    if (at < 0 || (first >= 0 && at - first > 6000)) return null;
+    if (first < 0) first = at;
+    const [sn, so] = map[at], [en, eo] = map[at + part.length - 1];
+    const r = document.createRange();
+    r.setStart(sn, so); r.setEnd(en, eo + 1);
+    ranges.push(r);
+    from = at + part.length;
+  }
+  return ranges;
+}
+const loose = (s: string) => s.normalize('NFKC').toLowerCase().replace(/[^a-z0-9]+/g, '');
+
+function scrollWithin(box: HTMLElement, target: DOMRect) {
+  const scroller = (el: HTMLElement | null): HTMLElement | null => {
+    for (; el; el = el.parentElement) if (el.scrollHeight > el.clientHeight + 4 && /auto|scroll/.test(getComputedStyle(el).overflowY)) return el;
+    return null;
+  };
+  const sc = scroller(box);
+  if (sc) sc.scrollBy({ top: target.top - sc.getBoundingClientRect().top - sc.clientHeight * 0.25, behavior: 'smooth' });
+  else window.scrollBy({ top: target.top - innerHeight * 0.3, behavior: 'smooth' });
+}
+
+function closeSource() {
+  if (CSS_HL) CSS_HL.delete('copilot-quote');
+  if (snap.source) set({ source: null });
+}
+
+function showSource(id?: number) {
+  const m = [...snap.messages].reverse().find(x => x.source && (id === undefined || x.id === id));
+  if (m?.source) void openSource(m.source);
+  return m?.source ?? null;
+}
+
+// ---- Navigation: the copilot changes page with the site's own router, so the call stays connected.
+let navigateFn: ((path: string) => void) | null = null;
+let pendingAnchor = '';
+let navigated = false;
+function go(path: string) {
+  closeSource();
+  navigated = true;
+  const [p, hash] = path.split('#');
+  pendingAnchor = hash ?? '';
+  if (location.pathname + location.search === p) { scrollToAnchor(); return; }
+  saveDraft();
+  if (navigateFn) navigateFn(path); else location.assign(path);
+}
+function scrollToAnchor() {
+  const a = pendingAnchor;
+  if (!a) return;
+  pendingAnchor = '';
+  void settled(() => document.getElementById(a)?.closest('main') as HTMLElement ?? (document.getElementById(a) ? document.body : null), 4000)
+    .then(() => document.getElementById(a)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+}
+
+const words = (s: string) => s.toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').split(/\s+/).filter(w => w && !['the', 'a', 'an', 'page', 'my', 'your', 'please', 'to', 'of', 'for', 'about', 'on'].includes(w));
+// The site page a spoken name means ("payroll services" -> /tax/services/payroll), or null.
+function pageFor(target: string) {
+  const t = target.toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').replace(/\b(the|page|section|please)\b/g, ' ').replace(/\s+/g, ' ').trim();
+  let best: { path: string; title: string; score: number } | null = null;
+  for (const p of cfg?.pages ?? []) {
+    for (const name of [p.title, ...(p.also ?? [])].map(n => n.toLowerCase())) {
+      const score = t === name ? 100 + name.length : new RegExp(`\\b${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(t) ? 50 + name.length : 0;
+      if (score && (!best || score > best.score)) best = { path: p.path, title: p.title, score };
+    }
+  }
+  return best;
+}
+function closeMatches(target: string): string[] {
+  const tw = new Set(words(target));
+  const tri = (s: string) => new Set(Array.from({ length: Math.max(0, s.length - 2) }, (_, i) => s.slice(i, i + 3)));
+  const tt = tri(target.toLowerCase());
+  return (cfg?.pages ?? []).map(p => {
+    const names = [p.title, ...(p.also ?? [])].map(n => n.toLowerCase());
+    const w = Math.max(...names.map(n => words(n).filter(x => tw.has(x)).length));
+    const g = Math.max(...names.map(n => { const nt = tri(n); return [...nt].filter(x => tt.has(x)).length / Math.max(1, nt.size + tt.size); }));
+    return { title: p.title, score: w * 2 + g };
+  }).sort((a, b) => b.score - a.score).slice(0, 3).map(x => x.title);
+}
+
+const CLOSE = /^(ok(ay)?,? )?(please )?(close|hide|dismiss) (that|this|it|the (source|guide|panel|document|viewer))\b/i;
+const SHOW_SOURCE = /^(ok(ay)?,? )?(show me( that| it| the source| where)?|where did you (get|find) (that|this|it)|where('s| is| does) (that|this|it) (from|come from)|what('s| is) (the|your) source)\b/i;
+const BACK_TO_FORM = /\b(back to|return to|take me (back )?to|go (back )?to|open) (the |my )?(form|booking( form)?|intake( form)?|consultation form|questions)\b/i;
+const NAV = /^(?:ok(?:ay)?,? )?(?:please )?(?:can you |could you )?(?:take me to|go to|navigate to|bring up|open|show(?: me)?)\s+(?:the\s+)?(.+?)\s*(?:page)?\s*(?:please)?$/i;
+const GUIDE = /\b(?:guide|publication|article|topic)s? (?:about|on|for|covering) (.+)$/i;
+
+// A spoken request to change page, show or close a source; null when the words are something else (an answer).
+async function navReply(text: string): Promise<string | null> {
+  if (snap.source && CLOSE.test(text)) { closeSource(); return `Closed it.${snap.mode === 'form' && currentAsk() ? ` Back to the form: ${currentAsk()}` : ''}`; }
+  if (CLOSE.test(text)) return null;
+  if (SHOW_SOURCE.test(text) && !NAV.exec(text)?.[1]?.match(/\b(page|services?|pricing|team|guides?|faq|form)\b/)) {
+    const src = showSource();
+    if (!src) return "I haven't quoted a source yet. Ask me a tax question and I'll show you where the answer comes from.";
+    return `Here it is: ${src.title}${src.label.includes(' · ') ? `, ${src.label.split(' · ')[1]}` : ''}, with the part I quoted highlighted.`;
+  }
+  const form = cfg?.pages?.find(p => p.form);
+  if (form && BACK_TO_FORM.test(text)) {
+    if (location.pathname === form.path) { closeSource(); return snap.mode === 'form' && copilot ? `Back to the form. ${currentAsk()}`.trim() : null; }
+    go(form.path);
+    return ''; // the form page's own greeting carries on from the open question
+  }
+  const g = GUIDE.exec(text);
+  if (g && cfg?.guidePage && lookup) {
+    const hits = await new RemoteRetriever(cfg.manual!.label).search(g[1], 3);
+    const top = hits.find(h => h.cite?.doc);
+    if (!top?.cite?.doc) return `I couldn't find a guide about ${g[1]}. The Tax Guides page lists them all.`;
+    go(`${cfg.guidePage}/${top.cite.doc}${top.page ? `?page=${top.page}` : top.cite.anchor ? `#${top.cite.anchor}` : ''}`);
+    const src = sourceOf(top.cite, [], top.page);
+    return `Here's ${src?.title ?? 'that guide'}${top.page ? `, page ${top.page}` : ''}${sectionOf(top.cite.title) ? `, at ${sectionOf(top.cite.title)}` : ''}.`;
+  }
+  const m = NAV.exec(text);
+  if (!m || !cfg?.pages?.length) return null;
+  const target = m[1];
+  const page = pageFor(target);
+  if (page) {
+    if (page.path === form?.path && location.pathname !== form.path) { go(page.path); return ''; }
+    go(page.path);
+    return `Here's ${page.title === 'Home' ? 'the home page' : `the ${page.title} page`}.`;
+  }
+  if (/^(open|show)/i.test(text.replace(/^(ok(ay)?,? )?(please )?(can you |could you )?/i, '')) && words(target).length > 4) return null;
+  const close = closeMatches(target);
+  return `I couldn't find a page called "${target}". The closest are ${close.slice(0, -1).join(', ')} and ${close.at(-1)}. Which one?`;
+}
+
 
 // Spoken questions come without a question mark, so a question word at the start counts too.
 const isQuestion = (t: string) => /\?\s*$/.test(t) || /^\s*(what|where|which|how|why|when|who|can i|could i|should i|do i|does|is there|is it|are there|will)\b/i.test(t);
@@ -277,15 +563,25 @@ async function send(text: string) {
   set({ busy: true, status: 'thinking' });
   add('user', text);
   let reply = '';
+  let links: Message['links'] = [];
+  let source: Source | undefined;
+  navigated = false;
   try {
-    if (snap.mode === 'guide') reply = await guide!.turn(text);
+    const nav = await navReply(text);
+    if (nav !== null) reply = nav;
+    else if (snap.mode === 'ask') ({ reply, links, source } = await deskReply(text));
+    else if (snap.mode === 'guide') reply = await guide!.turn(text);
     else if (!copilot) startForm();
     else if (copilot.state === 'done') reply = `I've handed the form back to you. Please check it and press ${form!.submit} yourself.`;
     // A side question during a form is answered from the manual (or "I don't know"); then the form carries on.
-    else if (lookup && isQuestion(text)) reply = `${await lookup.lookup(text)} Back to the form: ${currentAsk()}`.trim();
+    else if (lookup && cfg.desk && (isQuestion(text) || ADVICE.test(text))) {
+      const r = await deskReply(text);
+      reply = `${r.reply} Back to the form: ${currentAsk()}`.trim(); links = r.links; source = r.source;
+    } else if (lookup && isQuestion(text)) reply = `${await lookup.lookup(text)} Back to the form: ${currentAsk()}`.trim();
     else {
       // After two misses on a serial, email or phone, a caller is offered the keyboard (the call panel's button).
       flow!.typeOffer = snap.voice ? 'You can also type it with Keyboard.' : '';
+      closeSource();
       reply = await copilot.turn(text);
     }
   } catch (e) {
@@ -294,7 +590,7 @@ async function send(text: string) {
     report('send', `${(e as Error).message} @ ${((e as Error).stack ?? '').split('\n')[1]?.trim() ?? ''}`);
   }
   set({ busy: false, status: snap.voice ? snap.status : 'text' });
-  if (reply) add('bot', reply); else if (snap.voice) listen();
+  if (reply) add('bot', reply, true, links, source); else if (snap.voice && !navigated) listen();
   highlight();
 }
 
@@ -312,6 +608,7 @@ function start({ voice = false }: { voice?: boolean } = {}) {
 
 function end() {
   stopListening(); if (canSpeak) speechSynthesis.cancel(); speechSeq++;
+  noted = false;
   set({ open: false, voice: false, heard: '', status: 'idle', startedAt: 0, wait: null });
   document.querySelectorAll('[data-copilot-active]').forEach(e => e.removeAttribute('data-copilot-active'));
 }
@@ -324,25 +621,57 @@ function toggleMic() {
   if (muted) { stopListening(); set({ status: 'muted' }); } else { if (canSpeak) speechSynthesis.cancel(); listen(true); }
 }
 
+// A page change mid-call (the site's router unmounts one page and mounts the next) keeps the call: the old page's
+// form is saved as a draft, and the new page's config takes over the same conversation.
+let carried = false;
+let leaving: ReturnType<typeof setTimeout> | undefined;
 function mount(c: Config) {
-  unmount();
+  carried = !!leaving && snap.open;
+  clearTimeout(leaving); leaving = undefined;
+  if (carried) detach(); else unmount(true);
   cfg = c;
-  manual = c.manual ? { id: c.manual.label, title: c.manual.title, business: c.business, steps: c.manual.steps, passages: [] } : null;
+  manual = c.manual ? { id: c.manual.label, title: c.manual.title, business: c.business, steps: c.manual.steps, passages: [], unknown: c.manual.unknown } : null;
   lookup = manual ? new Guide(manual, new RemoteRetriever(manual.id), new RemoteJudge()) : null;
-  const modes: ('form' | 'guide')[] = [...(c.form ? ['form' as const] : []), ...(manual ? ['guide' as const] : [])];
-  set({ ...blank(), mounted: true, business: c.business, can: c.can ?? [], large: !!c.large, modes, mode: modes[0] ?? 'form' });
+  // A desk page with a form fills the form (questions are still answered); a desk page without one only answers.
+  const modes: Mode[] = [...(c.form ? ['form' as const] : []), ...(manual?.steps.length ? ['guide' as const] : []), ...(c.desk && !c.form ? ['ask' as const] : [])];
+  const page = { mounted: true, business: c.business, can: c.can ?? [], large: !!c.large, modes, mode: modes[0] ?? 'form' } as const;
+  set(carried ? page : { ...blank(), ...page });
   watchForm();
+  if (carried) {
+    if (snap.mode === 'form') startForm();
+    scrollToAnchor();
+    highlight();
+  }
+  carried = false;
 }
 
-function unmount() {
-  end();
+function detach() {
+  saveDraft();
+  closeSource();
   observer?.disconnect(); observer = null; clearTimeout(stepTimer);
-  cfg = null; copilot = null; flow = null; form = null; firstEl = null; parts = 0; guide = null; manual = null; lookup = null; muted = false; quietTries = 0;
+  document.querySelectorAll('[data-copilot-active]').forEach(e => e.removeAttribute('data-copilot-active'));
+  copilot = null; flow = null; form = null; firstEl = null; parts = 0; guide = null;
+}
+
+function unmount(now = false) {
+  if (!now && snap.open && cfg) {
+    // Maybe a page change: wait for the next page to mount before ending the call.
+    detach();
+    clearTimeout(leaving);
+    leaving = setTimeout(() => { leaving = undefined; unmount(true); }, 1500);
+    return;
+  }
+  clearTimeout(leaving); leaving = undefined;
+  end();
+  detach();
+  cfg = null; manual = null; lookup = null; muted = false; quietTries = 0;
   set(blank());
 }
 
 const api = {
-  mount, unmount, start, end, toggleMic, setMode,
+  mount, unmount: () => unmount(), start, end, toggleMic, setMode, showSource, closeSource,
+  // The site's router, so the copilot changes page without a reload (and the call stays on): copilot.onNavigate(p => navigate(p)).
+  onNavigate: (fn: (path: string) => void) => { navigateFn = fn; },
   send: (t: string) => { void send(t); },
   setCovered: (px: number) => { covered = Math.max(0, Number(px) || 0); },
   subscribe: (fn: () => void) => { subs.add(fn); return () => { subs.delete(fn); }; },

@@ -6,8 +6,11 @@
 import { isFiller } from './guard.ts';
 
 export interface Step { n: number; text: string; page?: number }
-export interface Manual { id: string; title: string; business: string; steps: Step[]; passages: Passage[] }
-export interface Passage { id: string; text: string; page?: number }
+// unknown: what to say when nothing answers (default: the manual doesn't cover that).
+export interface Manual { id: string; title: string; business: string; steps: Step[]; passages: Passage[]; unknown?: string }
+// cite: where a passage comes from, for a library of many documents ("IRS Pub 17, Filing Requirements" and its link).
+// title: the passage's document title in the retriever's store.
+export interface Passage { id: string; text: string; page?: number; cite?: { title: string; url: string; doc?: string; anchor?: string }; title?: string }
 
 export interface Retriever { search(query: string, k: number): Promise<Passage[]> }
 // Returns the id of the passage that answers the question, or '' when none does.
@@ -27,6 +30,8 @@ export class Guide {
   idx = 0;
   done = false;
   log: { who: 'user' | 'copilot'; text: string }[] = [];
+  last?: Passage; // the passage the last lookup quoted (none when it didn't know), for its citation link
+  lastQuote: string[] = []; // the sentences of that passage it quoted, word for word
   private manual: Manual;
   private retriever: Retriever;
   private judge: Judge;
@@ -75,15 +80,21 @@ export class Guide {
     const hits = await this.retriever.search(q, 4);
     const id = hits.length ? await this.judge.pick(q, hits) : '';
     const p = hits.find(h => h.id === id);
-    if (!p) return "I don't know. The manual doesn't cover that, and I only answer from the manual.";
+    this.last = p;
+    this.lastQuote = [];
+    if (!p) return this.manual.unknown ?? "I don't know. The manual doesn't cover that, and I only answer from the manual.";
+    if (p.cite) return `${p.cite.title} says: "${await this.quote(p.text, q)}"`;
     return `The manual says${p.page ? ` (page ${p.page})` : ''}: "${await this.quote(p.text, q)}"`;
   }
 
   private async quote(text: string, q: string): Promise<string> {
     const sents = splitSentences(text);
-    if (text.length <= 260 || sents.length < 2 || !this.judge.sentences) return shortQuote(text, q);
-    const idx = await this.judge.sentences(q, sents);
-    return idx.length ? idx.sort((a, b) => a - b).map(i => sents[i]).join(' ') : shortQuote(text, q);
+    const idx = text.length <= 260 || sents.length < 2 || !this.judge.sentences ? [] : await this.judge.sentences(q, sents);
+    const said = idx.length ? idx.sort((a, b) => a - b).map(i => sents[i]).join(' ') : shortQuote(text, q);
+    // the quoted sentences, each exactly as in the passage (for a viewer that highlights them in the source)
+    this.lastQuote = idx.length ? idx.map(i => sents[i]) : sents.filter(s => said.includes(s));
+    if (!this.lastQuote.length) this.lastQuote = [said];
+    return said;
   }
 
   private say(text: string): string {
@@ -212,51 +223,42 @@ export class OctoRetriever implements Retriever {
   private base: string;
   private key: string;
   private workspaceId: string;
-  private titlePrefix?: string;
-  private allowed?: Promise<Set<string>>;
-  private overfetch: number;
-  // titlePrefix keeps answers to one manual: a workspace can hold many, and Octo search has no filter, so the
-  // retriever learns that manual's document versions once and drops passages from any other document.
-  constructor(opts: { base?: string; key: string; workspaceId: string; titlePrefix?: string; overfetch?: number }) {
+  private prefixes: (string | undefined)[];
+  private rerank?: boolean;
+  // titlePrefix keeps answers to one manual or library: a workspace can hold many, and Octo filters by document title
+  // inside the search, before its limit (filter.titlePrefix). A library spread over several prefixes (irs/, irc/, cfr/…)
+  // is searched once, unfiltered and deeper, and the matches outside its prefixes dropped here: Octo's prefix filter is
+  // the slow part of a query at library scale (about 15 s of 25 on 32,000 passages), and one query per prefix ran them
+  // all at once. rerank: false skips Octo's reranker (a few seconds faster, a little less precise).
+  constructor(opts: { base?: string; key: string; workspaceId: string; titlePrefix?: string | string[]; rerank?: boolean; overfetch?: number /* no longer needed: Octo filters */ }) {
     this.base = opts.base ?? 'https://octodb.design-bakery.com/api';
-    this.overfetch = opts.overfetch ?? 5;
     this.key = opts.key;
     this.workspaceId = opts.workspaceId;
-    this.titlePrefix = opts.titlePrefix;
+    this.prefixes = Array.isArray(opts.titlePrefix) ? opts.titlePrefix : [opts.titlePrefix];
+    this.rerank = opts.rerank;
   }
 
-  private async get(path: string): Promise<any> {
-    const r = await fetch(`${this.base}${path}${path.includes('?') ? '&' : '?'}workspaceId=${this.workspaceId}`, {
-      headers: { Authorization: `Bearer ${this.key}`, 'User-Agent': 'copilot-engine/0.1' }, signal: AbortSignal.timeout(20000) });
-    return r.json();
-  }
-
-  private versions(): Promise<Set<string>> {
-    this.allowed ??= (async () => {
-      const docs: any[] = await this.get('/rag/documents');
-      const mine = docs.filter(d => String(d.title).startsWith(this.titlePrefix!));
-      const full = await Promise.all(mine.map(d => this.get(`/rag/documents/${d.documentId}`)));
-      return new Set(full.flatMap(d => (d.versions ?? []).map((v: any) => v.versionId)));
-    })();
-    return this.allowed;
+  private async one(query: string, k: number, prefix?: string): Promise<any[]> {
+    const r = await fetch(`${this.base}/rag/query`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${this.key}`, 'User-Agent': 'copilot-engine/0.1' },
+      body: JSON.stringify({ workspaceId: this.workspaceId, query, limit: k, ...(prefix ? { filter: { titlePrefix: prefix } } : {}),
+        ...(this.rerank === false ? { rerank: false } : {}) }),
+      signal: AbortSignal.timeout(30000),
+    });
+    if (!r.ok) return [];
+    return ((await r.json()).matches ?? []).filter((x: any) => !prefix || String(x.title ?? '').startsWith(prefix));
   }
 
   async search(query: string, k: number): Promise<Passage[]> {
     try {
-      const allowed = this.titlePrefix ? await this.versions() : undefined;
-      const r = await fetch(`${this.base}/rag/query`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${this.key}`, 'User-Agent': 'copilot-engine/0.1' },
-        body: JSON.stringify({ workspaceId: this.workspaceId, query, limit: allowed ? k * this.overfetch : k }),
-        signal: AbortSignal.timeout(20000),
-      });
-      if (!r.ok) return [];
-      const j = await r.json();
-      const rows: any[] = (j.matches ?? []).filter((x: any) => !allowed || allowed.has(x.documentVersionId));
+      const rows = this.prefixes.length > 1
+        ? (await this.one(query, Math.min(50, k * 3))).filter(x => this.prefixes.some(p => String(x.title ?? '').startsWith(p ?? '')))
+        : await this.one(query, k, this.prefixes[0]);
       return rows.slice(0, k).map((x, i) => {
         const text: string = x.content ?? '';
         const page = Number(text.match(/\[page (\d+)\]/)?.[1]) || undefined;
-        return { id: String(x.chunkId ?? i), text: text.replace(/\[page \d+\]\s*/g, '').trim(), page };
+        return { id: String(x.chunkId ?? i), title: x.title, text: text.replace(/\[page \d+\]\s*/g, '').trim(), page };
       }).filter(p => p.text);
     } catch { return []; }
   }

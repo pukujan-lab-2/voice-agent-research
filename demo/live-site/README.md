@@ -18,11 +18,63 @@ fills only what you confirm, never submits) or **Type instead**.
 | Cobblefin IT Desk | `/itdesk/new` | New ticket; the page's own pattern rejects a bad asset tag; off-topic requests are turned down |
 | Saltmere Pension Fund | `/pension/forms/r17` | Form R-17; side questions ("what is a payee code") answered from the R-17 guide, then back to the form |
 
+### Brindlewick Tax & Accounting (`/tax`): a fictional firm with a real library
+
+A sixth, larger site: a fictional tax and accounting firm (made-up name, people, prices and address, original design)
+whose assistant answers from **real IRS.gov pages** (U.S. government works, public domain). Every page's footer says
+"Fictional demo firm. Tax guides come from IRS.gov (U.S. government works, public domain). Not affiliated with the IRS.
+Not tax advice." The team has illustrated SVG avatars, no photos.
+
+- Pages: Home, Services, Pricing, Team, About, **Tax Guides** (`/tax/guides`, every source searchable, each readable
+  at `/tax/guides/<id>` with tables intact and a link to irs.gov), **FAQ** (the IRS FAQ, word for word, grouped), and
+  **Book a consultation** (`/tax/book`, the intake form: name read back spelled out, phone, email, filing status, tax
+  years, service, IRS notice yes/no, notice code read back letter by letter, e.g. "CP2000: C, P, 2, 0, 0, 0", day,
+  time, notes; "none" leaves an optional field blank; the copilot never submits).
+- The assistant (every page but the form, and side questions on the form) answers only from the IRS library, quoting it
+  with a citation link ("IRS Pub 17, Filing Requirements" → irs.gov#anchor), or says it doesn't know. Personal advice
+  ("should I…", "how much will I owe", "am I better off…") is not answered: a preparer will go through it at a
+  consultation, with a link to book. Suggested-question chips are IRS FAQ questions, word for word.
+- Corpus (`tools/irs_fetch.py` → `tools/irs_corpus.py` → `tools/irs_ingest.py`): 296 IRS pages (about 60
+  publications, about 30 form instructions, every Tax Topic, the IRS FAQ pages), split into 32,295 passages of at most
+  480 characters, each with its source, section heading and deep link; tables split by rows with the header repeated.
+  Back-of-book indexes and repeated boilerplate are dropped and identical text is loaded once. Each passage is one Octo
+  document titled with its id (`irs/publications-p17 #12`), searched with `filter.titlePrefix: "irs/"`. The ingest is
+  resumable (skips what is in Octo or `build/irs/ingested.jsonl`; `touch build/irs/STOP` to pause) and checks the
+  MacBook Pro's free memory (`ssh mac-pro memory_pressure`) before every batch, waiting while it is under 25%.
+  `data/irs.passages.json` is the manifest and the source of every citation; passage ids must stay stable once loaded,
+  so re-run the corpus step only together with a fresh ingest.
+- **Octo is the one store** for the library: search (`/rag/query`), the `irs_docs` and `irs_passages` tables in the
+  workspace's Postgres (title, kind, page, source URL, article bodies, PDF file ids) and the source PDFs (Octo file
+  storage, uploaded as plain bytes so Octo doesn't index them twice). Nothing is served statically. The site reads it all
+  through `api.ts`: `/api/library/search`, `/stats` (live counts), `/docs` (paged list), `/doc?doc=`, `/pdf?doc=` (the
+  PDF from Octo, a small in-memory LRU) and `/faq`. `tools/irs_pdf.py` maps each passage to its printed PDF page
+  (98% placed), `tools/irs_store.py` writes the tables and files.
+- PDF sources open in pdf.js (`app/src/components/tax/PdfPages.tsx`) at the passage's page, with pdf.js's text layer so
+  the copilot can highlight the quoted words; web-page sources (Tax Topics, FAQ pages, Title 26, 26 CFR, the IRM, the
+  IRB) are drawn as articles from their body in Octo.
+- **Scale-up** (`tools/lib_fetch.py <irc|cfr|forms|irb|irm>` → `build/lib/<src>/docs.jsonl`, then
+  `tools/lib_ingest.py --follow`): Title 26 U.S. Code one document per section (govinfo bulk HTML granules; uscode.house.gov
+  refuses automated downloads), 26 CFR per section (eCFR API), every English IRS form and instruction PDF (irs.gov
+  forms index; files to Octo, one passage set per page), the IRM per subsection and the IRB's revenue rulings,
+  procedures and notices. Search prefixes `irc/`, `cfr/`, `irs/forms/`, `irm/`, `irb/`. Resumable (ledger
+  `build/lib/ingested.jsonl`, `touch build/lib/STOP` to pause), and it waits while the Pro has under 20% memory free.
+- Search at scale: the library's prefixes are searched with one unfiltered Octo query and filtered by title here,
+  because Octo's `titlePrefix` filter costs about 15 s per query at 32,000 passages. The site's search box skips
+  Octo's reranker (`rerank: false`); the copilot's answers keep it.
+- Eval: `node tests/irs-eval.ts` asks 100 IRS FAQ questions (spread over the FAQ categories) the way the site does and
+  has Jev grade each reply against the IRS's own answer: once with the question's own FAQ entry hidden from search
+  (can the publications answer it?) and once as deployed.
+
 ## How it fits together
 
 - **The app** (`app/`): a React + Vite + shadcn app built by ABA (app-builder-automation) from `aba/spec.md`, then
   polished by two iterate runs (`aba/fix-1.md`, `aba/fix-2.md`), all with WorkBuddy GLM-5.2. It draws the marketing page, the five sites and
-  the call panel, and holds no copilot logic. Change it with another ABA iterate run, not by hand. Its `build` runs
+  the call panel, and holds no copilot logic. Change it with another ABA iterate run where possible. The `/tax` pages
+  come from a full ABA run (`aba/tax-site.md`, run `20261031-030009-tax-site`, DeepSeek V4.1 Flash via WorkBuddy):
+  ABA chose React + Vite + TypeScript + Tailwind + shadcn with a Nitro server route for search; we kept its frontend
+  and our own `server.ts`/`api.ts` (keys, signing, rate limits) instead of Nitro. Hand edits after that run:
+  `PdfPages.tsx` (pdf.js), and the library API wiring in `pages/tax/Guide.tsx`, `Guides.tsx`, `Faq.tsx`,
+  `components/tax/SourceViewer.tsx`, `lib/tax.ts`, plus the `.tax-pdf*` styles in `globals.css`. Its `build` runs
   `scripts/check-copilot-contract.mjs`, which fails the build when the app breaks what the copilot relies on (exact
   form markup, steps hidden with the `hidden` attribute, the test ids).
 - **The copilot in the page** (`widget/`, built to `dist/copilot/`): `sdk.ts` is a headless copilot, `window.copilot`,

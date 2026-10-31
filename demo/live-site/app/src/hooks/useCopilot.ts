@@ -55,7 +55,7 @@ export function useCopilot() {
     window.copilot?.toggleMic();
   }, []);
 
-  const setMode = useCallback((mode: "form" | "guide") => {
+  const setMode = useCallback((mode: "form" | "guide" | "ask") => {
     window.copilot?.setMode(mode);
   }, []);
 

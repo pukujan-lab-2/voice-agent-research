@@ -12,9 +12,33 @@ export type CopilotStatus =
   | "muted"
   | "text";
 
+/** A part of a message shown as a link: a manual page "(page 3)", a cited source, a booking page. */
 export interface CopilotLink {
-  page: number;
+  text: string;
   href: string;
+  page?: number;
+}
+
+/** The document a copilot answer was quoted from. The app shows it in the source viewer when snapshot.source is set. */
+export interface CopilotSource {
+  /** Chip text: "IRS Pub 17 · p. 9" for a PDF source, "IRS Tax Topic 501 · Section" for a web-page source. */
+  label: string;
+  /** The document's name, e.g. "IRS Publication 17". */
+  title: string;
+  /** The credit line to show under the title, e.g. "Source: IRS Publication 17 (public domain)". */
+  credit: string;
+  /** The library id; load it with GET /api/library/doc?doc=<doc> (kind "pdf": render its pdf in pdf.js; "article": its body). */
+  doc: string;
+  /** PDF sources: the printed page the quote is on. Show it (and the next page) in pdf.js with the text layer on. */
+  page?: number;
+  /** The cited section's anchor in that document (its heading's id), if any. */
+  anchor?: string;
+  /** The original on irs.gov (open in a new tab). */
+  href: string;
+  /** The exact sentences quoted; the copilot highlights them itself once the viewer shows the document. */
+  quote: string[];
+  /** null while the copilot looks for the quote in the viewer, then true (highlighted) or false (not found on the page). */
+  found: boolean | null;
 }
 
 export interface CopilotMessage {
@@ -22,6 +46,17 @@ export interface CopilotMessage {
   who: "bot" | "user";
   text: string;
   links: CopilotLink[];
+  /** The source this answer was quoted from: show a chip (label) that calls copilot.showSource(id). */
+  source?: CopilotSource;
+}
+
+/** A page the copilot can take the visitor to by voice ("take me to pricing"). */
+export interface CopilotPage {
+  path: string;
+  title: string;
+  also?: string[];
+  /** The page with the form the copilot fills ("back to the form" goes here). */
+  form?: boolean;
 }
 
 export interface ManualStep {
@@ -35,14 +70,30 @@ export interface CopilotManual {
   title: string;
   doc?: string;
   steps: ManualStep[];
+  /** What to say when the library has no answer. */
+  unknown?: string;
+}
+
+/** A question desk over a document library: cited answers; personal-advice questions are offered a consultation. */
+export interface CopilotDesk {
+  greeting: string;
+  advice: string;
+  book?: { text: string; href: string };
 }
 
 export interface CopilotConfig {
   business: string;
+  /** One short clause the copilot says once at the start of a call, inside its greeting. */
+  note?: string;
+  /** The site's pages, for spoken navigation. */
+  pages?: CopilotPage[];
+  /** The page for one guide: `${guidePage}/${doc}` (?page=N opens a PDF guide at that page, #anchor an article at a section). */
+  guidePage?: string;
   form?: string;
   can?: string[];
   large?: boolean;
   manual?: CopilotManual;
+  desk?: CopilotDesk;
 }
 
 export interface CopilotSnapshot {
@@ -54,8 +105,8 @@ export interface CopilotSnapshot {
   status: CopilotStatus;
   busy: boolean;
   heard: string;
-  mode: "form" | "guide";
-  modes: ("form" | "guide")[];
+  mode: "form" | "guide" | "ask";
+  modes: ("form" | "guide" | "ask")[];
   business: string;
   can: string[];
   large: boolean;
@@ -64,6 +115,8 @@ export interface CopilotSnapshot {
   startedAt?: number;
   /** A slow model call: what to show, and when it should be done (ms since the epoch). */
   wait?: { text: string; until: number } | null;
+  /** The source viewer: shown (side panel on desktop, bottom sheet on a phone) while this is set. */
+  source?: CopilotSource | null;
 }
 
 export interface Copilot {
@@ -72,9 +125,15 @@ export interface Copilot {
   start(opts: { voice: boolean }): void;
   send(text: string): void;
   toggleMic(): void;
-  setMode(mode: "form" | "guide"): void;
+  setMode(mode: "form" | "guide" | "ask"): void;
   setCovered(px: number): void;
   end(): void;
+  /** Re-open the source of an earlier answer (its chip). */
+  showSource(messageId: number): void;
+  /** Close the source viewer. */
+  closeSource(): void;
+  /** The app's client-side navigate; the copilot calls it to change page without ending the call. Returns unsubscribe. */
+  onNavigate(fn: (path: string) => void): () => void;
   subscribe(fn: () => void): () => void;
   getSnapshot(): CopilotSnapshot;
 }
@@ -102,6 +161,7 @@ export const EMPTY_SNAPSHOT: CopilotSnapshot = {
   can: [],
   large: false,
   messages: [],
+  source: null,
 };
 
 /** Copilot configs for each form page. */
@@ -176,4 +236,49 @@ export const COPILOT_CONFIGS: Record<string, CopilotConfig> = {
       ],
     },
   },
+  tax: TAX_DESK_CONFIG(),
+  taxIntake: TAX_INTAKE_CONFIG(),
 };
+
+// Brindlewick Tax & Accounting (fictional firm; its library is real IRS.gov text, public domain).
+function TAX_BASE(): CopilotConfig {
+  return {
+    business: "Brindlewick Tax & Accounting",
+    note: "this is a demo site, so no real details please",
+    guidePage: "/tax/guides",
+    pages: [
+      { path: "/tax", title: "Home", also: ["home", "home page", "start", "main page"] },
+      { path: "/tax/services", title: "Services", also: ["services", "what you do", "all services"] },
+      { path: "/tax/services/individual-returns", title: "Individual tax returns", also: ["individual returns", "tax returns", "personal returns", "1040"] },
+      { path: "/tax/services/bookkeeping", title: "Small-business bookkeeping", also: ["bookkeeping", "accounting", "books"] },
+      { path: "/tax/services/payroll", title: "Payroll services", also: ["payroll", "payroll services"] },
+      { path: "/tax/services/irs-notices", title: "IRS notice help", also: ["notice help", "irs notices", "notices", "letters"] },
+      { path: "/tax/services/planning", title: "Tax planning", also: ["planning", "tax planning", "estimated taxes"] },
+      { path: "/tax/pricing", title: "Pricing", also: ["pricing", "prices", "fees", "cost", "costs", "rates"] },
+      { path: "/tax/team", title: "Our team", also: ["team", "people", "staff", "preparers", "accountants"] },
+      { path: "/tax/about", title: "About this demo", also: ["about", "about us", "about the demo"] },
+      { path: "/tax/guides", title: "Tax Guides", also: ["guides", "tax guides", "library", "publications"] },
+      { path: "/tax/faq", title: "Tax FAQ", also: ["faq", "questions", "frequently asked questions"] },
+      { path: "/tax/book", title: "Book a consultation", also: ["booking", "book", "intake", "intake form", "the form", "consultation", "appointment"], form: true },
+    ],
+    manual: {
+      label: "irs",
+      title: "Tax Guides",
+      steps: [],
+      unknown: "I don't know. I couldn't find that in the tax guides I answer from, and I only answer from them. A preparer can look into it with you at a consultation.",
+    },
+    desk: {
+      greeting:
+        "Hi, I'm Brindlewick's assistant. Ask me a tax question and I'll answer from the IRS guides and show you the page it comes from. I can also take you around the site, and fill in the consultation form with you. I can't advise on your own situation, but a preparer can at a consultation.",
+      advice:
+        "That depends on your own situation, so it's one for a Brindlewick preparer: they'll go through it with you at a consultation. I only answer general questions from the tax guides.",
+      book: { text: "Book a consultation", href: "/tax/book" },
+    },
+  };
+}
+function TAX_DESK_CONFIG(): CopilotConfig {
+  return { ...TAX_BASE(), can: ["Answers from the IRS guides, with the source", "Takes you to any page", "Books a consultation with you"] };
+}
+function TAX_INTAKE_CONFIG(): CopilotConfig {
+  return { ...TAX_BASE(), form: "consultation request", can: ["Fills this form with you", "Reads back your name, phone, email and notice code", "You press Request consultation yourself"] };
+}

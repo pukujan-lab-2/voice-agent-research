@@ -1,4 +1,5 @@
-export type FieldKind = 'text' | 'name' | 'serial' | 'choice' | 'email' | 'phone';
+// code: a short letters-and-digits code (an IRS notice code like CP2000), read back character by character.
+export type FieldKind = 'text' | 'name' | 'serial' | 'choice' | 'email' | 'phone' | 'code';
 
 export interface Field {
   name: string;
@@ -9,6 +10,8 @@ export interface Field {
   synonyms?: Record<string, string[]>; // option -> other ways people say it, matched by code before the model
   hint?: string;
   aliases?: string[];
+  optional?: boolean; // "none" or "skip" leaves it blank
+  spell?: boolean;    // read the answer back spelled out, letter by letter
 }
 
 export interface Flow {

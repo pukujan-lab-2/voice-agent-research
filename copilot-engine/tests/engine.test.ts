@@ -80,3 +80,14 @@ test('declining a name and ruling out an option are not answers', async () => {
   await c.turn('not the morning');
   assert.equal(c.values.visit_time, undefined);
 });
+
+test('a choice that fits two options asks between just those', async () => {
+  const { Copilot } = await import('../src/engine.ts');
+  const flow = { id: 'day', title: 'Day', scope: 'Only the day.', submitLabel: 'Send', fields: [
+    { name: 'day', label: 'day', kind: 'choice' as const, question: 'Which day?', options: ['Tuesday, November 3', 'Wednesday, November 4', 'Tuesday, November 10'] }] };
+  const c = new Copilot(flow as any, new RuleModel(), { submit: () => {} });
+  c.start();
+  assert.equal(await c.turn('Tuesday'), 'Which one: Tuesday, November 3 or Tuesday, November 10?');
+  assert.equal(c.values.day, undefined);
+  assert.match(await c.turn('Tuesday, November 10'), /November 10/);
+});

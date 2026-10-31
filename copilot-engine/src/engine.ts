@@ -1,5 +1,5 @@
 import type { Field, FieldKind, Flow, Hooks, Model } from './types.ts';
-import { formatSerial, grounded, isFiller, parseName, serialProblem, spokenToEmail, spokenToPhone, spokenToSerial, stripFiller, validSerial, wantsChange, yesNo } from './guard.ts';
+import { formatSerial, grounded, isFiller, parseName, serialProblem, spellOut, spokenToCode, spokenToEmail, spokenToPhone, spokenToSerial, stripFiller, validSerial, wantsChange, yesNo } from './guard.ts';
 
 type State = 'ask' | 'verify' | 'review' | 'change' | 'done';
 
@@ -16,13 +16,17 @@ const GO_BACK = /\b(go(ing)? back|back up|previous (one|question|answer|field)|l
 const FIX = /\b(fix|change|wrong|correct|update|edit|misspel+ed|spelled|spelt|mistake|actually|sorry|i meant|i mean|make that|no,? wait)\b|\bmy name\b/i;
 // Answers that are easy to mishear are read back and need a yes before they are kept. `problem` says what was wrong
 // with an answer that did not parse, so the caller can fix it instead of just hearing the question again.
-type Readback = { parse: (said: string) => string; show: (v: string) => string; miss: string; problem?: (said: string) => string };
+// spell: how the read-back says it when every character matters ("CP2000: C, P, 2, 0, 0, 0")
+type Readback = { parse: (said: string) => string; show: (v: string) => string; miss: string; problem?: (said: string) => string; spell?: (v: string) => string };
 const READBACK: Partial<Record<FieldKind, Readback>> = {
   name: { parse: parseName, show: v => v, miss: 'name' },
   serial: { parse: s => { const v = spokenToSerial(s); return validSerial(v) ? v : ''; }, show: formatSerial, miss: 'serial number', problem: s => serialProblem(spokenToSerial(s)) },
   email: { parse: spokenToEmail, show: v => v, miss: 'email address' },
   phone: { parse: spokenToPhone, show: v => v, miss: 'phone number' },
+  code: { parse: spokenToCode, show: v => v, miss: 'code', spell: v => `${v}: ${spellOut(v)}` },
 };
+// An optional field's "none": left blank. Only ever checked on a field marked optional.
+const NONE = /^\s*(no(ne|pe)?|n\/?a|skip( it| that)?|nothing|not applicable|no notice|leave it (blank|empty)|there (isn'?t|is no) (one|code)|i (didn'?t|did not|haven'?t|have not) (get|got|receive[d]?)( one| a notice| any( notice)?)?)\W*$/i;
 
 const escape = (x: string) => x.replace(/[.*+?^$()|[\]\\{}]/g, '\\$&');
 
@@ -59,12 +63,28 @@ export class Copilot {
     return say;
   }
 
+  // Picks up a form the person left half filled (they went to another page mid-call): the kept answers stay, and the
+  // first field without one is asked, or the review card when every field has one.
+  restore(values: Record<string, string>, lead = ''): string {
+    for (const f of this.flow.fields) if (values[f.name] !== undefined) this.values[f.name] = values[f.name];
+    const i = this.flow.fields.findIndex(f => this.values[f.name] === undefined);
+    this.idx = i < 0 ? this.flow.fields.length : i;
+    this.state = i < 0 ? 'review' : 'ask';
+    const say = `${lead} ${i < 0 ? this.card() : this.question()}`.trim();
+    this.log.push({ who: 'copilot', text: say });
+    return say;
+  }
+
   // Name of the field currently being asked (used by simulators and UIs to show progress).
   current(): string { return this.field().name; }
 
   private field(): Field { return this.flow.fields[this.idx]; }
   private question(): string { return this.field().question; }
-  private show(f: Field): string { return READBACK[f.kind]?.show(this.values[f.name]) ?? this.values[f.name]; }
+  private show(f: Field): string {
+    const v = this.values[f.name];
+    if (v === '') return 'left blank';
+    return READBACK[f.kind]?.show(v) ?? v;
+  }
 
   // Every accepted answer goes through here, so a page adapter can type it in and reject it. Returns '' when kept.
   private async set(f: Field, v: string): Promise<string> {
@@ -87,6 +107,8 @@ export class Copilot {
 
   private readback(f: Field, v: string): string {
     const rb = READBACK[f.kind];
+    if (rb?.spell) return `I heard ${rb.spell(v)}. Is that right?`;
+    if (rb && f.spell) return `I heard ${rb.show(v)}, spelled ${v.split(/\s+/).map(w => spellOut(w, '-')).join(', ')}. Is that right?`;
     if (rb) return `I heard ${rb.show(v)}. Is that right?`;
     if (f.kind === 'choice') return `${v}, is that right?`;
     return /\?$/.test(f.label) ? `I'll put "${v}". Is that right?` : `I'll put "${v}" for ${f.label}. Is that right?`;
@@ -182,6 +204,12 @@ export class Copilot {
     if (isFiller(said)) return `No problem, take your time. ${q}`;
     const fixed = this.correction(said);
     if (fixed) return fixed;
+    if (f.optional && NONE.test(said)) {
+      const no = await this.set(f, '');
+      if (no) return `${no} ${q}`;
+      const next = this.advance();
+      return `Okay, I'll leave the ${f.label} blank. ${next}`;
+    }
     const rb = READBACK[f.kind];
     if (rb) {
       // A bare yes or no to a name question is not a name ("Yeah" is nobody's name here), and nothing has been submitted.
@@ -198,6 +226,10 @@ export class Copilot {
       // Code decides choices; the model is never allowed to guess one.
       const hit = this.matchChoice(f, said);
       if (hit) return this.propose(f, hit);
+      // "Tuesday" when two Tuesdays are offered: ask between just those, not the whole list again.
+      const some = this.partOf(f, said);
+      if (some.length === 1) return this.propose(f, some[0]);
+      if (some.length > 1) return `Which one: ${some.slice(0, -1).join(', ')} or ${some.at(-1)}?`;
       return `Sorry, I need one of these: ${(f.options ?? []).join(' or ')}. ${q}`;
     }
     const u = await this.model.understand({ flow: this.flow, field: f, said, values: this.values });
@@ -211,12 +243,27 @@ export class Copilot {
     return `Sorry, I didn't catch that. ${q}`;
   }
 
-  private matchChoice(f: Field, said: string): string {
+  private choiceHits(f: Field, said: string): string[] {
     const t = said.toLowerCase();
-    const hits = (f.options ?? []).filter(o =>
-      [o, ...(f.synonyms?.[o] ?? [])].some(w => new RegExp(`(^|[^a-z])${w.toLowerCase().replace(/\./g, '\\.')}s?($|[^a-z])`).test(t)));
     // "not the morning" names an option only to rule it out: ask again rather than guess the other one.
-    if (/\b(not|no|don'?t|isn'?t|can'?t|never|nothing in the)\b/.test(t)) return '';
+    if (/\b(not|no|don'?t|isn'?t|can'?t|never|nothing in the)\b/.test(t)) return [];
+    return (f.options ?? []).filter(o =>
+      [o, ...(f.synonyms?.[o] ?? [])].some(w => new RegExp(`(^|[^a-z])${w.toLowerCase().replace(/\./g, '\\.')}s?($|[^a-z])`).test(t)));
+  }
+
+  // Options whose wording holds every word that was said ("Tuesday" → both Tuesdays); confirmed by a read-back like any
+  // other answer. Only words of three letters or more count, so "the" or "a" alone never picks anything.
+  private partOf(f: Field, said: string): string[] {
+    const words = stripFiller(said).toLowerCase().match(/[a-z0-9]+/g)?.filter(w => w.length >= 3 && !/^(the|and|one|for|please|that|this|day|time)$/.test(w)) ?? [];
+    if (!words.length || /\b(not|no|don'?t|isn'?t|can'?t|never)\b/i.test(said)) return [];
+    return (f.options ?? []).filter(o => {
+      const text = ` ${[o, ...(f.synonyms?.[o] ?? [])].join(' ').toLowerCase().replace(/[^a-z0-9]+/g, ' ')} `;
+      return words.every(w => text.includes(` ${w} `));
+    });
+  }
+
+  private matchChoice(f: Field, said: string): string {
+    const hits = this.choiceHits(f, said);
     return hits.length === 1 ? hits[0] : '';
   }
 

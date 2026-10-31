@@ -12,6 +12,8 @@ export type PageField = {
   required: boolean;
   autocomplete: string;
   ask?: string; // the site's own wording of the question (data-copilot-ask), used instead of one built from the label
+  kind?: string; // data-copilot-kind="code": a short letters-and-digits code, read back character by character
+  spell?: boolean; // data-copilot-spell: read the answer back spelled out
   options?: { label: string; value: string; also?: string[] }[]; // also: other ways people say it (data-copilot-also)
 };
 export type PageForm = { fields: PageField[]; yourself: string[]; submit: string };
@@ -86,7 +88,8 @@ export function readInPage(): PageForm {
     }
     const id = `c${n++}`;
     el.dataset.copilotId = id;
-    const f: PageField = { id, tag: el.tagName.toLowerCase() as PageField['tag'], type, label, name: nameAttr, required: el.required, autocomplete: auto, ask: el.getAttribute('data-copilot-ask') ?? undefined };
+    const f: PageField = { id, tag: el.tagName.toLowerCase() as PageField['tag'], type, label, name: nameAttr, required: el.required, autocomplete: auto, ask: el.getAttribute('data-copilot-ask') ?? undefined,
+      kind: el.getAttribute('data-copilot-kind') ?? undefined, spell: el.hasAttribute('data-copilot-spell') || undefined };
     if (el instanceof HTMLSelectElement) f.options = Array.from(el.options).filter(o => o.value !== '' && !o.disabled).map(o => ({ label: clean(o.textContent), value: o.value, also: also(o) }));
     fields.push(f);
   }
@@ -105,7 +108,8 @@ const or = (xs: string[]) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).j
 
 // Turns the fields into a Flow. Kinds and questions are written by code from the page, not by a model.
 export function flowFromPage(form: PageForm, opts: { business: string; id?: string }): Flow {
-  const fields: Field[] = form.fields.map(p => {
+  const fields: Field[] = form.fields.map(p => ({ ...field(p), ...(p.required ? {} : { optional: true }), ...(p.spell ? { spell: true } : {}) }));
+  function field(p: PageField): Field {
     const label = p.label || p.name;
     const low = label.toLowerCase().replace(/^your\s+/, ''); // "Your name" -> "What's your name?", not "your your name"
     const ask = p.ask || (/\?$/.test(label) ? label : '');
@@ -114,6 +118,8 @@ export function flowFromPage(form: PageForm, opts: { business: string; id?: stri
       const synonyms = Object.fromEntries(p.options.filter(o => o.also?.length).map(o => [o.label, o.also!]));
       return { name: p.id, label: low, kind: 'choice', options: names, synonyms, question: `${ask ? ask.replace(/\?$/, "") : `Which ${low}`}: ${or(names)}?` };
     }
+    if (p.kind === 'code')
+      return { name: p.id, label: low, kind: 'code', question: ask || `What's the ${low}? You can read it out letter by letter.` };
     if (/\bserial\b/.test(low))
       return { name: p.id, label: low, kind: 'serial', question: ask || `What's the ${low}? You can read it out letter by letter.` };
     if (p.type === 'email' || p.autocomplete === 'email' || /\be-?mail\b/.test(low))
@@ -123,7 +129,7 @@ export function flowFromPage(form: PageForm, opts: { business: string; id?: stri
     if (['name', 'given-name', 'family-name'].includes(p.autocomplete) || (/\bname$/.test(low) && !/\b(company|business|user|organi[sz]ation|product|pet|file|street|account|domain)\b/.test(low)))
       return { name: p.id, label: low, kind: 'name', question: ask || `What's your ${low}?` };
     return { name: p.id, label: low, kind: 'text', question: ask || `What should I put for ${low}?` };
-  });
+  }
   const todo = form.yourself.length ? ` Before you do, please ${or(form.yourself)} yourself.` : '';
   return {
     id: opts.id ?? 'page-form',

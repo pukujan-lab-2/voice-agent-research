@@ -67,7 +67,7 @@ async function scene(name: string, url: string, run: (c: Ctx) => Promise<void>) 
   page.on('pageerror', e => sent.push(`page error: ${e.message}`));
   await page.goto(`${srv.url}${url}?guest=1`);
   allowLeave = false;
-  check('page carries the fictional-company banner and noindex', /Demo, fictional company/.test(await page.textContent(T('demo-banner')) ?? '')
+  check('page carries the fictional-company banner and noindex', /Demo, fictional company|Demo site: \w+ is a fictional firm/.test(await page.textContent(T('demo-banner')) ?? '')
     && (await page.getAttribute('meta[name=robots]', 'content'))?.includes('noindex') === true);
   const say = async (t: string) => {
     const n = await bots(page);
@@ -445,6 +445,124 @@ if (!only.length || only.includes('layout')) {
   await page.click(T('call-expand'));
   const de = await panelBox(page);
   check('desktop: the handle opens the conversation', de.h > d.h && await page.locator(BOT).first().isVisible(), de);
+  await ctx.close();
+}
+
+// Brindlewick (fictional tax firm, real IRS library): the intake form, with a spelled name, a notice code read back
+// letter by letter, a side question answered from the IRS guides with its citation, and a personal-advice question that
+// is offered a consultation instead of an answer.
+await scene('tax-book', '/tax/book', async ({ page, say, answer, val }) => {
+  const first = await lastBot(page);
+  check('opens on the intake form and asks for the full name', /full name, as it appears on your tax return/.test(first), first);
+  let r = await say('Maria Okafor');
+  check('the name is read back spelled out', /^I heard Maria Okafor, spelled M-A-R-I-A, O-K-A-F-O-R\. Is that right\?$/.test(r), r);
+  await say('yes');
+  check('name typed in after the yes', (await val('#fullname')) === 'Maria Okafor');
+  await answer('555 010 4477');
+  await answer('maria at example dot com');
+  check('phone and email filled', (await val('#tel')).replace(/\D/g, '') === '5550104477' && (await val('#mail')) === 'maria@example.com', [await val('#tel'), await val('#mail')]);
+  r = await say('Am I better off filing jointly with my husband?');
+  check('a personal-advice question is offered a consultation, then back to the form',
+    /Brindlewick preparer/.test(r) && /Back to the form/.test(r) && (await val('#status')) === '', r);
+  await answer('married filing jointly');
+  check('filing status picked', (await val('#status')) === 'mfj');
+  await answer('2024 and 2025');
+  check('tax years typed in', /2024 and 2025/.test(await val('#years')), await val('#years'));
+  await answer('help with an IRS notice');
+  check('service picked', (await val('#service')) === 'notice', await val('#service'));
+  await answer('yes I got one');
+  check('notice: yes', (await val('#notice')) === 'yes');
+  r = await say('C P two thousand');
+  check('the notice code is read back letter by letter', /^I heard CP2000: C, P, 2, 0, 0, 0\. Is that right\?$/.test(r), r);
+  await say('yes');
+  check('notice code typed in', (await val('#noticecode')) === 'CP2000');
+  // A bare weekday that fits two of the offered dates gets "which one?", then the full date picks it.
+  const day = await page.$eval('#day option:nth-child(2)', o => o.textContent!);
+  r = await say(day.split(',')[0]);
+  check('a weekday offered twice: the copilot asks which one', /^Which one: /.test(r) && r.includes(day), r);
+  await answer(day);
+  check(`day picked: ${day}`, (await val('#day')) !== '', await val('#day'));
+  await answer('mornings');
+  check('slot picked', (await val('#slot')) === 'morning');
+  r = await answer('none');
+  check('"none" leaves the optional notes blank', (await val('#notes')) === '' && !/notes\?$/i.test(r), r);
+  if (/Here's what I have/.test(r)) r = await say('yes');
+  check('hands the form back: press Request consultation yourself', /Request consultation/.test(r) && /yourself/.test(r), r);
+});
+
+// The question desk on every other Brindlewick page: a suggested question (an IRS FAQ question, word for word) is answered
+// from the IRS library with a link to the source on irs.gov; "should I" questions get a consultation, not advice.
+if (!only.length || only.includes('tax-desk')) {
+  current = 'tax-desk';
+  console.log('\n== tax-desk /tax');
+  const page = await browser.newPage();
+  const sent: string[] = [];
+  page.on('request', r => { if (new URL(r.url()).origin !== srv.url) sent.push(`third party: ${r.url()}`); else if (r.method() !== 'GET' && !r.url().includes('/api/')) sent.push(`${r.method()} ${r.url()}`); });
+  page.on('pageerror', e => sent.push(`page error: ${e.message}`));
+  await page.goto(`${srv.url}/tax?guest=1`);
+  check('demo bar, footer notice and noindex', /Demo site: Brindlewick is a fictional firm built to show a voice assistant\. Not a real business\./.test(await page.textContent(T('demo-banner')) ?? '')
+    && /fictional firm built to show a voice\s+assistant/.test(await page.textContent(T('tax-disclaimer')) ?? '')
+    && /Not affiliated with or endorsed by the IRS/.test(await page.textContent('footer') ?? '')
+    && (await page.getAttribute('meta[name=robots]', 'content'))?.includes('noindex') === true);
+  await page.waitForFunction(() => (window as any).copilot?.getSnapshot().mounted, null, { timeout: 15_000 });
+  await page.waitForSelector(T('tax-chip'));
+  const chip = page.locator(T('tax-chip')).first();
+  const q = (await chip.textContent()) ?? '';
+  const faq: { question: string }[] = JSON.parse(fs.readFileSync(path.join(here, '../data/irs.faq.json'), 'utf8'));
+  check('suggested questions are IRS FAQ questions, word for word', faq.some(f => f.question === q), q);
+  await chip.click();
+  await page.waitForFunction(() => { const s = (window as any).copilot?.getSnapshot(); return s && !s.busy && s.messages.filter((m: any) => m.who === 'user').length >= 1 && s.messages.at(-1).who === 'bot'; }, null, { timeout: 60_000 });
+  let r = await lastBot(page);
+  console.log(`      > ${q}\n      < ${r.slice(0, 200)}`);
+  const cited = /^(IRS |The IRS\.gov FAQ|Instructions for Form)[^:]* says: "|^I've opened /.test(r);
+  check('a chip asks the assistant; the answer quotes an IRS source or says it does not know', cited || /^I don't know/.test(r), r);
+  if (cited) {
+    // the source opens beside the answer, with "Open original on irs.gov"; a plain quote carries the link in the text
+    const href = await page.locator(T('source-original')).getAttribute('href', { timeout: 3000 }).catch(() => null)
+      ?? await page.locator(`${BOT} ${T('call-link')}`).last().getAttribute('href', { timeout: 3000 }).catch(() => null);
+    check('the citation links to irs.gov', /^https:\/\/www\.irs\.gov\//.test(href ?? ''), href);
+  }
+  const ask = async (t: string) => {
+    const n = await bots(page);
+    await page.fill(T('call-input'), t);
+    await page.click(T('call-send'));
+    await settle(page, n);
+    const a = await lastBot(page);
+    console.log(`      > ${t}\n      < ${a.slice(0, 200)}`);
+    return a;
+  };
+  r = await ask('How much will I owe this year if I sell my rental house?');
+  check('personal advice: a preparer will review it at a consultation, with the booking link',
+    /Brindlewick preparer/.test(r) && /Book a consultation/.test(r)
+    && await page.locator(`${BOT} ${T('call-link')}[href="/tax/book"]`).count() > 0, r);
+  r = await ask('Who won the World Cup in 2022?');
+  check('off-library question: "I don\'t know", never a made-up answer', /^I don't know/.test(r), r);
+  check('the desk sent nothing and never left the page', sent.length === 0, sent);
+  await page.close();
+}
+
+// The firm's pages at phone width: nothing wider than the screen, the library searchable, the FAQ grouped.
+if (!only.length || only.includes('tax-phone')) {
+  current = 'tax-phone';
+  console.log('\n== tax-phone');
+  const ctx = await browser.newContext({ viewport: { width: 375, height: 740 }, isMobile: true, hasTouch: true });
+  const page = await ctx.newPage();
+  for (const u of ['/tax', '/tax/services', '/tax/pricing', '/tax/team', '/tax/guides', '/tax/guides/publications-p17', '/tax/faq', '/tax/about', '/tax/book']) {
+    await page.goto(`${srv.url}${u}?guest=1`);
+    await page.waitForLoadState('networkidle');
+    const w = await page.evaluate(() => document.documentElement.scrollWidth);
+    check(`${u}: no sideways scroll at 375 px`, w <= 375, w);
+  }
+  await page.goto(`${srv.url}/tax/guides?guest=1`);
+  await page.waitForSelector(T('tax-guide'));
+  const all = await page.locator(T('tax-guide')).count();
+  const counted = await page.locator(T('tax-library-count')).textContent();
+  await page.locator(`${T('tax-guide-search')} input`).fill('retirement');
+  await page.waitForSelector(T('tax-search-result'), { timeout: 45_000 }).catch(() => {});
+  const some = await page.locator(T('tax-search-result')).count();
+  check('the library lists a page of guides, live counts, and search finds passages', all >= 50 && some > 0 && /\d[\d,]* documents and [\d,]+ passages/.test(counted ?? ''), [all, some, counted]);
+  await page.goto(`${srv.url}/tax/faq?guest=1`);
+  check('the FAQ page lists the IRS questions', await page.locator(T('tax-faq')).count() > 100, await page.locator(T('tax-faq')).count());
   await ctx.close();
 }
 

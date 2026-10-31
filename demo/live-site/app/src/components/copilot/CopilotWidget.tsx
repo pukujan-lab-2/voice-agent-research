@@ -13,6 +13,7 @@ import {
 import { useCopilot } from "@/hooks/useCopilot";
 import type { CopilotMessage } from "@/lib/copilot";
 import { cn } from "@/lib/utils";
+import { SourceChip } from "@/components/tax/SourceChip";
 
 /* ---------- helpers ---------- */
 
@@ -45,35 +46,35 @@ function statusLabel(status: string): string {
   }
 }
 
-/** Turn "(page N)" in message text into links that open the manual in a new tab. */
+/** Turn the linked parts of a message (a manual page, a cited source, a booking page) into links. */
 function renderMessageText(msg: CopilotMessage) {
   const parts: (string | ReactElement)[] = [];
-  const regex = /\(page (\d+)\)/g;
-  let last = 0;
-  let m: RegExpExecArray | null;
+  let rest = msg.text;
   let key = 0;
-  while ((m = regex.exec(msg.text)) !== null) {
-    if (m.index > last) parts.push(msg.text.slice(last, m.index));
-    const pageNum = parseInt(m[1], 10);
-    const link = msg.links.find((l) => l.page === pageNum);
-    if (link) {
-      parts.push(
-        <a
-          key={`link-${key++}`}
-          href={link.href}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="copilot-cite"
-        >
-          (page {pageNum})
-        </a>,
-      );
-    } else {
-      parts.push(`(page ${pageNum})`);
+  for (;;) {
+    let at = -1;
+    let link: CopilotMessage["links"][number] | undefined;
+    for (const l of msg.links) {
+      const i = rest.indexOf(l.text);
+      if (i >= 0 && (at < 0 || i < at)) { at = i; link = l; }
     }
-    last = regex.lastIndex;
+    if (!link) break;
+    if (at > 0) parts.push(rest.slice(0, at));
+    const external = /^https?:/.test(link.href);
+    parts.push(
+      <a
+        key={`link-${key++}`}
+        href={link.href}
+        {...(external || link.page ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+        className="copilot-cite"
+        data-testid="call-link"
+      >
+        {link.text}
+      </a>,
+    );
+    rest = rest.slice(at + link.text.length);
   }
-  if (last < msg.text.length) parts.push(msg.text.slice(last));
+  if (rest) parts.push(rest);
   return parts;
 }
 
@@ -443,6 +444,7 @@ export function CopilotWidget() {
             data-who={msg.who}
           >
             {renderMessageText(msg)}
+            {msg.source && <SourceChip messageId={msg.id} source={msg.source} />}
           </div>
         ))}
         {snapshot.heard && (
