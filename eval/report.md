@@ -2,7 +2,7 @@
 
 **Run label: pre-880k.** The index was still loading (the 880k-passage load is running); re-run when it finishes: `node eval/run.ts --corpus irs` after deleting `eval/out/irs/results.jsonl`.
 
-- Corpus flag: `--corpus irs` (config `eval/config/irs.json`). Index at report time: {"indexed_passages":"133082","fetched_passages":"133386"}.
+- Corpus flag: `--corpus irs` (config `eval/config/irs.json`). Index at report time: {"indexed_passages":"133386","fetched_passages":"133687"}.
 - Test sets written by `nvidia/nemotron-3.5-super-vl:free` (openrouter-free), checked by Jev (typesafe/jev-1.14); rubric judge: Jev; simulated callers: `nvidia/nemotron-3.5-super-vl:free`.
 - **No human spot check anywhere.** Every number below is a code check unless its row says "Jev" (the judge is used only where code cannot decide, such as "does this passage answer the question").
 - Target: the shipped answer path (Octo hybrid search over irs/ irc/ cfr/ irm/ irb/, reranker on, Jev passage and sentence pick, word-overlap fallback, the widget's advice check, quote-only Guide). The eval's search timeout is 150 s; the site ships with 30 s (see Latency).
@@ -322,6 +322,8 @@ Simulated callers against the real server check (1000 fictional sample clients i
 Model spend for the open-model callers: $0.0000. Time: 641 s.
 
 ## 6. Latency, cost and time
+
+**Re-measured 2026-10-31 19:33 UTC** (`node eval/latency.ts`, 40 questions one at a time, after Octo's search fix, with the library load still running): search p50 8.78 s, p90 11.59 s, max 13.91 s; whole answer (search + passage and sentence pick) p50 9.11 s, p90 11.91 s, max 14.61 s; 0 over the 30 s timeout. The figures below are from the main run, before the fix.
 
 Octo search, as measured during this run (589 searches, run at concurrency 1 alongside the ingest): p50 40.1 s, p90 52.2 s, max 40827.9 s. **432 of 589 (73%) took longer than the 30 s timeout the site ships with**, so on the live site those questions would have been answered "I don't know".
 

@@ -275,6 +275,9 @@ const pq = (p: number) => searchMs.length ? (searchMs[Math.min(searchMs.length -
 const over = count(searchMs, x => x > cfg.target.retriever.shippedTimeoutMs);
 json.latency = { searches: searchMs.length, p50: pq(0.5), p90: pq(0.9), max: pq(1), overShippedTimeout: over };
 md.push('## 6. Latency, cost and time', '');
+// a later latency-only measurement (eval/latency.ts), after the search fix: what the site would see now
+const lat = read('latency.json');
+if (lat) md.push(`**Re-measured ${lat.at.slice(0, 16).replace('T', ' ')} UTC** (\`node eval/latency.ts\`, ${lat.n} questions one at a time, after Octo's search fix, with the library load still running): search p50 ${lat.searchS.p50} s, p90 ${lat.searchS.p90} s, max ${lat.searchS.max} s; whole answer (search + passage and sentence pick) p50 ${lat.answerS.p50} s, p90 ${lat.answerS.p90} s, max ${lat.answerS.max} s; ${lat.overTimeout} over the ${lat.shippedTimeoutS} s timeout. The figures below are from the main run, before the fix.`, '');
 md.push(`Octo search, as measured during this run (${searchMs.length} searches, run at concurrency ${cfg.concurrency} alongside the ingest): p50 ${pq(0.5)} s, p90 ${pq(0.9)} s, max ${pq(1)} s. **${over} of ${searchMs.length} (${pct(over, searchMs.length)}) took longer than the ${cfg.target.retriever.shippedTimeoutMs / 1000} s timeout the site ships with**, so on the live site those questions would have been answered "I don't know".`, '');
 const genUsage = sets?.stats?.usage ?? {};
 const useRows = [...Object.entries(genUsage).map(([k, u]: any) => [`generate: ${k}`, u]), ...Object.entries(meta.usage).map(([k, u]: any) => [`run: ${k}`, u])] as [string, any][];
