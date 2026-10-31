@@ -1,0 +1,37 @@
+name: Issue Triage
+
+on:
+  issues:
+    types: [opened, edited, labeled, unlabeled]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  triage:
+    name: Validate ontology and classify issue log
+    concurrency:
+      group: oio-issue-triage-${{ github.event.issue.number }}
+      cancel-in-progress: false
+    # Set the repository variable OIO_RUNS_ON to a JSON runner, such as
+    # ["self-hosted","org-pool"], to run on your own runners. Editing this file
+    # instead blocks the next OIO upgrade.
+    runs-on: ${{ fromJSON(vars.OIO_RUNS_ON || '"ubuntu-latest"') }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pinned OIO validator dependency
+        run: |
+          requirements="requirements.txt"
+          if [ -f .oio/requirements.txt ]; then requirements=".oio/requirements.txt"; fi
+          python -m pip install --requirement "$requirements"
+
+      - name: Validate and label issue
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python .github/scripts/oio_triage.py

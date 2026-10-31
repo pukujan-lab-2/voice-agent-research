@@ -1,0 +1,8 @@
+# Cloudflare Pages project for the demo (not created yet: ask before running anything below).
+#   npm run build && npx wrangler pages deploy dist --project-name copilot-demo
+# Secrets, set once, values piped from ~/Documents/projects/.env without printing them:
+#   OPENROUTER_JEV_KEY (openrouter_jev_only), OCTO_KEY (octo_db_chatbots), OCTO_WORKSPACE (octo_db_chatbots_workspace),
+#   SIGNING_SECRET (any random string). Optional: JEV_DAILY_CAP (default 2000), RATE_PER_MIN (default 40).
+name = "copilot-demo"
+pages_build_output_dir = "dist"
+compatibility_date = "2026-10-01"

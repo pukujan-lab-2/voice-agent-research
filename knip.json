@@ -1,0 +1,48 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "workspaces": {
+    ".": {
+      "entry": [
+        "eval/*.ts",
+        "eval/traps/*.ts"
+      ],
+      "project": [
+        "eval/**/*.ts"
+      ]
+    },
+    "copilot-engine": {
+      "entry": [
+        "tests/*.ts"
+      ],
+      "project": [
+        "src/**/*.ts",
+        "tests/**/*.ts"
+      ]
+    },
+    "demo/live-site": {
+      "entry": [
+        "tests/*.ts",
+        "functions/**/*.ts",
+        "widget/sdk.ts"
+      ],
+      "project": [
+        "*.ts",
+        "widget/**/*.ts",
+        "tests/**/*.ts",
+        "functions/**/*.ts"
+      ]
+    }
+  },
+  "ignoreWorkspaces": [
+    "demo",
+    "demo/live-site/app"
+  ],
+  "ignoreBinaries": [
+    "python3",
+    "uvx"
+  ],
+  "rules": {
+    "exports": "warn",
+    "types": "warn"
+  }
+}

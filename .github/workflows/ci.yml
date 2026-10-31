@@ -1,0 +1,56 @@
+name: CI
+
+# One required check, "gates", runs the same steps as `npm run check` plus Python lint and the ACS train check.
+# Runner: GitHub-hosted while the repository is public. A self-hosted runner on a public repository would run
+# code from anyone's pull request on our machine. Once the repository is private, switch `runs-on` to the
+# MacBook Pro runner, as Kresilo does.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            copilot-engine/package-lock.json
+            demo/live-site/package-lock.json
+      - run: npm ci
+      - run: npm ci --ignore-scripts
+        working-directory: copilot-engine
+      - run: npm ci --ignore-scripts
+        working-directory: demo/live-site
+      - name: Lint (Biome)
+        run: npm run lint
+      - name: Typecheck (TypeScript, strict)
+        run: npm run typecheck
+      - name: Orphans (Knip)
+        run: npm run orphans
+      - name: Engine tests
+        run: npm test
+      - name: Engine scenarios (rule model, offline)
+        run: npm --prefix copilot-engine run scenarios
+      - uses: astral-sh/setup-uv@v6
+      - name: Lint Python (Ruff)
+        run: uvx ruff@0.14.0 check .
+
+  stack-train:
+    uses: Pukujan/agent-stack-train/.github/workflows/check-adopter.yml@main
+    with:
+      manifest: stack-manifest.json

@@ -1,0 +1,8 @@
+---
+system:
+  show_z: false
+run:
+  soft_probe_prompt_cap: 8
+  generations: 1
+reporting:
+  report_dir: /Users/teresa/Documents/chatbots/.claude/worktrees/strange-morse-7b3efa/eval/out/irs/garak

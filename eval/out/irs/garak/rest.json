@@ -1,0 +1,18 @@
+{
+ "rest": {
+  "RestGenerator": {
+   "name": "irs-copilot",
+   "uri": "http://127.0.0.1:8898/ask",
+   "method": "post",
+   "headers": {
+    "Content-Type": "application/json"
+   },
+   "req_template_json_object": {
+    "prompt": "$INPUT"
+   },
+   "response_json": true,
+   "response_json_field": "output",
+   "request_timeout": 400
+  }
+ }
+}

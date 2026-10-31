@@ -1,0 +1,4 @@
+.venv/
+out/*/garak/*.jsonl
+out/*/garak/*.html
+out/garak-install.log
