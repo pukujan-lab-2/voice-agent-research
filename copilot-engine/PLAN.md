@@ -75,8 +75,8 @@ public posting, secrets, deleting data. Everything else gets built and reported.
 5. [ ] Voice: Pipecat, Whisper speech-to-text, engine, text-to-speech (ElevenLabs for demos). Say "let me check
        the manual" while retrieval runs (1-2 s is fine).
 6. [ ] Widget: one script tag, per-site config, multi-tenant from the start, usage caps.
-7. [ ] Model bake-off on the holdout set: other small open models, LFM3 8-bit, `typesafe/jev-router` (needs an
-       OpenRouter key in `~/Documents/projects/.env`; must report the model used, support an allowlist).
+7. [ ] Model bake-off on the holdout set: other small open models, LFM3 8-bit (OpenRouter key in
+       `~/Documents/projects/.env`).
 8. [ ] Re-cut the demo video with real screen recordings of the working copilot.
 9. [ ] Self-hosted tier for regulated clients; pricing; first pilot.
 
@@ -164,22 +164,14 @@ Run the same scenarios on each candidate (cascade with 2-3 open text models; LFM
 and as speech-to-speech). Log pass rate, latency per turn and cost per conversation in the ledger. Keep
 the cheapest that passes the read-back and never-submit-without-yes scenarios.
 
-**Decision (user, 2026-10-30): the product model is `typesafe/jev-router` on OpenRouter (paid), used for everything.** Other candidates are no longer compared. The checks below still run once a key exists.
+**Decision (user, 2026-10-31): no `typesafe/jev-router`** (a router picks the model per request, e.g. `openai/gpt-6.1-sol`, so the cost is out of our hands). Replies: Qwen-Flash, a named model (desk sim: 80/80 completed and exact, judge 3.36 handled / 2.74 receptionist). Decisions: Jev 1.14. When the Windows GPU is on: LFM3 end to end (desk sim: same checks passed, judge 2.48 / 2.26).
 
 **Jev 1.14 (the decisions model) works on OpenRouter (tested 2026-10-30):** `POST https://openrouter.ai/api/alpha/decisions`
 with `{"model":"typesafe/jev-1.14","state":{...},"questions":{"name":{"type":"choice","criteria":{id:desc},"instructions":"..."}}}`.
 Returns `answers.name.{choice, probabilities, confidence}` and `usage.cost`. Calling it on `/chat/completions` gives a 400.
 Relevance check on the problem step: 12/12 right (incl. "I want to obtain a business loan"), ~0.27 s, ~$0.000016 per call
-(about 37x cheaper than one `jev-router` chat call). Use it as the off-scope gate. Lock the OpenRouter key with a Guardrail
+(far cheaper than a chat call). Use it as the off-scope gate. Lock the OpenRouter key with a Guardrail
 that allows only `typesafe/jev-1.14` plus a budget cap.
-
-**Jev Router notes:** A router that picks the model per request (it answered with `openai/gpt-6.1-sol` in a test).
-Unverified: which models it routes between, whether the response names the model that answered,
-whether it can be limited to an allowlist, real price (compare page says "Free", likely launch pricing),
-tool-calling quality. Use only if all three hold: it reports the model used per turn (so the ledger stays
-meaningful), it supports an allowlist, and it passes the scenarios. First test: ~20 scripted turns
-(serial read-back, off-scope request), check the raw response for a model field, compare cost against a
-pinned open model. Needs an OpenRouter key in `~/Documents/projects/.env` (never printed or committed).
 
 ## Business model
 
