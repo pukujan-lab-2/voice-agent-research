@@ -1,0 +1,32 @@
+{
+ "casual": {
+  "queries": 100,
+  "recall@5": 0.83,
+  "recall@10": 0.89,
+  "mrr": 0.718
+ },
+ "all": {
+  "queries": 493,
+  "recall@5": 0.639,
+  "recall@10": 0.694,
+  "mrr": 0.52
+ },
+ "vague": {
+  "queries": 100,
+  "recall@5": 0.45,
+  "recall@10": 0.53,
+  "mrr": 0.315
+ },
+ "chain (first turn)": {
+  "queries": 100,
+  "recall@5": 0.86,
+  "recall@10": 0.89,
+  "mrr": 0.75
+ },
+ "chain (follow-ups)": {
+  "queries": 193,
+  "recall@5": 0.523,
+  "recall@10": 0.575,
+  "mrr": 0.405
+ }
+}

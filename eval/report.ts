@@ -262,7 +262,7 @@ if (ver) {
       ...Object.entries(g.byFrom).map(([f, x]: any) => [f, x.n, `${x.quote} (${pct(x.quote, x.n)})`, `${x.answers} (${pct(x.answers, x.n)})`]),
       ['**All**', g.found, `**${g.quoteInPassage} (${pct(g.quoteInPassage, g.found)})**`, `**${g.passageAnswers} (${pct(g.passageAnswers, g.found)})**`],
     ]), '');
-    H.push(`Both true: ${g.both} of ${g.found}.${g.n - g.found ? ` Cited passage not found in the store by id: ${g.n - g.found}.` : ''}`, '');
+    H.push(`Both true: ${g.both} of ${g.found}.${g.n - g.found ? ` Cited passage not found in the store by id: ${g.n - g.found}.` : ''} The quote shows the passage's heading or document path above the quoted words in ${count(found, r => r.headingShown)} answers; the heading is not passage text, so only the words after it are checked.`, '');
     fl('Quote not in the cited passage', found.filter(r => !r.quoteInPassage), r => `\`${r.cite}\`: ${q(r.reply, 160)}`);
     fl('Cited passage does not answer the question', found.filter(r => r.passageAnswers === 'no'), r => `Q ${q(r.q, 90)} → \`${r.cite}\`: ${q(r.reply, 120)}`);
   } else H.push('_Grounding suite not run yet._', '');

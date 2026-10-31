@@ -46,3 +46,59 @@ noise  45 correct   -> correct   if i make this chioce are my spouse and i treat
 noise  46 correct   -> correct   what does the irs cnosider a record
 noise  47 correct   -> correct   can i roll over atfer-tacks contributions two an ira
 noise  48 correct   -> correct   my child files form 2555—hwere do i put the amount from form 8615 line 18
+noise  49 correct   -> correct   do big banks get two deduct additions to a reerve four bad debts
+noise  50 partial   -> partial   my 941 return is showig unable two compute base preiod code not one thru four wh
+noise  51 partial   -> partial   if i cehcked yes on line seventeen and i sold depreciated real property i held f
+noise  52 correct   -> dont_know can compensation be eempt from social security and medicare taxes under a totali
+noise  53 correct   -> correct   if i have a preacquisition loss that cant offset a recoginzed built-in gain unde
+noise  54 dont_know -> dont_know if i'm marred fiilng jointly what amount do i enter on line one of this workshee
+noise  55 correct   -> correct   if i dont have enuogh money from wages and emploee funds what order do i withhol
+noise  56 partial   -> partial   what info do i need two inclue so my electronic 1040-x is considered vlaidly sig
+noise  57 dont_know -> dont_know does my commission depend on length of servce or overall earinngs from services
+noise  58 correct   -> correct   if i rvoke my section 475(f) election witihn five years witch form do i use and 
+noise  59 correct   -> correct   can i file as maried filing jointly if i'm a nonresident alien mraried two a us 
+noise  60 correct   -> correct   if the corporation sells or exchanges proeprty that is also rented during the ta
+noise  61 correct   -> correct   do i have two use form 1040-nr and schedule nec to reoprt us gambling winnings a
+noise  62 correct   -> correct   how do you figrue out the design net heat rate four an electric generation unit
+noise  63 correct   -> correct   when do i need two report wages i payed from jnuary trhough march
+noise  64 correct   -> correct   does qaulified property under section 460 have two be placed in service bfore ja
+noise  65 wrong     -> wrong     who do these pocedures apply two
+noise  66 partial   -> partial   can i skip capitalizing costs four my citrus grove if they were incurred bfeore 
+noise  67 correct   -> correct   when the gain deferral method is being appied what does a section 721(c) partner
+noise  68 correct   -> correct   how many idnependent debit interest calculations can i check on one screen using
+noise  69 partial   -> partial   do isntallment sale rules apply two a bulk sale of inventory
+noise  70 correct   -> correct   can i reduce my withholding four the ductins beyond the basic stadnard deduction
+noise  71 correct   -> correct   what expesnes can i include when using the actual expense method four my car
+noise  72 correct   -> correct   if a cotnract is ended because the contractor defaulted can the obligated funds 
+noise  73 correct   -> correct   i got a ten ninety nine-b and the basis in box one e is wrong what code goes in 
+noise  74 partial   -> partial   if i let my ssiter stay at my rental house four a weekend and she pays me does t
+noise  75 correct   -> correct   if i'm under 59½ and take a distribtuion from my traditional ira is there an ext
+noise  76 correct   -> correct   can i roll over money from a qtp two a roth ira tcks-free
+noise  77 correct   -> correct   if a multiemployer plan is projected two be in critcial status four five scceedi
+noise  78 correct   -> correct   how many days before travel do i upload form 1321 and my itinerary if i arleady 
+noise  79 wrong     -> wrong     what hsa dstributions go on line 15 of form 8889
+noise  80 dont_know -> partial   if i'm age 36 wat's the maximum duartion of the temporary period four my annuity
+noise  81 no-search -> correct   what is the fedral excise tacks on a stat-eauthorized wager
+noise  82 no-search -> partial   what are the four secitons of the csn four a regular batch
+noise  83 partial   -> partial   does my 2024 schdeule d line twenty one loss qualify four a carryover two 2025
+noise  84 correct   -> dont_know do i owe tacks on money i took out of my able accout
+noise  85 correct   -> correct   what is the compesnation limit four matching and nonelective contributions in 20
+noise  86 wrong     -> wrong     do i need two include my child's soical security nmber on schedule eic to claim 
+noise  87 correct   -> correct   can i get a transrcipt of my tacks return oline
+noise  88 correct   -> correct   can a manufacturer recoer denatured distilled spirits that were removed from art
+noise  89 partial   -> partial   list each corporation in witch the partnership owns twenty percent or more direc
+noise  90 correct   -> correct   what information do i need two use command code eftps definer r to reseach a pya
+noise  91 correct   -> correct   do i need health insurance thrugh an exchange two claim the permium tacks credit
+noise  92 correct   -> correct   does the commissioner have two submit an annaul report to congress about denied 
+noise  93 correct   -> correct   who is the sngle point of contact four tigta and gao aduits
+noise  94 correct   -> correct   what aomunt do i put on line three of the form 8815 worksheet if i'm fling form 
+noise  95 correct   -> dont_know how do i figure out the amount of aministrative expense loss craried two each ta
+noise  96 correct   -> correct   what is the mission of collection data assruance and specialty reorts and plans
+noise  97 partial   -> correct   if i add insulation two my rntal proprety do i have to capitalize and depreciate
+noise  98 correct   -> correct   can our pratnership the duct reforestation expenses
+noise  99 correct   -> correct   does a 510(c)(three) organization have two distribute a contribution it receives
+noise 100 correct   -> correct   where does money offered in a tacks copmromise get depositd
+clarify: 100 vague questions scored
+run done in 136s, this run's model spend $0.0194
+grounding: 499 answers checked
+run done in 23s, this run's model spend $0.0101

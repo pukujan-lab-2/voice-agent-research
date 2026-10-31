@@ -1,0 +1,32 @@
+# Copilot eval: Brindlewick tax library (IRS publications, forms, instructions, IRM, the tax code)
+
+**Run label: pre-880k.** The index was still loading (the 880k-passage load is running); re-run when it finishes: `node eval/run.ts --corpus irs` after deleting `eval/out/irs/results.jsonl`.
+
+- Corpus flag: `--corpus irs` (config `eval/config/irs.json`). Index at report time: {"indexed_passages":"132779","fetched_passages":"133082"}.
+- Test sets written by `nvidia/nemotron-3.5-super-vl:free` (openrouter-free), checked by Jev (typesafe/jev-1.14); rubric judge: Jev; simulated callers: `nvidia/nemotron-3.5-super-vl:free`.
+- **No human spot check anywhere.** Every number below is a code check unless its row says "Jev" (the judge is used only where code cannot decide, such as "does this passage answer the question").
+- Target: the shipped answer path (Octo hybrid search over irs/ irc/ cfr/ irm/ irb/, reranker on, Jev passage and sentence pick, word-overlap fallback, the widget's advice check, quote-only Guide). The eval's search timeout is 150 s; the site ships with 30 s (see Latency).
+
+## A. Ambiguous questions: one clarifying question, then the answer
+
+| Check | Result | How |
+|---|---|---|
+| Asked back instead of guessing | 0 of 100 (0%) | code: reply is a question, no quote |
+| Asked exactly one question | 0 of 100 | code: one "?" outside quotes |
+| After the caller picked a meaning, answered it correctly | 0 of 0 that asked | Jev grade vs the gold passage |
+| Guessed and quoted something without asking | 67 (of which it cited the gold passage: 23) | code |
+| Said "I don't know" or search timed out | 32 | code |
+
+**Answered a vague question without asking** (67):
+
+- Q "can i get disaster tax relief?" (could mean "do i automatically qualify if i live in the disaster area" or "do i need to call to self-identify if i live outside the dis…") → "The manual says: "IRS Tax Topic 107: Affected taxpayers Affected taxpayers are those whose residence or place …"
+- Q "what's the limit for my home office deduction?" (could mean "the maximum square footage allowed under the simplified meth…" or "the maximum dollar amount I can deduct for my home office") → "The manual says: "The area you use to figure your deduction is limited to 300 square feet.""
+- Q "what about the credits from that activity?" (could mean "how do i identify credits separately for each activity" or "which credits apply to intangible property activities") → "The manual says: "The disallowed deductions or credits allocated to an activity under the preceding sentence a…"
+
+Simulated callers who opened vaguely: asked back in 0 of 12 calls (code).
+
+## B. Spelling and speech-to-text errors
+
+Questions: the casual set is written with typos, fillers and STT slips; the noise set takes each clean chain first turn and adds sound-alike swaps, no punctuation, numbers as words, a dropped and a swapped letter (deterministic, seeded by item id), then compares with the clean result.
+
+| Same question | Correct | G

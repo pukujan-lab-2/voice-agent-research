@@ -3,25 +3,28 @@
   "values": 0,
   "single": 47317,
   "callers": 180,
-  "traps": 21
+  "traps": 21,
+  "noise": 136,
+  "clarify": 0,
+  "grounding": 64
  },
  "usage": {
   "octo search": {
-   "calls": 668,
+   "calls": 768,
    "cost": 0,
-   "ms": 142058532,
+   "ms": 142419270,
    "failed": 0
   },
   "jev (target)": {
    "calls": 0,
-   "cost": 0.09789234000000002,
+   "cost": 0.11478041400000003,
    "ms": 0,
    "failed": 0
   },
   "grader": {
-   "calls": 309,
-   "cost": 0.008331455999999994,
-   "ms": 45309,
+   "calls": 402,
+   "cost": 0.010853219999999993,
+   "ms": 58306,
    "failed": 0
   },
   "caller": {
@@ -35,8 +38,14 @@
    "cost": 0.001050378,
    "ms": 3970,
    "failed": 0
+  },
+  "grounding judge": {
+   "calls": 1497,
+   "cost": 0.030203585999999998,
+   "ms": 184549,
+   "failed": 0
   }
  },
  "label": "pre-880k",
- "lastRun": "2026-10-31T19:04:48.402Z"
+ "lastRun": "2026-10-31T19:25:25.378Z"
 }

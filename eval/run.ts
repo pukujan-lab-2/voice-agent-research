@@ -353,6 +353,12 @@ async function clarify() {
 // passage answer the question?) The quote check is code, against the passage text fetched fresh from the store by
 // its id; the "does it answer" check is Jev, the one thing code can't decide.
 const quoteOf = (reply: string) => { const s = reply.indexOf('"'), e = reply.lastIndexOf('"'); return s >= 0 && e > s ? reply.slice(s + 1, e) : ''; };
+// The copilot shows the passage's heading line(s) above the quoted words ("Section title\nThe text…"); a heading comes
+// from the passage's place in its document, not from its text, so only the lines after it must be found word for word.
+// A heading line doesn't end like a sentence, or is a document path ("IRM 1.2.3: …", "… › …"); the report counts them.
+const isHeading = (line: string) => !/[.!;"'\u201d]\s*$/.test(line) || /›/.test(line) || /^(IRS Pub|Instructions for|IRM|Publication|Form) [^:]{0,40}: /.test(line);
+const headingLines = (quote: string) => { const lines = quote.split('\n'); let n = 0; while (n < lines.length - 1 && isHeading(lines[n])) n++; return n; };
+const quoteBody = (quote: string) => quote.split('\n').slice(headingLines(quote)).join(' ');
 async function grounding() {
   const answers: { key: string; q: string; reply: string; cite: string; from: string }[] = [];
   for (const r of rows()) {
@@ -367,11 +373,11 @@ async function grounding() {
   await pool(todo, cfg.concurrency + 2, async a => {
     const text = texts.get(a.cite);
     const quote = quoteOf(a.reply);
-    const sents = splitSentences(quote);
+    const sents = splitSentences(quoteBody(quote));
     const inPassage = !!text && !!quote && sents.every(s => norm(text).includes(norm(s)));
     const j = text ? await jev({ question: a.q, passage: text }, { answers: { instructions: 'The question may have typos or speech-to-text slips; read it as the caller meant it.', criteria: {
       yes: 'The passage answers the question', no: 'The passage does not answer the question (it is only on a related topic, or about something else)' } } }, 'grounding judge') : null;
-    save({ key: a.key, suite: 'grounding', from: a.from, q: a.q, cite: a.cite, found: !!text, quoteInPassage: inPassage, passageAnswers: j?.answers.choice ?? 'error', p: j?.answers.p ?? 0, reply: a.reply });
+    save({ key: a.key, suite: 'grounding', from: a.from, q: a.q, cite: a.cite, found: !!text, quoteInPassage: inPassage, headingShown: headingLines(quote) > 0, passageAnswers: j?.answers.choice ?? 'error', p: j?.answers.p ?? 0, reply: a.reply });
   });
   console.log(`grounding: ${todo.length} answers checked`);
 }
