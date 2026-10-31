@@ -628,13 +628,15 @@ const CLOSE = /^(ok(ay)?,? )?(please )?(close|hide|dismiss) (that|this|it|the (s
 const SHOW_SOURCE = /^(ok(ay)?,? )?(show me( that| it| the source| where)?|where did you (get|find) (that|this|it)|where('s| is| does) (that|this|it) (from|come from)|what('s| is) (the|your) source)\b/i;
 const BACK_TO_FORM = /\b(back to|return to|take me (back )?to|go (back )?to|open) (the |my )?(form|booking( form)?|intake( form)?|consultation form|questions)\b/i;
 const NAV = /^(?:ok(?:ay)?,? )?(?:please )?(?:can you |could you )?(?:take me to|go to|navigate to|bring up|open|show(?: me)?)\s+(?:the\s+)?(.+?)\s*(?:page)?\s*(?:please)?$/i;
+const WANT = /^(?:ok(?:ay)?,? )?(?:i (?:need|want|would like|'d like)(?: to (?:see|get|make|set up|request|send|start))?|i'm looking for|where (?:are|is|do i find)) (?:a |an |the |your |my )?(.+?)\s*(?:please)?$/i;
 const GUIDE = /\b(?:guide|publication|article|topic)s? (?:about|on|for|covering) (.+)$/i;
 
 // A spoken request to change page, show or close a source; null when the words are something else (an answer).
 async function navReply(text: string): Promise<string | null> {
   if (snap.source && CLOSE.test(text)) { closeSource(); return `Closed it.${snap.mode === 'form' && currentAsk() ? ` Back to the form: ${currentAsk()}` : ''}`; }
   if (CLOSE.test(text)) return null;
-  if (SHOW_SOURCE.test(text) && !NAV.exec(text)?.[1]?.match(/\b(page|services?|pricing|team|guides?|faq|form)\b/)) {
+  const navTo = NAV.exec(text)?.[1];
+  if (SHOW_SOURCE.test(text) && !navTo?.match(/\b(page|services?|pricing|team|guides?|faq|form)\b/) && !(navTo && pageFor(navTo))) {
     const src = showSource();
     if (!src) return "I haven't quoted a source yet. Ask me a tax question and I'll show you where the answer comes from.";
     return `Here it is: ${src.title}${src.label.includes(' · ') ? `, ${src.label.split(' · ')[1]}` : ''}, with the part I quoted highlighted.`;
@@ -658,7 +660,15 @@ async function navReply(text: string): Promise<string | null> {
   if (staff !== null) return staff;
   // The whole request is a page's name ("which notices are due this week"): open it, even without "take me to".
   const whole = pageFor(text.replace(/\?$/, ''));
-  const m = NAV.exec(text) ?? (whole && whole.score >= 100 ? [text, text] as unknown as RegExpExecArray : null);
+  // "I need a payment plan", "where are your offices": a page only when one is named, else it's a question or an answer
+  const want = WANT.exec(text);
+  if (!NAV.test(text) && want && pageFor(want[1]) && !(snap.mode === 'form' && copilot && copilot.state !== 'done')) {
+    const p = pageFor(want[1])!;
+    if (location.pathname !== p.path) { go(p.path); return `Here's the ${p.title} page.`; }
+  }
+  // a bare page name is an answer, not a request, while a form question is open ("payroll" for "what do they need help with")
+  const asking = snap.mode === 'form' && !!copilot && copilot.state !== 'done';
+  const m = NAV.exec(text) ?? (whole && whole.score >= 100 && !asking ? [text, text] as unknown as RegExpExecArray : null);
   if (!m || !cfg?.pages?.length) return null;
   const target = m[1];
   const page = pageFor(target);
@@ -697,9 +707,10 @@ async function send(text: string) {
   try {
     const ver = await verifyReply(text);
     const nav = ver === null ? await navReply(text) : null;
-    if (ver !== null) reply = ver;
-    if (ver !== null && verifier?.state === 'verified' && verifyBackend?.call && !location.pathname.startsWith('/tax/portal')) links = [{ text: 'Open your client portal', href: '/tax/portal' }];
-    else if (nav !== null) reply = nav;
+    if (ver !== null) {
+      reply = ver;
+      if (verifier?.state === 'verified' && verifyBackend?.call && !location.pathname.startsWith('/tax/portal')) links = [{ text: 'Open your client portal', href: '/tax/portal' }];
+    } else if (nav !== null) reply = nav;
     else if (snap.mode === 'ask') ({ reply, links, source } = await deskReply(text));
     else if (snap.mode === 'guide') reply = await guide!.turn(text);
     else if (!copilot) startForm();

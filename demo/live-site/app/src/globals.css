@@ -1,6 +1,8 @@
 /* Brindlewick's practice app (/staff) and client portal (/tax/portal), kept in their own files. */
 @import "./styles/staff.css";
 @import "./styles/portal.css";
+/* The firm's public website (/tax): mega-menu, footer, cards, tools and forms. */
+@import "./styles/site.css";
 
 @tailwind base;
 @tailwind components;

@@ -72,6 +72,58 @@ for (const [name, vp] of [['desktop', { width: 1366, height: 860 }], ['phone', {
   check(/demo site, so no real details please/.test((await snap(page)).last), 'the greeting carries the demo note');
   await shot('1-greeting');
 
+  // the firm's site: spoken requests open its pages (content from the practice API), and three of its forms are
+  // filled to the end by voice with every answer read back; none is ever sent
+  const tour: [string, string, string][] = [
+    ['show me the team', '/tax/team', 'team-member'], ['where are your offices', '/tax/locations', 'location-card'],
+    ['open the tax calendar', '/tax/tools/calendar', 'deadline-row'], ['show the mileage calculator', '/tax/tools/mileage', 'calc-result'],
+    ['take me to careers', '/tax/careers', 'job-card'], ['show me the reviews', '/tax/reviews', 'review-card'],
+    ['open the articles', '/tax/blog', 'article-card'], ['show the rideshare page', '/tax/industries/rideshare-gig', 'industry-page'],
+  ];
+  for (const [said, to, hook] of tour) {
+    const r = await say(page, said);
+    await page.locator(T(hook)).first().waitFor({ timeout: 15_000 }).catch(() => {});
+    check(new URL(page.url()).pathname === to && await page.locator(T(hook)).count() > 0, `"${said}" opens ${to} with its content`, `${page.url()} | ${r}`);
+  }
+  await shot('0a-site-page');
+  const fill = async (said: string, to: string, formId: string, answers: string[], expect: Record<string, string>) => {
+    let r = await say(page, said);
+    // the page change says "Here's the … page" first; the form's first question follows once the form is read
+    await page.waitForFunction(() => { const s = (window as any).copilot.getSnapshot(); return !s.busy && s.mode === 'form' && /\?$/.test(s.messages.filter((m: any) => m.who === 'bot').at(-1)?.text ?? ''); }, null, { timeout: 15_000 }).catch(() => {});
+    r = (await snap(page)).last;
+    check(new URL(page.url()).pathname === to && /\?$/.test(r), `"${said}" opens ${to} and starts the form`, `${page.url()} | ${r}`);
+    let readbacks = 0;
+    for (const t of answers) {
+      r = await say(page, t);
+      for (let i = 0; i < 3 && /is that right\?$/i.test(r); i++) { readbacks++; r = await say(page, 'yes'); }
+    }
+    if (/is that all correct\?/i.test(r)) r = await say(page, 'yes');
+    const got: Record<string, string> = await page.evaluate(ids => Object.fromEntries(ids.map(id => {
+      const el = document.getElementById(id) as HTMLInputElement | null;
+      const radio = document.querySelector<HTMLInputElement>(`input[type=radio][id^="${id}_"]:checked`);
+      return [id, el ? el.value : radio ? radio.value : ''];
+    })), Object.keys(expect));
+    const wrong = Object.entries(expect).filter(([k, v]) => !(got[k] ?? '').toLowerCase().includes(v.toLowerCase()));
+    check(!wrong.length, `${formId}: every answer is in its box`, JSON.stringify(wrong.map(([k]) => [k, got[k]])));
+    check(readbacks >= answers.length - 3, `${formId}: answers read back (${readbacks})`);
+    check(/yourself/i.test(r) && !submitted && !(await page.locator(T('form-confirmation')).count()), `${formId}: handed back, never sent`, r);
+    return r;
+  };
+  await fill('refer a friend', '/tax/refer', 'referral-form',
+    ['Jordan Example', 'jordan at example dot com', 'Sam Rivera', 'none', '555 010 0142', 'a friend', 'payroll', 'none'],
+    { rf_your_name: 'Jordan Example', rf_your_email: 'jordan@example.com', rf_friend_name: 'Sam Rivera', rf_friend_phone: '0142', rf_relationship: 'friend', rf_service: 'payroll' });
+  await shot('0b-referral-filled');
+  await fill('I need a payment plan', '/tax/payment-plan', 'plan-form',
+    ['Jordan Example', 'jordan at example dot com', '555 010 0199', '2023 and 2024', '8400', '350', 'long term', 'yes', 'no', 'none'],
+    { pp_name: 'Jordan Example', pp_email: 'jordan@example.com', pp_years: '2023', pp_owed: '8', pp_monthly: '350', pp_plan: 'long', pp_notice: 'yes', pp_debit: 'no' });
+  await fill('I need a copy of my old return', '/tax/prior-year', 'prior-form',
+    ['Jordan Example', 'jordan at example dot com', '555 010 0199', '2023', 'both', 'the portal', 'a mortgage', 'none'],
+    { tr_name: 'Jordan Example', tr_year: '2023', tr_what: 'both', tr_delivery: 'portal', tr_purpose: 'mortgage' });
+  await shot('0c-prior-year-filled');
+  if (process.env.TOUR_ONLY) { check(clicks === 1, `one click in the whole call (start call): ${clicks}`); await ctx.close(); continue; }
+  const home = await say(page, 'take me to the home page');
+  check(new URL(page.url()).pathname === '/tax', '"take me to the home page" goes back home', home);
+
   // a question: the answer's source opens by itself with the quoted words highlighted
   let r = await say(page, 'What is the standard deduction for a single filer?');
   let s = await snap(page);
@@ -100,7 +152,7 @@ for (const [name, vp] of [['desktop', { width: 1366, height: 860 }], ['phone', {
   await shot('4-half-filled');
   r = await say(page, 'show the payroll services page');
   check(new URL(page.url()).pathname === '/tax/services/payroll', '"show the payroll services page" goes there', r);
-  r = await say(page, 'take me to the crypto mining page');
+  r = await say(page, 'take me to the parking garage page');
   check(/couldn't find/i.test(r) && /closest are/i.test(r), 'an unknown page gets "I couldn\'t find that" and close matches', r);
   r = await say(page, 'open the guide about filing status');
   check(new URL(page.url()).pathname.startsWith('/tax/guides/'), '"open the guide about filing status" opens a guide', r);
@@ -147,6 +199,15 @@ for (const [name, vp] of [['desktop', { width: 1366, height: 860 }], ['phone', {
     const leaked = (await seen()).filter(f => !before.includes(f));
     check(!leaked.length, 'no birth date, last four or zip on the page or in the transcript', `${leaked.length} value(s) visible`);
     await shot('7-verified');
+    // the verified call opens this caller's portal: no password, no demo login, the call stays on
+    r = await say(page, 'open my client portal');
+    await page.locator(T('portal-dashboard')).waitFor({ timeout: 20_000 }).catch(() => {});
+    const home = await page.locator(T('portal-dashboard')).innerText().catch(() => '');
+    check(new URL(page.url()).pathname.startsWith('/tax/portal') && home.includes(who.full_name.split(' ')[0]), 'the verified call opens the caller\'s own portal', `${page.url()} | ${r} | ${home.slice(0, 80)}`);
+    check(await page.locator(T('portal-return-status')).isVisible(), 'the portal shows the return status');
+    const shown = (await seen()).filter(f => !before.includes(f));
+    check(!shown.length, 'the portal shows no birth date, last four or zip', await page.evaluate(fs => fs.map(f => { const t = document.body.innerText; const i = t.indexOf(f); return i < 0 ? `${f.length} chars: in the transcript` : `…${t.slice(Math.max(0, i - 40), i).replace(/\d/g, '#')}[value]…`; }).join(' | '), shown));
+    await shot('8-portal');
   }
   check(clicks === 1, `one click in the whole call (start call): ${clicks}`);
   if (process.env.DEBUG) console.log(await page.evaluate(() => (window as any).copilot.getSnapshot().messages.map((m: any) => `${m.who}: ${m.text}`).join('\n')));

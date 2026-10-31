@@ -1,72 +1,88 @@
-import { Link } from "react-router-dom";
-import { ArrowRight, FileText, BookOpen, Users, ShieldAlert, Compass, type LucideIcon } from "lucide-react";
-import { TaxLayout } from "@/components/tax/TaxLayout";
-import { TaxCopilot } from "@/components/tax/TaxCopilot";
-import { useTaxTitle } from "@/lib/tax";
-import { TAX_SERVICES } from "@/lib/taxServices";
+/**
+ * The services index. Structure after a mid-size CPA firm's service list: a short lead, then every service as a
+ * card with its one-line description and the price it starts at, grouped by who it is for.
+ */
 
-const ICONS: Record<string, LucideIcon> = {
-  "individual-returns": FileText,
-  bookkeeping: BookOpen,
-  payroll: Users,
-  "irs-notices": ShieldAlert,
-  planning: Compass,
-};
+import { Link } from "react-router-dom";
+import { SitePage } from "@/components/tax/SitePage";
+import { Empty, ErrorBox, PageHead, SkeletonCards } from "@/components/tax/SiteUi";
+import { useTaxTitle } from "@/lib/tax";
+import { useSiteServices } from "@/lib/siteData";
+import { fromPrice, siteIcon } from "@/lib/site";
 
 export default function TaxServices() {
   useTaxTitle("Services");
+  const services = useSiteServices();
 
-  return (
-    <TaxLayout>
-      <div className="tax-wrap tax-section">
-        <span className="tax-eyebrow">Services</span>
-        <h1 className="tax-h1" style={{ fontSize: "clamp(1.75rem, 5vw, 2.5rem)" }}>
-          The work we do, and what it costs to start.
-        </h1>
-        <p className="tax-lead">
-          Five services, each with a fixed quote agreed before we begin. Most clients use two or
-          three of them together, which is why we keep one team on the whole picture.
+  const list = services.data?.services ?? [];
+  const individuals = list.filter((s) => s.audience === "individuals");
+  const businesses = list.filter((s) => s.audience === "businesses");
+
+  const group = (heading: string, note: string, items: typeof list) =>
+    items.length > 0 && (
+      <section style={{ marginTop: "2rem" }}>
+        <h2 className="tax-h2 tax-h2-lead">{heading}</h2>
+        <p className="tax-p" style={{ maxWidth: "38rem" }}>
+          {note}
         </p>
-
-        <div className="tax-grid tax-grid-2" style={{ marginTop: "1.5rem" }}>
-          {TAX_SERVICES.map((s) => {
-            const Icon = ICONS[s.slug] ?? FileText;
+        <div className="tax-grid tax-grid-3">
+          {items.map((s) => {
+            const Icon = siteIcon(s.icon);
             return (
-              <div key={s.slug} className="tax-card" style={{ display: "flex", flexDirection: "column" }}>
+              <Link key={s.slug} to={`/tax/services/${s.slug}`} className="tax-link-card">
                 <span className="tax-icon-badge">
                   <Icon size={20} aria-hidden="true" />
                 </span>
-                <h2 className="tax-h3" style={{ fontSize: "1.125rem" }}>
-                  {s.name}
-                </h2>
-                <p className="tax-p" style={{ fontSize: "0.9375rem", flex: 1 }}>
-                  {s.short}
-                </p>
-                <p className="tax-small" style={{ margin: "0 0 0.75rem", color: "hsl(var(--tax-brass))", fontWeight: 600 }}>
-                  {s.from}
-                </p>
-                <div className="tax-btn-row">
-                  <Link to={`/tax/services/${s.slug}`} className="tax-btn tax-btn-outline">
-                    Read more <ArrowRight size={15} />
-                  </Link>
-                </div>
-              </div>
+                <h3>{s.name}</h3>
+                <p>{s.short}</p>
+                <span className="tax-link-card-foot">
+                  <span className="from">{fromPrice(s.from_price)}</span>
+                  <span className="more">Read more →</span>
+                </span>
+              </Link>
             );
           })}
         </div>
-      </div>
+      </section>
+    );
 
-      <div className="tax-wrap tax-section-tight">
-        <div className="tax-card tax-card-quiet">
-          <h2 className="tax-h2 tax-h2-lead">Not sure which one you need?</h2>
+  return (
+    <SitePage>
+      <div className="tax-wrap tax-section">
+        <PageHead
+          eyebrow="Services"
+          title="The work we do, and what it costs to start."
+          lead="Each service below has its own page: what is included, who it is for, how long it takes and the price we start at. Where a job varies, we quote after the first call and put the figure in writing."
+          crumbs={[{ label: "Home", to: "/tax" }, { label: "Services" }]}
+        />
+
+        {services.loading && <SkeletonCards count={6} height="10rem" />}
+        {services.error && <ErrorBox error={services.error} onRetry={services.reload} />}
+        {services.data && list.length === 0 && <Empty>No services are listed yet.</Empty>}
+
+        {group(
+          "For individuals",
+          "Returns, notices, planning and the catch-up work that follows a few years of not filing.",
+          individuals,
+        )}
+        {group(
+          "For businesses",
+          "Books, payroll, business returns and the planning that decides what a year costs.",
+          businesses,
+        )}
+
+        <div className="tax-card tax-card-quiet" style={{ marginTop: "2.5rem" }}>
+          <h2 className="tax-h2 tax-h2-lead" style={{ fontSize: "1.25rem" }}>
+            Not sure which one you need?
+          </h2>
           <p className="tax-p">
-            Most people aren't, the first time. Book the free fifteen-minute call and describe the
-            year you've had. We'll tell you what we'd do, and what it would cost, before you commit
-            to anything.
+            Most people aren't, the first time. Book the free fifteen-minute call and describe the year
+            you've had. We'll tell you what we would do, and what it would cost, before you commit to
+            anything.
           </p>
           <div className="tax-btn-row">
             <Link to="/tax/book" className="tax-btn">
-              Book a consultation <ArrowRight size={16} />
+              Book a consultation
             </Link>
             <Link to="/tax/pricing" className="tax-btn tax-btn-outline">
               See the full price list
@@ -74,8 +90,6 @@ export default function TaxServices() {
           </div>
         </div>
       </div>
-
-      <TaxCopilot />
-    </TaxLayout>
+    </SitePage>
   );
 }

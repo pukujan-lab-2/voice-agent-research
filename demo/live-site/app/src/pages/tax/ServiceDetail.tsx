@@ -1,133 +1,165 @@
+/**
+ * One service. Structure after a mid-size CPA firm's service page: what is included, the process, the price it
+ * starts at, the questions people ask, and a sticky card on the right with the price, the booking button and the
+ * preparer who would take it. Every word comes from /api/site/service; the citations are rendered as superscripts
+ * with a Sources list at the foot.
+ */
+
 import { Link, useParams } from "react-router-dom";
-import { ArrowRight, ArrowLeft, Check } from "lucide-react";
-import { TaxLayout } from "@/components/tax/TaxLayout";
-import { TaxCopilot } from "@/components/tax/TaxCopilot";
+import { ArrowRight, Check } from "lucide-react";
+import { SitePage } from "@/components/tax/SitePage";
+import {
+  CiteText, Empty, ErrorBox, FaqList, PageHead, Prose, SkeletonPage, Sources,
+} from "@/components/tax/SiteUi";
 import { useTaxTitle } from "@/lib/tax";
-import { TAX_SERVICES, findService } from "@/lib/taxServices";
-import NotFound from "@/pages/NotFound";
+import { useApi } from "@/hooks/useApi";
+import { siteGet, type SiteService, type SiteTeamMember } from "@/lib/practice";
+import { useSiteTeam } from "@/lib/siteData";
+import { fromPrice, siteIcon } from "@/lib/site";
+
+/** The preparer who would take this work: the first person whose specialties touch the service. */
+function matchPreparer(team: SiteTeamMember[], service: SiteService): SiteTeamMember | undefined {
+  const words = [service.name, service.short, ...service.body.map((b) => b.heading)]
+    .join(" ")
+    .toLowerCase();
+  const scoring = team.map((p) => ({
+    p,
+    score: (p.specialties ?? []).reduce((n, s) => (words.includes(s.toLowerCase()) ? n + 2 : n), 0) +
+      (p.accepts_new ? 1 : 0),
+  }));
+  scoring.sort((a, b) => b.score - a.score);
+  return scoring[0]?.p;
+}
 
 export default function TaxServiceDetail() {
   const { slug } = useParams();
-  const service = findService(slug);
-  useTaxTitle(service ? service.name : "Not found");
+  const service = useApi<{ service: SiteService }>(
+    () => siteGet<{ service: SiteService }>("/service", { slug }),
+    [slug],
+  );
+  const team = useSiteTeam();
+  const s = service.data?.service;
+  useTaxTitle(s?.name ?? "Service");
 
-  if (!service) return <NotFound />;
-
-  const others = TAX_SERVICES.filter((s) => s.slug !== service.slug).slice(0, 3);
+  const preparer = s ? matchPreparer(team.data?.team ?? [], s) : undefined;
+  const Icon = siteIcon(s?.icon);
 
   return (
-    <TaxLayout>
-      <div className="tax-wrap tax-section">
-        <Link to="/tax/services" className="tax-small tax-muted" style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "0.375rem" }}>
-          <ArrowLeft size={14} /> All services
-        </Link>
+    <SitePage>
+      <div className="tax-wrap tax-section" data-testid="service-page">
+        {service.loading && <SkeletonPage />}
+        {service.error && (
+          <>
+            <PageHead eyebrow="Services" title="This service" crumbs={[{ label: "Home", to: "/tax" }, { label: "Services", to: "/tax/services" }]} />
+            <ErrorBox error={service.error} onRetry={service.reload} />
+          </>
+        )}
+        {service.data && !s && <Empty>That service isn't listed.</Empty>}
 
-        <h1 className="tax-h1" style={{ fontSize: "clamp(1.75rem, 5vw, 2.5rem)", marginTop: "0.75rem" }}>
-          {service.name}
-        </h1>
-        <p className="tax-lead">{service.lede}</p>
+        {s && (
+          <>
+            <div className="tax-split">
+              <div style={{ minWidth: 0 }}>
+                <PageHead
+                  eyebrow="Services"
+                  title={s.name}
+                  lead={s.short}
+                  crumbs={[
+                    { label: "Home", to: "/tax" },
+                    { label: "Services", to: "/tax/services" },
+                    { label: s.name },
+                  ]}
+                />
 
-        <div className="tax-card" style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem 1.5rem", alignItems: "center" }}>
-          <div>
-            <div className="tax-tiny tax-muted" style={{ letterSpacing: "0.1em", textTransform: "uppercase", fontWeight: 700 }}>
-              Typical fee
-            </div>
-            <div className="tax-serif" style={{ fontSize: "1.375rem", color: "hsl(var(--tax-ink))" }}>
-              {service.from}
-            </div>
-            <div className="tax-tiny tax-muted">{service.fromNote}</div>
-          </div>
-          <div style={{ marginLeft: "auto" }} className="tax-btn-row">
-            <Link to="/tax/book" className="tax-btn">
-              Book a consultation <ArrowRight size={16} />
-            </Link>
-            <Link to="/tax/pricing" className="tax-btn tax-btn-outline">
-              Pricing
-            </Link>
-          </div>
-        </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.625rem", marginBottom: "1.5rem", flexWrap: "wrap" }}>
+                  <span className="tax-icon-badge" style={{ margin: 0 }}>
+                    <Icon size={20} aria-hidden="true" />
+                  </span>
+                  <span className="tax-chiplist">
+                    <span>{s.audience === "businesses" ? "For businesses" : "For individuals"}</span>
+                  </span>
+                  {s.forms.length > 0 && (
+                    <span className="tax-chiplist">
+                      {s.forms.map((f) => (
+                        <span key={f}>{f}</span>
+                      ))}
+                    </span>
+                  )}
+                </div>
 
-        <div className="tax-grid tax-grid-2" style={{ marginTop: "2rem" }}>
-          <div>
-            <h2 className="tax-h2 tax-h2-lead">Who it's for</h2>
-            <ul className="tax-list">
-              {service.who.map((w) => (
-                <li key={w}>{w}</li>
-              ))}
-            </ul>
-          </div>
-          <div>
-            <h2 className="tax-h2 tax-h2-lead">What's included</h2>
-            <ul className="tax-list">
-              {service.includes.map((w) => (
-                <li key={w}>{w}</li>
-              ))}
-            </ul>
-          </div>
-          <div>
-            <h2 className="tax-h2 tax-h2-lead">What to bring</h2>
-            <ul className="tax-list tax-list-plain">
-              {service.bring.map((w) => (
-                <li key={w}>{w}</li>
-              ))}
-            </ul>
-          </div>
-          <div>
-            <h2 className="tax-h2 tax-h2-lead">Typical timeline</h2>
-            <ul className="tax-list tax-list-plain">
-              {service.timeline.map((w) => (
-                <li key={w}>{w}</li>
-              ))}
-            </ul>
-          </div>
-        </div>
+                <Prose body={s.body} id={s.slug} />
 
-        <hr className="tax-rule" />
+                {s.faqs.length > 0 && (
+                  <section style={{ marginTop: "2rem" }}>
+                    <h2 className="tax-h2 tax-h2-lead">Questions we get asked</h2>
+                    <FaqList faqs={s.faqs} />
+                  </section>
+                )}
 
-        <h2 className="tax-h2">Questions we get asked</h2>
-        <div className="tax-grid" style={{ gap: "0.75rem" }}>
-          {service.faq.map((f) => (
-            <details key={f.q} className="tax-faq-item">
-              <summary>{f.q}</summary>
-              <div className="tax-faq-body">
-                <p>{f.a}</p>
+                <Sources cites={s.cites} id={s.slug} />
               </div>
-            </details>
-          ))}
-        </div>
 
-        <div className="tax-card tax-card-quiet" style={{ marginTop: "2rem" }}>
-          <h2 className="tax-h2 tax-h2-lead" style={{ fontSize: "1.25rem" }}>
-            Start with a free fifteen-minute call
-          </h2>
-          <p className="tax-p" style={{ marginBottom: "1rem" }}>
-            A preparer will ring you at the time you choose, at no charge. Bring nothing but the
-            rough shape of your year.
-          </p>
-          <div className="tax-btn-row">
-            <Link to="/tax/book" className="tax-btn">
-              Book a consultation <ArrowRight size={16} />
-            </Link>
-          </div>
-          <p className="tax-small tax-muted" style={{ display: "flex", gap: "0.375rem", alignItems: "center", marginTop: "0.75rem", marginBottom: 0 }}>
-            <Check size={14} aria-hidden="true" /> No obligation, and no documents needed for the first call.
-          </p>
-        </div>
+              <aside className="tax-sidecard">
+                {fromPrice(s.from_price) && (
+                  <>
+                    <span className="tax-tiny" style={{ letterSpacing: "0.12em", textTransform: "uppercase", fontWeight: 700, color: "hsl(var(--tax-brass))" }}>
+                      Typical fee
+                    </span>
+                    <p className="tax-price">{fromPrice(s.from_price)}</p>
+                  </>
+                )}
+                <p className="tax-small tax-muted" style={{ margin: "0 0 0.875rem" }}>
+                  Quoted in writing before we start. The quote is the invoice.
+                </p>
+                <Link to="/tax/book" className="tax-btn" style={{ width: "100%" }}>
+                  Book a consultation <ArrowRight size={16} aria-hidden="true" />
+                </Link>
+                <p className="tax-small tax-muted" style={{ display: "flex", gap: "0.375rem", alignItems: "center", margin: "0.625rem 0 0" }}>
+                  <Check size={13} aria-hidden="true" /> Fifteen minutes, no charge
+                </p>
 
-        <hr className="tax-rule" />
+                {preparer && (
+                  <div className="tax-sidecard-row">
+                    <img src={preparer.avatar} alt="" loading="lazy" />
+                    <p>
+                      Talk to <strong>{preparer.first_name || preparer.name}</strong>
+                      {preparer.credentials ? `, ${preparer.credentials}` : ""} — {preparer.title}.
+                      <br />
+                      <Link to={`/tax/schedule?staff=${encodeURIComponent(preparer.id)}`} style={{ fontWeight: 600, color: "hsl(var(--tax-accent))" }}>
+                        Book with {preparer.first_name || preparer.name} →
+                      </Link>
+                    </p>
+                  </div>
+                )}
 
-        <h2 className="tax-h2">Other services</h2>
-        <div className="tax-grid tax-grid-3">
-          {others.map((o) => (
-            <Link key={o.slug} to={`/tax/services/${o.slug}`} className="tax-guide-card">
-              <span className="tax-guide-title">{o.name}</span>
-              <span className="tax-guide-src">{o.short}</span>
-            </Link>
-          ))}
-        </div>
+                <div className="tax-sidecard-row">
+                  <p>
+                    <Link to="/tax/tools/checklist" style={{ fontWeight: 600, color: "hsl(var(--tax-accent))" }}>
+                      Build your document checklist →
+                    </Link>
+                    <br />
+                    See what to gather before the first call.
+                  </p>
+                </div>
+              </aside>
+            </div>
+
+            <hr className="tax-rule" />
+            <h2 className="tax-h2">Other services</h2>
+            <div className="tax-btn-row">
+              <Link to="/tax/services" className="tax-btn tax-btn-outline">
+                All services
+              </Link>
+              <Link to="/tax/pricing" className="tax-btn tax-btn-outline">
+                Pricing
+              </Link>
+              <Link to="/tax/faq" className="tax-btn tax-btn-outline">
+                Tax FAQ
+              </Link>
+            </div>
+          </>
+        )}
       </div>
-
-      <TaxCopilot />
-    </TaxLayout>
+    </SitePage>
   );
 }

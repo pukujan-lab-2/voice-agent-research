@@ -849,3 +849,283 @@ export interface PortalOrganizer {
   documents: { id: string; name: string; form?: string | null; status: string; received?: string | null }[];
   checklist: { id: string; situation: string; name: string; form?: string | null; why?: string | null }[];
 }
+
+/* ============================================================
+   The public site (/tax): every word of the firm's content, the open appointment slots and the forms
+   ============================================================ */
+
+export const siteGet = <T,>(path: string, params?: Query) => call<T>(`/api/site${path}${queryString(params)}`);
+
+export const slotsGet = <T,>(path: string, params?: Query) =>
+  call<T>(`/api/slots${path}${queryString(params)}`);
+
+export interface SubmitResult {
+  ok: boolean;
+  ref: string;
+  message: string;
+  [key: string]: unknown;
+}
+
+/** Save a half-filled form. The id comes back and rides along with the submit. */
+export const saveFormDraft = (form: string, id: string, data: Record<string, unknown>) =>
+  call<{ ok: boolean; id: string }>("/api/forms/draft", {
+    method: "POST",
+    body: { form, id: id || undefined, data },
+  });
+
+export const submitSiteForm = (form: string, data: Record<string, unknown>, draft?: string) =>
+  call<SubmitResult>("/api/forms/submit", {
+    method: "POST",
+    body: { form, data, draft: draft || undefined },
+  });
+
+/**
+ * The raw file as the request body: 8 MB max, PDF/JPG/PNG/HEIC/DOCX/XLSX/CSV/TXT.
+ * XHR rather than fetch so the upload field can show how far along it is.
+ */
+export function uploadSiteFile(
+  file: File,
+  form: string,
+  onProgress?: (fraction: number) => void,
+): Promise<{ ok: boolean; id: string; name: string; sizeKb: number }> {
+  const path = `/api/files?name=${encodeURIComponent(file.name)}&form=${encodeURIComponent(form)}`;
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", path);
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable && onProgress) onProgress(e.loaded / e.total);
+    };
+    xhr.onload = () => {
+      let json: unknown = null;
+      try {
+        json = JSON.parse(xhr.responseText);
+      } catch {
+        json = null;
+      }
+      if (xhr.status >= 200 && xhr.status < 300) {
+        onProgress?.(1);
+        resolve(json as { ok: boolean; id: string; name: string; sizeKb: number });
+        return;
+      }
+      const payload = (json ?? {}) as { error?: unknown; errors?: Record<string, string> };
+      reject(
+        new PracticeError(
+          xhr.status,
+          typeof payload.error === "string" && payload.error !== "invalid"
+            ? payload.error
+            : `The upload didn't finish (${xhr.status}).`,
+          payload.errors,
+        ),
+      );
+    };
+    xhr.onerror = () => reject(new PracticeError(0, "The upload didn't finish. Check your connection."));
+    xhr.send(file);
+  });
+}
+
+export const subscribeNewsletter = (email: string, topics: string[]) =>
+  call<{ ok: boolean; message: string }>("/api/newsletter", { method: "POST", body: { email, topics } });
+
+export interface FormFieldSpec {
+  name: string;
+  label?: string;
+  type?: string;
+  required?: boolean;
+  options?: { value: string; label: string }[];
+  [key: string]: unknown;
+}
+
+export interface FormSpec {
+  form: string;
+  title?: string;
+  fields?: FormFieldSpec[];
+  [key: string]: unknown;
+}
+
+export const formSpecs = () => call<{ forms: FormSpec[] }>("/api/forms");
+
+/* ---------- content types ---------- */
+
+export interface SiteBodySection {
+  heading: string;
+  paragraphs: string[];
+}
+
+export interface SiteFaq {
+  q: string;
+  a: string;
+}
+
+/** One source behind a [1] marker in a service, industry or article body. */
+export interface SiteCite {
+  passage: string;
+  doc: string;
+  title: string;
+  section: string;
+  quote: string;
+  url: string;
+}
+
+export interface SiteServiceSummary {
+  slug: string;
+  name: string;
+  short: string;
+  audience: "individuals" | "businesses";
+  from_price: string | number | null;
+  icon: string;
+  sort: number;
+}
+
+export interface SiteService extends SiteServiceSummary {
+  body: SiteBodySection[];
+  faqs: SiteFaq[];
+  forms: string[];
+  cites: SiteCite[];
+}
+
+export interface SiteIndustrySummary {
+  slug: string;
+  name: string;
+  short: string;
+  icon: string;
+  sort: number;
+}
+
+export interface SiteIndustry extends SiteIndustrySummary {
+  body: SiteBodySection[];
+  faqs: SiteFaq[];
+  cites: SiteCite[];
+}
+
+export interface SiteTeamMember {
+  id: string;
+  name: string;
+  first_name: string;
+  role: string;
+  credentials?: string | null;
+  title: string;
+  office: string;
+  bio: string;
+  specialties: string[];
+  years: number | string;
+  languages: string[];
+  avatar: string;
+  accepts_new: boolean | string | number;
+}
+
+export interface SiteLocation {
+  id: string;
+  name: string;
+  street: string;
+  city: string;
+  state: string;
+  zip: string;
+  phone: string;
+  /** `{ mon: [9, 17], ... }` in 24-hour numbers; `[0, 0]` is closed. */
+  hours: Record<string, [number, number]>;
+  parking: string;
+  note: string;
+}
+
+export interface SiteReview {
+  id: string;
+  author: string;
+  city: string;
+  service: string;
+  rating: number | string;
+  title: string;
+  body: string;
+  date: string;
+  staff_id?: string | null;
+}
+
+export interface SiteArticleSummary {
+  slug: string;
+  title: string;
+  summary: string;
+  category: string;
+  author_id: string;
+  published: string;
+  minutes: number | string;
+  tags: string[];
+}
+
+export interface SiteArticle extends SiteArticleSummary {
+  body: { heading?: string; paragraphs: string[] }[];
+  cites: SiteCite[];
+}
+
+export interface SiteJobBlock {
+  heading?: string;
+  paragraphs?: string[];
+  items?: string[];
+}
+
+export interface SiteJob {
+  id: string;
+  slug: string;
+  title: string;
+  office: string;
+  type: string;
+  salary: string;
+  summary: string;
+  body: SiteJobBlock[];
+}
+
+export interface SiteDeadline {
+  id: string;
+  date: string;
+  title: string;
+  who: string;
+  form: string;
+  detail: string;
+  cite?: SiteCite | null;
+}
+
+export interface SiteSituation {
+  id: string;
+  label: string;
+  hint: string;
+}
+
+export interface SiteChecklistItem {
+  id: string;
+  situation: string;
+  name: string;
+  form: string;
+  why: string;
+}
+
+export interface SiteRate {
+  id: string;
+  label: string;
+  value: string | number;
+  year: string | number;
+  detail: string;
+  cite?: SiteCite | null;
+}
+
+export interface SitePageEntry {
+  path: string;
+  title: string;
+  section: string;
+  summary: string;
+}
+
+export interface SiteSearchResults {
+  pages: SitePageEntry[];
+  articles: { slug: string; title: string; summary: string }[];
+  guides: { doc: string; title: string; category: string }[];
+  team: { id: string; name: string; title: string }[];
+}
+
+export interface SlotDay {
+  date: string;
+  open: number;
+}
+
+export interface Slot {
+  time: string;
+  label: string;
+  staff: { id: string; name: string }[];
+}

@@ -44,6 +44,15 @@ export default function PortalLogin() {
     setVerified(true);
     void enter({ call });
   };
+  // Arriving from a verified call ("open my client portal"): straight in, no click. The widget may mount a moment later.
+  useEffect(() => {
+    let tries = 0;
+    const t = setInterval(() => {
+      if (window.copilot?.verifiedCall?.() || ++tries > 20) { clearInterval(t); onVerified(); }
+    }, 100);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="pt-login-root">

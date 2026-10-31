@@ -218,7 +218,7 @@ export default function PortalHome() {
               <p className="pt-household-line">
                 {data.household.street}
                 {data.household.city ? `, ${data.household.city}` : ""}
-                {data.household.state ? `, ${data.household.state}` : ""} {data.household.zip}
+                {data.household.state ? `, ${data.household.state}` : ""}
               </p>
               <p className="pt-household-meta">
                 {data.household.filing_status ?? "—"} · {count(data.household.dependents)}{" "}

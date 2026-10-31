@@ -162,6 +162,8 @@ for (const x of ['summary', 'documents', 'invoices', 'messages', 'appointments',
   check(r.status === 200, `GET /api/portal/${x} → 200`, `${r.status} ${JSON.stringify(r.j).slice(0, 160)}`);
   check((await get(`/api/portal/${x}`)).status === 401, `GET /api/portal/${x} without a token → 401`);
 }
+// the caller-verification answers (zip, birth date, last four) never reach the portal
+check(!/"(zip|dob|ssn4?|ssn_last4)"\s*:/.test(JSON.stringify((await get('/api/portal/summary', P)).j)), 'the portal summary carries no zip, birth date or SSN digits');
 const threads = (await get('/api/portal/messages', P)).j;
 const th = threads?.threads?.[0]?.id;
 if (th) await ok200(`/api/portal/thread?id=${th}`, ['messages'], P);

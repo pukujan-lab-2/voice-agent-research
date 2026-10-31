@@ -36,13 +36,39 @@ import PensionR17 from "./pages/pension/R17";
 import TaxHome from "./pages/tax/Home";
 import TaxServices from "./pages/tax/Services";
 import TaxServiceDetail from "./pages/tax/ServiceDetail";
+import TaxIndustries from "./pages/tax/Industries";
+import TaxIndustryDetail from "./pages/tax/IndustryDetail";
 import TaxPricing from "./pages/tax/Pricing";
 import TaxTeam from "./pages/tax/Team";
+import TaxLocations from "./pages/tax/Locations";
+import TaxCareers from "./pages/tax/Careers";
+import TaxCareerDetail from "./pages/tax/CareerDetail";
+import TaxApply from "./pages/tax/Apply";
+import TaxReviews from "./pages/tax/Reviews";
+import TaxBlog from "./pages/tax/Blog";
+import TaxBlogPost from "./pages/tax/BlogPost";
 import TaxAbout from "./pages/tax/About";
+import TaxContact from "./pages/tax/Contact";
+import TaxPrivacy from "./pages/tax/Privacy";
+import TaxTerms from "./pages/tax/Terms";
 import TaxGuides from "./pages/tax/Guides";
 import TaxGuidePage from "./pages/tax/Guide";
 import TaxFaq from "./pages/tax/Faq";
 import TaxBook from "./pages/tax/Book";
+import TaxStart from "./pages/tax/Start";
+import TaxSchedule from "./pages/tax/Schedule";
+import TaxNoticePage from "./pages/tax/Notice";
+import TaxPayrollSetup from "./pages/tax/PayrollSetup";
+import TaxAddressChange from "./pages/tax/AddressChange";
+import TaxPaymentPlan from "./pages/tax/PaymentPlan";
+import TaxPriorYear from "./pages/tax/PriorYear";
+import TaxRefer from "./pages/tax/Refer";
+import TaxToolsCalendar from "./pages/tax/ToolsCalendar";
+import TaxToolsChecklist from "./pages/tax/ToolsChecklist";
+import TaxToolsQuarterly from "./pages/tax/ToolsQuarterly";
+import TaxToolsMileage from "./pages/tax/ToolsMileage";
+import TaxToolsSeTax from "./pages/tax/ToolsSeTax";
+import TaxToolsRefundStatus from "./pages/tax/ToolsRefundStatus";
 
 // Brindlewick's practice app (/staff) and client portal (/tax/portal)
 import StaffLogin from "./pages/staff/Login";
@@ -131,13 +157,43 @@ const App = () => (
         <Route path="/tax" element={<TaxHome />} />
         <Route path="/tax/services" element={<TaxServices />} />
         <Route path="/tax/services/:slug" element={<TaxServiceDetail />} />
+        <Route path="/tax/industries" element={<TaxIndustries />} />
+        <Route path="/tax/industries/:slug" element={<TaxIndustryDetail />} />
         <Route path="/tax/pricing" element={<TaxPricing />} />
         <Route path="/tax/team" element={<TaxTeam />} />
+        <Route path="/tax/locations" element={<TaxLocations />} />
+        <Route path="/tax/careers" element={<TaxCareers />} />
+        <Route path="/tax/careers/apply" element={<TaxApply />} />
+        <Route path="/tax/careers/:slug" element={<TaxCareerDetail />} />
+        <Route path="/tax/reviews" element={<TaxReviews />} />
+        <Route path="/tax/blog" element={<TaxBlog />} />
+        <Route path="/tax/blog/:slug" element={<TaxBlogPost />} />
         <Route path="/tax/about" element={<TaxAbout />} />
+        <Route path="/tax/contact" element={<TaxContact />} />
+        <Route path="/tax/privacy" element={<TaxPrivacy />} />
+        <Route path="/tax/terms" element={<TaxTerms />} />
         <Route path="/tax/guides" element={<TaxGuides />} />
         <Route path="/tax/guides/:id" element={<TaxGuidePage />} />
         <Route path="/tax/faq" element={<TaxFaq />} />
+
+        {/* The tools */}
+        <Route path="/tax/tools/calendar" element={<TaxToolsCalendar />} />
+        <Route path="/tax/tools/checklist" element={<TaxToolsChecklist />} />
+        <Route path="/tax/tools/quarterly" element={<TaxToolsQuarterly />} />
+        <Route path="/tax/tools/mileage" element={<TaxToolsMileage />} />
+        <Route path="/tax/tools/se-tax" element={<TaxToolsSeTax />} />
+        <Route path="/tax/tools/refund-status" element={<TaxToolsRefundStatus />} />
+
+        {/* The forms */}
         <Route path="/tax/book" element={<TaxBook />} />
+        <Route path="/tax/start" element={<TaxStart />} />
+        <Route path="/tax/schedule" element={<TaxSchedule />} />
+        <Route path="/tax/notice" element={<TaxNoticePage />} />
+        <Route path="/tax/payroll-setup" element={<TaxPayrollSetup />} />
+        <Route path="/tax/address-change" element={<TaxAddressChange />} />
+        <Route path="/tax/payment-plan" element={<TaxPaymentPlan />} />
+        <Route path="/tax/prior-year" element={<TaxPriorYear />} />
+        <Route path="/tax/refer" element={<TaxRefer />} />
 
         {/* Brindlewick practice app */}
         <Route path="/staff" element={<StaffLogin />} />

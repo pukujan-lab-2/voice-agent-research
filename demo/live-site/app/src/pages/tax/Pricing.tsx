@@ -7,6 +7,7 @@ import { useTaxTitle } from "@/lib/tax";
 const RETURNS = [
   {
     title: "Simple return",
+    slug: "individual",
     price: "$295",
     note: "Federal and one state",
     points: [
@@ -18,6 +19,7 @@ const RETURNS = [
   },
   {
     title: "Standard return",
+    slug: "individual",
     price: "$450",
     note: "Federal and one state",
     points: [
@@ -29,6 +31,7 @@ const RETURNS = [
   },
   {
     title: "Complex return",
+    slug: "planning",
     price: "from $795",
     note: "Quoted after the first call",
     points: [
@@ -60,6 +63,14 @@ const BOOKS = [
     points: ["Up to 400 transactions", "Invoicing and receivables", "Monthly call", "Year-end pack and return"],
   },
 ];
+
+/** The three service pages the price list points at. */
+const SERVICE_LINKS: Record<string, string> = {
+  Books: "bookkeeping",
+  Payroll: "payroll",
+  "IRS notice help": "irs-notices",
+  "Tax planning": "planning",
+};
 
 const FAQ = [
   {
@@ -120,9 +131,18 @@ export default function TaxPricing() {
                   <li key={p}>{p}</li>
                 ))}
               </ul>
-              <Link to="/tax/book" className="tax-btn tax-btn-outline" style={{ marginTop: "1rem" }}>
-                Book a consultation
-              </Link>
+              <div className="tax-btn-row" style={{ marginTop: "1rem" }}>
+                <Link to="/tax/book" className="tax-btn tax-btn-outline">
+                  Book a consultation
+                </Link>
+                <Link
+                  to={`/tax/services/${r.slug}`}
+                  className="tax-small"
+                  style={{ fontWeight: 600, color: "hsl(var(--tax-accent))", textDecoration: "none" }}
+                >
+                  What's included →
+                </Link>
+              </div>
             </div>
           ))}
         </div>
@@ -145,9 +165,18 @@ export default function TaxPricing() {
                   <li key={p}>{p}</li>
                 ))}
               </ul>
-              <Link to="/tax/book" className="tax-btn tax-btn-outline" style={{ marginTop: "1rem" }}>
-                Book a consultation
-              </Link>
+              <div className="tax-btn-row" style={{ marginTop: "1rem" }}>
+                <Link to="/tax/book" className="tax-btn tax-btn-outline">
+                  Book a consultation
+                </Link>
+                <Link
+                  to={`/tax/services/${SERVICE_LINKS.Books}`}
+                  className="tax-small"
+                  style={{ fontWeight: 600, color: "hsl(var(--tax-accent))", textDecoration: "none" }}
+                >
+                  What's included →
+                </Link>
+              </div>
             </div>
           ))}
         </div>
@@ -164,6 +193,13 @@ export default function TaxPricing() {
               <li>Forms W-2 and W-3</li>
               <li>New-hire setup</li>
             </ul>
+            <Link
+              to={`/tax/services/${SERVICE_LINKS.Payroll}`}
+              className="tax-small"
+              style={{ marginTop: "0.75rem", fontWeight: 600, color: "hsl(var(--tax-accent))", textDecoration: "none" }}
+            >
+              What's included →
+            </Link>
           </div>
           <div className="tax-price-card">
             <h3 className="tax-h3">IRS notice help</h3>
@@ -175,6 +211,13 @@ export default function TaxPricing() {
               <li>A written reply under power of attorney</li>
               <li>Penalty abatement where it applies, quoted separately</li>
             </ul>
+            <Link
+              to={`/tax/services/${SERVICE_LINKS["IRS notice help"]}`}
+              className="tax-small"
+              style={{ marginTop: "0.75rem", fontWeight: 600, color: "hsl(var(--tax-accent))", textDecoration: "none" }}
+            >
+              What's included →
+            </Link>
           </div>
           <div className="tax-price-card">
             <h3 className="tax-h3">Tax planning</h3>
@@ -186,6 +229,13 @@ export default function TaxPricing() {
               <li>An estimate schedule</li>
               <li>Follow-up call in January</li>
             </ul>
+            <Link
+              to={`/tax/services/${SERVICE_LINKS["Tax planning"]}`}
+              className="tax-small"
+              style={{ marginTop: "0.75rem", fontWeight: 600, color: "hsl(var(--tax-accent))", textDecoration: "none" }}
+            >
+              What's included →
+            </Link>
           </div>
         </div>
 

@@ -149,7 +149,7 @@ export class Copilot {
   }
 
   private card(): string {
-    const lines = this.flow.fields.map(f => `${f.label}: ${this.show(f)}`).join('. ');
+    const lines = this.flow.fields.map(f => `${f.label.replace(/\s*\(optional\)\s*$/i, '').replace(/\?$/, '')}: ${this.show(f)}`).join('. ');
     return `Here's what I have. ${lines}. ${this.flow.reviewAsk ?? 'Shall I submit it? Say yes to submit, or tell me what to change.'}`;
   }
 
@@ -221,7 +221,8 @@ export class Copilot {
       const no = await this.set(f, '');
       if (no) return `${no} ${q}`;
       const next = this.advance();
-      return `Okay, I'll leave the ${f.label} blank. ${next}`;
+      const label = f.label.replace(/\s*\(optional\)\s*$/i, '');
+      return `Okay, I'll leave ${/^(your|their|my|his|her)\b/i.test(label) ? '' : 'the '}${label} blank. ${next}`;
     }
     const rb = READBACK[f.kind];
     if (rb) {
@@ -258,6 +259,10 @@ export class Copilot {
 
   private choiceHits(f: Field, said: string): string[] {
     const t = said.toLowerCase();
+    // the whole answer is an option or its other wording ("no" for "No, I'd rather not"): that one, negative or not
+    const whole = t.replace(/[^a-z0-9' ]+/g, ' ').replace(/\s+/g, ' ').trim();
+    const exact = (f.options ?? []).filter(o => [o, ...(f.synonyms?.[o] ?? [])].some(w => w.toLowerCase().replace(/[^a-z0-9' ]+/g, ' ').replace(/\s+/g, ' ').trim() === whole));
+    if (exact.length) return exact;
     // "not the morning" names an option only to rule it out: ask again rather than guess the other one.
     if (/\b(not|no|don'?t|isn'?t|can'?t|never|nothing in the)\b/.test(t)) return [];
     return (f.options ?? []).filter(o =>

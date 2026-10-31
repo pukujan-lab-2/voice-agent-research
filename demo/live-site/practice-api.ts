@@ -456,7 +456,8 @@ export function createPractice(d: PracticeDeps) {
           sql(`select id, code, title, response_due, status from bw_notices where client_ref = $1 and status <> 'resolved' order by response_due`, [hh]),
         ]);
         if (!h[0]) return json({ error: 'not found' }, 404);
-        const { notes: _n, risk: _r, tags: _t, ...household } = h[0]; // staff-only fields stay on the staff side
+        // staff-only fields stay on the staff side; the zip is a caller-verification answer, so the portal never shows it
+        const { notes: _n, risk: _r, tags: _t, zip: _z, ...household } = h[0];
         return json({ household, people, returns: ret.map((e: any) => ({ ...e, stage_label: STAGE_LABEL[e.stage] })), documents: docs[0], invoices: { open: inv[0].open, due: money(Number(inv[0].due)) },
           appointments: appts, unread: threads[0].unread, notices, sample: true });
       }
