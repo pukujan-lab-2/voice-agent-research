@@ -4,15 +4,11 @@
 
 This is an as-of projection (2026-10-31); live GitHub issues own progression. Link the owning leaf, parent ancestry and dependencies for active work.
 
+Older state: [`history/2026-10.md`](history/2026-10.md) and earlier months in `history/`.
+
 ## Program state
 
 Phase: demo build. The copilot runs locally on fictional demo sites; nothing is hosted (decision 0007, #9).
-
-## Completed
-
-- Repository checks, CI (`gates`), decision log, and the ACS hotloader with PCM, CGM and OIO (#10), reinstalled from the one-checkout stack (agent-stack-train 1.0.1, `2e32f2c`); `hotload_check` OK. The train check passed on GitHub-hosted runners; on the Pro runner it fails in `setup-python` (#25).
-- Phoenix tracing through Octo (#2).
-- CI runs on a stopgap runner on the MacBook Pro, and `main` requires a pull request and the `gates` check (#20, #24, `7626f40`).
 
 ## Active
 
