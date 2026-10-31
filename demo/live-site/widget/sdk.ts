@@ -21,7 +21,7 @@ import type { Flow, Model } from '../../../copilot-engine/src/types.ts';
 import { forDisplay, forSpeech } from '../../../copilot-engine/src/guard.ts';
 import { Verifier, WANTS_VERIFY, type ReturnCard } from '../../../copilot-engine/src/verify.ts';
 import { DomFiller } from './dom-filler.ts';
-import { RemoteJudge, RemoteModel, RemoteRetriever, RemoteVerify, report, warmUp } from './remote.ts';
+import { newCall, RemoteJudge, RemoteModel, RemoteRetriever, RemoteVerify, report, traceSpan, warmUp } from './remote.ts';
 
 export type Config = {
   business: string;
@@ -116,7 +116,8 @@ function speak(text: string): Promise<void> {
     u.lang = 'en-US';
     u.rate = cfg?.large ? 0.92 : 1;
     let started = false;
-    const done = () => { clearTimeout(t); clearTimeout(s); resolve(); };
+    const at = Date.now();
+    const done = () => { clearTimeout(t); clearTimeout(s); traceSpan('text to speech', at, text, '', {}, !started); resolve(); };
     // Some mobile browsers never fire onend, or never start at all; don't wait forever.
     const t = setTimeout(done, 1500 + text.length * 80);
     const s = setTimeout(() => { if (!started) { report('tts', 'speech never started'); done(); } }, 3000);
@@ -148,6 +149,7 @@ function listen(fromTap = false) {
   rec = r;
   r.lang = 'en-US'; r.interimResults = true; r.continuous = false; r.maxAlternatives = 1;
   let final = '', interim = '';
+  const at = Date.now();
   r.onresult = (e: any) => {
     // One utterance, one answer: iOS WebKit can send a second final result that re-recognises the same words
     // ("Pooja Bajracharya" then "PUJANBAJRACHARYA"), so the first final is the answer and the rest is ignored.
@@ -180,6 +182,7 @@ function listen(fromTap = false) {
     rec = null;
     // Safari sometimes ends without marking the last result final; what it heard is still the answer.
     const said = (final || interim).trim();
+    traceSpan('speech to text', at, '', said, {}, !said);
     set({ heard: '' });
     if (said) { quietTries = 0; void send(said); return; }
     // Silence: listen again a couple of times, then wait for a tap on the mic.
@@ -696,6 +699,7 @@ async function send(text: string) {
   if (!cfg || snap.busy || !text) return;
   stopListening();
   set({ busy: true, status: 'thinking' });
+  const turnAt = Date.now();
   // a form still loading (see startForm) is read before this answer goes in
   for (let i = 0; waitingForm && i < 60; i++) await new Promise(r => setTimeout(r, 100));
   // What a caller says to a secret question (date of birth, last four, zip) is never shown on screen.
@@ -736,6 +740,7 @@ async function send(text: string) {
     report('send', `${(e as Error).message} @ ${((e as Error).stack ?? '').split('\n')[1]?.trim() ?? ''}`);
   }
   set({ busy: false, status: snap.voice ? snap.status : 'text' });
+  traceSpan('turn', turnAt, text, reply, { mode: snap.mode, page: location.pathname }, !reply);
   if (reply) add('bot', reply, true, links, source); else if (snap.voice && !navigated) listen();
   highlight();
 }
@@ -744,6 +749,7 @@ function start({ voice = false }: { voice?: boolean } = {}) {
   if (!cfg) return;
   const v = voice && (canSpeak || !!SR);
   muted = !SR;
+  if (!snap.open) newCall();
   set({ open: true, voice: v, textInput: !v || !SR, status: v ? 'idle' : 'text', startedAt: snap.open ? snap.startedAt : Date.now() });
   warm();
   // Called from the tap itself, so mobile browsers allow the first spoken reply.
@@ -753,6 +759,7 @@ function start({ voice = false }: { voice?: boolean } = {}) {
 }
 
 function end() {
+  if (snap.startedAt) traceSpan('call', snap.startedAt, '', '', { outcome: 'ended by caller', turns: snap.messages.filter(m => m.who === 'user').length, page: location.pathname });
   stopListening(); if (canSpeak) speechSynthesis.cancel(); speechSeq++;
   noted = false;
   verifier = null; verifyBackend = null; // a new call starts verification over (the server still counts failures per visitor)
