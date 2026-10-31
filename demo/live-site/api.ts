@@ -73,8 +73,8 @@ export function createApi(env: ApiEnv, opts: { offlinePassages?: Record<string, 
     async sentences(q, ss) {
       const idx = await jev.sentences(q, ss);
       if (!jev.lastError) return idx;
-      log(`sentences: ${jev.lastError}, using word overlap`);
-      return overlap.sentences ? overlap.sentences(q, ss) : [];
+      log(`sentences: ${jev.lastError}, using the short quote`);
+      return [];
     },
   };
   // Octo is the one store for the tax library: search (RAG), and the irs_docs / irs_passages tables in the workspace's

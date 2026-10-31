@@ -599,7 +599,7 @@ def main():
     audit = []
     actions = [("engagement.stage", "engagement"), ("document.received", "document"), ("invoice.sent", "invoice"), ("payment.recorded", "payment"),
                ("message.sent", "thread"), ("client.viewed", "household"), ("notice.logged", "notice"), ("appointment.booked", "appointment"), ("staff.login", "staff")]
-    for i in range(30000):
+    for _ in range(30000):
         a, ent = rnd.choice(actions)
         at = dt.datetime(2026, 10, 31, 9) - dt.timedelta(minutes=rnd.randint(1, 60 * 24 * 120))
         s = rnd.choice(STAFF)

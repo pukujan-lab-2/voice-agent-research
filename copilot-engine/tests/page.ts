@@ -89,7 +89,7 @@ function watch(page: Page, start: string) {
 
 // Public practice forms made for automation tests: read, fill every field the adapter takes, say yes, never submit.
 if (process.argv.includes('--real')) {
-  const answer = (f: Field) => ({ name: 'Test Person', email: 'test at example dot com', phone: 'five five five, zero one zero zero', choice: f.options?.at(-1) ?? '', text: 'a test answer from the copilot', serial: '' })[f.kind];
+  const answer = (f: Field) => ({ name: 'Test Person', email: 'test at example dot com', phone: 'five five five, zero one zero zero', choice: f.options?.at(-1) ?? '', text: 'a test answer from the copilot', serial: '' } as Record<string, string>)[f.kind] ?? '';
   for (const u of ['https://www.selenium.dev/selenium/web/web-form.html', 'https://httpbin.org/forms/post']) {
     const page = await browser.newPage();
     const sent = watch(page, u);

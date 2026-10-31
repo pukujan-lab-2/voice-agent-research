@@ -22,7 +22,8 @@ const call = async (p: string, body: unknown) => (await api.handle(new Request(`
 
 // The widget's own advice check, read from its source so the eval tests what ships.
 const sdk = fs.readFileSync(path.join(here, '../widget/sdk.ts'), 'utf8');
-const ADVICE = eval(sdk.match(/^const ADVICE = (\/.*\/i);/m)![1]) as RegExp;
+const [, src, flags] = sdk.match(/^const ADVICE = \/(.*)\/([a-z]*);/m)!;
+const ADVICE = new RegExp(src, flags);
 
 // 100 questions spread over the FAQ categories (round robin, in file order), so no one topic dominates.
 type Faq = { id: string; question: string; answer: string; category: string; url: string };

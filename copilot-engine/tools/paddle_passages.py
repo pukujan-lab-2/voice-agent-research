@@ -75,7 +75,7 @@ if __name__ == "__main__":
     layer = open(txt).read().split("\f")
     files = sorted(f for f in os.listdir(md_dir) if f.endswith(".md"))
     ok, flagged = [], []
-    for f, page in zip(files, pages):
+    for f, page in zip(files, pages, strict=False):
         for p in passages(open(os.path.join(md_dir, f), encoding="utf-8").read(), page):
             bad = unknown_numbers(p["text"], layer[page - 1])
             (flagged if bad else ok).append({**p, "unknown": bad})

@@ -10,7 +10,7 @@ Usage: build/.venv/bin/python tools/irs_corpus.py   (needs beautifulsoup4 + lxml
 """
 import json, pathlib, re, sys
 
-from bs4 import BeautifulSoup, NavigableString, Tag
+from bs4 import BeautifulSoup
 
 HERE = pathlib.Path(__file__).resolve().parent.parent
 RAW = HERE / "build" / "irs" / "raw"

@@ -11,7 +11,7 @@ memory and waits while it is under the floor. It waits for tools/irs_ingest.py t
 Usage: python3 tools/lib_ingest.py [--floor 20] [--workers 3] [--batch 300] [--only irc,forms] [--follow]
   --follow  keep going until the fetchers are done (re-reads the manifests every pass)
 """
-import argparse, base64, json, pathlib, subprocess, sys, time, urllib.request
+import argparse, base64, json, pathlib, subprocess, sys, time
 from concurrent.futures import ThreadPoolExecutor
 
 HERE = pathlib.Path(__file__).resolve().parent.parent

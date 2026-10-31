@@ -1,0 +1,24 @@
+{
+  "name": "website-copilot",
+  "private": true,
+  "type": "module",
+  "description": "Repo-wide checks for the website copilot. Each package keeps its own scripts.",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "lint": "biome lint .",
+    "lint:py": "uvx ruff@0.14.0 check .",
+    "typecheck": "tsc -p tsconfig.json",
+    "orphans": "knip",
+    "test": "npm --prefix copilot-engine test",
+    "scenarios": "npm --prefix copilot-engine run scenarios",
+    "check": "npm run lint && npm run lint:py && npm run typecheck && npm run orphans && npm test && npm run scenarios"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.6.4",
+    "@types/node": "^24.19.2",
+    "knip": "^5.88.1",
+    "typescript": "^5.9.3"
+  }
+}

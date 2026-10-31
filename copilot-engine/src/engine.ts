@@ -319,12 +319,6 @@ export class Copilot {
     return this.matchChoice(f, said) !== '';
   }
 
-  private clean(f: Field, v: string): string {
-    const t = v.trim();
-    if (f.kind === 'choice') return (f.options ?? []).find(o => o.toLowerCase() === t.toLowerCase()) ?? '';
-    return t;
-  }
-
   private async onVerify(said: string): Promise<string> {
     const f = this.field();
     const rb = READBACK[f.kind];

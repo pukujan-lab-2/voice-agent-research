@@ -8,7 +8,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { loadConfig, type Item } from './generate.ts';
-import { chat, firstJson, jev, setBudget, totalCost, usage, type Msg } from './lib/llm.ts';
+import { chat, jev, setBudget, totalCost, usage, type Msg } from './lib/llm.ts';
 import { pool } from './lib/pool.ts';
 import { makeForm, makeTarget, type Answer } from './lib/target.ts';
 import { octoSql } from './lib/corpus.ts';

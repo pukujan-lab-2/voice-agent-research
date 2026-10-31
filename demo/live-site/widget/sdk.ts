@@ -378,8 +378,8 @@ async function verifyReply(text: string): Promise<string | null> {
   if (!cfg?.verify) return null;
   if (verifier?.state === 'collecting') {
     const r = await verifier.turn(text);
-    if (verifier.state === 'verified') set({ account: verifier.card });
-    if (verifier.state === 'cancelled') verifier = null;
+    if ((verifier.state as string) === 'verified') set({ account: verifier.card });
+    if ((verifier.state as string) === 'cancelled') verifier = null;
     return r || null;
   }
   if (snap.mode !== 'ask' || !WANTS_VERIFY.test(text)) return null;
@@ -727,7 +727,7 @@ async function send(text: string) {
       reply = await copilot.turn(text);
       // A multi-step form: when this step's answers are all in, the copilot may press the step's Next button
       // (data-copilot-next, a type="button" that only moves on; never the form's submit). The next step then starts.
-      const next = copilot.state === 'done' ? stepNext() : null;
+      const next = (copilot.state as string) === 'done' ? stepNext() : null;
       if (next) { reply = ''; next.click(); }
     }
   } catch (e) {

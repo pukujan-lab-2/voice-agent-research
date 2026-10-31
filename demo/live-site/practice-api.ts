@@ -262,7 +262,7 @@ export function createPractice(d: PracticeDeps) {
     if (form === 'referral' && !v.data.friend_email && !v.data.friend_phone && !v.errors.friend_email && !v.errors.friend_phone) v.errors.friend_email = "Give your friend's email or phone.";
     if (form === 'payment-plan' && Number(v.data.monthly) > Number(v.data.owed)) v.errors.monthly = "The monthly payment can't be more than the total owed.";
     if (Object.keys(v.errors).length) return json({ error: 'invalid', errors: v.errors }, 422);
-    let reference = ref({ consultation: 'CR', intake: 'NC', booking: 'BK', notice: 'NT', payroll: 'PS', address: 'AD', 'payment-plan': 'PP', transcript: 'PY', referral: 'RF', application: 'JA', contact: 'CT' }[form] ?? 'BW');
+    const reference = ref({ consultation: 'CR', intake: 'NC', booking: 'BK', notice: 'NT', payroll: 'PS', address: 'AD', 'payment-plan': 'PP', transcript: 'PY', referral: 'RF', application: 'JA', contact: 'CT' }[form] ?? 'BW');
     let extra: Record<string, unknown> = {};
     if (form === 'booking') {
       const want = String(v.data.staff || '');

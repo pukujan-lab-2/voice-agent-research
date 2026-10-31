@@ -126,7 +126,7 @@ for (const [name, vp] of [['desktop', { width: 1366, height: 860 }], ['phone', {
 
   // a question: the answer's source opens by itself with the quoted words highlighted
   let r = await say(page, 'What is the standard deduction for a single filer?');
-  let s = await snap(page);
+  const s = await snap(page);
   check(s.source && (await page.locator(T('source-viewer')).isVisible()), 'the source viewer opened by itself', r);
   const hl = await highlighted(page);
   check(s.source?.found === true && hl.length > 20 && /^I've opened /.test(r), 'the quoted line is highlighted and the copilot says so', `${r} | found=${s.source?.found} | ${hl}`);

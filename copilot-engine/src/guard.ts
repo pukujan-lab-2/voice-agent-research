@@ -130,7 +130,7 @@ export function parseName(said: string): string {
   const words = t.split(/\s+/);
   if (!t || t.includes('?') || /\d/.test(t) || words.length > 4) return '';
   if (words.some(w => NAME_STOP.has(w.toLowerCase().replace(/[^a-z']/g, '')))) return '';
-  if (!words.every(w => /^[A-Za-z][A-Za-z'.\-]*$/.test(w))) return '';
+  if (!words.every(w => /^[A-Za-z][A-Za-z'.-]*$/.test(w))) return '';
   return t;
 }
 
@@ -183,7 +183,7 @@ export function spokenToDate(text: string, now = new Date(), opts: { future?: bo
   // spoken years: "nineteen oh five" -> 1905, "nineteen eighty five" -> 1985, "two thousand twelve" -> 2012
   t = t.replace(/\bnineteen\s+(?:oh|zero)\s+(one|two|three|four|five|six|seven|eight|nine)\b/g, (_, d) => `190${DIGITS[d]}`);
   t = spokenNumbers(t);
-  t = t.replace(/\b(19|20)\s+(\d{2})\b/g, '$1$2').replace(/\b(2000)\s+(\d{1,2})\b/g, (_, a, b) => String(2000 + +b));
+  t = t.replace(/\b(19|20)\s+(\d{2})\b/g, '$1$2').replace(/\b(2000)\s+(\d{1,2})\b/g, (_, _a, b) => String(2000 + +b));
   t = t.replace(/\b(\d+)(st|nd|rd|th)\b/g, '$1');
   let month = 0;
   for (const w of t.match(/[a-z]+/g) ?? []) if (MONTH_ABBR[w] && !(w === 'may' && /\bmay (i|we|be)\b/.test(t))) { month = MONTH_ABBR[w]; break; }

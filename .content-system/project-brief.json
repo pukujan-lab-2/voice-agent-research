@@ -1,0 +1,49 @@
+{
+  "schema_version": "content-generation.project-brief.v2",
+  "project": "Website Copilot",
+  "audience": [
+    "business owners",
+    "product reviewers",
+    "developers installing the widget"
+  ],
+  "problem": "Website visitors get stuck on forms and policy questions, and businesses cannot staff a live agent for every visitor, language and hour.",
+  "solution": "An installable voice and text copilot that answers from the business's own documents and walks visitors through forms, run for the business as a service.",
+  "mechanism": [
+    "one script tag installs the widget",
+    "each turn becomes one small decision that code carries out",
+    "every value is read back and confirmed; the visitor submits",
+    "answers quote the business's documents"
+  ],
+  "evidence": [
+    {
+      "claim": "The owner defined the product as a repeatedly installable copilot agent for any website, run as a service, that people can talk to like a live agent in any language, with phone calls later.",
+      "source": "Owner request in chat, 2026-10-31",
+      "status": "planned",
+      "supports": "Sets the product scope recorded in PROJECT.md.",
+      "limits": "Does not show that multi-language, phone calls or hosting have been built.",
+      "recorded_at": "2026-10-31T20:00:00-04:00",
+      "source_revision": {
+        "kind": "owner_decision",
+        "reference": "Owner request in chat; recorded in PROJECT.md",
+        "observed_at": "2026-10-31"
+      },
+      "cite_in_readme": false
+    }
+  ],
+  "boundaries": [
+    "Open models only in the product runtime",
+    "Customer data stays on our backend and in Octo",
+    "Not hosted yet; local demos only",
+    "Demo sites are original, never copies of a real brand"
+  ],
+  "terminology": {
+    "preferred": {
+      "copilot": "the installed agent",
+      "visitor": "the person talking to it"
+    },
+    "avoid": [
+      "chatbot",
+      "AI magic"
+    ]
+  }
+}

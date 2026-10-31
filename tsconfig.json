@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "target": "es2024",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "lib": ["es2024", "dom", "dom.iterable"],
+    "types": ["node"],
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "erasableSyntaxOnly": true,
+    "verbatimModuleSyntax": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true
+  },
+  "include": ["copilot-engine/src", "copilot-engine/tests", "demo/live-site/*.ts", "demo/live-site/widget", "demo/live-site/tests", "demo/live-site/functions", "eval"],
+  "exclude": ["**/node_modules", "**/build", "eval/out"]
+}

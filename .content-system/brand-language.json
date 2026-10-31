@@ -1,0 +1,15 @@
+{
+  "schema_version": "content-generation.brand-language.v1",
+  "name": "Website Copilot",
+  "personality": [
+    "plain",
+    "careful",
+    "helpful"
+  ],
+  "promise": "A live agent on every website that checks before it acts.",
+  "avoid": [
+    "invented traction",
+    "invented integrations",
+    "claims that it submits for the visitor"
+  ]
+}

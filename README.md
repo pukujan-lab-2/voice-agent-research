@@ -1,5 +1,7 @@
 # Voice & Chat Agent Research
 
+See [PROJECT.md](PROJECT.md) for what this product is and [docs/decisions](docs/decisions/) for what is decided.
+
 Research notes for building a repeatable **chat + voice agent factory**: one shared engine, many client bots, built from a client's business data by Claude.
 
 Collected 2026-10-28/29. Star counts, commit dates and licenses were checked live against GitHub and Hugging Face on that date. Re-check before relying on them (`scripts/check_licenses.sh`).
@@ -32,5 +34,5 @@ Collected 2026-10-28/29. Star counts, commit dates and licenses were checked liv
 | Translation | MADLAD-400 3B | Apache-2.0 |
 | Diarisation | pyannote 3.1 / community-1 | MIT / CC-BY-4.0 |
 | VAD | Silero VAD | MIT |
-| LLM | Claude (hosted), or Qwen3-4B / gpt-oss-20b (local) | Apache-2.0 for local |
+| LLM | Open models only: LFM3, Qwen (see [decision 0001](docs/decisions/0001-open-models-only.md)) | Apache-2.0 / LFM license |
 | Builder | Claude Agent SDK + MCP connectors | own code |

@@ -18,7 +18,7 @@ let ip = `10.9.${Math.floor(Math.random() * 200)}.1`;
 const times: Record<string, number> = {};
 async function call(method: string, path: string, body?: unknown, token?: string, raw?: Buffer) {
   const t = Date.now();
-  const r = await fetch(srv.url + path, { method, body: raw ?? (body === undefined ? undefined : JSON.stringify(body)),
+  const r = await fetch(srv.url + path, { method, body: raw ? new Uint8Array(raw) : (body === undefined ? undefined : JSON.stringify(body)),
     headers: { 'cf-connecting-ip': ip, ...(raw ? {} : { 'content-type': 'application/json' }), ...(token ? { authorization: `Bearer ${token}` } : {}) } });
   times[`${method} ${path.split('?')[0]}`] = Date.now() - t;
   const type = r.headers.get('content-type') ?? '';

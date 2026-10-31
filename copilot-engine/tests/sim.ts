@@ -123,7 +123,7 @@ async function convo(id: number): Promise<Conv> {
         await send(pick(r, changed === 'morning' ? MORNING : AFTERNOON));
       } else if (reviewPlan === 'wait-change-yes' && reviewStep === 0) {
         await send(pick(r, ['wait, not yet', 'hold on', 'no wait']), 'wait');
-        add('wait_no_submit', submits.length === 0 && c.state === 'change');
+        add('wait_no_submit', submits.length === 0 && (c.state as string) === 'change');
         exp.time = exp.time === 'morning' ? 'afternoon' : 'morning';
         await send('the time', 'which');
         await send(pick(r, exp.time === 'morning' ? MORNING : AFTERNOON));

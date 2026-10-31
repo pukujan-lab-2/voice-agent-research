@@ -1,5 +1,5 @@
 # Smoke test: can LFM3-1.7B do the copilot's narrow job (read one answer -> one JSON action)?
-import json, re, sys, time, urllib.request
+import json, re, time, urllib.request
 
 REPO = "LFM3-1.7B-Q4_K_M (llama.cpp b12000)"
 URL = "http://127.0.0.1:11436/v1/chat/completions"  # ssh tunnel to llama-server on the Windows PC

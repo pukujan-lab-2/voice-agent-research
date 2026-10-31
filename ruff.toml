@@ -1,0 +1,8 @@
+# Bugs, not style: the scripts here are dense on purpose (several statements per line, short names).
+target-version = "py312"
+extend-exclude = [".github/scripts", "**/build", "**/node_modules", "demo/live-site/app", "eval/out"]
+
+[lint]
+select = ["E", "F", "B"]
+# B023: the helpers that close over loop variables are called inside the same iteration.
+ignore = ["E401", "E501", "E701", "E702", "E741", "B023", "B026"]

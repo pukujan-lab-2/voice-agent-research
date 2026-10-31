@@ -6,7 +6,7 @@ Usage:
   python3 tools/docs.py --upload   # also load them into Octo as "manual:<label> p<page> #<i>" (skips a label already there)
 Octo key/workspace come from ~/Documents/projects/.env (never printed).
 """
-import html, json, os, pathlib, re, subprocess, sys, urllib.request
+import html, json, pathlib, re, subprocess, sys, urllib.request
 
 HERE = pathlib.Path(__file__).resolve().parent.parent
 LOADER = HERE.parent.parent / "copilot-engine" / "tools" / "paddle_passages.py"

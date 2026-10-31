@@ -1,0 +1,22 @@
+{
+  "schema_version": "content-generation.adapter.v1",
+  "helper_repository": "https://github.com/Pukujan/content-generation-modules",
+  "helper_version": "0.5.13",
+  "helper_commit": "c47740d71ca68be6a782b24dd8f28b905c620506",
+  "modules": [
+    "brand-foundation",
+    "content-context",
+    "writing-direction",
+    "human-sounding-writing",
+    "human-output-naming",
+    "visual-direction",
+    "image-generation",
+    "html-demo"
+  ],
+  "authoritative_project_files": [
+    "PROJECT.md",
+    "README.md",
+    "docs/04-bot-factory-architecture.md",
+    "docs/05-oss-platforms.md"
+  ]
+}

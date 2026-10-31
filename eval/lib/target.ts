@@ -27,7 +27,8 @@ export function adviceCheck(cfg: Config, root: string): RegExp | null {
   const a = cfg.target.advice;
   if (!a) return null;
   const src = fs.readFileSync(path.resolve(root, a.file), 'utf8');
-  return eval(src.match(new RegExp(a.pattern, 'm'))![1]) as RegExp;
+  const [, body, flags] = src.match(new RegExp(a.pattern, 'm'))![1].match(/^\/(.*)\/([a-z]*)$/s)!;
+  return new RegExp(body, flags);
 }
 
 export function makeTarget(cfg: Config, root: string) {
@@ -58,7 +59,7 @@ export function makeTarget(cfg: Config, root: string) {
     const before = jevJ.cost;
     const judge: Judge = {
       async pick(q, ps) { const id = await jevJ.pick(q, ps); return jevJ.lastError ? overlap.pick(q, ps) : id; },
-      async sentences(q, ss) { const i = await jevJ.sentences(q, ss); return jevJ.lastError ? (overlap.sentences?.(q, ss) ?? []) : i; },
+      async sentences(q, ss) { const i = await jevJ.sentences(q, ss); return jevJ.lastError ? [] : i; },
     };
     const g = new Guide(book as any, retriever, judge);
     let reply: string;

@@ -26,7 +26,7 @@ fs.writeFileSync(path.join(out, 'config.yaml'), `---\nsystem:\n  show_z: false\n
 const server = spawn(process.execPath, ['--no-warnings', path.join(root, 'eval/target-server.ts'), '--corpus', corpus, '--port', String(port)], { stdio: ['ignore', 'pipe', 'inherit'] });
 await new Promise<void>(res => server.stdout!.on('data', d => { if (String(d).includes('copilot target on')) res(); }));
 const t0 = Date.now();
-let r;
+let r: ReturnType<typeof spawnSync>;
 try {
   r = spawnSync(path.join(root, 'eval/.venv/bin/python'), ['-m', 'garak', '--model_type', 'rest', '--generator_option_file', path.join(out, 'rest.json'),
     '--probes', PROBES.join(','), '--config', path.join(out, 'config.yaml'), '--report_prefix', corpus, '--parallel_attempts', '2'],
