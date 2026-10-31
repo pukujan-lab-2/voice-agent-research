@@ -61,7 +61,8 @@ export function spokenNumbers(text: string): string {
 
 // A short code with letters and digits ("CP2000", "LTR 3172", "CP 14"), or '' when what was said isn't one.
 export function spokenToCode(text: string): string {
-  const v = spokenToSerial(spokenNumbers(text));
+  // a short letter prefix right before a number is the code's letters, however the recogniser cased it ("cp 14")
+  const v = spokenToSerial(spokenNumbers(text).replace(/\b([a-z]{2,4})(?=\s*\d)|\b(cp|lt|ltr|ls)\b/gi, m => m.toUpperCase()));
   return /^[A-Z0-9]{2,10}$/.test(v) && /\d/.test(v) && /[A-Z]/.test(v) ? v : '';
 }
 
@@ -102,16 +103,29 @@ export function isFiller(text: string): boolean {
   return t === '' || FILLER.test(t) || (HEDGE.test(t) && t.split(/\s+/).length <= 4);
 }
 
-const NAME_STOP = new Set(['what', 'where', 'when', 'why', 'how', 'who', 'can', 'could', 'would', 'do', 'does', 'is', 'are', 'was', 'the', 'a', 'an', 'my', 'your', 'it', 'that', 'this', 'please', 'thanks', 'thank', 'hello', 'yes', 'no', 'not', 'much', 'i', 'we', 'you', 'about', 'for', 'with', 'and', 'or', 'to', 'of', 'in', 'on', 'have', 'need', 'want', 'help', 'me', 'sorry', 'okay', 'ok', 'hmm', 'um', 'uh', 'maybe', 'sure', 'wait', "i'd", 'rather', 'prefer', 'say', "don't", "won't", 'nope', 'nah', 'skip', 'pass']);
+const NAME_STOP = new Set(['what', 'where', 'when', 'why', 'how', 'who', 'can', 'could', 'would', 'do', 'does', 'is', 'are', 'was', 'the', 'a', 'an', 'my', 'your', 'it', 'that', 'this', 'please', 'thanks', 'thank', 'hello', 'yes', 'no', 'not', 'much', 'i', 'we', 'you', 'about', 'for', 'with', 'and', 'or', 'to', 'of', 'in', 'on', 'have', 'need', 'want', 'help', 'me', 'sorry', 'okay', 'ok', 'hmm', 'um', 'uh', 'maybe', 'sure', 'wait', "i'd", 'rather', 'prefer', 'say', "don't", "won't", 'nope', 'nah', 'skip', 'pass', 'yeah', 'yep', 'its']);
 
 // "um, my name is Priya Rossi" -> "Priya Rossi". Returns '' when the text is not plausibly just a name.
 export function parseName(said: string): string {
   let t = said.trim().replace(/[\u2019]/g, "'").replace(/[.!]+$/, '');
   // Declining to give a name is not a name ("I'd rather not say", "prefer not to").
   if (/\b(rather not|prefer not|don'?t want to|won'?t say|not telling|skip (it|this|that))\b/i.test(t)) return '';
-  t = t.replace(/^(?:(?:um|uh|er|so|well|hi|hello|actually|sorry)[,\s]+)+/i, '');
+  t = t.replace(/^(?:(?:um|uh|er|so|well|hi|hello|actually|sorry|yeah|yes|yep|ok|okay|sure|right)[,\s]+)+/i, '');
   t = t.replace(/^(?:(?:change|make|set) (?:my )?name (?:to|as)|my name(?:'s| is)|name(?:'s| is)|it(?:'s| is)|this is|i(?:'m| am)|call me|they call me|you can call me)\s+/i, '');
   t = t.replace(/^(?:actually|really|just|now)\s+/i, '');
+  // spelled out: "D U C  N G U Y E N" -> "Duc Nguyen" (a long pause or a comma between words); "D U C, Duc Nguyen"
+  // -> the spoken name, with the spelled word in place of the spoken one that starts with the same letter
+  const word = (letters: string) => { const w = letters.replace(/[^A-Za-z]/g, '').toLowerCase(); return w[0].toUpperCase() + w.slice(1); };
+  const spelledThenSaid = /^((?:[A-Za-z][\s.-]+)+[A-Za-z])\s*,\s*(.+)$/.exec(t);
+  if (spelledThenSaid) {
+    const sp = word(spelledThenSaid[1]);
+    const rest = spelledThenSaid[2].split(/\s+/);
+    const i = rest.findIndex(w => w[0]?.toLowerCase() === sp[0].toLowerCase());
+    if (i >= 0) rest[i] = sp;
+    t = rest.join(' ');
+  } else if (/^[A-Za-z](?:[\s,.-]+[A-Za-z])+$/.test(t)) {
+    t = t.split(/\s{2,}|\s*,\s*/).map(word).join(' ');
+  }
   t = t.replace(/,?\s+not\s+.+$/i, '').replace(/\s+(?:here|speaking|calling)$/i, '').replace(/[,;]+$/, '').trim();
   const words = t.split(/\s+/);
   if (!t || t.includes('?') || /\d/.test(t) || words.length > 4) return '';

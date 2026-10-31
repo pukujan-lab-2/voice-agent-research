@@ -106,3 +106,26 @@ test('future dates: a month and day mean the next one; past dates are refused', 
   assert.equal(spokenToDate('November 16', now), '');
   assert.equal(spokenToDate('November 16 2026', now), '');
 });
+
+test('loose answers: filler and spelling in names, choices said loosely, lowercase codes', async () => {
+  const { spokenToCode } = await import('../src/guard.ts');
+  assert.equal(parseName("uh yeah it's Duc Nguyen"), 'Duc Nguyen');
+  assert.equal(parseName('D U C  N G U Y E N'), 'Duc Nguyen');
+  assert.equal(parseName('it is D U C, Duke Nguyen'), 'Duc Nguyen');
+  assert.equal(parseName('yeah'), '');
+  assert.equal(spokenToCode('cp fourteen'), 'CP14');
+  assert.equal(spokenToCode('ltr three one seven two'), 'LTR3172');
+  const { Copilot } = await import('../src/engine.ts');
+  const options = ['Single', 'Married filing jointly', 'Married filing separately', 'Head of household'];
+  const ask = async (said: string) => {
+    const c = new Copilot({ id: 's', title: 'S', scope: 'Only the status.', submitLabel: 'Send', fields: [
+      { name: 'status', label: 'filing status', kind: 'choice', question: 'Which status?', options }] } as any, new RuleModel(), { submit: () => {} });
+    c.start();
+    return c.turn(said);
+  };
+  assert.match(await ask('married filling jointly'), /^Married filing jointly, is that right\?$/);
+  assert.match(await ask('jointly with my wife'), /^Married filing jointly, is that right\?$/);
+  assert.match(await ask('head of house hold'), /^Head of household, is that right\?$/);
+  assert.match(await ask('married'), /^Which one/); // shared by two options: ask between them
+  assert.match(await ask('not jointly'), /^Sorry/); // ruling one out is not an answer
+});

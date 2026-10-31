@@ -38,6 +38,17 @@ const NONE = /^\s*(no(ne|pe)?|n\/?a|skip( it| that)?|nothing|not applicable|no n
 
 const escape = (x: string) => x.replace(/[.*+?^$()|[\]\\{}]/g, '\\$&');
 
+// Letters to add, drop or change to turn one word into the other.
+function edits(a: string, b: string): number {
+  let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i];
+    for (let j = 1; j <= b.length; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    prev = cur;
+  }
+  return prev[b.length];
+}
+
 export class Copilot {
   values: Record<string, string> = {};
   state: State = 'ask';
@@ -244,6 +255,9 @@ export class Copilot {
       const some = this.partOf(f, said);
       if (some.length === 1) return this.propose(f, some[0]);
       if (some.length > 1) return `Which one: ${some.slice(0, -1).join(', ')} or ${some.at(-1)}?`;
+      // said loosely ("jointly with my wife", "head of house hold", "married filling jointly"): read back, needs a yes
+      const loose = this.looseChoice(f, said);
+      if (loose.length === 1) return this.propose(f, loose[0]);
       return `Sorry, I need one of these: ${(f.options ?? []).join(' or ')}. ${q}`;
     }
     const u = await this.model.understand({ flow: this.flow, field: f, said, values: this.values });
@@ -278,6 +292,22 @@ export class Copilot {
       const text = ` ${[o, ...(f.synonyms?.[o] ?? [])].join(' ').toLowerCase().replace(/[^a-z0-9]+/g, ' ')} `;
       return words.every(w => text.includes(` ${w} `));
     });
+  }
+
+  // The one option that something said points to without its exact wording: run together ("head of house hold"), or a
+  // word only that option has, allowing one slip in a longer word ("filling" for "filing", "jointly" alone).
+  private looseChoice(f: Field, said: string): string[] {
+    if (/\b(not|no|don'?t|isn'?t|can'?t|never)\b/i.test(said)) return [];
+    const opts = f.options ?? [];
+    const flat = (x: string) => x.toLowerCase().replace(/[^a-z0-9]+/g, '');
+    const run = opts.filter(o => [o, ...(f.synonyms?.[o] ?? [])].some(w => flat(w).length >= 4 && flat(said).includes(flat(w))));
+    if (run.length) return run;
+    const SKIP = /^(the|and|for|with|from|your|my|our|of|to|in|on|or|help|other|some|any|this|that|got|get|have|need|want)$/;
+    const toks = (x: string) => (x.toLowerCase().match(/[a-z0-9]+/g) ?? []).filter(w => w.length >= 3 && !SKIP.test(w));
+    const wordsOf = opts.map(o => new Set([o, ...(f.synonyms?.[o] ?? [])].flatMap(toks)));
+    const close = (a: string, b: string) => a === b || (Math.min(a.length, b.length) >= 5 && edits(a, b) <= 1);
+    const saidW = toks(stripFiller(said));
+    return opts.filter((_, i) => [...wordsOf[i]].some(w => !wordsOf.some((o, j) => j !== i && o.has(w)) && saidW.some(x => close(x, w))));
   }
 
   private matchChoice(f: Field, said: string): string {
