@@ -15,7 +15,7 @@ import { JevGate, LlamaModel, RuleModel } from '../../copilot-engine/src/models.
 import type { Field, FieldKind, Flow, Model } from '../../copilot-engine/src/types.ts';
 
 export type ApiEnv = {
-  OPENROUTER_JEV_KEY?: string; OCTO_KEY?: string; OCTO_WORKSPACE?: string; JEV_URL?: string; OCTO_BASE?: string;
+  OPENROUTER_JEV_KEY?: string; OCTO_KEY?: string; OCTO_WORKSPACE?: string; JEV_URL?: string; OCTO_BASE?: string; OCTO_TIMEOUT_MS?: string;
   SIGNING_SECRET?: string; LLAMA_URL?: string; OFFLINE?: string; JEV_DAILY_CAP?: string; RATE_PER_MIN?: string;
 };
 
@@ -109,7 +109,7 @@ export function createApi(env: ApiEnv, opts: { offlinePassages?: Record<string, 
       const base: Retriever = offline ? new KeywordRetriever(opts.offlinePassages?.[label] ?? [])
         : new OctoRetriever({ base: env.OCTO_BASE, key: env.OCTO_KEY!, workspaceId: env.OCTO_WORKSPACE!, titlePrefix: lib ? LIBRARY : MANUALS[label],
           // the site's own search box skips Octo's reranker (faster); the copilot's answers keep it (more precise)
-          rerank: label === 'irs-fast' ? false : undefined });
+          rerank: label === 'irs-fast' ? false : undefined, timeoutMs: Number(env.OCTO_TIMEOUT_MS) || undefined });
       r = !lib ? base : {
         async search(q, k) {
           const found = await base.search(q, k);

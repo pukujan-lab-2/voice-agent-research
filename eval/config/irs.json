@@ -1,0 +1,121 @@
+{
+  "corpus": "irs",
+  "name": "Brindlewick tax library (IRS publications, forms, instructions, IRM, the tax code)",
+  "domain": "US federal tax, answered only from IRS publications, form instructions, the Internal Revenue Manual and the Internal Revenue Code",
+  "audience": "people calling a small tax-preparation firm",
+  "label": "pre-880k",
+  "budgetUsd": 3,
+  "concurrency": 3,
+  "counts": {
+    "passages": 165,
+    "casual": 100,
+    "vague": 100,
+    "chain": 100,
+    "unanswerable": 100,
+    "callers": 24,
+    "formCallers": 6
+  },
+  "passages": {
+    "source": "octo-sql",
+    "seed": "eval-1",
+    "sql": "select id, text, title, category, url from (select p.id, p.text, d.title, d.category, p.url, row_number() over (partition by d.category order by md5(p.id || $1)) r from irs_passages p join irs_docs d using (doc) where p.indexed and p.faq is null and length(p.text) between 350 and 1600) x order by r, md5(id || $1) limit $2",
+    "countSql": "select count(*) filter (where indexed) as indexed_passages, count(*) as fetched_passages from irs_passages",
+    "textSql": "select id, text from irs_passages where id = any($1)"
+  },
+  "target": {
+    "kind": "library",
+    "retriever": {
+      "kind": "octo",
+      "prefixes": [
+        "irs/",
+        "irc/",
+        "cfr/",
+        "irm/",
+        "irb/"
+      ],
+      "timeoutMs": 150000,
+      "shippedTimeoutMs": 30000
+    },
+    "judge": "jev",
+    "unknown": "I don't know. I couldn't find that in the IRS guides I answer from.",
+    "advice": {
+      "file": "demo/live-site/widget/sdk.ts",
+      "pattern": "^const ADVICE = (\\/.*\\/i);",
+      "reply": "That depends on your own situation, so it's a question for one of our preparers. I can book you a consultation."
+    }
+  },
+  "form": {
+    "id": "brindlewick-intake",
+    "business": "Brindlewick Tax & Accounting",
+    "intro": "I can fill in the consultation request with you, one question at a time. You press Request consultation yourself at the end.",
+    "scope": "I can only help with this consultation request and questions about the tax guides.",
+    "doneMessage": "I've handed the form back to you. Please check it and press Request consultation yourself.",
+    "reviewAsk": "Is that all right? Say yes and I'll hand the form back for you to send.",
+    "fields": [
+      {
+        "name": "fullname",
+        "label": "Full name",
+        "question": "What's your full name?",
+        "kind": "name"
+      },
+      {
+        "name": "tel",
+        "label": "Phone",
+        "question": "What's the best phone number for you?",
+        "kind": "phone"
+      },
+      {
+        "name": "mail",
+        "label": "Email",
+        "question": "And your email address?",
+        "kind": "email"
+      },
+      {
+        "name": "status",
+        "label": "Filing status",
+        "question": "What's your filing status?",
+        "kind": "choice",
+        "options": [
+          "Single",
+          "Married filing jointly",
+          "Married filing separately",
+          "Head of household",
+          "Qualifying surviving spouse"
+        ]
+      },
+      {
+        "name": "service",
+        "label": "Service needed",
+        "question": "Which service do you need?",
+        "kind": "choice",
+        "options": [
+          "Individual return",
+          "Small-business bookkeeping",
+          "Payroll",
+          "IRS notice help",
+          "Planning"
+        ]
+      },
+      {
+        "name": "code",
+        "label": "Notice code",
+        "question": "If you got an IRS notice, what's the code in its top corner? Say none if you didn't.",
+        "kind": "code",
+        "optional": true
+      }
+    ]
+  },
+  "generator": {
+    "provider": "openrouter-free",
+    "model": "nvidia/nemotron-3.5-super-vl:free",
+    "temperature": 0.8
+  },
+  "caller": {
+    "provider": "openrouter-free",
+    "model": "nvidia/nemotron-3.5-super-vl:free",
+    "temperature": 0.9
+  },
+  "checker": "jev",
+  "judge": "jev",
+  "traps": "eval/config/irs.traps.json"
+}

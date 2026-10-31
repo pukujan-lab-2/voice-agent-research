@@ -225,17 +225,21 @@ export class OctoRetriever implements Retriever {
   private workspaceId: string;
   private prefixes: (string | undefined)[];
   private rerank?: boolean;
+  private timeoutMs: number;
   // titlePrefix keeps answers to one manual or library: a workspace can hold many, and Octo filters by document title
   // inside the search, before its limit (filter.titlePrefix). A library spread over several prefixes (irs/, irc/, cfr/…)
   // is searched once, unfiltered and deeper, and the matches outside its prefixes dropped here: Octo's prefix filter is
   // the slow part of a query at library scale (about 15 s of 25 on 32,000 passages), and one query per prefix ran them
   // all at once. rerank: false skips Octo's reranker (a few seconds faster, a little less precise).
-  constructor(opts: { base?: string; key: string; workspaceId: string; titlePrefix?: string | string[]; rerank?: boolean; overfetch?: number /* no longer needed: Octo filters */ }) {
+  // timeoutMs: how long one search may take before it counts as no result (an eval raises it to score answers apart
+  // from latency).
+  constructor(opts: { base?: string; key: string; workspaceId: string; titlePrefix?: string | string[]; rerank?: boolean; timeoutMs?: number; overfetch?: number /* no longer needed: Octo filters */ }) {
     this.base = opts.base ?? 'https://octodb.design-bakery.com/api';
     this.key = opts.key;
     this.workspaceId = opts.workspaceId;
     this.prefixes = Array.isArray(opts.titlePrefix) ? opts.titlePrefix : [opts.titlePrefix];
     this.rerank = opts.rerank;
+    this.timeoutMs = opts.timeoutMs ?? 30000;
   }
 
   private async one(query: string, k: number, prefix?: string): Promise<any[]> {
@@ -244,7 +248,7 @@ export class OctoRetriever implements Retriever {
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${this.key}`, 'User-Agent': 'copilot-engine/0.1' },
       body: JSON.stringify({ workspaceId: this.workspaceId, query, limit: k, ...(prefix ? { filter: { titlePrefix: prefix } } : {}),
         ...(this.rerank === false ? { rerank: false } : {}) }),
-      signal: AbortSignal.timeout(30000),
+      signal: AbortSignal.timeout(this.timeoutMs),
     });
     if (!r.ok) return [];
     return ((await r.json()).matches ?? []).filter((x: any) => !prefix || String(x.title ?? '').startsWith(prefix));
