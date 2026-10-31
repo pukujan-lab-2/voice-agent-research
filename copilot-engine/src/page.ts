@@ -116,7 +116,7 @@ export function flowFromPage(form: PageForm, opts: { business: string; id?: stri
     if (p.options) {
       const names = p.options.map(o => o.label);
       const synonyms = Object.fromEntries(p.options.filter(o => o.also?.length).map(o => [o.label, o.also!]));
-      return { name: p.id, label: low, kind: 'choice', options: names, synonyms, question: `${ask ? ask.replace(/\?$/, "") : `Which ${low}`}: ${or(names)}?` };
+      return { name: p.id, label: low, kind: 'choice', options: names, synonyms, question: ask && !/\?$/.test(ask) ? `${ask} ${or(names)}?` : `${ask ? ask.replace(/\?$/, '') : `Which ${low}`}: ${or(names)}?` };
     }
     if (p.kind === 'code')
       return { name: p.id, label: low, kind: 'code', question: ask || `What's the ${low}? You can read it out letter by letter.` };

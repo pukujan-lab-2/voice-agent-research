@@ -62,7 +62,8 @@ export function spokenNumbers(text: string): string {
 // A short code with letters and digits ("CP2000", "LTR 3172", "CP 14"), or '' when what was said isn't one.
 export function spokenToCode(text: string): string {
   const v = spokenToSerial(spokenNumbers(text));
-  return /^[A-Z0-9]{2,10}$/.test(v) && /\d/.test(v) && /[A-Z]/.test(v) ? v : '';
+  // letters and digits ("CP2000"), or digits alone ("97201"); the page's own pattern decides which a field takes
+  return /^[A-Z0-9]{2,10}$/.test(v) && /\d/.test(v) && (/[A-Z]/.test(v) || v.length >= 3) ? v : '';
 }
 
 // "CP2000" -> "C, P, 2, 0, 0, 0": how a code or a name is read back so every character can be checked.

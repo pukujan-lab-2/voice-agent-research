@@ -245,6 +245,10 @@ export class Copilot {
 
   private choiceHits(f: Field, said: string): string[] {
     const t = said.toLowerCase();
+    // The whole answer is an option or one of its words ("no thanks" for "No gift wrap"): that option, even if negative.
+    const whole = t.replace(/[^a-z0-9$.]+/g, ' ').trim();
+    const exact = (f.options ?? []).filter(o => [o, ...(f.synonyms?.[o] ?? [])].some(w => w.toLowerCase() === whole));
+    if (exact.length) return exact;
     // "not the morning" names an option only to rule it out: ask again rather than guess the other one.
     if (/\b(not|no|don'?t|isn'?t|can'?t|never|nothing in the)\b/.test(t)) return [];
     return (f.options ?? []).filter(o =>

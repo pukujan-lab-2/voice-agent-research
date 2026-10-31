@@ -1,0 +1,117 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* cream page, warm ink text */
+    --background: 40 60% 96%;
+    --foreground: 144 7% 13%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 144 7% 13%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 144 7% 13%;
+
+    /* deep teal */
+    --primary: 178 67% 18%;
+    --primary-foreground: 40 60% 96%;
+
+    --secondary: 40 26% 92%;
+    --secondary-foreground: 178 67% 18%;
+
+    --muted: 40 24% 93%;
+    --muted-foreground: 124 8% 40%;
+
+    /* saffron */
+    --accent: 36 80% 57%;
+    --accent-foreground: 144 7% 13%;
+
+    --destructive: 4 62% 44%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 39 24% 84%;
+    --input: 39 24% 82%;
+    --ring: 36 80% 57%;
+
+    --radius: 0.625rem;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-cream text-ink;
+    font-family: "Figtree", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+      sans-serif;
+    overflow-x: hidden;
+    font-size: 16px;
+  }
+
+  #root {
+    overflow-x: clip;
+  }
+
+  /* Never let a long word push the page sideways on a phone. */
+  h1,
+  h2,
+  h3,
+  h4,
+  p,
+  li,
+  a,
+  span,
+  td,
+  th {
+    overflow-wrap: anywhere;
+  }
+
+  :focus-visible {
+    outline: 2px solid #e9a23b;
+    outline-offset: 2px;
+  }
+
+  /* The copilot marks the field it is asking about. */
+  [data-copilot-active] {
+    border-color: #e9a23b !important;
+    box-shadow:
+      0 0 0 3px rgba(233, 162, 59, 0.55),
+      0 0 0 9px rgba(233, 162, 59, 0.16);
+    transition: box-shadow 160ms ease, border-color 160ms ease;
+  }
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .bw-container {
+    width: 100%;
+    max-width: 1400px;
+    margin-inline: auto;
+    padding-inline: 0.75rem;
+  }
+  @media (min-width: 640px) {
+    .bw-container {
+      padding-inline: 1.5rem;
+    }
+  }
+  .tap {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  .hide-scroll-x {
+    overflow-x: clip;
+  }
+}
