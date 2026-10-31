@@ -6,6 +6,10 @@
 //   POST /api/log         an error from the widget in a visitor's browser, written to the server log
 //   POST /api/sentences   Jev picks the answering sentences of a signed passage
 //   POST /api/warm        wakes the local LFM (it sleeps when idle) while the call's greeting plays; never calls Jev
+//   POST /api/verify      caller verification: the caller's confirmed name, date of birth, last four and zip are compared
+//                         here with the fictional client list in Octo; the answer is only match / no_match / need_more /
+//                         locked. Nothing on file is ever sent back, and 3 failed tries lock verification for that call.
+//   POST /api/account/status  the verified caller's (fictional) return status card
 //   GET  /api/library/…   the tax library, all from Octo: search, docs (the list), doc?doc= (one source: its sections, or
 //                         the article body of a web-page source), pdf?doc= (a publication's printed PDF), faq
 // Nothing here decides what the copilot does; it only answers those questions. Requests are size- and rate-limited, and
@@ -13,6 +17,7 @@
 import { JevJudge, KeywordRetriever, OctoRetriever, OverlapJudge, type Judge, type Passage, type Retriever } from '../../copilot-engine/src/guide.ts';
 import { JevGate, LlamaModel, RuleModel } from '../../copilot-engine/src/models.ts';
 import type { Field, FieldKind, Flow, Model } from '../../copilot-engine/src/types.ts';
+import { maskPII } from '../../copilot-engine/src/guard.ts';
 
 export type ApiEnv = {
   OPENROUTER_JEV_KEY?: string; OCTO_KEY?: string; OCTO_WORKSPACE?: string; JEV_URL?: string; OCTO_BASE?: string; OCTO_TIMEOUT_MS?: string;
@@ -31,6 +36,11 @@ const CATEGORIES: Record<string, string> = { publications: 'IRS publications', i
   irm: 'Internal Revenue Manual', bulletins: 'Internal Revenue Bulletins' };
 type LibraryPassage = Passage & { source?: string; section?: string; url?: string; faq?: string };
 const KINDS: FieldKind[] = ['text', 'name', 'serial', 'choice', 'email', 'phone'];
+// Caller verification: tries per call, and failed tries per visitor per hour (so a new call can't reset the count).
+const VERIFY_TRIES = 3, VERIFY_IP_FAILS = 6, CALL_TTL = 30 * 60_000;
+// Names said by a caller vs names on file: true where it is the same person's name (fuzzy, sound-alike). server.ts lends
+// tools/verify_match.py (RapidFuzz + jellyfish).
+export type NameMatcher = (said: string, names: string[]) => Promise<boolean[]>;
 const JEV_URL = 'https://openrouter.ai/api/alpha/decisions';
 
 const clip = (s: unknown, n: number) => (typeof s === 'string' ? s.slice(0, n) : '');
@@ -38,11 +48,12 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
 
 // offlinePassages: the same passages as in Octo, for running with no keys (keyword search + word-overlap judge).
 // One line per problem, to stdout (the systemd journal on gravebuster). Never keys, never what a visitor typed.
-const log = (msg: string) => console.error(`${new Date().toISOString()} ${msg.replace(/\s+/g, ' ')}`);
+// Every line goes through maskPII, so a date of birth, an SSN or a last four can't reach the log even by mistake.
+const log = (msg: string) => console.error(`${new Date().toISOString()} ${maskPII(msg).replace(/\s+/g, ' ')}`);
 
 const WARM_FIELD: Field = { name: 'warm', label: 'warm-up', question: 'Say hello.', kind: 'text' };
 
-export function createApi(env: ApiEnv, opts: { offlinePassages?: Record<string, LibraryPassage[]> } = {}) {
+export function createApi(env: ApiEnv, opts: { offlinePassages?: Record<string, LibraryPassage[]>; matchNames?: NameMatcher } = {}) {
   const offline = env.OFFLINE === '1';
   if (!offline && !(env.OPENROUTER_JEV_KEY && env.OCTO_KEY && env.OCTO_WORKSPACE)) throw new Error('missing OPENROUTER_JEV_KEY, OCTO_KEY or OCTO_WORKSPACE (or set OFFLINE=1)');
   const jevUrl = env.JEV_URL || JEV_URL;
@@ -224,7 +235,58 @@ export function createApi(env: ApiEnv, opts: { offlinePassages?: Record<string, 
     return json({ error: 'not found' }, 404);
   }
 
-  async function route(path: string, b: any): Promise<Response> {
+  // ---- Caller verification. The server compares, never a model; the browser only ever hears the result.
+  type Call = { tries: number; locked: boolean; client: string; at: number };
+  const calls = new Map<string, Call>();
+  const fails = new Map<string, number[]>();
+  const newCall = (): [string, Call] => {
+    const id = Array.from(crypto.getRandomValues(new Uint8Array(16)), b => b.toString(16).padStart(2, '0')).join('');
+    const c: Call = { tries: 0, locked: false, client: '', at: Date.now() };
+    if (calls.size > 5000) for (const [k, v] of calls) if (Date.now() - v.at > CALL_TTL) calls.delete(k);
+    calls.set(id, c);
+    return [id, c];
+  };
+  const callOf = (id: unknown): [string, Call] | null => {
+    const c = typeof id === 'string' ? calls.get(id) : undefined;
+    return c && Date.now() - c.at < CALL_TTL ? [id as string, c] : null;
+  };
+  async function verify(b: any, ip: string): Promise<Response> {
+    if (offline || !opts.matchNames) return json({ error: 'verification needs the live backend' }, 503);
+    const [call, c] = callOf(b.call) ?? newCall();
+    const recent = (fails.get(ip) ?? []).filter(t => Date.now() - t < 3600_000);
+    const out = (result: string, extra: Record<string, unknown> = {}) => json({ result, call, triesLeft: Math.max(0, VERIFY_TRIES - c.tries), ...extra });
+    if (c.locked || recent.length >= VERIFY_IP_FAILS) { c.locked = true; return out('locked'); }
+    if (c.client) return out('match');
+    const name = clip(b.name, 80).trim(), dob = clip(b.dob, 10), ssn4 = clip(b.ssn4, 4), zip = clip(b.zip, 5);
+    // What is still needed. The zip is always asked last and always the same way, so "need more" says nothing about
+    // whether the first three answers match anyone.
+    if (!name) return out('need_more', { ask: 'name' });
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dob)) return out('need_more', { ask: 'dob' });
+    if (!/^\d{4}$/.test(ssn4)) return out('need_more', { ask: 'ssn4' });
+    if (!/^\d{5}$/.test(zip)) return out('need_more', { ask: 'zip' });
+    // Date of birth, last four and zip must match exactly (in the database); then the name, fuzzy, among those few.
+    const rows = await sql(`select id, full_name from bw_clients where dob = $1::date and ssn4 = $2 and zip = $3 limit 10`, [dob, ssn4, zip]);
+    const same = rows.length ? await opts.matchNames(name, rows.map(r => r.full_name)) : [];
+    const hit = rows.filter((_, i) => same[i]);
+    if (hit.length === 1) { c.client = hit[0].id; log('verify: match'); return out('match'); }
+    c.tries++;
+    recent.push(Date.now()); fails.set(ip, recent);
+    if (fails.size > 5000) fails.clear();
+    if (c.tries >= VERIFY_TRIES) c.locked = true;
+    log(`verify: no match (try ${c.tries} of ${VERIFY_TRIES}${hit.length > 1 ? ', ambiguous' : ''})`);
+    return out(c.locked ? 'locked' : 'no_match');
+  }
+  async function accountStatus(b: any): Promise<Response> {
+    const found = callOf(b.call);
+    if (!found || !found[1].client) return json({ error: 'not verified' }, 403);
+    const r = (await sql(`select tax_year, status, updated::text, next_step, preparer, amount from bw_returns where client_id = $1`, [found[1].client]))[0];
+    if (!r) return json({ error: 'not found' }, 404);
+    return json({ card: { taxYear: r.tax_year, status: r.status, updated: r.updated, nextStep: r.next_step, preparer: r.preparer, amount: r.amount, sample: true } });
+  }
+
+  async function route(path: string, b: any, ip = ''): Promise<Response> {
+    if (path === '/api/verify') return verify(b, ip);
+    if (path === '/api/account/status') return accountStatus(b);
     if (path === '/api/understand') {
       const said = clip(b.said, 500);
       const kind = KINDS.includes(b.field?.kind) ? b.field.kind : 'text';
@@ -265,13 +327,15 @@ export function createApi(env: ApiEnv, opts: { offlinePassages?: Record<string, 
     }
     if (path === '/api/log') {
       // Errors the widget hit in a visitor's browser (speech, page errors), so real failures show up in the journal.
-      log(`client ${clip(b.where, 40)}: ${clip(b.message, 300)} | ${clip(b.page, 80)} | ${clip(b.ua, 160)}`);
+      log(`client ${clip(b.where, 40)}: ${clip(b.message, 300)} | ${clip(b.page, 80)} | ${clip(b.ua, 160)}`); // masked by log()
       return json({ ok: true });
     }
     return json({ error: 'not found' }, 404);
   }
 
   return {
+    // For tests only (never over HTTP): which client a call was verified as.
+    verifiedAs: (call: string) => calls.get(call)?.client ?? '',
     mode: offline ? 'offline (keyword search, word-overlap judge, rules)' : `live (Octo RAG, Jev ${env.LLAMA_URL ? '+ local LFM' : '+ rules'})`,
     async handle(req: Request, ip = ''): Promise<Response> {
       const path = new URL(req.url).pathname;
@@ -300,7 +364,7 @@ export function createApi(env: ApiEnv, opts: { offlinePassages?: Record<string, 
       let b: any;
       try { b = JSON.parse(raw); } catch { log(`${path} 400 bad json`); return json({ error: 'bad json' }, 400); }
       try {
-        const r = await route(path, b);
+        const r = await route(path, b, ip || req.headers.get('cf-connecting-ip') || 'local');
         if (r.status >= 400) log(`${path} ${r.status}`);
         return r;
       } catch (e) {

@@ -151,3 +151,80 @@ export function spokenToPhone(text: string): string {
   const d = out.join('');
   return d.length >= 7 && d.length <= 15 ? (plus ? '+' : '') + d : '';
 }
+
+// ---- Dates and digit strings, for identity checks.
+const MONTHS = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
+const MONTH_ABBR: Record<string, number> = Object.fromEntries(MONTHS.flatMap((m, i) => [[m, i + 1], [m.slice(0, 3), i + 1], ...(m === 'september' ? [['sept', 9]] : [])]));
+const ORDINAL: Record<string, number> = { first: 1, second: 2, third: 3, fourth: 4, fifth: 5, sixth: 6, seventh: 7, eighth: 8, ninth: 9, tenth: 10,
+  eleventh: 11, twelfth: 12, thirteenth: 13, fourteenth: 14, fifteenth: 15, sixteenth: 16, seventeenth: 17, eighteenth: 18, nineteenth: 19, twentieth: 20, thirtieth: 30 };
+
+// "March third, nineteen eighty five", "the 3rd of March 85", "3/3/1985", "1985-03-03", "oh three oh three eighty five"
+// -> "1985-03-03"; '' when it isn't one real date between 1900 and today. Numbers without a month name are read the
+// US way (month, day, year) unless the year comes first.
+export function spokenToDate(text: string, now = new Date()): string {
+  let t = text.toLowerCase().replace(/[’']/g, '').replace(/,/g, ' ');
+  t = t.replace(/\b(twenty|thirty)[\s-]+(first|second|third|fourth|fifth|sixth|seventh|eighth|ninth)\b/g, (_, a, b) => String((a === 'twenty' ? 20 : 30) + ORDINAL[b]));
+  t = t.replace(/\b(first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|eleventh|twelfth|thirteenth|fourteenth|fifteenth|sixteenth|seventeenth|eighteenth|nineteenth|twentieth|thirtieth)\b/g, w => String(ORDINAL[w]));
+  // spoken years: "nineteen oh five" -> 1905, "nineteen eighty five" -> 1985, "two thousand twelve" -> 2012
+  t = t.replace(/\bnineteen\s+(?:oh|zero)\s+(one|two|three|four|five|six|seven|eight|nine)\b/g, (_, d) => `190${DIGITS[d]}`);
+  t = spokenNumbers(t);
+  t = t.replace(/\b(19|20)\s+(\d{2})\b/g, '$1$2').replace(/\b(2000)\s+(\d{1,2})\b/g, (_, a, b) => String(2000 + +b));
+  t = t.replace(/\b(\d+)(st|nd|rd|th)\b/g, '$1');
+  let month = 0;
+  for (const w of t.match(/[a-z]+/g) ?? []) if (MONTH_ABBR[w] && !(w === 'may' && /\bmay (i|we|be)\b/.test(t))) { month = MONTH_ABBR[w]; break; }
+  // digit words said one by one ("oh three oh three one nine eight five") become one run of digits
+  const toks = (t.match(/[a-z]+|\d+/g) ?? []).map(w => (w in DIGITS ? DIGITS[w] : w)).filter(w => /^\d+$/.test(w));
+  let nums = toks.map(Number);
+  const run = toks.join('');
+  if (toks.length > 3 && (/^\d{6}$|^\d{8}$/.test(run) || (month && run.length >= 5))) nums = splitRun(run, !!month);
+  else if (toks.length === 1 && /^\d{6}$|^\d{8}$/.test(toks[0])) nums = splitRun(toks[0], !!month);
+  else { const m = t.match(/\b(\d{1,4})[/.-](\d{1,2})[/.-](\d{1,4})\b/); if (m) nums = [+m[1], +m[2], +m[3]]; }
+  let y = 0, mo = month, d = 0;
+  const fullYear = (n: number) => n >= 100 ? n : n + (n > now.getFullYear() % 100 ? 1900 : 2000);
+  if (month) {
+    const rest = nums.filter(n => n > 0);
+    const yi = rest.findIndex(n => n >= 1000);
+    if (yi >= 0) { y = rest[yi]; d = rest.find((n, i) => i !== yi && n <= 31) ?? 0; }
+    else if (rest.length >= 2) { d = rest[0]; y = fullYear(rest[1]); }
+  } else if (nums.length === 3) {
+    if (nums[0] >= 1000) [y, mo, d] = nums;
+    else [mo, d, y] = [nums[0], nums[1], fullYear(nums[2])];
+  }
+  if (!y || !mo || !d || mo > 12 || d > 31 || y < 1900) return '';
+  const date = new Date(Date.UTC(y, mo - 1, d));
+  if (date.getUTCDate() !== d || date > now) return '';
+  return `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
+function splitRun(run: string, haveMonth: boolean): number[] {
+  if (haveMonth) return run.length >= 5 ? [+run.slice(0, run.length - 4), +run.slice(-4)] : [];
+  if (run.length === 8) return /^(19|20)/.test(run) ? [+run.slice(0, 4), +run.slice(4, 6), +run.slice(6)] : [+run.slice(0, 2), +run.slice(2, 4), +run.slice(4)];
+  if (run.length === 6) return [+run.slice(0, 2), +run.slice(2, 4), +run.slice(4)];
+  return [];
+}
+// "1985-03-03" -> "March 3, 1985"
+export const formatDate = (iso: string): string => {
+  const [y, m, d] = iso.split('-').map(Number);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso) || !MONTHS[m - 1]) return iso;
+  return `${MONTHS[m - 1][0].toUpperCase()}${MONTHS[m - 1].slice(1)} ${d}, ${y}`;
+};
+
+// All the digits said ("forty three twenty one", "4 3 2 1", "double four one two"), as one string.
+export function spokenDigits(text: string): string {
+  const t = spokenNumbers(text.toLowerCase().replace(/\b(double|triple) (\w+)/g, (_m, n: string, d: string) => Array(n === 'double' ? 2 : 3).fill(d).join(' ')));
+  return (t.match(/[a-z]+|\d+/g) ?? []).map(w => (w in DIGITS ? DIGITS[w] : /^\d+$/.test(w) ? w : '')).join('');
+}
+
+// Masking for values marked secret: the engine puts them between these marks in what it says.
+export const SECRET = ['⟦', '⟧'] as const;
+export const secret = (v: string): string => `${SECRET[0]}${v}${SECRET[1]}`;
+export const forSpeech = (text: string): string => text.replace(/[⟦⟧]/g, '');
+export const forDisplay = (text: string): string => text.replace(/⟦[^⟧]*⟧/g, '••••');
+// A last line of defence for log lines: anything shaped like an SSN, a date, or a run of 4+ digits after words that
+// introduce one ("last four", "born", "birthday", "social") is masked.
+export function maskPII(text: string): string {
+  return forDisplay(text)
+    .replace(/\b\d{3}[-\s]?\d{2}[-\s]?\d{4}\b/g, '•••-••-••••')
+    .replace(/\b(\d{4}-\d{2}-\d{2}|\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4})\b/g, '••/••/••••')
+    .replace(/\b((january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2}(st|nd|rd|th)?,?\s+\d{2,4})\b/gi, '•• •• ••••')
+    .replace(/\b(last (four|4)|ssn|social( security)?|born|birthday|date of birth|dob)\b([^.?!]{0,40}?)(\d(?:[\s,-]*\d){3,})/gi, (_m, a, _b, _c, mid) => `${a}${mid}••••`);
+}

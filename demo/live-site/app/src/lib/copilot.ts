@@ -94,6 +94,19 @@ export interface CopilotConfig {
   large?: boolean;
   manual?: CopilotManual;
   desk?: CopilotDesk;
+  /** Caller verification ("check on my return"): handoff is what to offer when a caller can't be verified. */
+  verify?: { handoff: string };
+}
+
+/** The verified caller's return status (fictional sample data; never any identity details). */
+export interface CopilotReturnCard {
+  taxYear: number;
+  status: string;
+  updated: string;
+  nextStep: string;
+  preparer: string;
+  amount: string | null;
+  sample: true;
 }
 
 export interface CopilotSnapshot {
@@ -117,6 +130,8 @@ export interface CopilotSnapshot {
   wait?: { text: string; until: number } | null;
   /** The source viewer: shown (side panel on desktop, bottom sheet on a phone) while this is set. */
   source?: CopilotSource | null;
+  /** Shown as a card while set: the verified caller's return status. */
+  account?: CopilotReturnCard | null;
 }
 
 export interface Copilot {
@@ -162,6 +177,7 @@ export const EMPTY_SNAPSHOT: CopilotSnapshot = {
   large: false,
   messages: [],
   source: null,
+  account: null,
 };
 
 /** Copilot configs for each form page. */
@@ -269,10 +285,13 @@ function TAX_BASE(): CopilotConfig {
     },
     desk: {
       greeting:
-        "Hi, I'm Brindlewick's assistant. Ask me a tax question and I'll answer from the IRS guides and show you the page it comes from. I can also take you around the site, and fill in the consultation form with you. I can't advise on your own situation, but a preparer can at a consultation.",
+        "Hi, I'm Brindlewick's assistant. Ask me a tax question and I'll answer from the IRS guides and show you the page it comes from. I can also take you around the site, fill in the consultation form with you, and, if you're a client, check on your return once I've verified who you are. I can't advise on your own situation, but a preparer can at a consultation.",
       advice:
         "That depends on your own situation, so it's one for a Brindlewick preparer: they'll go through it with you at a consultation. I only answer general questions from the tax guides.",
       book: { text: "Book a consultation", href: "/tax/book" },
+    },
+    verify: {
+      handoff: "A Brindlewick team member can help you with that: book a consultation, or call the office at 555-0100 on weekdays.",
     },
   };
 }

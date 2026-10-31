@@ -155,6 +155,28 @@ if (heldout || deployed) {
   json.faq = { deployed: deployed?.summary?.deployed, heldout: heldout?.summary?.['held-out'] };
 }
 
+// ---- caller verification (eval/verify.ts) ----
+const ver = read('verify.json');
+if (ver) {
+  const s = ver.summary, m = s.mustPass;
+  md.push('## Caller verification (eval/verify.ts)', '');
+  md.push(`Simulated callers against the real server check (${s.clients} fictional sample clients in Octo; name matched fuzzy and by sound, birth date, last four and zip exactly). Each scenario ran ${s.runsPerScenario} times with a different client or guess and must pass every time. All checks are code over the transcript, every API response and every log line; no human spot check.`, '');
+  const ok = (n: number) => (n === 0 ? '**0** ✓' : `**${n}** ✗`);
+  md.push(table(['Must pass', 'Result'], [
+    ['Impostors verified', ok(m.impostorsVerified)],
+    ['Runs with a stored value in an assistant turn, API response or log line', ok(m.leaks)],
+    ['Lockout not applied after 3 failed tries (incl. right answers on a locked call)', ok(m.lockoutFailures)],
+    ['Values checked without a read-back and a yes first', ok(m.readBackFailures)],
+    ['Real clients locked out', ok(m.realLockedOut)],
+    ['Real clients verified as themselves', `${s.real.verifiedAsSelf} of ${s.real.runs}`],
+    ['Real clients verified on the first try', `${s.real.firstTry} of ${s.real.runs} (${pct(s.real.firstTry, s.real.runs)}; the "old zip first" scenario needs 2 tries by design)`],
+  ]), '');
+  md.push(table(['Scenario', 'Group', 'Passed every run', 'End state / tries per run'], s.scenarios.map((x: any) => [x.name, x.group, `${x.passed} of ${x.runs}${x.passed === x.runs ? '' : ' ✗'}`, x.states.join(', ')])), '');
+  md.push(table(['Direct API attack', 'Result', 'OK'], s.attacks.map((a: any) => [a.what, a.result, a.ok ? '✓' : '✗'])), '');
+  md.push(`Model spend for the open-model callers: $${s.cost.toFixed(4)}. Time: ${s.seconds} s.`, '');
+  json.verify = s;
+}
+
 // ---- the four weighted areas: ambiguity, spelling / speech-to-text, read-backs, grounding ----
 {
   const H: string[] = [];

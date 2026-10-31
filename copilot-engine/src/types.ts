@@ -1,5 +1,7 @@
 // code: a short letters-and-digits code (an IRS notice code like CP2000), read back character by character.
-export type FieldKind = 'text' | 'name' | 'serial' | 'choice' | 'email' | 'phone' | 'code';
+// date: a calendar date said any way ("March 3rd 1985", "3/3/85"), kept as YYYY-MM-DD.
+// digits: exactly `length` digits ("the last four of my social", a zip code), read back digit by digit.
+export type FieldKind = 'text' | 'name' | 'serial' | 'choice' | 'email' | 'phone' | 'code' | 'date' | 'digits';
 
 export interface Field {
   name: string;
@@ -12,6 +14,10 @@ export interface Field {
   aliases?: string[];
   optional?: boolean; // "none" or "skip" leaves it blank
   spell?: boolean;    // read the answer back spelled out, letter by letter
+  length?: number;    // digits: how many
+  // A value that must never be shown or logged (a date of birth, the last four of an SSN). It is still read back aloud
+  // for a yes, but every reply carries it between SECRET marks: forSpeech() keeps it, forDisplay() masks it.
+  secret?: boolean;
 }
 
 export interface Flow {

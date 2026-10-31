@@ -1,12 +1,15 @@
 // One whole Brindlewick call with no clicks after "start call", at desktop and phone width: a tax question opens its
 // source with the quoted line highlighted, spoken requests change page (the call stays on), an unknown page gets close
 // matches, "go back to the form" brings back the half-filled form, and the form is filled to the end and never sent.
+// Then the caller asks about their return, is verified by voice (name, birth date, last four, zip, each read back and
+// confirmed) and sees their sample return card, with no birth date, last four or zip ever shown on the page.
 // The caller's words go in through copilot.send, as the browser's speech recognition would deliver them.
 // Run: node tests/tax-call.ts [--offline] [outdir]   (default build/call-shots)
 import fs from 'node:fs';
 import path from 'node:path';
 import { chromium, type Page } from 'playwright-core';
-import { start } from '../server.ts';
+import { loadEnv, start } from '../server.ts';
+import { formatDate } from '../../../copilot-engine/src/guard.ts';
 
 const here = path.dirname(new URL(import.meta.url).pathname);
 const out = process.argv.slice(2).find(a => !a.startsWith('--')) ?? path.join(here, '../build/call-shots');
@@ -15,6 +18,12 @@ const srv = await start({ offline: process.argv.includes('--offline'), port: 879
 const cache = `${process.env.HOME}/Library/Caches/ms-playwright`;
 const cached = fs.readdirSync(cache).filter(d => /^chromium-\d+$/.test(d)).sort((a, b) => +b.split('-')[1] - +a.split('-')[1])[0];
 const browser = await chromium.launch({ executablePath: `${cache}/${cached}/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing` });
+
+// Two fictional sample clients (one per width), read from the Octo client list; in --offline runs the step is skipped.
+const env = loadEnv();
+const sample: { full_name: string; dob: string; ssn4: string; zip: string }[] = process.argv.includes('--offline') ? [] : ((await (await fetch(`${env.OCTO_BASE || 'https://octodb.design-bakery.com/api'}/workspaces/${env.OCTO_WORKSPACE}/query`, {
+  method: 'POST', headers: { Authorization: `Bearer ${env.OCTO_KEY}`, 'Content-Type': 'application/json' },
+  body: JSON.stringify({ sql: "select full_name, dob::text, ssn4, zip from bw_clients where id in ('BW-10042', 'BW-10317') order by id" }) })).json()).rows ?? []);
 
 let pass = 0, fail = 0;
 const check = (ok: unknown, what: string, detail = '') => {
@@ -117,6 +126,28 @@ for (const [name, vp] of [['desktop', { width: 1366, height: 860 }], ['phone', {
   check(Object.values(done).filter(Boolean).length >= 9, 'the form is filled in', JSON.stringify(done));
   check(!submitted && new URL(page.url()).pathname === '/tax/book', 'the copilot never submits', r);
   await shot('6-filled');
+
+  // caller verification: "check on my return", four answers each read back, then the sample return card
+  const who = sample[name === 'desktop' ? 0 : 1];
+  if (who) {
+    const forms = [who.dob, formatDate(who.dob), who.ssn4, [...who.ssn4].join(', '), who.zip, [...who.zip].join(', ')];
+    const seen = async () => { const t = await page.evaluate(() => document.body.innerText + '\n' + JSON.stringify((window as any).copilot.getSnapshot().messages)); return forms.filter(f => t.includes(f)); };
+    const before = await seen();
+    r = await say(page, 'take me to pricing');
+    r = await say(page, 'Can you check on my return?');
+    check(/full name/i.test(r) && /can't read out anything/i.test(r), 'asking about "my return" starts verification', r);
+    for (const t of [who.full_name, formatDate(who.dob), [...who.ssn4].join(' '), who.zip.split('').join(' ')]) {
+      r = await say(page, t);
+      check(/I heard .+ Is that right\?$/.test(r), `read back before it is used (${t === who.full_name ? 'name' : 'secret value'})`, r);
+      r = await say(page, 'yes');
+    }
+    check(/you're verified/i.test(r), 'verified after four confirmed answers', r);
+    await page.locator(T('return-card')).waitFor({ timeout: 10_000 }).catch(() => {});
+    check(await page.locator(T('return-card')).isVisible() && await page.locator(T('return-card-sample')).isVisible(), 'the return card shows, labelled as sample data');
+    const leaked = (await seen()).filter(f => !before.includes(f));
+    check(!leaked.length, 'no birth date, last four or zip on the page or in the transcript', `${leaked.length} value(s) visible`);
+    await shot('7-verified');
+  }
   check(clicks === 1, `one click in the whole call (start call): ${clicks}`);
   if (process.env.DEBUG) console.log(await page.evaluate(() => (window as any).copilot.getSnapshot().messages.map((m: any) => `${m.who}: ${m.text}`).join('\n')));
   await ctx.close();

@@ -2,11 +2,12 @@
 // Keys come from the environment, or from ~/Documents/projects/.env (this Mac) / ~/.hack_env (the Pro), mapped to the
 // names the engine uses. Values are never printed.
 // Run: node build.ts && node server.ts [--offline]     (PORT=8787, HOST=127.0.0.1 by default)
+import { spawn, type ChildProcess } from 'node:child_process';
 import fs from 'node:fs';
 import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
-import { createApi, type ApiEnv } from './api.ts';
+import { createApi, type ApiEnv, type NameMatcher } from './api.ts';
 import type { Passage } from '../../copilot-engine/src/guide.ts';
 
 const here = path.dirname(new URL(import.meta.url).pathname);
@@ -38,6 +39,36 @@ function offlinePassages(): Record<string, (Passage & { source?: string; section
   return out;
 }
 
+// The name matcher for caller verification: tools/verify_match.py (RapidFuzz + jellyfish), one long-lived helper started
+// on first use and again if it exits. VERIFY_MATCHER overrides the command (default: uv with pinned versions).
+export function nameMatcher(): NameMatcher {
+  let proc: ChildProcess | null = null;
+  let buf = '';
+  let seq = 0;
+  const waiting = new Map<number, (r: boolean[]) => void>();
+  const up = () => {
+    if (proc && proc.exitCode === null) return proc;
+    const cmd = process.env.VERIFY_MATCHER ?? 'uv run --quiet --python 3.12 --with rapidfuzz==3.10.1 --with jellyfish==1.1.3 python tools/verify_match.py';
+    proc = spawn('/bin/sh', ['-c', cmd], { cwd: here, stdio: ['pipe', 'pipe', 'inherit'] });
+    proc.stdout!.on('data', d => {
+      buf += d;
+      for (let i = buf.indexOf('\n'); i >= 0; i = buf.indexOf('\n')) {
+        const line = buf.slice(0, i); buf = buf.slice(i + 1);
+        try { const o = JSON.parse(line); waiting.get(o.id)?.(Array.isArray(o.match) ? o.match.map(Boolean) : []); waiting.delete(o.id); } catch { /* not ours */ }
+      }
+    });
+    proc.on('exit', () => { for (const f of waiting.values()) f([]); waiting.clear(); proc = null; });
+    return proc;
+  };
+  return (said, names) => new Promise(res => {
+    const id = ++seq;
+    // no answer in 20 s counts as no match (fails closed)
+    const t = setTimeout(() => { waiting.delete(id); res([]); }, 20_000);
+    waiting.set(id, r => { clearTimeout(t); res(r); });
+    up().stdin!.write(JSON.stringify({ id, said, names }) + '\n');
+  });
+}
+
 const HEADERS = { 'X-Robots-Tag': 'noindex, nofollow', 'Referrer-Policy': 'no-referrer', 'X-Frame-Options': 'DENY',
   'X-Content-Type-Options': 'nosniff', 'Permissions-Policy': 'camera=(), microphone=(self), geolocation=()' };
 const TYPES: Record<string, string> = { '.mp4': 'video/mp4', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.ico': 'image/x-icon', '.woff2': 'font/woff2', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
@@ -53,7 +84,7 @@ function visitor(req: http.IncomingMessage): string {
 export async function start(opts: { port?: number; host?: string; offline?: boolean } = {}) {
   const env = loadEnv();
   if (opts.offline) env.OFFLINE = '1';
-  const api = createApi(env, { offlinePassages: offlinePassages() });
+  const api = createApi(env, { offlinePassages: offlinePassages(), matchNames: nameMatcher() });
   const dist = path.join(here, 'dist');
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url ?? '/', 'http://local');

@@ -14,6 +14,7 @@ import { useCopilot } from "@/hooks/useCopilot";
 import type { CopilotMessage } from "@/lib/copilot";
 import { cn } from "@/lib/utils";
 import { SourceChip } from "@/components/tax/SourceChip";
+import { ReturnCard } from "@/components/tax/ReturnCard";
 
 /* ---------- helpers ---------- */
 
@@ -392,6 +393,9 @@ export function CopilotWidget() {
           </span>
         </div>
       )}
+
+      {/* caller verification: the verified caller's return status, in view in compact and expanded mode */}
+      {snapshot.account && <ReturnCard card={snapshot.account} />}
 
       {/* compact: the copilot's last line as a caption; a tap opens the transcript */}
       {!expanded && (

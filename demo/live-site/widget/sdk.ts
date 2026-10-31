@@ -18,8 +18,10 @@ import { Copilot } from '../../../copilot-engine/src/engine.ts';
 import { Guide, type Manual } from '../../../copilot-engine/src/guide.ts';
 import { flowFromPage, readInPage, type PageForm } from '../../../copilot-engine/src/page.ts';
 import type { Flow, Model } from '../../../copilot-engine/src/types.ts';
+import { forDisplay, forSpeech } from '../../../copilot-engine/src/guard.ts';
+import { Verifier, WANTS_VERIFY, type ReturnCard } from '../../../copilot-engine/src/verify.ts';
 import { DomFiller } from './dom-filler.ts';
-import { RemoteJudge, RemoteModel, RemoteRetriever, report, warmUp } from './remote.ts';
+import { RemoteJudge, RemoteModel, RemoteRetriever, RemoteVerify, report, warmUp } from './remote.ts';
 
 export type Config = {
   business: string;
@@ -33,6 +35,9 @@ export type Config = {
   note?: string;   // one short clause said once per call, inside the greeting ("this is a demo site, so no real details please")
   pages?: { path: string; title: string; also?: string[]; form?: boolean }[]; // the site's pages, for "take me to pricing"
   guidePage?: string; // the site's page for one guide: `${guidePage}/${doc}` (?page=N for a PDF, #anchor for an article)
+  // Caller verification on a desk page ("check on my return"): the server compares, the copilot only hears the result.
+  // handoff: what to offer when a caller can't be verified or asks for a person.
+  verify?: { handoff: string };
 };
 // The document an answer was quoted from, shown by the site's source viewer while snapshot.source is set. doc is the
 // library id (GET /api/library/doc?doc=…); page is the printed PDF's page (PDF sources), anchor the section (articles).
@@ -58,6 +63,7 @@ export type Snapshot = {
   startedAt: number;                   // when the call started (ms since the epoch), for the call timer; 0 when no call
   wait: { text: string; until: number } | null; // a slow model call: what to show, and when it should be done (ms)
   source: Source | null;               // the source viewer's document, or null when it is closed
+  account: ReturnCard | null;          // the verified caller's return status card (fictional sample data), or null
 };
 
 type Mode = 'form' | 'guide' | 'ask';
@@ -69,7 +75,7 @@ let snap: Snapshot = blank();
 const subs = new Set<() => void>();
 function blank(): Snapshot {
   return { mounted: false, open: false, voice: false, mic: SR ? 'off' : 'unavailable', textInput: false, status: 'idle', busy: false,
-    heard: '', mode: 'form', modes: [], business: '', can: [], large: false, messages: [], startedAt: 0, wait: null, source: null };
+    heard: '', mode: 'form', modes: [], business: '', can: [], large: false, messages: [], startedAt: 0, wait: null, source: null, account: null };
 }
 function set(p: Partial<Snapshot>) {
   snap = { ...snap, ...p };
@@ -84,13 +90,15 @@ function withNote(text: string, note: string): string {
   const i = text.search(/[.!?](\s|$)/);
   return i > 0 ? `${text.slice(0, i)}, and ${note}${text.slice(i)}` : `${text} Quick note: ${note}.`;
 }
-function add(who: 'bot' | 'user', text: string, say = true, extra: Message['links'] = [], source?: Source) {
+// Text may carry secret values (a date of birth, a last four) between SECRET marks: they are spoken, never shown.
+function add(who: 'bot' | 'user', raw: string, say = true, extra: Message['links'] = [], source?: Source) {
+  let text = forDisplay(raw);
   const links = who === 'bot' && cfg?.manual?.doc
     ? [...text.matchAll(/\(page (\d+)\)/g)].map(m => ({ text: m[0], page: +m[1], href: `${cfg!.manual!.doc}#page-${m[1]}` })) : [];
   // The demo note is said once per call, inside the first greeting.
-  if (who === 'bot' && cfg?.note && !noted) { noted = true; text = withNote(text, cfg.note); }
+  if (who === 'bot' && cfg?.note && !noted) { noted = true; text = withNote(text, cfg.note); raw = withNote(raw, cfg.note); }
   set({ messages: [...snap.messages, { id: ++msgId, who, text, links: [...links, ...extra.filter(l => text.includes(l.text))], ...(source ? { source } : {}) }] });
-  if (who === 'bot' && snap.voice && say) void speakThenListen(text);
+  if (who === 'bot' && snap.voice && say) void speakThenListen(forSpeech(raw));
 }
 
 // ---- Voice: speak each reply, then listen for one answer. Never listens while speaking, so it can't hear itself.
@@ -150,7 +158,7 @@ function listen(fromTap = false) {
       if (e.results[i].isFinal) { final = t; break; }
       interim += t;
     }
-    set({ heard: (final || interim).trim() });
+    set({ heard: verifier?.secretOpen() ? '••••' : (final || interim).trim() });
     if (final) { try { r.stop(); } catch { /* already stopping */ } }
   };
   r.onerror = (e: any) => {
@@ -321,6 +329,25 @@ function setMode(m: Mode) {
     if (!copilot) startForm(); else add('bot', `Back to the form. ${currentAsk()}`.trim());
   }
   highlight();
+}
+
+// ---- Verification: "check on my return" on a desk page. One Verifier per call; the server keeps the tries.
+let verifier: Verifier | null = null;
+let verifyBackend: RemoteVerify | null = null;
+async function verifyReply(text: string): Promise<string | null> {
+  if (!cfg?.verify) return null;
+  if (verifier?.state === 'collecting') {
+    const r = await verifier.turn(text);
+    if (verifier.state === 'verified') set({ account: verifier.card });
+    if (verifier.state === 'cancelled') verifier = null;
+    return r || null;
+  }
+  if (snap.mode !== 'ask' || !WANTS_VERIFY.test(text)) return null;
+  if (verifier?.state === 'verified') { if (verifier.card) set({ account: verifier.card }); return "You're already verified on this call. Your return's status is on the card."; }
+  if (verifier?.state === 'locked') return verifier.turn(text);
+  verifyBackend ??= new RemoteVerify();
+  verifier = new Verifier(model, verifyBackend, { handoff: cfg.verify.handoff });
+  return verifier.start();
 }
 
 // ---- Desk: questions about the visitor's own situation go to a person; anything else is quoted from the library.
@@ -561,14 +588,17 @@ async function send(text: string) {
   if (!cfg || snap.busy || !text) return;
   stopListening();
   set({ busy: true, status: 'thinking' });
-  add('user', text);
+  // What a caller says to a secret question (date of birth, last four, zip) is never shown on screen.
+  add('user', verifier?.secretOpen() ? '••••' : text);
   let reply = '';
   let links: Message['links'] = [];
   let source: Source | undefined;
   navigated = false;
   try {
-    const nav = await navReply(text);
-    if (nav !== null) reply = nav;
+    const ver = await verifyReply(text);
+    const nav = ver === null ? await navReply(text) : null;
+    if (ver !== null) reply = ver;
+    else if (nav !== null) reply = nav;
     else if (snap.mode === 'ask') ({ reply, links, source } = await deskReply(text));
     else if (snap.mode === 'guide') reply = await guide!.turn(text);
     else if (!copilot) startForm();
@@ -609,6 +639,8 @@ function start({ voice = false }: { voice?: boolean } = {}) {
 function end() {
   stopListening(); if (canSpeak) speechSynthesis.cancel(); speechSeq++;
   noted = false;
+  verifier = null; verifyBackend = null; // a new call starts verification over (the server still counts failures per visitor)
+  set({ account: null });
   set({ open: false, voice: false, heard: '', status: 'idle', startedAt: 0, wait: null });
   document.querySelectorAll('[data-copilot-active]').forEach(e => e.removeAttribute('data-copilot-active'));
 }

@@ -1,5 +1,5 @@
 import type { Field, FieldKind, Flow, Hooks, Model } from './types.ts';
-import { formatSerial, grounded, isFiller, parseName, serialProblem, spellOut, spokenToCode, spokenToEmail, spokenToPhone, spokenToSerial, stripFiller, validSerial, wantsChange, yesNo } from './guard.ts';
+import { formatDate, formatSerial, forDisplay, grounded, isFiller, parseName, secret, serialProblem, spellOut, spokenDigits, spokenToCode, spokenToDate, spokenToEmail, spokenToPhone, spokenToSerial, stripFiller, validSerial, wantsChange, yesNo } from './guard.ts';
 
 type State = 'ask' | 'verify' | 'review' | 'change' | 'done';
 
@@ -17,13 +17,19 @@ const FIX = /\b(fix|change|wrong|correct|update|edit|misspel+ed|spelled|spelt|mi
 // Answers that are easy to mishear are read back and need a yes before they are kept. `problem` says what was wrong
 // with an answer that did not parse, so the caller can fix it instead of just hearing the question again.
 // spell: how the read-back says it when every character matters ("CP2000: C, P, 2, 0, 0, 0")
-type Readback = { parse: (said: string) => string; show: (v: string) => string; miss: string; problem?: (said: string) => string; spell?: (v: string) => string };
+type Readback = { parse: (said: string, f: Field) => string; show: (v: string) => string; miss: string; problem?: (said: string, f: Field) => string; spell?: (v: string) => string };
 const READBACK: Partial<Record<FieldKind, Readback>> = {
   name: { parse: parseName, show: v => v, miss: 'name' },
   serial: { parse: s => { const v = spokenToSerial(s); return validSerial(v) ? v : ''; }, show: formatSerial, miss: 'serial number', problem: s => serialProblem(spokenToSerial(s)) },
   email: { parse: spokenToEmail, show: v => v, miss: 'email address' },
   phone: { parse: spokenToPhone, show: v => v, miss: 'phone number' },
   code: { parse: spokenToCode, show: v => v, miss: 'code', spell: v => `${v}: ${spellOut(v)}` },
+  date: { parse: s => spokenToDate(s), show: formatDate, miss: 'date', problem: () => 'I need the month, the day and the year, like March 3, 1985.' },
+  digits: {
+    parse: (s, f) => { const d = spokenDigits(s); return d.length === (f.length ?? 4) ? d : ''; }, show: v => spellOut(v), miss: 'number',
+    // Never echoes what was heard: it may be a whole SSN said by mistake.
+    problem: (s, f) => { const n = spokenDigits(s).length; return !n ? '' : n > (f.length ?? 4) ? `That's more digits than I need. Just the ${f.length ?? 4} digits, please.` : `That's only ${n} digit${n === 1 ? '' : 's'}; I need ${f.length ?? 4}.`; },
+  },
 };
 // An optional field's "none": left blank. Only ever checked on a field marked optional.
 const NONE = /^\s*(no(ne|pe)?|n\/?a|skip( it| that)?|nothing|not applicable|no notice|leave it (blank|empty)|there (isn'?t|is no) (one|code)|i (didn'?t|did not|haven'?t|have not) (get|got|receive[d]?)( one| a notice| any( notice)?)?)\W*$/i;
@@ -56,10 +62,13 @@ export class Copilot {
     return say;
   }
 
+  // What is said back may hold secret values between SECRET marks: speak it with forSpeech(), show it with forDisplay().
+  // The log keeps only the masked text, and a caller's answer to a secret question is never logged at all.
   async turn(said: string): Promise<string> {
-    this.log.push({ who: 'user', text: said });
+    const hidden = this.state !== 'done' && this.state !== 'review' && !!this.flow.fields[this.idx]?.secret;
+    this.log.push({ who: 'user', text: hidden ? '••••' : said });
     const say = await this.step(said);
-    this.log.push({ who: 'copilot', text: say });
+    this.log.push({ who: 'copilot', text: forDisplay(say) });
     return say;
   }
 
@@ -83,8 +92,10 @@ export class Copilot {
   private show(f: Field): string {
     const v = this.values[f.name];
     if (v === '') return 'left blank';
-    return READBACK[f.kind]?.show(v) ?? v;
+    return this.hide(f, READBACK[f.kind]?.show(v) ?? v);
   }
+  // A secret field's value is said between SECRET marks, so the caller hears it but no screen or log shows it.
+  private hide(f: Field, text: string): string { return f.secret ? secret(text) : text; }
 
   // Every accepted answer goes through here, so a page adapter can type it in and reject it. Returns '' when kept.
   private async set(f: Field, v: string): Promise<string> {
@@ -107,9 +118,9 @@ export class Copilot {
 
   private readback(f: Field, v: string): string {
     const rb = READBACK[f.kind];
-    if (rb?.spell) return `I heard ${rb.spell(v)}. Is that right?`;
-    if (rb && f.spell) return `I heard ${rb.show(v)}, spelled ${v.split(/\s+/).map(w => spellOut(w, '-')).join(', ')}. Is that right?`;
-    if (rb) return `I heard ${rb.show(v)}. Is that right?`;
+    if (rb?.spell) return `I heard ${this.hide(f, rb.spell(v))}. Is that right?`;
+    if (rb && f.spell) return `I heard ${this.hide(f, rb.show(v))}, spelled ${this.hide(f, v.split(/\s+/).map(w => spellOut(w, '-')).join(', '))}. Is that right?`;
+    if (rb) return `I heard ${this.hide(f, rb.show(v))}. Is that right?`;
     if (f.kind === 'choice') return `${v}, is that right?`;
     return /\?$/.test(f.label) ? `I'll put "${v}". Is that right?` : `I'll put "${v}" for ${f.label}. Is that right?`;
   }
@@ -165,7 +176,7 @@ export class Copilot {
     if (!target || this.values[target.name] === undefined) return '';
     // "Sick visit, sorry" answers the open question; it is not about an earlier one.
     if (!back && cur.kind === 'choice' && this.matchChoice(cur, said)) return '';
-    if (!back && this.state === 'ask' && READBACK[cur.kind]?.parse(said) && cur.kind !== 'name') return '';
+    if (!back && this.state === 'ask' && READBACK[cur.kind]?.parse(said, cur) && cur.kind !== 'name') return '';
     if (this.resume < 0) this.resume = this.idx;
     this.idx = this.flow.fields.indexOf(target);
     this.pending = '';
@@ -190,7 +201,7 @@ export class Copilot {
   private missed(f: Field, rb: Readback, said: string): string {
     const n = (this.misses[f.name] = (this.misses[f.name] ?? 0) + 1);
     const offer = n >= 2 && this.flow.typeOffer ? ` ${this.flow.typeOffer}` : '';
-    const problem = rb.problem?.(said);
+    const problem = rb.problem?.(said, f);
     if (problem) return `${problem}${offer} ${f.question}`.replace(/\s+/g, ' ');
     if (f.kind === 'name') return `Sorry, I didn't catch your ${f.label}.${offer} ${f.question}`;
     return `I didn't catch a full ${rb.miss}. ${f.hint ?? ''}${offer} ${f.question}`.replace(/\s+/g, ' ');
@@ -214,7 +225,7 @@ export class Copilot {
     if (rb) {
       // A bare yes or no to a name question is not a name ("Yeah" is nobody's name here), and nothing has been submitted.
       if (f.kind === 'name' && yesNo(said) !== 'unclear' && said.trim().split(/\s+/).length <= 6) return `I haven't submitted anything yet. ${q}`;
-      const s = rb.parse(said);
+      const s = rb.parse(said, f);
       if (s) return this.propose(f, s);
       return this.missed(f, rb, said);
     }
@@ -289,7 +300,7 @@ export class Copilot {
     const yn = yesNo(said);
     // A fresh answer instead of a yes or no is read back in turn.
     if (yn === 'unclear') {
-      const s = rb ? rb.parse(said) : f.kind === 'choice' ? this.matchChoice(f, said) : '';
+      const s = rb ? rb.parse(said, f) : f.kind === 'choice' ? this.matchChoice(f, said) : '';
       if (s) return this.propose(f, s);
     }
     if (yn === 'yes' && !BUT.test(said)) { const v = this.pending; this.pending = ''; return this.keep(f, v); }
@@ -299,7 +310,7 @@ export class Copilot {
       const offer = n >= 2 && rb && f.kind !== 'name' && this.flow.typeOffer ? ` ${this.flow.typeOffer}` : '';
       return `${rb ? "Okay, let's try again, a little slower." : 'Okay.'}${offer} ${f.question}`;
     }
-    return `Sorry, is ${rb ? rb.show(this.pending) : this.pending} correct? Please say yes or no.`;
+    return `Sorry, is ${this.hide(f, rb ? rb.show(this.pending) : this.pending)} correct? Please say yes or no.`;
   }
 
   private async onReview(said: string): Promise<string> {

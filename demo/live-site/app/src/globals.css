@@ -2709,3 +2709,12 @@
 .tax-pdf-pager { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; margin: 1rem 0; }
 .tax-article-pdf { max-width: 920px; }
 .tax-source-body .tax-pdf { gap: 0.75rem; }
+
+/* Caller verification: the verified caller's return status card (hand-written, after the ABA runs) */
+.tax-return-card { margin: 8px 12px; padding: 10px 12px; border: 1px solid hsl(18 30% 82%); border-radius: 10px; background: hsl(36 60% 98%); color: hsl(20 20% 18%); font-size: 13px; line-height: 1.4; }
+.tax-return-card p { margin: 4px 0 0; }
+.tax-return-card-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.tax-return-card-sample { margin-left: auto; font-size: 11px; padding: 1px 6px; border-radius: 999px; background: hsl(45 90% 88%); color: hsl(30 60% 25%); }
+.tax-return-card-status { font-weight: 600; font-size: 14px; }
+.tax-return-card-amount { font-variant-numeric: tabular-nums; }
+.tax-return-card-meta { color: hsl(20 10% 40%); font-size: 12px; }

@@ -2,6 +2,8 @@
 // the keys. The server signs every passage it hands out, so the judge only ever sees real manual passages.
 import type { Model, Understanding } from '../../../copilot-engine/src/types.ts';
 import type { Judge, Passage, Retriever } from '../../../copilot-engine/src/guide.ts';
+import type { ReturnCard, VerifyBackend, VerifyResult } from '../../../copilot-engine/src/verify.ts';
+import { maskPII } from '../../../copilot-engine/src/guard.ts';
 import { API_BASE } from './config.ts';
 
 type Signed = Passage & { sig?: string };
@@ -18,11 +20,27 @@ export function report(where: string, message: string) {
   if (++reported > 10) return;
   try {
     void fetch(`${API_BASE}/api/log`, { method: 'POST', keepalive: true, headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ where, message: String(message).slice(0, 300), page: location.pathname, ua: navigator.userAgent }) }).catch(() => {});
+      body: JSON.stringify({ where, message: maskPII(String(message)).slice(0, 300), page: location.pathname, ua: navigator.userAgent }) }).catch(() => {});
   } catch { /* never let reporting break the page */ }
 }
 addEventListener('error', e => report('page', `${e.message} @ ${e.filename?.split('/').pop()}:${e.lineno}`));
 addEventListener('unhandledrejection', e => report('promise', String((e as PromiseRejectionEvent).reason?.message ?? (e as PromiseRejectionEvent).reason)));
+
+// Caller verification: the confirmed answers go to the server, which compares them with the client list and says only
+// match / no_match / need_more / locked. The call id it hands back carries the tries; a new call starts a new one.
+export class RemoteVerify implements VerifyBackend {
+  call = '';
+  async check(values: Record<string, string>): Promise<VerifyResult> {
+    try {
+      const r = await post('/api/verify', { call: this.call || undefined, ...values });
+      this.call = r.call ?? this.call;
+      return { result: r.result, ask: r.ask, triesLeft: r.triesLeft };
+    } catch { return { result: 'no_match', triesLeft: 1 }; }
+  }
+  async status(): Promise<ReturnCard | null> {
+    try { return (await post('/api/account/status', { call: this.call })).card ?? null; } catch { return null; }
+  }
+}
 
 // Jev decides whether a free-text answer is on topic; a failure is only ever "ask again".
 export class RemoteModel implements Model {

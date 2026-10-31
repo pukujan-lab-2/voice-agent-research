@@ -64,6 +64,16 @@ Not tax advice." The team has illustrated SVG avatars, no photos.
 - Eval: `node tests/irs-eval.ts` asks 100 IRS FAQ questions (spread over the FAQ categories) the way the site does and
   has Jev grade each reply against the IRS's own answer: once with the question's own FAQ entry hidden from search
   (can the publications answer it?) and once as deployed.
+- Caller verification (sample data): "check on my return" on a desk page starts it. The copilot asks full name, date
+  of birth, last four of the SSN and zip, reads each back for a yes, and sends the confirmed answers to `/api/verify`,
+  which answers only `match`, `no_match`, `need_more` (the next field) or `locked`, never which answer was wrong. The
+  server compares: exact on date of birth, last four and zip in SQL, then the name fuzzy and by sound
+  (`tools/verify_match.py`, RapidFuzz + jellyfish). 3 failed tries lock the call (6 per visitor per hour), with a
+  hand-off to the office. The browser and the model never get anything on file; what the caller says to a secret
+  question is masked on screen and in every log. Once verified, a fictional return card shows, labelled sample data.
+  The clients are 500 fictional Faker records in Octo (`bw_clients`, `bw_returns`; SSNs only in never-issued areas
+  900-999, 000 and 666): `uv run --with faker==33.1.0 python tools/bw_clients.py`. Tested by `node eval/verify.ts`
+  and the last step of `tests/tax-call.ts`.
 
 ## How it fits together
 

@@ -32,7 +32,7 @@ const toJs = (src: string) => stripTypeScriptTypes(src, { mode: 'strip' })
 
 fs.rmSync(path.join(dist, 'copilot'), { recursive: true, force: true });
 fs.mkdirSync(path.join(dist, 'copilot/engine'), { recursive: true });
-for (const f of ['engine', 'guard', 'guide', 'page', 'types']) {
+for (const f of ['engine', 'guard', 'guide', 'page', 'types', 'verify']) {
   fs.writeFileSync(path.join(dist, 'copilot/engine', `${f}.js`), toJs(fs.readFileSync(path.join(engine, `${f}.ts`), 'utf8')));
 }
 for (const f of fs.readdirSync(path.join(here, 'widget')).filter(f => f.endsWith('.ts'))) {
