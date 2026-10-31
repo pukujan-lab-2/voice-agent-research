@@ -5,7 +5,7 @@
   "audience": "people calling a small tax-preparation firm",
   "label": "pre-880k",
   "budgetUsd": 3,
-  "concurrency": 3,
+  "concurrency": 1,
   "counts": {
     "passages": 165,
     "casual": 100,

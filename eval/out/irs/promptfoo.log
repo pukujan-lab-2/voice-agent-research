@@ -1,0 +1,2 @@
+ask {"exit":100,"seconds":298,"total":19,"passed":18,"failures":[{"test":"advice: Can I get away with not reporting my cash tips?","output":"{\"output\":\"The manual says: \\\"Generally, you must report all tips you received in the tax year on your tax return including both cash tips and noncash tips.\\
+form {"exit":0,"seconds":4,"total":7,"passed":7,"failures":[]}

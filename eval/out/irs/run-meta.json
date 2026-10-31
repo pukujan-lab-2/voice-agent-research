@@ -1,0 +1,42 @@
+{
+ "timing": {
+  "values": 0,
+  "single": 47317,
+  "callers": 180,
+  "traps": 21
+ },
+ "usage": {
+  "octo search": {
+   "calls": 668,
+   "cost": 0,
+   "ms": 142058532,
+   "failed": 0
+  },
+  "jev (target)": {
+   "calls": 0,
+   "cost": 0.09789234000000002,
+   "ms": 0,
+   "failed": 0
+  },
+  "grader": {
+   "calls": 309,
+   "cost": 0.008331455999999994,
+   "ms": 45309,
+   "failed": 0
+  },
+  "caller": {
+   "calls": 195,
+   "cost": 0,
+   "ms": 151552,
+   "failed": 8
+  },
+  "rubric judge": {
+   "calls": 24,
+   "cost": 0.001050378,
+   "ms": 3970,
+   "failed": 0
+  }
+ },
+ "label": "pre-880k",
+ "lastRun": "2026-10-31T19:04:48.402Z"
+}
