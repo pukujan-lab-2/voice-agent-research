@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
+import { createTracer } from './tracing.ts';
 import { createApi, type ApiEnv } from './api.ts';
 import type { Passage } from '../../copilot-engine/src/guide.ts';
 
@@ -23,7 +24,7 @@ export function loadEnv(): ApiEnv {
       if (name && !env[name]) env[name] = m[2].trim().replace(/^['"]|['"]$/g, '');
     }
   }
-  for (const k of ['OPENROUTER_JEV_KEY', 'OCTO_KEY', 'OCTO_WORKSPACE', 'JEV_URL', 'OCTO_BASE', 'SIGNING_SECRET', 'LLAMA_URL', 'OFFLINE', 'JEV_DAILY_CAP', 'RATE_PER_MIN'] as const) {
+  for (const k of ['OPENROUTER_JEV_KEY', 'OCTO_KEY', 'OCTO_WORKSPACE', 'JEV_URL', 'OCTO_BASE', 'SIGNING_SECRET', 'LLAMA_URL', 'OFFLINE', 'JEV_DAILY_CAP', 'RATE_PER_MIN', 'OCTO_TRACES'] as const) {
     if (process.env[k]) env[k] = process.env[k];
   }
   return env;
@@ -53,7 +54,7 @@ function visitor(req: http.IncomingMessage): string {
 export async function start(opts: { port?: number; host?: string; offline?: boolean } = {}) {
   const env = loadEnv();
   if (opts.offline) env.OFFLINE = '1';
-  const api = createApi(env, { offlinePassages: offlinePassages() });
+  const api = createApi(env, { offlinePassages: offlinePassages(), trace: opts.offline ? undefined : createTracer(env) });
   const dist = path.join(here, 'dist');
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url ?? '/', 'http://local');
@@ -61,7 +62,8 @@ export async function start(opts: { port?: number; host?: string; offline?: bool
     if (url.pathname.startsWith('/api/')) {
       const chunks: Buffer[] = [];
       for await (const c of req) chunks.push(c as Buffer);
-      const r = await api.handle(new Request(`http://local${url.pathname}`, { method: req.method, headers: { 'content-type': 'application/json' },
+      const r = await api.handle(new Request(`http://local${url.pathname}`, { method: req.method, headers: { 'content-type': 'application/json',
+        ...(typeof req.headers['x-session-id'] === 'string' ? { 'x-session-id': req.headers['x-session-id'] } : {}) },
         body: req.method === 'POST' ? Buffer.concat(chunks) : undefined }), visitor(req));
       res.writeHead(r.status, Object.fromEntries(r.headers));
       res.end(Buffer.from(await r.arrayBuffer()));

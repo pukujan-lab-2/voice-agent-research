@@ -3,11 +3,16 @@
 import type { Model, Understanding } from '../../../copilot-engine/src/types.ts';
 import type { Judge, Passage, Retriever } from '../../../copilot-engine/src/guide.ts';
 import { API_BASE } from './config.ts';
+import { mask } from './mask.ts';
 
 type Signed = Passage & { sig?: string };
 
+// One id per call, sent with every request, so the server's traces of one call group into one Phoenix session.
+export let callId = crypto.randomUUID();
+export function newCall() { callId = crypto.randomUUID(); }
+
 async function post(path: string, body: unknown): Promise<any> {
-  const r = await fetch(`${API_BASE}${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const r = await fetch(`${API_BASE}${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-session-id': callId }, body: JSON.stringify(body) });
   if (!r.ok) throw new Error(`${path}: ${r.status}`);
   return r.json();
 }
@@ -20,6 +25,13 @@ export function report(where: string, message: string) {
     void fetch(`${API_BASE}/api/log`, { method: 'POST', keepalive: true, headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ where, message: String(message).slice(0, 300), page: location.pathname, ua: navigator.userAgent }) }).catch(() => {});
   } catch { /* never let reporting break the page */ }
+}
+// A step the widget timed itself (speech to text, voice, a turn, the call), sent to the server's traces. Masked here too.
+export function traceSpan(name: string, start: number, input = '', output = '', attrs: Record<string, string | number> = {}, error = false) {
+  try {
+    void fetch(`${API_BASE}/api/trace`, { method: 'POST', keepalive: true, headers: { 'Content-Type': 'application/json', 'x-session-id': callId },
+      body: JSON.stringify({ spans: [{ name, start, end: Date.now(), input: mask(input).slice(0, 2000), output: mask(output).slice(0, 2000), attrs, error }] }) }).catch(() => {});
+  } catch { /* never let tracing break the page */ }
 }
 addEventListener('error', e => report('page', `${e.message} @ ${e.filename?.split('/').pop()}:${e.lineno}`));
 addEventListener('unhandledrejection', e => report('promise', String((e as PromiseRejectionEvent).reason?.message ?? (e as PromiseRejectionEvent).reason)));
