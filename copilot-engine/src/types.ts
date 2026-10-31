@@ -1,7 +1,7 @@
 // code: a short letters-and-digits code (an IRS notice code like CP2000), read back character by character.
 // date: a calendar date said any way ("March 3rd 1985", "3/3/85"), kept as YYYY-MM-DD.
 // digits: exactly `length` digits ("the last four of my social", a zip code), read back digit by digit.
-export type FieldKind = 'text' | 'name' | 'serial' | 'choice' | 'email' | 'phone' | 'code' | 'date' | 'digits';
+export type FieldKind = 'text' | 'name' | 'serial' | 'choice' | 'email' | 'phone' | 'code' | 'date' | 'when' | 'digits';
 
 export interface Field {
   name: string;

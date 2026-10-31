@@ -226,7 +226,37 @@ let firstEl: Element | null = null;
 let parts = 0;
 let covered = 0;
 
+// A form still loading its own data (aria-busy, e.g. a client picked from the address or a staff list) is read once
+// it is ready, so its options are there and what it filled in itself counts as answered.
+let waitingForm = false;
 function startForm() {
+  const busy = () => !!document.querySelector('[data-copilot-form][aria-busy="true"]');
+  if (waitingForm) return;
+  if (busy()) {
+    waitingForm = true;
+    const until = Date.now() + 5000;
+    const wait = () => {
+      if (busy() && Date.now() < until) { setTimeout(wait, 100); return; }
+      waitingForm = false;
+      startFormNow();
+    };
+    setTimeout(wait, 100);
+    return;
+  }
+  startFormNow();
+}
+// Boxes and lists that already hold a value when the form is read (the page filled them in) count as answered.
+function prefilledValues(f: PageForm): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const p of f.fields) {
+    const el = document.querySelector<HTMLInputElement | HTMLSelectElement>(`[data-copilot-id="${p.id}"]`);
+    if (!el || p.tag === 'radio' || (el as HTMLInputElement).type === 'checkbox') continue;
+    if (el instanceof HTMLSelectElement) { const o = el.selectedOptions[0]; if (el.value && o) out[p.id] = (o.textContent ?? '').trim(); }
+    else if (el.value.trim()) out[p.id] = el.value.trim();
+  }
+  return out;
+}
+function startFormNow() {
   form = readInPage();
   if (!form.fields.length) { copilot = null; add('bot', "There's nothing left for me to fill in on this page."); return; }
   flow = flowFromPage(form, { business: cfg!.business, id: cfg!.form });
@@ -240,6 +270,10 @@ function startForm() {
     // Back on a form left half filled during this call: its answers go back in and the open question is asked.
     for (const f of flow.fields) if (draft[f.name] !== undefined) void filler.fill(f, draft[f.name]);
     add('bot', copilot.restore(draft, 'Back to the form. Your earlier answers are still filled in.'));
+  } else if (Object.keys(prefilledValues(form)).length) {
+    const pre = prefilledValues(form);
+    const lead = carried ? `Here's the ${cfg!.form} form, with ${Object.keys(pre).length === 1 ? 'one answer' : 'some answers'} already in. I'll fill in the rest with you, and you press ${form.submit} yourself at the end.` : flow.intro;
+    add('bot', copilot.restore(pre, lead));
   } else {
     if (carried) flow.intro = `Here's the ${cfg!.form} form. I'll fill it in with you, one question at a time, and you press ${form.submit} yourself at the end.`;
     add('bot', copilot.start());
@@ -289,6 +323,12 @@ function currentAsk(): string {
   if (copilot.state === 'ask') return flow.fields.find(f => f.name === copilot!.current())?.question ?? '';
   if (copilot.state === 'review') return flow.reviewAsk ?? '';
   return '';
+}
+
+function stepNext(): HTMLButtonElement | null {
+  const b = document.querySelector<HTMLButtonElement>('[data-copilot-form] button[data-copilot-next]');
+  if (!b || b.type !== 'button' || b.disabled || b.closest('[hidden]') || !b.getClientRects().length) return null;
+  return b;
 }
 
 // A multi-step form shows its next step after the person presses Next (a step may be unhidden or newly rendered);
@@ -534,6 +574,56 @@ function closeMatches(target: string): string[] {
   }).sort((a, b) => b.score - a.score).slice(0, 3).map(x => x.title);
 }
 
+// ---- The staff app (/staff): open a client by name, start an engagement for one, and read out what a list shows.
+// It looks clients up with the signed-in staff member's token (copilot.setAuth('staff', token)); it never writes.
+let staffToken = '';
+let picks: { id: string; kind: string; name: string; city: string }[] = [];
+let pickThen = '';
+const OPEN_CLIENT = /^(?:ok(?:ay)?,? )?(?:please )?(?:can you |could you )?(?:open|show(?: me)?|pull up|find|bring up|go to|take me to)\s+(?:the\s+)?(.+?)\s*(?:'s)?\s*(household|family|business|company|client|account|file)?$/i;
+const NEW_ENGAGEMENT = /\b(?:start|open|create|begin|make|set up|add)\s+(?:a\s+)?new\s+(?:engagement|job|return)\s+(?:for|with)\s+(?:the\s+)?(.+?)\s*(household|family|business|company)?$/i;
+async function findClients(q: string) {
+  const r = await fetch(`/api/staff/find?q=${encodeURIComponent(q)}`, { headers: { Authorization: `Bearer ${staffToken}` } });
+  if (!r.ok) return [];
+  return ((await r.json()).matches ?? []) as typeof picks;
+}
+const clientPath = (id: string, then: string) => then === 'engagement' ? `/staff/engagements/new?client=${id}` : `/staff/clients/${id}`;
+const clientSaid = (c: (typeof picks)[number]) => `the ${c.name} in ${c.city}`;
+// The list a page shows, in its own words ("118 returns waiting on documents"), once it has loaded.
+async function listSummary(before: string): Promise<string> {
+  const t0 = Date.now();
+  while (Date.now() - t0 < 8000) {
+    await new Promise(r => setTimeout(r, 150));
+    const el = document.querySelector('[data-copilot-summary]') as HTMLElement | null;
+    const t = el?.textContent?.trim() ?? '';
+    if (el && t && el.getAttribute('aria-busy') !== 'true' && !/^loading\b/i.test(t) && (t !== before || Date.now() - t0 > 2500)) return t;
+  }
+  return '';
+}
+async function staffReply(text: string): Promise<string | null> {
+  if (!staffToken) return null;
+  // the answer to "which one?"
+  if (picks.length) {
+    const t = text.toLowerCase();
+    const ord = ['first', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seventh', 'eighth'].findIndex(w => t.includes(w));
+    const hit = ord >= 0 ? picks[ord] : picks.find(c => t.includes(c.city.toLowerCase()) || t.includes(c.id.toLowerCase()));
+    if (hit) { const then = pickThen; picks = []; go(clientPath(hit.id, then)); return then === 'engagement' ? '' : `Here's ${clientSaid(hit)}, ${hit.id}.`; }
+    if (/\b(never ?mind|cancel|none|neither|stop)\b/.test(t)) { picks = []; return 'OK.'; }
+  }
+  const eng = NEW_ENGAGEMENT.exec(text);
+  const open = eng ? null : OPEN_CLIENT.exec(text);
+  const who = (eng?.[1] ?? open?.[1] ?? '').trim();
+  if (!who || (open && pageFor(who))) return null;
+  const all = await findClients(`${who} ${eng?.[2] ?? open?.[2] ?? ''}`.trim());
+  const kind = /household|family/i.test(eng?.[2] ?? open?.[2] ?? '') ? 'household' : /business|company/i.test(eng?.[2] ?? open?.[2] ?? '') ? 'business' : '';
+  const ms = kind ? all.filter(c => c.kind === kind) : all;
+  if (!ms.length) return open && !open[2] ? null : `I couldn't find a client called ${who}.`;
+  const then = eng ? 'engagement' : 'open';
+  if (ms.length === 1) { go(clientPath(ms[0].id, then)); return then === 'engagement' ? '' : `Here's ${clientSaid(ms[0])}, ${ms[0].id}.`; }
+  picks = ms.slice(0, 5); pickThen = then;
+  const list = picks.map(clientSaid);
+  return `There are ${ms.length > 5 ? 'several' : ms.length} matches: ${list.slice(0, -1).join(', ')} and ${list.at(-1)}. Which one?`;
+}
+
 const CLOSE = /^(ok(ay)?,? )?(please )?(close|hide|dismiss) (that|this|it|the (source|guide|panel|document|viewer))\b/i;
 const SHOW_SOURCE = /^(ok(ay)?,? )?(show me( that| it| the source| where)?|where did you (get|find) (that|this|it)|where('s| is| does) (that|this|it) (from|come from)|what('s| is) (the|your) source)\b/i;
 const BACK_TO_FORM = /\b(back to|return to|take me (back )?to|go (back )?to|open) (the |my )?(form|booking( form)?|intake( form)?|consultation form|questions)\b/i;
@@ -564,14 +654,22 @@ async function navReply(text: string): Promise<string | null> {
     const src = sourceOf(top.cite, [], top.page);
     return `Here's ${src?.title ?? 'that guide'}${top.page ? `, page ${top.page}` : ''}${sectionOf(top.cite.title) ? `, at ${sectionOf(top.cite.title)}` : ''}.`;
   }
-  const m = NAV.exec(text);
+  const staff = await staffReply(text);
+  if (staff !== null) return staff;
+  // The whole request is a page's name ("which notices are due this week"): open it, even without "take me to".
+  const whole = pageFor(text.replace(/\?$/, ''));
+  const m = NAV.exec(text) ?? (whole && whole.score >= 100 ? [text, text] as unknown as RegExpExecArray : null);
   if (!m || !cfg?.pages?.length) return null;
   const target = m[1];
   const page = pageFor(target);
   if (page) {
     if (page.path === form?.path && location.pathname !== form.path) { go(page.path); return ''; }
+    const before = (document.querySelector('[data-copilot-summary]') as HTMLElement | null)?.textContent?.trim() ?? '';
     go(page.path);
-    return `Here's ${page.title === 'Home' ? 'the home page' : `the ${page.title} page`}.`;
+    const said = `Here's ${page.title === 'Home' ? 'the home page' : `the ${page.title} page`}.`;
+    // a list page says what it shows ("9 notices due in the next 7 days")
+    const summary = staffToken && page.path.startsWith('/staff/') ? await listSummary(before) : '';
+    return summary ? `${said} ${summary.replace(/\.?$/, '.')}` : said;
   }
   if (/^(open|show)/i.test(text.replace(/^(ok(ay)?,? )?(please )?(can you |could you )?/i, '')) && words(target).length > 4) return null;
   const close = closeMatches(target);
@@ -588,6 +686,8 @@ async function send(text: string) {
   if (!cfg || snap.busy || !text) return;
   stopListening();
   set({ busy: true, status: 'thinking' });
+  // a form still loading (see startForm) is read before this answer goes in
+  for (let i = 0; waitingForm && i < 60; i++) await new Promise(r => setTimeout(r, 100));
   // What a caller says to a secret question (date of birth, last four, zip) is never shown on screen.
   add('user', verifier?.secretOpen() ? '••••' : text);
   let reply = '';
@@ -598,6 +698,7 @@ async function send(text: string) {
     const ver = await verifyReply(text);
     const nav = ver === null ? await navReply(text) : null;
     if (ver !== null) reply = ver;
+    if (ver !== null && verifier?.state === 'verified' && verifyBackend?.call && !location.pathname.startsWith('/tax/portal')) links = [{ text: 'Open your client portal', href: '/tax/portal' }];
     else if (nav !== null) reply = nav;
     else if (snap.mode === 'ask') ({ reply, links, source } = await deskReply(text));
     else if (snap.mode === 'guide') reply = await guide!.turn(text);
@@ -613,6 +714,10 @@ async function send(text: string) {
       flow!.typeOffer = snap.voice ? 'You can also type it with Keyboard.' : '';
       closeSource();
       reply = await copilot.turn(text);
+      // A multi-step form: when this step's answers are all in, the copilot may press the step's Next button
+      // (data-copilot-next, a type="button" that only moves on; never the form's submit). The next step then starts.
+      const next = copilot.state === 'done' ? stepNext() : null;
+      if (next) { reply = ''; next.click(); }
     }
   } catch (e) {
     reply = "Sorry, something went wrong on my side. Nothing was sent. Please try again.";
@@ -704,6 +809,10 @@ const api = {
   mount, unmount: () => unmount(), start, end, toggleMic, setMode, showSource, closeSource,
   // The site's router, so the copilot changes page without a reload (and the call stays on): copilot.onNavigate(p => navigate(p)).
   onNavigate: (fn: (path: string) => void) => { navigateFn = fn; },
+  // The staff app's session, so the copilot can look clients up by name (read-only).
+  setAuth: (kind: string, token: string) => { if (kind === 'staff') staffToken = String(token ?? ''); },
+  // The call id once the caller is verified (the portal exchanges it for a session), else ''.
+  verifiedCall: () => (verifier?.state === 'verified' ? verifyBackend?.call ?? '' : ''),
   send: (t: string) => { void send(t); },
   setCovered: (px: number) => { covered = Math.max(0, Number(px) || 0); },
   subscribe: (fn: () => void) => { subs.add(fn); return () => { subs.delete(fn); }; },

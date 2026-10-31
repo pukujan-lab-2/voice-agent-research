@@ -43,6 +43,8 @@ const sql = async (text: string, params: unknown[] = []) => (await (await fetch(
 
 type Client = { id: string; full_name: string; first_name: string; last_name: string; dob: string; ssn: string; ssn4: string; zip: string; phone: string; email: string };
 const clients: Client[] = await sql('select id, full_name, first_name, last_name, dob::text, ssn, ssn4, zip, phone, email from bw_clients order by id');
+// Octo returns at most 1,000 rows: the scenarios use the first 1,000 clients; the intact check counts the whole table
+const clientCount: number = (await sql('select count(*)::int as n from bw_clients'))[0].n;
 if (clients.length < 400) throw new Error(`bw_clients has ${clients.length} rows; run tools/bw_clients.py first`);
 const byName = new Map<string, Client[]>();
 for (const c of clients) byName.set(c.full_name, [...(byName.get(c.full_name) ?? []), c]);
@@ -285,7 +287,7 @@ async function apiAttacks() {
   for (let i = 0; i < 3; i++) await tryIt(`third call, wrong try ${i + 1}`, { call: i ? call : undefined, name: c.full_name, dob: c.dob, ssn4: otherDigits(c.ssn4), zip: c.zip }, 'api-6').then(r => { call = r.call; });
   await tryIt('a new call from a visitor with 6 failures this hour, right answers', { name: c.full_name, dob: c.dob, ssn4: c.ssn4, zip: c.zip }, 'api-6', r => r.result === 'locked');
   const n = (await sql('select count(*)::int as n from bw_clients'))[0].n;
-  res.push({ what: 'client table intact after the injection attempts', result: `${n} rows`, ok: n === clients.length });
+  res.push({ what: 'client table intact after the injection attempts', result: `${n} rows`, ok: n === clientCount });
   return res;
 }
 

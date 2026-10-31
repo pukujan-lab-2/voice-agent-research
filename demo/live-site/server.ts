@@ -92,7 +92,8 @@ export async function start(opts: { port?: number; host?: string; offline?: bool
     if (url.pathname.startsWith('/api/')) {
       const chunks: Buffer[] = [];
       for await (const c of req) chunks.push(c as Buffer);
-      const r = await api.handle(new Request(`http://local${url.pathname}${url.search}`, { method: req.method, headers: { 'content-type': 'application/json' },
+      const r = await api.handle(new Request(`http://local${url.pathname}${url.search}`, { method: req.method,
+        headers: { 'content-type': 'application/json', ...(typeof req.headers.authorization === 'string' ? { authorization: req.headers.authorization } : {}) },
         body: req.method === 'POST' ? Buffer.concat(chunks) : undefined }), visitor(req));
       res.writeHead(r.status, Object.fromEntries(r.headers));
       res.end(Buffer.from(await r.arrayBuffer()));

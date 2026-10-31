@@ -46,7 +46,7 @@ export class DomFiller implements Hooks {
     }
     const el = document.querySelector<Box>(sel);
     if (!el) return gone;
-    if (p.tag === 'select') { setValue(el, p.options!.find(o => o.label === value)!.value); return; }
+    if (p.tag === 'select') { setValue(el, p.options!.find(o => o.label === value)?.value ?? ''); return; } // a skipped optional list goes back to its blank choice
     setValue(el, value);
     if (!el.checkValidity()) {
       const msg = el.validationMessage.replace(/\s+/g, ' ').trim();

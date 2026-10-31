@@ -14,6 +14,7 @@
 //                         the article body of a web-page source), pdf?doc= (a publication's printed PDF), faq
 // Nothing here decides what the copilot does; it only answers those questions. Requests are size- and rate-limited, and
 // Jev calls have a daily cap, so the open demo can't be used as a free model relay.
+import { createPractice } from './practice-api.ts';
 import { JevJudge, KeywordRetriever, OctoRetriever, OverlapJudge, type Judge, type Passage, type Retriever } from '../../copilot-engine/src/guide.ts';
 import { JevGate, LlamaModel, RuleModel } from '../../copilot-engine/src/models.ts';
 import type { Field, FieldKind, Flow, Model } from '../../copilot-engine/src/types.ts';
@@ -333,6 +334,14 @@ export function createApi(env: ApiEnv, opts: { offlinePassages?: Record<string, 
     return json({ error: 'not found' }, 404);
   }
 
+  // The practice backend (public site content and forms, client portal, staff CRM): practice-api.ts, same Octo.
+  const practice = offline ? null : createPractice({
+    sql, log,
+    upload: async (name, mimeType, data, metadata) => (await (await octo('/files/upload', { workspaceId: env.OCTO_WORKSPACE, name, mimeType, data: data.toString('base64'), dataEncoding: 'base64', metadata })).json()).id,
+    download: async fileId => (await octo(`/files/content?workspaceId=${env.OCTO_WORKSPACE}&fileId=${fileId}`)).arrayBuffer(),
+    verifiedClient: call => calls.get(call)?.client ?? '',
+  });
+
   return {
     // For tests only (never over HTTP): which client a call was verified as.
     verifiedAs: (call: string) => calls.get(call)?.client ?? '',
@@ -340,6 +349,10 @@ export function createApi(env: ApiEnv, opts: { offlinePassages?: Record<string, 
     async handle(req: Request, ip = ''): Promise<Response> {
       const path = new URL(req.url).pathname;
       if (path === '/api/health') return json({ ok: true, mode: offline ? 'offline' : 'live' });
+      if (/^\/api\/(site|forms|slots|portal|staff|files|newsletter)(\/|$)/.test(path)) {
+        if (!practice) return json({ error: 'the practice backend needs Octo (live mode)' }, 503);
+        return practice.handle(req, ip || req.headers.get('cf-connecting-ip') || 'local');
+      }
       if (path.startsWith('/api/library/') && path !== '/api/library/search' && req.method === 'GET') {
         if (limited(ip || req.headers.get('cf-connecting-ip') || 'local')) return json({ error: 'slow down' }, 429);
         try { return await library(path, new URL(req.url).searchParams); } catch (e) { log(`${path} failed: ${(e as Error).message}`); return json({ error: 'backend error' }, 502); }

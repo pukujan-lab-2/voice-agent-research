@@ -65,7 +65,8 @@ export function readInPage(): PageForm {
     if (type === 'file') { yourself.push(`upload the file for "${label}"`); continue; }
     if (/captcha/i.test(nameAttr + ' ' + el.id + ' ' + label)) { yourself.push('complete the captcha'); continue; }
     if (auto.startsWith('cc-') || SENSITIVE.test(label) || SENSITIVE.test(nameAttr.replace(/[_-]/g, ' '))) { yourself.push(`fill in "${label}"`); continue; }
-    if (['date', 'time', 'datetime-local', 'month', 'week', 'color', 'range'].includes(type)) { yourself.push(`pick "${label}"`); continue; }
+    // A date box is the person's to pick, unless the page asks the copilot to fill it (data-copilot-ask).
+    if (['time', 'datetime-local', 'month', 'week', 'color', 'range'].includes(type) || (type === 'date' && !el.hasAttribute('data-copilot-ask'))) { yourself.push(`pick "${label}"`); continue; }
     if (type === 'checkbox') {
       // Ticks are the person's call. A group of boxes under one heading is listed once by its heading.
       const group = clean(el.closest('fieldset')?.querySelector('legend')?.textContent);
@@ -90,7 +91,7 @@ export function readInPage(): PageForm {
     el.dataset.copilotId = id;
     const f: PageField = { id, tag: el.tagName.toLowerCase() as PageField['tag'], type, label, name: nameAttr, required: el.required, autocomplete: auto, ask: el.getAttribute('data-copilot-ask') ?? undefined,
       kind: el.getAttribute('data-copilot-kind') ?? undefined, spell: el.hasAttribute('data-copilot-spell') || undefined };
-    if (el instanceof HTMLSelectElement) f.options = Array.from(el.options).filter(o => o.value !== '' && !o.disabled).map(o => ({ label: clean(o.textContent), value: o.value, also: also(o) }));
+    if (el instanceof HTMLSelectElement) f.options = Array.from(el.options).filter(o => (o.value !== '' || o.hasAttribute('data-copilot-also')) && !o.disabled).map(o => ({ label: clean(o.textContent), value: o.value, also: also(o) }));
     fields.push(f);
   }
   const form = fields.length ? document.querySelector(`[data-copilot-id="${fields[0].id}"]`)?.closest('form') : null;
@@ -116,8 +117,15 @@ export function flowFromPage(form: PageForm, opts: { business: string; id?: stri
     if (p.options) {
       const names = p.options.map(o => o.label);
       const synonyms = Object.fromEntries(p.options.filter(o => o.also?.length).map(o => [o.label, o.also!]));
-      return { name: p.id, label: low, kind: 'choice', options: names, synonyms, question: `${ask ? ask.replace(/\?$/, "") : `Which ${low}`}: ${or(names)}?` };
+      // A long list (a whole staff) is not read out; an ask of its own sentences ("…? Say none if not.") is kept whole.
+      const question = names.length > 8 ? (ask ? ask.replace(/([^.?!])$/, '$1?') : `Which ${low}?`)
+        : ask && /[.?!]\s/.test(ask) ? `${ask} You can say ${or(names)}.`
+        : `${ask ? ask.replace(/\?$/, "") : `Which ${low}`}: ${or(names)}?`;
+      return { name: p.id, label: low, kind: 'choice', options: names, synonyms, question };
     }
+    // data-copilot-kind="future": a date from today on; otherwise a date in the past (a notice date, a date of birth)
+    if (p.type === 'date')
+      return { name: p.id, label: low, kind: p.kind === 'future' ? 'when' : 'date', question: ask || `What's the ${low}?` };
     if (p.kind === 'code')
       return { name: p.id, label: low, kind: 'code', question: ask || `What's the ${low}? You can read it out letter by letter.` };
     if (/\bserial\b/.test(low))

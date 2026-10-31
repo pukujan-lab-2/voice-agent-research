@@ -44,6 +44,32 @@ import TaxGuidePage from "./pages/tax/Guide";
 import TaxFaq from "./pages/tax/Faq";
 import TaxBook from "./pages/tax/Book";
 
+// Brindlewick's practice app (/staff) and client portal (/tax/portal)
+import StaffLogin from "./pages/staff/Login";
+import StaffDashboard from "./pages/staff/Dashboard";
+import StaffClients from "./pages/staff/Clients";
+import StaffClientDetail from "./pages/staff/ClientDetail";
+import StaffPipeline from "./pages/staff/Pipeline";
+import StaffEngagements from "./pages/staff/Engagements";
+import NewEngagement from "./pages/staff/NewEngagement";
+import StaffQueue from "./pages/staff/Queue";
+import StaffDocuments from "./pages/staff/Documents";
+import StaffNotices from "./pages/staff/Notices";
+import StaffCalendar from "./pages/staff/Calendar";
+import StaffBilling from "./pages/staff/Billing";
+import StaffMessages from "./pages/staff/Messages";
+import StaffTasks from "./pages/staff/Tasks";
+import StaffReports from "./pages/staff/Reports";
+import StaffSubmissions from "./pages/staff/Submissions";
+import StaffAudit from "./pages/staff/Audit";
+import PortalLogin from "./pages/portal/Login";
+import PortalHome from "./pages/portal/Home";
+import PortalDocuments from "./pages/portal/Documents";
+import PortalInvoices from "./pages/portal/Invoices";
+import PortalMessages from "./pages/portal/Messages";
+import PortalAppointments from "./pages/portal/Appointments";
+import PortalOrganizer from "./pages/portal/Organizer";
+
 /**
  * Registers the app's client-side navigate with the copilot, once, inside the router.
  * The copilot moves between pages with this, so the call is never cut by a page reload.
@@ -112,6 +138,34 @@ const App = () => (
         <Route path="/tax/guides/:id" element={<TaxGuidePage />} />
         <Route path="/tax/faq" element={<TaxFaq />} />
         <Route path="/tax/book" element={<TaxBook />} />
+
+        {/* Brindlewick practice app */}
+        <Route path="/staff" element={<StaffLogin />} />
+        <Route path="/staff/dashboard" element={<StaffDashboard />} />
+        <Route path="/staff/clients" element={<StaffClients />} />
+        <Route path="/staff/clients/:id" element={<StaffClientDetail />} />
+        <Route path="/staff/pipeline" element={<StaffPipeline />} />
+        <Route path="/staff/engagements" element={<StaffEngagements />} />
+        <Route path="/staff/engagements/new" element={<NewEngagement />} />
+        <Route path="/staff/queue" element={<StaffQueue />} />
+        <Route path="/staff/documents" element={<StaffDocuments />} />
+        <Route path="/staff/notices" element={<StaffNotices />} />
+        <Route path="/staff/calendar" element={<StaffCalendar />} />
+        <Route path="/staff/billing" element={<StaffBilling />} />
+        <Route path="/staff/messages" element={<StaffMessages />} />
+        <Route path="/staff/tasks" element={<StaffTasks />} />
+        <Route path="/staff/reports" element={<StaffReports />} />
+        <Route path="/staff/submissions" element={<StaffSubmissions />} />
+        <Route path="/staff/audit" element={<StaffAudit />} />
+
+        {/* Brindlewick client portal */}
+        <Route path="/tax/portal" element={<PortalLogin />} />
+        <Route path="/tax/portal/home" element={<PortalHome />} />
+        <Route path="/tax/portal/documents" element={<PortalDocuments />} />
+        <Route path="/tax/portal/invoices" element={<PortalInvoices />} />
+        <Route path="/tax/portal/messages" element={<PortalMessages />} />
+        <Route path="/tax/portal/appointments" element={<PortalAppointments />} />
+        <Route path="/tax/portal/organizer" element={<PortalOrganizer />} />
 
         {/* Sent confirmation */}
         <Route path="/sent" element={<Sent />} />

@@ -91,3 +91,18 @@ test('a choice that fits two options asks between just those', async () => {
   assert.equal(c.values.day, undefined);
   assert.match(await c.turn('Tuesday, November 10'), /November 10/);
 });
+
+test('future dates: a month and day mean the next one; past dates are refused', async () => {
+  const { spokenToDate } = await import('../src/guard.ts');
+  const now = new Date(2026, 9, 31); // Oct 31, 2026
+  const f = { future: true };
+  assert.equal(spokenToDate('November 16', now, f), '2026-11-16');
+  assert.equal(spokenToDate('January fifth', now, f), '2027-01-05');
+  assert.equal(spokenToDate('the 3rd of March 2027', now, f), '2027-03-03');
+  assert.equal(spokenToDate('October 1 2026', now, f), '');
+  assert.equal(spokenToDate('March 3 1985', now, f), '');
+  // without the option, nothing changes: past dates only, a year is needed
+  assert.equal(spokenToDate('March third, nineteen eighty five', now), '1985-03-03');
+  assert.equal(spokenToDate('November 16', now), '');
+  assert.equal(spokenToDate('November 16 2026', now), '');
+});

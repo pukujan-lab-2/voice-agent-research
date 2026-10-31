@@ -43,6 +43,8 @@ class CopilotStub {
       can: [],
       large: false,
       messages: [],
+      source: null,
+      account: null,
     };
   }
 
@@ -197,6 +199,54 @@ class CopilotStub {
    */
   setCovered(px) {
     this._covered = px;
+  }
+
+  /**
+   * The app gives the copilot a session token so it can look records up on the person's behalf.
+   * This preview stand-in keeps it and does nothing with it.
+   * @param {string} kind
+   * @param {string} token
+   */
+  setAuth(kind, token) {
+    this._auth = this._auth || {};
+    this._auth[kind] = token;
+  }
+
+  /**
+   * The id of the call on which the caller has been verified, or '' when they haven't been.
+   * The preview stand-in never verifies anyone.
+   * @returns {string}
+   */
+  verifiedCall() {
+    return '';
+  }
+
+  /**
+   * The app's client-side navigate; the copilot calls it to change page without ending the call.
+   * @param {(path: string) => void} fn
+   * @returns {() => void}
+   */
+  onNavigate(fn) {
+    this._navigate = fn;
+    return () => {
+      if (this._navigate === fn) this._navigate = null;
+    };
+  }
+
+  /**
+   * Re-open the source of an earlier answer (its chip). The stand-in has no sources.
+   * @param {number} messageId
+   */
+  showSource(messageId) {
+    const msg = this._snapshot.messages.find((m) => m.id === messageId);
+    if (!msg || !msg.source) return;
+    this._snapshot = { ...this._snapshot, source: msg.source };
+    this._emit();
+  }
+
+  closeSource() {
+    this._snapshot = { ...this._snapshot, source: null };
+    this._emit();
   }
 
   end() {

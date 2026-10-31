@@ -25,6 +25,8 @@ const READBACK: Partial<Record<FieldKind, Readback>> = {
   phone: { parse: spokenToPhone, show: v => v, miss: 'phone number' },
   code: { parse: spokenToCode, show: v => v, miss: 'code', spell: v => `${v}: ${spellOut(v)}` },
   date: { parse: s => spokenToDate(s), show: formatDate, miss: 'date', problem: () => 'I need the month, the day and the year, like March 3, 1985.' },
+  // a date from now on (a first pay date, a start date): "November 16" is the next one
+  when: { parse: s => spokenToDate(s, new Date(), { future: true }), show: formatDate, miss: 'date', problem: () => "I need a date from today on, like November 16." },
   digits: {
     parse: (s, f) => { const d = spokenDigits(s); return d.length === (f.length ?? 4) ? d : ''; }, show: v => spellOut(v), miss: 'number',
     // Never echoes what was heard: it may be a whole SSN said by mistake.

@@ -149,6 +149,10 @@ export interface Copilot {
   closeSource(): void;
   /** The app's client-side navigate; the copilot calls it to change page without ending the call. Returns unsubscribe. */
   onNavigate(fn: (path: string) => void): () => void;
+  /** Hand the copilot a session token ("staff") so it can look records up on the person's behalf. */
+  setAuth?(kind: "staff" | "portal", token: string): void;
+  /** The id of the call on which the caller has been verified, or "" when they have not been. */
+  verifiedCall?(): string;
   subscribe(fn: () => void): () => void;
   getSnapshot(): CopilotSnapshot;
 }
@@ -254,6 +258,18 @@ export const COPILOT_CONFIGS: Record<string, CopilotConfig> = {
   },
   tax: TAX_DESK_CONFIG(),
   taxIntake: TAX_INTAKE_CONFIG(),
+  taxStart: taxForm("new-client", "Fills the new-client form with you, step by step"),
+  taxSchedule: taxForm("appointment booking", "Finds an open time and books it with you"),
+  taxNotice: taxForm("IRS notice", "Fills in the notice details with you"),
+  taxPayroll: taxForm("payroll setup", "Fills the payroll setup with you"),
+  taxAddress: taxForm("change of address", "Fills the change of address with you"),
+  taxPaymentPlan: taxForm("payment plan request", "Fills the payment plan request with you"),
+  taxPriorYear: taxForm("prior-year return request", "Fills the request with you"),
+  taxRefer: taxForm("referral", "Fills the referral with you"),
+  taxApply: taxForm("job application", "Fills the application with you"),
+  taxContact: taxForm("contact", "Writes your message with you"),
+  staff: STAFF_CONFIG(),
+  staffEngagement: STAFF_ENGAGEMENT_CONFIG(),
 };
 
 // Brindlewick Tax & Accounting (fictional firm; its library is real IRS.gov text, public domain).
@@ -265,17 +281,48 @@ function TAX_BASE(): CopilotConfig {
     pages: [
       { path: "/tax", title: "Home", also: ["home", "home page", "start", "main page"] },
       { path: "/tax/services", title: "Services", also: ["services", "what you do", "all services"] },
-      { path: "/tax/services/individual-returns", title: "Individual tax returns", also: ["individual returns", "tax returns", "personal returns", "1040"] },
+      { path: "/tax/services/individual", title: "Individual tax returns", also: ["individual returns", "tax returns", "personal returns", "1040"] },
+      { path: "/tax/services/business", title: "Business tax returns", also: ["business returns", "business taxes", "s corp", "partnership returns", "corporate returns"] },
       { path: "/tax/services/bookkeeping", title: "Small-business bookkeeping", also: ["bookkeeping", "accounting", "books"] },
       { path: "/tax/services/payroll", title: "Payroll services", also: ["payroll", "payroll services"] },
-      { path: "/tax/services/irs-notices", title: "IRS notice help", also: ["notice help", "irs notices", "notices", "letters"] },
+      { path: "/tax/services/irs-notices", title: "IRS notice help", also: ["notice help", "irs notices", "notices", "letters", "irs letters"] },
       { path: "/tax/services/planning", title: "Tax planning", also: ["planning", "tax planning", "estimated taxes"] },
+      { path: "/tax/services/prior-year", title: "Prior-year and amended returns", also: ["prior-year returns", "amended returns", "amendments", "back taxes", "late returns"] },
+      { path: "/tax/services/state", title: "State returns", also: ["state returns", "state taxes", "multi-state"] },
+      { path: "/tax/services/trusts-estates", title: "Trusts and estates", also: ["trusts", "estates", "trusts and estates", "1041", "estate tax"] },
+      { path: "/tax/services/nonprofit", title: "Nonprofit returns", also: ["nonprofits", "nonprofit returns", "990", "exempt organizations"] },
+      { path: "/tax/industries/rideshare-gig", title: "Rideshare and gig workers", also: ["rideshare", "gig work", "gig workers", "uber drivers", "delivery drivers"] },
+      { path: "/tax/industries/real-estate", title: "Real estate", also: ["real estate", "landlords", "rental property", "realtors"] },
+      { path: "/tax/industries/restaurants", title: "Restaurants", also: ["restaurants", "food service", "cafes"] },
+      { path: "/tax/industries/contractors", title: "Contractors and trades", also: ["contractors", "trades", "construction"] },
+      { path: "/tax/industries/medical", title: "Medical and dental practices", also: ["medical", "doctors", "dentists", "medical practices"] },
+      { path: "/tax/industries/crypto", title: "Crypto and digital assets", also: ["crypto", "cryptocurrency", "digital assets", "bitcoin"] },
       { path: "/tax/pricing", title: "Pricing", also: ["pricing", "prices", "fees", "cost", "costs", "rates"] },
       { path: "/tax/team", title: "Our team", also: ["team", "people", "staff", "preparers", "accountants"] },
-      { path: "/tax/about", title: "About this demo", also: ["about", "about us", "about the demo"] },
+      { path: "/tax/locations", title: "Locations", also: ["locations", "offices", "office hours", "directions", "where are you"] },
+      { path: "/tax/careers", title: "Careers", also: ["careers", "jobs", "job openings", "work here", "hiring"] },
+      { path: "/tax/reviews", title: "Reviews", also: ["reviews", "testimonials", "what clients say"] },
+      { path: "/tax/blog", title: "Articles", also: ["blog", "articles", "news", "insights"] },
+      { path: "/tax/tools/calendar", title: "Tax calendar", also: ["tax calendar", "deadlines", "due dates", "calendar"] },
+      { path: "/tax/tools/checklist", title: "Document checklist", also: ["checklist", "document checklist", "what to bring", "documents i need"] },
+      { path: "/tax/tools/quarterly", title: "Quarterly estimate calculator", also: ["quarterly estimate", "estimated tax calculator", "quarterly calculator"] },
+      { path: "/tax/tools/mileage", title: "Mileage calculator", also: ["mileage", "mileage calculator", "mileage rate"] },
+      { path: "/tax/tools/se-tax", title: "Self-employment tax calculator", also: ["self-employment tax", "se tax", "self employment calculator"] },
+      { path: "/tax/tools/refund-status", title: "Where's my refund", also: ["refund status", "where's my refund", "wheres my refund", "my refund"] },
+      { path: "/tax/about", title: "About us", also: ["about", "about us", "about the firm", "about the demo"] },
       { path: "/tax/guides", title: "Tax Guides", also: ["guides", "tax guides", "library", "publications"] },
       { path: "/tax/faq", title: "Tax FAQ", also: ["faq", "questions", "frequently asked questions"] },
-      { path: "/tax/book", title: "Book a consultation", also: ["booking", "book", "intake", "intake form", "the form", "consultation", "appointment"], form: true },
+      { path: "/tax/contact", title: "Contact us", also: ["contact", "contact us", "send a message", "get in touch"] },
+      { path: "/tax/portal", title: "Client portal", also: ["portal", "client portal", "my portal", "client login", "log in", "sign in"] },
+      { path: "/tax/start", title: "Become a client", also: ["become a client", "new client", "get started", "sign up", "new client form"] },
+      { path: "/tax/schedule", title: "Book an appointment", also: ["book an appointment", "schedule an appointment", "appointment times", "available times", "schedule"] },
+      { path: "/tax/notice", title: "Send us an IRS notice", also: ["send a notice", "upload a notice", "i got a letter", "irs notice form"] },
+      { path: "/tax/payroll-setup", title: "Payroll setup", also: ["payroll setup", "set up payroll", "start payroll"] },
+      { path: "/tax/address-change", title: "Change of address", also: ["change of address", "change my address", "i moved", "new address"] },
+      { path: "/tax/payment-plan", title: "Payment plan request", also: ["payment plan", "installment agreement", "pay over time", "i can't pay"] },
+      { path: "/tax/prior-year", title: "Prior-year return request", also: ["prior-year return", "copy of my return", "old return", "transcript", "copy of last year's return"] },
+      { path: "/tax/refer", title: "Refer a friend", also: ["refer a friend", "referral", "refer someone"] },
+      { path: "/tax/book", title: "Book a consultation", also: ["booking", "book", "intake", "intake form", "the form", "consultation", "free consultation", "appointment"], form: true },
     ],
     manual: {
       label: "irs",
@@ -298,6 +345,59 @@ function TAX_BASE(): CopilotConfig {
 function TAX_DESK_CONFIG(): CopilotConfig {
   return { ...TAX_BASE(), can: ["Answers from the IRS guides, with the source", "Takes you to any page", "Books a consultation with you"] };
 }
+// A public form page: the copilot fills it with the visitor and never submits it.
+function taxForm(form: string, first: string): CopilotConfig {
+  const base = TAX_BASE();
+  return { ...base, pages: base.pages!.map(p => ({ ...p, form: false })), form, can: [first, "Reads back names, numbers and emails", "You press the button yourself"] };
+}
 function TAX_INTAKE_CONFIG(): CopilotConfig {
   return { ...TAX_BASE(), form: "consultation request", can: ["Fills this form with you", "Reads back your name, phone, email and notice code", "You press Request consultation yourself"] };
+}
+
+// Brindlewick's staff app (/staff): the practice-management CRM. The copilot opens clients and filtered lists by voice,
+// reads out what a list shows, answers from the IRS library and fills staff forms with a read-back. It never saves,
+// submits, moves a stage or deletes anything: a staff member presses the button.
+function STAFF_BASE(): CopilotConfig {
+  return {
+    business: "Brindlewick Practice",
+    note: "everything here is fictional sample data",
+    guidePage: "/tax/guides",
+    pages: [
+      { path: "/staff/dashboard", title: "Dashboard", also: ["dashboard", "home", "overview", "my day"] },
+      { path: "/staff/clients", title: "Clients", also: ["clients", "client list", "households", "businesses"] },
+      { path: "/staff/pipeline", title: "Pipeline", also: ["pipeline", "board", "returns board", "kanban"] },
+      { path: "/staff/engagements?stage=docs_in", title: "Returns waiting on documents", also: ["returns waiting on documents", "waiting on documents", "waiting for documents", "documents in", "docs in"] },
+      { path: "/staff/engagements?stage=review", title: "Returns in review", also: ["returns in review", "in review", "review queue", "ready for review"] },
+      { path: "/staff/queue", title: "Work queue", also: ["work queue", "queue", "my queue", "what's due", "deadlines"] },
+      { path: "/staff/documents?status=requested", title: "Missing documents", also: ["missing documents", "outstanding documents", "requested documents", "documents"] },
+      { path: "/staff/notices?due_within=7", title: "Notices due this week", also: ["notices due this week", "which notices are due this week", "notices this week", "notice deadlines"] },
+      { path: "/staff/notices", title: "IRS notices", also: ["notices", "irs notices", "letters"] },
+      { path: "/staff/calendar", title: "Calendar", also: ["calendar", "appointments", "schedule", "my schedule"] },
+      { path: "/staff/billing?status=overdue", title: "Overdue invoices", also: ["overdue invoices", "who owes us", "unpaid invoices", "overdue"] },
+      { path: "/staff/billing", title: "Billing", also: ["billing", "invoices", "payments", "time and billing"] },
+      { path: "/staff/messages", title: "Messages", also: ["messages", "inbox", "secure messages"] },
+      { path: "/staff/tasks", title: "Tasks", also: ["tasks", "my tasks", "to do", "to-do list"] },
+      { path: "/staff/reports", title: "Reports", also: ["reports", "dashboards", "numbers", "revenue"] },
+      { path: "/staff/submissions", title: "Website submissions", also: ["submissions", "website forms", "new leads", "leads"] },
+      { path: "/staff/audit", title: "Audit log", also: ["audit log", "audit", "activity log", "history"] },
+      { path: "/staff/engagements/new", title: "New engagement", also: ["new engagement", "start a new engagement", "open an engagement", "the form"], form: true },
+    ],
+    manual: {
+      label: "irs",
+      title: "Tax Guides",
+      steps: [],
+      unknown: "I couldn't find that in the IRS library I answer from.",
+    },
+    desk: {
+      greeting:
+        "Hi, I'm the practice assistant. I can open a client, show filtered lists like returns waiting on documents or notices due this week, answer from the IRS library with the source, and fill in a new engagement with you. I never save or submit anything; you press the button.",
+      advice: "That's a judgement call for you or the reviewer. I only answer from the IRS library, with the source.",
+    },
+  };
+}
+function STAFF_CONFIG(): CopilotConfig {
+  return { ...STAFF_BASE(), can: ["Opens any client or list", "Answers from the IRS library, with the source", "Fills a new engagement with you"] };
+}
+function STAFF_ENGAGEMENT_CONFIG(): CopilotConfig {
+  return { ...STAFF_BASE(), form: "new engagement", can: ["Fills this form with you", "Reads back the client, year and fee", "You press Create engagement yourself"] };
 }

@@ -160,8 +160,9 @@ const ORDINAL: Record<string, number> = { first: 1, second: 2, third: 3, fourth:
 
 // "March third, nineteen eighty five", "the 3rd of March 85", "3/3/1985", "1985-03-03", "oh three oh three eighty five"
 // -> "1985-03-03"; '' when it isn't one real date between 1900 and today. Numbers without a month name are read the
-// US way (month, day, year) unless the year comes first.
-export function spokenToDate(text: string, now = new Date()): string {
+// US way (month, day, year) unless the year comes first. With future (an appointment, a start date): a month and day
+// without a year mean the next one ("November 16"), and the date must be today or later (within five years).
+export function spokenToDate(text: string, now = new Date(), opts: { future?: boolean } = {}): string {
   let t = text.toLowerCase().replace(/[’']/g, '').replace(/,/g, ' ');
   t = t.replace(/\b(twenty|thirty)[\s-]+(first|second|third|fourth|fifth|sixth|seventh|eighth|ninth)\b/g, (_, a, b) => String((a === 'twenty' ? 20 : 30) + ORDINAL[b]));
   t = t.replace(/\b(first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|eleventh|twelfth|thirteenth|fourteenth|fifteenth|sixteenth|seventeenth|eighteenth|nineteenth|twentieth|thirtieth)\b/g, w => String(ORDINAL[w]));
@@ -185,14 +186,20 @@ export function spokenToDate(text: string, now = new Date()): string {
     const rest = nums.filter(n => n > 0);
     const yi = rest.findIndex(n => n >= 1000);
     if (yi >= 0) { y = rest[yi]; d = rest.find((n, i) => i !== yi && n <= 31) ?? 0; }
-    else if (rest.length >= 2) { d = rest[0]; y = fullYear(rest[1]); }
+    else if (rest.length >= 2) { d = rest[0]; y = opts.future && rest[1] < 100 ? 2000 + rest[1] : fullYear(rest[1]); }
+    else if (opts.future && rest.length === 1 && rest[0] <= 31) {
+      d = rest[0]; y = now.getFullYear();
+      if (Date.UTC(y, month - 1, d) < Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())) y++;
+    }
   } else if (nums.length === 3) {
     if (nums[0] >= 1000) [y, mo, d] = nums;
     else [mo, d, y] = [nums[0], nums[1], fullYear(nums[2])];
   }
   if (!y || !mo || !d || mo > 12 || d > 31 || y < 1900) return '';
   const date = new Date(Date.UTC(y, mo - 1, d));
-  if (date.getUTCDate() !== d || date > now) return '';
+  const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  if (date.getUTCDate() !== d) return '';
+  if (opts.future ? date.getTime() < today || y > now.getFullYear() + 5 : date > now) return '';
   return `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 }
 function splitRun(run: string, haveMonth: boolean): number[] {
