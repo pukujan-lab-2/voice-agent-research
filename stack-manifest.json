@@ -4,9 +4,6 @@
   "release_train": "current",
   "source": "https://raw.githubusercontent.com/Pukujan/agent-stack-train/main/stack-releases.json",
   "pins": {
-    "agent-custom-setup": {},
-    "content-generation-modules": {},
-    "observational-issue-ops": {},
-    "project-continuity-modules": {}
+    "agent-stack-train": {}
   }
 }
