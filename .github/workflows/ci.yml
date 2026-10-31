@@ -30,9 +30,12 @@ jobs:
           cache-dependency-path: |
             package-lock.json
             copilot-engine/package-lock.json
+            demo/live-site/package-lock.json
       - run: npm ci
       - run: npm ci --ignore-scripts
         working-directory: copilot-engine
+      - run: npm ci --ignore-scripts
+        working-directory: demo/live-site
       - name: Lint (Biome)
         run: npm run lint
       - name: Typecheck (TypeScript, strict)
