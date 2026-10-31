@@ -1,9 +1,9 @@
 name: CI
 
 # One required check, "gates", runs the same steps as `npm run check` plus Python lint and the ACS train check.
-# Runner: GitHub-hosted while the repository is public. A self-hosted runner on a public repository would run
-# code from anyone's pull request on our machine. Once the repository is private, switch `runs-on` to the
-# MacBook Pro runner, as Kresilo does.
+# Runner: the MacBook Pro runner `macbook-pro-chatbots` (label `chatbots`), because the repository is private and
+# GitHub-hosted minutes are budget-capped. Never run this on a self-hosted runner if the repository goes public:
+# that would run code from anyone's pull request on our machine.
 
 on:
   pull_request:
@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   gates:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, chatbots]
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -54,3 +54,4 @@ jobs:
     uses: Pukujan/agent-stack-train/.github/workflows/check-adopter.yml@main
     with:
       manifest: stack-manifest.json
+      runs_on: '["self-hosted","chatbots"]'
