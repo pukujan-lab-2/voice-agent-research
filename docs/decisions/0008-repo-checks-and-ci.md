@@ -12,4 +12,4 @@ The owner asked for a real issue log, CI, typecheck, lint and orphan checks, so 
 
 ## Consequences
 
-Lint rules catch bugs, not this codebase's dense style. Unused exports are warnings while the engine's public API settles. CI used GitHub-hosted runners while the repository was public. It is now private, so CI and the OIO workflows run on the MacBook Pro runner `macbook-pro-chatbots` (label `chatbots`); the OIO workflows pick it up from the `OIO_RUNS_ON` repository variable (#20).
+Lint rules catch bugs, not this codebase's dense style. Unused exports are warnings while the engine's public API settles. CI used GitHub-hosted runners while the repository was public. It is now private and the hosted minutes are used up, so CI and the OIO workflows run on a stopgap runner on the MacBook Pro, `macbook-pro-chatbots` (label `chatbots`); the OIO workflows pick it up from the `OIO_RUNS_ON` repository variable (#20). The owner's direction (2026-10-31) is that CI for all projects runs on the coming VPS, so the runner moves there once it exists (#25).

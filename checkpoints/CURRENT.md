@@ -10,8 +10,9 @@ Phase: demo build. The copilot runs locally on fictional demo sites; nothing is 
 
 ## Completed
 
-- Repository checks, CI (`gates`), decision log, and the ACS hotloader with PCM, CGM and OIO (#10), reinstalled from the one-checkout stack (agent-stack-train 1.0.1, `2e32f2c`); `hotload_check` OK and the train check passes.
+- Repository checks, CI (`gates`), decision log, and the ACS hotloader with PCM, CGM and OIO (#10), reinstalled from the one-checkout stack (agent-stack-train 1.0.1, `2e32f2c`); `hotload_check` OK. The train check passed on GitHub-hosted runners; on the Pro runner it fails in `setup-python` (#25).
 - Phoenix tracing through Octo (#2).
+- CI runs on a stopgap runner on the MacBook Pro, and `main` requires a pull request and the `gates` check (#20, #24, `7626f40`).
 
 ## Active
 
@@ -21,7 +22,8 @@ Phase: demo build. The copilot runs locally on fictional demo sites; nothing is 
 ## Queued
 
 - Clarifying questions (#12), follow-up context (#13), advice hand-off (#14), eval re-baseline (#15).
-- v2 desk merge (#16), call logger and insights (#17), offline scene test (#19), CI on the Pro and branch protection (#20).
+- v2 desk merge (#16), call logger and insights (#17), offline scene test (#19).
+- Move CI from the Pro stopgap to the VPS once it exists (#25). On the Pro, the stack-train check (not required) fails in `setup-python`.
 
 ## Blockers
 
