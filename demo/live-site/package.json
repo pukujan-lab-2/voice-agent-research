@@ -10,7 +10,8 @@
     "start:offline": "node --no-warnings build.ts && node server.ts --offline",
     "docs": "python3 tools/docs.py",
     "test": "node --no-warnings build.ts && node tests/scenes.ts",
-    "test:offline": "node --no-warnings build.ts && node tests/scenes.ts --offline"
+    "test:offline": "node --no-warnings build.ts && node tests/scenes.ts --offline",
+    "test:voice-matrix": "node --no-warnings tests/voice-matrix.ts"
   },
   "devDependencies": {
     "playwright-core": "^1.64.1"

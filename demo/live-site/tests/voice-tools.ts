@@ -14,9 +14,10 @@
 //               yes, nothing submitted
 // Not covered: the voice itself (LiveKit, the turn detector, the page), which tests/voice-languages.ts exercises.
 //
-// Run: node --no-warnings tests/voice-tools.ts english-fast|lfm3-audio
-// Needs speech/server.py (SPEECH_URL, default http://127.0.0.1:8799). english-fast also needs LFM3 at DESK_URL or LLAMA_URL;
-// lfm3-audio needs the llama.cpp server speech/server.py starts (LFM3_AUDIO_URL, default http://127.0.0.1:8798).
+// Run: node --no-warnings tests/voice-tools.ts <stack>   (any stack in speech/stacks.json; tests/voice-matrix.ts runs them all)
+// Needs speech/server.py (SPEECH_URL, default http://127.0.0.1:8799). A stack that thinks with lfm3 needs LFM3 at DESK_URL or
+// LLAMA_URL; one that thinks with lfm3-audio needs the llama.cpp server speech/server.py starts (LFM3_AUDIO_URL, default
+// http://127.0.0.1:8798).
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -24,21 +25,23 @@ import path from 'node:path';
 import { Desk, lfm3AudioChat, OpenAIChat, type ChatModel } from '../../../copilot-engine/src/desk.ts';
 import type { Flow } from '../../../copilot-engine/src/types.ts';
 
+const STACKS = JSON.parse(fs.readFileSync(new URL('../speech/stacks.json', import.meta.url), 'utf8')).stacks as Record<string, { listens: string; thinks: string }>;
 const stack = process.argv[2] ?? '';
-if (stack !== 'english-fast' && stack !== 'lfm3-audio') {
-  console.error('usage: node --no-warnings tests/voice-tools.ts english-fast|lfm3-audio');
+if (!STACKS[stack]) {
+  console.error(`usage: node --no-warnings tests/voice-tools.ts ${Object.keys(STACKS).join('|')}`);
   process.exit(2);
 }
+const { listens, thinks } = STACKS[stack];
 const SPEECH = (process.env.SPEECH_URL || 'http://127.0.0.1:8799').replace(/\/$/, '');
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'voice-tools-'));
 
 // The model a call on this stack uses, asked the way the page asks (api.ts clamps the temperature to 0 and the answer to 220 tokens).
 function modelFor(): ChatModel {
   let inner: OpenAIChat;
-  if (stack === 'lfm3-audio') inner = lfm3AudioChat(process.env.LFM3_AUDIO_URL || 'http://127.0.0.1:8798');
+  if (thinks === 'lfm3-audio') inner = lfm3AudioChat(process.env.LFM3_AUDIO_URL || 'http://127.0.0.1:8798');
   else {
     const url = process.env.DESK_URL || (process.env.LLAMA_URL ? `${process.env.LLAMA_URL.replace(/\/$/, '')}/v1` : '');
-    if (!url) throw new Error('english-fast needs DESK_URL or LLAMA_URL (LFM3 text model)');
+    if (!url) throw new Error(`${stack} needs DESK_URL or LLAMA_URL (LFM3 text model)`);
     inner = new OpenAIChat({ url, key: '', model: process.env.DESK_MODEL || 'lfm3', stream: false, nothink: true, timeoutMs: 15000 });
   }
   return { name: inner.name, chat: (messages, tools, opts) => inner.chat(messages, tools, { ...opts, temperature: 0, maxTokens: Math.min(opts?.maxTokens ?? 220, 220) }) };
@@ -91,7 +94,7 @@ async function say(d: Desk, line: string): Promise<{ reply: string; calls: Call[
   return { reply, calls: callsOf(d), heard };
 }
 
-console.log(`== voice tools on ${stack} (listener: ${stack === 'lfm3-audio' ? 'LFM3-Audio' : 'Parakeet'}, model: ${stack === 'lfm3-audio' ? 'LFM3-Audio' : 'LFM3'})`);
+console.log(`== voice tools on ${stack} (listener: ${listens}, model: ${thinks})`);
 
 console.log('\n-- fill a field, then confirm it, twice');
 {
