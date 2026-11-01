@@ -53,7 +53,7 @@ A visitor opens the copilot on a site and talks to it. The copilot can:
 | Area | State |
 |---|---|
 | Form filling with read-back (engine) | Works; tested offline and with LFM3 |
-| Grounded answers on the IRS library | 100% of cited quotes real; vague questions are not clarified yet (0/100) |
+| Grounded answers on the IRS library | 100% of cited quotes real; 35 of 100 vague questions are asked back (0 before), the rest are still guessed at (#99) |
 | Caller verification | 24/24 scenarios, no impostor verified, no leaks |
 | Voice | Uses browser speech today, which breaks the in-house rule. Being rebuilt on LiveKit Agents |
 | Hosting | https://copilot.design-bakery.com, deployed when `production` moves (decision 0015, `deploy/`) |
