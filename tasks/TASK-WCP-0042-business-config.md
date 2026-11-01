@@ -79,6 +79,29 @@ Blocked/uncertain:
 Next:
 - Merge the pull request, then start the large-site form index (#104)
 
+### 2026-11-01 23:30:42 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["copilot-engine/package.json"],"completed":["The business-config branch is up to date with main (huge-site changes) and the updated bounded-state branch, with every test script kept"],"decisions":["no new decisions"],"evidence":["npm run check passes after the merge"],"next_action":"Bring #51 (WCP-0043) up to date the same way","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0042","timestamp":"2026-11-01T23:30:42Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"3ad2623ed98b5ae52be2aa762affe7d48e3b12268b46593dfd2da66a902a36b0","request_id":"f2103cd814c942a99f977c3ea4315a65","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0042"} -->
+
+Completed:
+- The business-config branch is up to date with main (huge-site changes) and the updated bounded-state branch, with every test script kept
+
+Evidence:
+- npm run check passes after the merge
+
+Decisions:
+- no new decisions
+
+Changed:
+- copilot-engine/package.json
+
+Blocked/uncertain:
+- none
+
+Next:
+- Bring #51 (WCP-0043) up to date the same way
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
