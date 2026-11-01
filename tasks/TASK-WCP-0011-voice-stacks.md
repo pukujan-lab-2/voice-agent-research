@@ -69,3 +69,26 @@ Blocked/uncertain:
 
 Next:
 - Rerun tests/voice-languages.ts for the Spanish and French live turns, then arm auto-merge on #61.
+
+### 2026-11-01 05:40:01 UTC — codex
+
+<!-- continuity:checkpoint {"agent":"codex","blocked":["LFM3 Audio and Omni adapters, machine switching and comparative voice benchmarks remain unfinished."],"changed":["demo/live-site/app/src, demo/live-site/server.ts, demo/live-site/widget, demo/live-site/tests/voice-choice.test.ts"],"completed":["Added a voice lab and kept the selected language matched to the listening stack."],"decisions":["no new decisions"],"evidence":["Recorded audio call test passed 8 of 8 English Spanish and French checks; npm run check and site build passed."],"next_action":"Connect additional models and host selection, then benchmark each runnable configuration.","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0011","timestamp":"2026-11-01T05:40:01Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"3d1d30f43d8d3638f82f13b487979cce44172428f45b25bbbe9ecfe528cbfc31","request_id":"2c2b1b29ab22413f918184699bff1236","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0011"} -->
+
+Completed:
+- Added a voice lab and kept the selected language matched to the listening stack.
+
+Evidence:
+- Recorded audio call test passed 8 of 8 English Spanish and French checks; npm run check and site build passed.
+
+Decisions:
+- no new decisions
+
+Changed:
+- demo/live-site/app/src, demo/live-site/server.ts, demo/live-site/widget, demo/live-site/tests/voice-choice.test.ts
+
+Blocked/uncertain:
+- LFM3 Audio and Omni adapters, machine switching and comparative voice benchmarks remain unfinished.
+
+Next:
+- Connect additional models and host selection, then benchmark each runnable configuration.
