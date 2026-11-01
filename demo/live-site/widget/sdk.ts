@@ -128,6 +128,42 @@ let voiceSeq = 0;
 let collect: string[] | null = null;
 let lastSearchMs: number | undefined;
 
+// Until the agent picks up, the caller hears a soft ringback made here (two short tones every 3 s, no audio file, no
+// browser speech). With no agent after AGENT_WAIT_MS, the call carries on as text instead of sitting on "Connecting…".
+const AGENT_WAIT_MS = 20_000;
+let ring: { ctx: AudioContext; timer: ReturnType<typeof setInterval> } | null = null;
+let agentTimer: ReturnType<typeof setTimeout> | undefined;
+
+function startRing() {
+  stopRing();
+  let ctx: AudioContext;
+  try { ctx = new AudioContext(); } catch { return; }
+  void ctx.resume();
+  const tone = (at: number) => {
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, at);
+    g.gain.linearRampToValueAtTime(0.05, at + 0.02);
+    g.gain.setValueAtTime(0.05, at + 0.38);
+    g.gain.linearRampToValueAtTime(0, at + 0.4);
+    g.connect(ctx.destination);
+    for (const f of [400, 450]) {
+      const o = ctx.createOscillator();
+      o.frequency.value = f;
+      o.connect(g); o.start(at); o.stop(at + 0.4);
+    }
+  };
+  const burst = () => { const t = ctx.currentTime + 0.05; tone(t); tone(t + 0.6); };
+  burst();
+  ring = { ctx, timer: setInterval(burst, 3000) };
+}
+function stopRing() {
+  clearTimeout(agentTimer); agentTimer = undefined;
+  if (!ring) return;
+  clearInterval(ring.timer);
+  void ring.ctx.close();
+  ring = null;
+}
+
 const loadLiveKit = (): Promise<LiveKit> => import(/* @vite-ignore */ `${location.origin}/copilot/vendor/livekit-client.esm.mjs`) as Promise<LiveKit>;
 
 function spoken(raw: string) {
@@ -158,6 +194,7 @@ function agentState(state: string | undefined) {
   if (!snap.voice || !room) return;
   if (muted) { set({ status: 'muted' }); return; }
   const s: Status = state === 'speaking' ? 'speaking' : state === 'thinking' ? 'thinking' : state === 'listening' ? 'listening' : 'waiting';
+  if (s !== 'waiting') stopRing();
   set({ status: s, ...(s === 'speaking' ? { heard: '' } : {}) });
 }
 
@@ -237,6 +274,7 @@ async function startVoice() {
   });
   rm.on(lk.RoomEvent.TrackSubscribed, track => {
     if (track.kind !== lk.Track.Kind.Audio) return;
+    stopRing();
     const el = track.attach();
     el.dataset.copilotVoice = '1'; el.style.display = 'none';
     document.body.appendChild(el);
@@ -250,6 +288,12 @@ async function startVoice() {
     if (room === rm && snap.voice) set({ heard: verifier?.secretOpen() ? '••••' : text.trim() });
   });
   try {
+    startRing();
+    agentTimer = setTimeout(() => {
+      if (room !== rm || agentIdentity()) return;
+      report('voice', `no agent after ${AGENT_WAIT_MS} ms`);
+      toText("The voice line isn't answering right now, so let's carry on by typing. Your answers go in the box below.");
+    }, AGENT_WAIT_MS);
     await rm.connect(grant.url, grant.token);
     await rm.localParticipant.publishTrack(micTrack, { source: lk.Track.Source.Microphone });
     if (muted) await micTrack.mute();
@@ -261,6 +305,7 @@ async function startVoice() {
 
 function stopVoice() {
   voiceSeq++;
+  stopRing();
   const rm = room; room = null; collect = null;
   void rm?.disconnect();
   micTrack?.stop(); micTrack = null;
