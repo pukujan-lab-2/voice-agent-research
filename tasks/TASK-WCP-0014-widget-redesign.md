@@ -23,3 +23,72 @@ The owner finds the widget bad and its activity view too small (#65).
 ## Checkpoint log
 
 No checkpoints yet.
+
+### 2026-11-01 05:41:12 UTC — codex
+
+<!-- continuity:checkpoint {"agent":"codex","blocked":["The voice stack pull request is still open; desktop and phone call panel verification remains."],"changed":["demo/live-site/app/src/components/copilot/CopilotWidget.tsx, demo/live-site/app/src/styles/copilot-view.css, demo/live-site/app/src/main.tsx"],"completed":["Enlarged the call panel and improved the active field highlight and keyboard focus."],"decisions":["no new decisions"],"evidence":["Repository checks and React build passed; offline scenes passed 97 of 99 checks, with the same two lookup failures on unchanged main."],"next_action":"Reconcile with the voice stack changes and review the panel on desktop and phone.","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0014","timestamp":"2026-11-01T05:41:12Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"562a9c371ee553dce8c5fd2c58ede73e8104b18ad826636ef053cc8d2ae390d9","request_id":"67d6c7baf0524b418cc0eb4a6a8a26e5","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0014"} -->
+
+Completed:
+- Enlarged the call panel and improved the active field highlight and keyboard focus.
+
+Evidence:
+- Repository checks and React build passed; offline scenes passed 97 of 99 checks, with the same two lookup failures on unchanged main.
+
+Decisions:
+- no new decisions
+
+Changed:
+- demo/live-site/app/src/components/copilot/CopilotWidget.tsx, demo/live-site/app/src/styles/copilot-view.css, demo/live-site/app/src/main.tsx
+
+Blocked/uncertain:
+- The voice stack pull request is still open; desktop and phone call panel verification remains.
+
+Next:
+- Reconcile with the voice stack changes and review the panel on desktop and phone.
+
+### 2026-11-01 05:50:35 UTC — codex
+
+<!-- continuity:checkpoint {"agent":"codex","blocked":["Phone layout and full scene checks remain; the baseline has two offline document lookup failures."],"changed":["demo/live-site/app/src/components/copilot/CopilotWidget.tsx, demo/live-site/app/src/styles/copilot-view.css"],"completed":["Reconciled the widget redesign with the merged voice controls."],"decisions":["no new decisions"],"evidence":["Repository checks and the React build passed after merging the voice changes; the earlier desktop preview showed the enlarged panel and active field."],"next_action":"Inspect the merged call panel at phone width and finish the widget review.","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0014","timestamp":"2026-11-01T05:50:35Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"c1545929236f16b60d492c530d52616cc6f4ed05489077254070be8d538c3024","request_id":"1386925ab070432faaadd481b8998314","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0014"} -->
+
+Completed:
+- Reconciled the widget redesign with the merged voice controls.
+
+Evidence:
+- Repository checks and the React build passed after merging the voice changes; the earlier desktop preview showed the enlarged panel and active field.
+
+Decisions:
+- no new decisions
+
+Changed:
+- demo/live-site/app/src/components/copilot/CopilotWidget.tsx, demo/live-site/app/src/styles/copilot-view.css
+
+Blocked/uncertain:
+- Phone layout and full scene checks remain; the baseline has two offline document lookup failures.
+
+Next:
+- Inspect the merged call panel at phone width and finish the widget review.
+
+### 2026-11-01 06:44:40 UTC — workbuddy
+
+<!-- continuity:checkpoint {"agent":"workbuddy","blocked":["The voice checks need a real microphone and the LiveKit stack, which a headless run does not have; the scene harness still stubs browser speech from before #61."],"changed":["demo/live-site/app/src/styles/copilot-view.css, demo/live-site/app/src/components/copilot/CopilotWidget.tsx, demo/live-site/app/src/main.tsx"],"completed":["Rebuilt the call widget on the shared design system: paper, ink and clay with the site's own accent on the primary button and the caller's bubbles, a 392px compact corner window that keeps every control in view, an expanded conversation at 1rem, and a caption that shows the copilot's question instead of a read-back cut off mid-sentence. On a phone the start bar is now two rows, so the pickers no longer push Type instead off the screen."],"decisions":["Compact stays a small corner window and the conversation is what expands, because the widget sits on a page a visitor is reading."],"evidence":["npm run check passes. Offline scenes: 151 checks pass, including all three phone sizes for the typing path that used to crash the layout scene on an unclickable Type instead button. Three voice checks per phone size and the voice scene still fail: a call now runs on LiveKit and needs a real microphone, so headless the widget falls back to typing and there is no spoken question or highlighted field."],"next_action":"Add a voice path to the scene harness that can drive a LiveKit call, so the three phone voice checks and the voice scene can run.","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0014","timestamp":"2026-11-01T06:44:40Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"0b7bd23cc4b3e7a0dc153c5a5358f8bc2a362435b3cbdf88afb16cd3c2f3065b","request_id":"760f52bec5924df1bcb7af50b4291ace","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0014"} -->
+
+Completed:
+- Rebuilt the call widget on the shared design system: paper, ink and clay with the site's own accent on the primary button and the caller's bubbles, a 392px compact corner window that keeps every control in view, an expanded conversation at 1rem, and a caption that shows the copilot's question instead of a read-back cut off mid-sentence. On a phone the start bar is now two rows, so the pickers no longer push Type instead off the screen.
+
+Evidence:
+- npm run check passes. Offline scenes: 151 checks pass, including all three phone sizes for the typing path that used to crash the layout scene on an unclickable Type instead button. Three voice checks per phone size and the voice scene still fail: a call now runs on LiveKit and needs a real microphone, so headless the widget falls back to typing and there is no spoken question or highlighted field.
+
+Decisions:
+- Compact stays a small corner window and the conversation is what expands, because the widget sits on a page a visitor is reading.
+
+Changed:
+- demo/live-site/app/src/styles/copilot-view.css, demo/live-site/app/src/components/copilot/CopilotWidget.tsx, demo/live-site/app/src/main.tsx
+
+Blocked/uncertain:
+- The voice checks need a real microphone and the LiveKit stack, which a headless run does not have; the scene harness still stubs browser speech from before #61.
+
+Next:
+- Add a voice path to the scene harness that can drive a LiveKit call, so the three phone voice checks and the voice scene can run.

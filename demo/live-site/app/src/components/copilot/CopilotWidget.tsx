@@ -128,9 +128,13 @@ function callTime(startedAt: number | undefined, now: number): string {
 /** The caption shows the end of the copilot's last message: that is where its question is. */
 function captionOf(msg: CopilotMessage): CopilotMessage {
   const sentences = msg.text.match(/[^.!?]+[.!?]+["')]*\s*|[^.!?]+$/g) ?? [msg.text];
+  // The caption is a glance, not a transcript: when the copilot ends on a question, that question
+  // is the line to show — a read-back plus its question would be cut off at the end, not the middle.
+  const last = (sentences[sentences.length - 1] ?? "").trim();
+  if (/\?["')]*$/.test(last) && last.length <= 120) return { ...msg, text: last };
   let text = "";
   for (let i = sentences.length - 1; i >= 0; i--) {
-    if (text && (sentences[i] + text).length > 140) break;
+    if (text && (sentences[i] + text).length > 110) break;
     text = sentences[i] + text;
   }
   return { ...msg, text: text.trim() };
@@ -532,7 +536,7 @@ export function CopilotWidget() {
 
       {expanded && (
         <div className="copilot-footnote">
-          Fictional demo. Voice uses your browser's own speech service.
+          Fictional demo. You review the form and press the final button.
         </div>
       )}
     </div>

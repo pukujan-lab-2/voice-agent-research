@@ -2,6 +2,7 @@ import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./globals.css";
 import "./styles/design.css";
+import "./styles/copilot-view.css";
 
 /**
  * The app waits for window.copilot or the copilot:ready event before mounting,
