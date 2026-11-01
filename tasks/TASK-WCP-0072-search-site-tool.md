@@ -86,6 +86,52 @@ Blocked/uncertain:
 Next:
 - Open the PR for #110
 
+### 2026-11-01 23:19:11 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["tasks/TASK-WCP-0072-search-site-tool.md (merge of main)"],"completed":["The search_site branch sits on the moved repository's main"],"decisions":["none"],"evidence":["npm run check passes on the stack after merging the moved repository's main; issue links point at pukujan-lab-2"],"next_action":"Merge PR #54 after #53","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0072","timestamp":"2026-11-01T23:19:11Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"a8ade9c4d59b66669bddb28f09a9ab14d54e07f736007e3f8a218b0ee4a4202e","request_id":"d5cde6b617054907bfa5c3cd300bb380","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0072"} -->
+
+Completed:
+- The search_site branch sits on the moved repository's main
+
+Evidence:
+- npm run check passes on the stack after merging the moved repository's main; issue links point at pukujan-lab-2
+
+Decisions:
+- none
+
+Changed:
+- tasks/TASK-WCP-0072-search-site-tool.md (merge of main)
+
+Blocked/uncertain:
+- none
+
+Next:
+- Merge PR #54 after #53
+
+### 2026-11-01 23:19:33 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["tasks/TASK-WCP-0072-*.md"],"completed":["Carried the earlier branch's final state into this one so the stacked pull requests merge cleanly in order"],"decisions":["none"],"evidence":["merge of task/WCP-0071-retrieval-at-size; npm run check passed on the stack top just before"],"next_action":"Merge PR #54 after #53","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0072","timestamp":"2026-11-01T23:19:33Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"0c42dd2fcac7115b9cb8a7b4ee79de09edc31e5705330b612984cb528e7c2fa7","request_id":"66a09744c171495ab4062b19f5cac57a","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0072"} -->
+
+Completed:
+- Carried the earlier branch's final state into this one so the stacked pull requests merge cleanly in order
+
+Evidence:
+- merge of task/WCP-0071-retrieval-at-size; npm run check passed on the stack top just before
+
+Decisions:
+- none
+
+Changed:
+- tasks/TASK-WCP-0072-*.md
+
+Blocked/uncertain:
+- none
+
+Next:
+- Merge PR #54 after #53
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.

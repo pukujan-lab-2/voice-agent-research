@@ -85,6 +85,29 @@ Blocked/uncertain:
 Next:
 - Open the PR for #109
 
+### 2026-11-01 23:19:09 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["tasks/TASK-WCP-0071-retrieval-at-size.md, eval/size/bench.py"],"completed":["The retrieval-at-size branch sits on the moved repository's main with its Octo issue references pointing at pukujan-lab-2"],"decisions":["none"],"evidence":["npm run check passes on the stack after merging the moved repository's main; issue links point at pukujan-lab-2"],"next_action":"Merge PR #53 after #52","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0071","timestamp":"2026-11-01T23:19:09Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"bf405ec72bb86bc368437c003362965c5baf7a338f91c059d063eb742630babc","request_id":"4571d72c8add47cb948d21097e65fc33","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0071"} -->
+
+Completed:
+- The retrieval-at-size branch sits on the moved repository's main with its Octo issue references pointing at pukujan-lab-2
+
+Evidence:
+- npm run check passes on the stack after merging the moved repository's main; issue links point at pukujan-lab-2
+
+Decisions:
+- none
+
+Changed:
+- tasks/TASK-WCP-0071-retrieval-at-size.md, eval/size/bench.py
+
+Blocked/uncertain:
+- none
+
+Next:
+- Merge PR #53 after #52
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
