@@ -51,9 +51,11 @@ const settle = (page: Page, n: number) => page.waitForFunction(n => {
 
 // The desk reads every value back ("…, is that right?") and types it in only after a clear yes.
 const READBACK = /\b(right|correct)\?$/i;
+const PASSING = /\bOkay, .+ for the [^.]+\./;
 type Ctx = {
   page: Page; say: (t: string) => Promise<string>; val: (sel: string) => Promise<string>; sent: string[];
   give: (t: string, what: string, filled: () => Promise<boolean>) => Promise<string>;
+  pick: (t: string, what: string, filled: () => Promise<boolean>) => Promise<string>;
 };
 
 async function scene(name: string, url: string, run: (c: Ctx) => Promise<void>) {
@@ -92,11 +94,23 @@ async function scene(name: string, url: string, run: (c: Ctx) => Promise<void>) 
     check(`${what}: typed in after the yes`, await filled(), done);
     return done;
   };
+  // A pick from a short list scores 25 by default (decision 0011): typed in at once and said in passing, no yes.
+  // After a mishearing every score is 15 higher, so a live call may read it back instead; that is right too.
+  const pick = async (t: string, what: string, filled: () => Promise<boolean>) => {
+    const r = await say(t);
+    if (READBACK.test(r) && !(await filled())) {
+      const done = await say('yes');
+      check(`${what}: read back after a mishearing, typed in after the yes`, await filled(), done);
+      return done;
+    }
+    check(`${what}: typed in and said in passing`, PASSING.test(r) && await filled(), r);
+    return r;
+  };
   await page.waitForFunction(() => (window as any).copilot?.getSnapshot().mounted, null, { timeout: 15_000 });
   await page.click(T('call-type'));
   await settle(page, 0);
   console.log(`      < ${(await lastBot(page)).slice(0, 200)}`);
-  await run({ page, say, give, val, sent });
+  await run({ page, say, give, pick, val, sent });
   check('copilot sent nothing and never left the page', sent.length === 0, sent);
   check('the panel shows every copilot message', await page.locator(BOT).count() === await bots(page), [await page.locator(BOT).count(), await bots(page)]);
   // The person presses the button themself: the fake endpoint keeps everything in the browser.
@@ -119,7 +133,7 @@ const nextStep = async (page: Page, say0: string) => {
   check(`next step starts by itself: ${say0}`, /On to the next part/.test(r) && r.includes(say0), r);
 };
 
-await scene('clinic', '/clinic/book', async ({ page, say, give, val }) => {
+await scene('clinic', '/clinic/book', async ({ page, say, give, pick, val }) => {
   const first = await page.evaluate(() => (window as any).copilot.getSnapshot().messages.find((m: any) => m.who === 'bot')?.text ?? '');
   check('opens on the booking form and asks for the child', /fill in this booking form/.test(first) && /child's full name/.test(first), first);
   let r = await give('Leo Rahman', "child's name", async () => (await val('#child')) === 'Leo Rahman');
@@ -130,11 +144,11 @@ await scene('clinic', '/clinic/book', async ({ page, say, give, val }) => {
     r = await say('yes');
     check('name fixed after the yes, visit still open', (await val('#child')) === 'Leo Ray' && (await val('#visit')) === '', r);
   }
-  r = await give('a checkup please', '"checkup" picks Well-child checkup', async () => (await val('#visit')) === 'wellchild');
+  r = await pick('a checkup please', '"checkup" picks Well-child checkup', async () => (await val('#visit')) === 'wellchild');
   check('hands step 1 back: press Next yourself', /press Next yourself/.test(r), r);
   await nextStep(page, 'Mornings or afternoons');
-  await give('mornings if possible', 'morning', () => page.isChecked('#tod_am'));
-  await give('Tuesday', 'Tuesday slot', async () => (await val('#slot')) === 'tue0940');
+  await pick('mornings if possible', 'morning', () => page.isChecked('#tod_am'));
+  await pick('Tuesday', 'Tuesday slot', async () => (await val('#slot')) === 'tue0940');
   await nextStep(page, 'parent or guardian');
   await give('Aisha Rahman', 'parent name', async () => (await val('#parent')) === 'Aisha Rahman');
   r = await say('five five five, zero one zero, four four two two');
@@ -146,7 +160,7 @@ await scene('clinic', '/clinic/book', async ({ page, say, give, val }) => {
     && (await val('#email')) === 'aisha@example.com' && !(await page.isChecked('#remind')));
 });
 
-await scene('appliance', '/appliance/support', async ({ page, say, give, val }) => {
+await scene('appliance', '/appliance/support', async ({ page, say, give, pick, val }) => {
   // The mode tabs are in the open panel: the call starts as a compact bar.
   check('the call opens as a compact bar', (await page.getAttribute(T('call-panel'), 'data-expanded')) === 'false');
   await page.click(T('call-expand'));
@@ -177,15 +191,16 @@ await scene('appliance', '/appliance/support', async ({ page, say, give, val }) 
   await give('E24', 'error code E24', async () => (await val('#code')) === 'E24');
   await give('Marcus Hall', 'name', async () => (await val('#name')) === 'Marcus Hall');
   await give('marcus at example dot com', 'email', async () => (await val('#email')) === 'marcus@example.com');
-  r = await give('it shows E24 and there is water at the bottom', 'description', async () => (await val('#what')) === 'it shows E24 and there is water at the bottom');
+  // The model may shorten a description; what it typed in is what the caller heard read back and said yes to.
+  r = await give('it shows E24 and there is water at the bottom', 'description', async () => /water at the bottom/.test(await val('#what')));
   check('hand-back: press Request visit yourself', /press Request visit yourself/.test(r), r);
 });
 
-await scene('pricing', '/pricing/quote', async ({ page, say, give, val }) => {
+await scene('pricing', '/pricing/quote', async ({ page, say, give, pick, val }) => {
   await give('Prana Yoga Studio', 'business name', async () => (await val('#biz')) === 'Prana Yoga Studio');
   await give('Sofia Marin', 'contact', async () => (await val('#contact')) === 'Sofia Marin');
   await give('sofia at example dot com', 'email', async () => (await val('#email')) === 'sofia@example.com');
-  await give('Growth', 'Growth plan', () => page.isChecked('#p2'));
+  await pick('Growth', 'Growth plan', () => page.isChecked('#p2'));
   if (!offline) {
     // Back to an earlier answer: the new email is read back, and the plan keeps its value.
     const r = await say('Wait, my email should be sofia dot marin at example dot com');
@@ -193,19 +208,19 @@ await scene('pricing', '/pricing/quote', async ({ page, say, give, val }) => {
     await say('yes');
     check('email fixed, plan kept', (await val('#email')) === 'sofia.marin@example.com' && await page.isChecked('#p2'), await val('#email'));
   }
-  await give('around three thousand', 'budget $1,000 to $3,000', async () => (await val('#budget')) === '1to3k');
+  await pick('around three thousand', 'budget $1,000 to $3,000', async () => (await val('#budget')) === '1to3k');
   const r = await give('a website with online class booking', 'needs', async () => (await val('#needs')) === 'a website with online class booking');
   check('hand-back: press Request a quote yourself', /press Request a quote yourself/.test(r), r);
 });
 
-await scene('itdesk', '/itdesk/new', async ({ page, say, give, val }) => {
-  await give("it's a network problem", 'category Network', async () => (await val('#cat')) === 'net');
-  await give('the VPN', 'service VPN', async () => (await val('#svc')) === 'vpn');
+await scene('itdesk', '/itdesk/new', async ({ page, say, give, pick, val }) => {
+  await pick("it's a network problem", 'category Network', async () => (await val('#cat')) === 'net');
+  await pick('the VPN', 'service VPN', async () => (await val('#svc')) === 'vpn');
   let r = await say('my laptop is 4419');
   check("the page's own pattern rejects a bad asset tag, and the copilot asks again", /page didn't accept that/.test(r) && (await val('#asset')) === '', r);
   await give('CF-4419', 'asset tag', async () => (await val('#asset')) === 'CF-4419');
-  await give('just me', 'impact: just me', () => page.isChecked('#i1'));
-  await give('high, I have a client call at two', 'urgency High', async () => (await val('#urg')) === 'high');
+  await pick('just me', 'impact: just me', () => page.isChecked('#i1'));
+  await pick('high, I have a client call at two', 'urgency High', async () => (await val('#urg')) === 'high');
   r = await say('can you order me lunch while we wait?');
   check('off-topic request is turned down and nothing is typed', !/\b(ordered|I'll order|ordering)\b/i.test(r) && (await val('#desc')) === '', r);
   await give('VPN fails to connect since 9 AM, client call at 2 PM', 'description', async () => (await val('#desc')) === 'VPN fails to connect since 9 AM, client call at 2 PM');
@@ -213,7 +228,7 @@ await scene('itdesk', '/itdesk/new', async ({ page, say, give, val }) => {
   check('hand-back: press Submit ticket yourself', /press Submit ticket yourself/.test(r), r);
 });
 
-await scene('pension', '/pension/forms/r17', async ({ page, say, give, val }) => {
+await scene('pension', '/pension/forms/r17', async ({ page, say, give, pick, val }) => {
   await give('SPF-204118.', 'member number, despite the full stop dictation adds', async () => (await val('#member')) === 'SPF-204118');
   await give('Michael', 'first name', async () => (await val('#bfirst')) === 'Michael');
   await give('Reyes', 'last name', async () => (await val('#blast')) === 'Reyes');
@@ -223,9 +238,9 @@ await scene('pension', '/pension/forms/r17', async ({ page, say, give, val }) =>
   check('processing time answered with page 4', /\(page 4\)/.test(r) && /5 working days/.test(r), r);
   r = await say("What is the fund's phone number?");
   check('not in the guide: "I don\'t know", no made-up number', /I don't know/.test(r) && !/\d{3}/.test(r), r);
-  await give('my son', '"my son" picks payee code C', async () => (await val('#code')) === 'C');
+  await pick('my son', '"my son" picks payee code C', async () => (await val('#code')) === 'C');
   await give('100', 'share 100', async () => (await val('#share')) === '100');
-  r = await give('primary', 'primary', () => page.isChecked('#t1'));
+  r = await pick('primary', 'primary', () => page.isChecked('#t1'));
   check('hand-back names the button and the box to tick', /press Submit form R-17 yourself/.test(r) && /I agree this form replaces/.test(r), r);
   check('consent box left for the person', !(await page.isChecked('#replace')));
 });
@@ -398,7 +413,7 @@ if (!only.length || only.includes('layout')) {
 // Brindlewick (fictional tax firm, real IRS library): the intake form, with a spelled name, a notice code read back
 // letter by letter, a side question answered from the IRS guides with its citation, and a personal-advice question that
 // is offered a consultation instead of an answer.
-await scene('tax-book', '/tax/book', async ({ page, say, give, val }) => {
+await scene('tax-book', '/tax/book', async ({ page, say, give, pick, val }) => {
   const first = await lastBot(page);
   check('opens on the intake form and asks for the full name', /full name, as it appears on your tax return/.test(first), first);
   let r = await say('Maria Okafor');
@@ -409,17 +424,17 @@ await scene('tax-book', '/tax/book', async ({ page, say, give, val }) => {
   await give('maria at example dot com', 'email', async () => (await val('#mail')) === 'maria@example.com');
   r = await say('Am I better off filing jointly with my husband?');
   check('a personal-advice question is offered a consultation, nothing typed', /Brindlewick preparer/.test(r) && (await val('#status')) === '', r);
-  await give('married filing jointly', 'filing status', async () => (await val('#status')) === 'mfj');
+  await pick('married filing jointly', 'filing status', async () => (await val('#status')) === 'mfj');
   await give('2024 and 2025', 'tax years', async () => /2024 and 2025/.test(await val('#years')));
-  await give('help with an IRS notice', 'service', async () => (await val('#service')) === 'notice');
-  await give('yes I got one', 'notice: yes', async () => (await val('#notice')) === 'yes');
+  await pick('help with an IRS notice', 'service', async () => (await val('#service')) === 'notice');
+  await pick('yes I got one', 'notice: yes', async () => (await val('#notice')) === 'yes');
   r = await say('C P two thousand');
   check('the notice code is read back letter by letter', READBACK.test(r) && /C, P, 2, 0, 0, 0/.test(r) && (await val('#noticecode')) === '', r);
   await say('yes');
   check('notice code typed in', (await val('#noticecode')) === 'CP2000');
   const day = await page.$eval('#day option:nth-child(2)', o => o.textContent!);
-  await give(day, `day: ${day}`, async () => (await val('#day')) !== '');
-  r = await give('mornings', 'slot', async () => (await val('#slot')) === 'morning');
+  await pick(day, `day: ${day}`, async () => (await val('#day')) !== '');
+  r = await pick('mornings', 'slot', async () => (await val('#slot')) === 'morning');
   r = await say('none');
   check('"none" leaves the optional notes blank', (await val('#notes')) === '' && !/notes\?$/i.test(r), r);
   check('hands the form back: press Request consultation yourself', /Request consultation/.test(r) && /yourself/.test(r), r);

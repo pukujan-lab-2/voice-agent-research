@@ -892,7 +892,11 @@ async function send(text: string): Promise<string> {
       closeSource();
       // After two misses on a serial, email or phone, a caller is offered the keyboard (the call panel's button).
       flow!.typeOffer = snap.voice ? 'You can also type it with Keyboard.' : '';
+      const before = desk.fills.length;
       reply = await desk.turn(text);
+      // Each fill goes to Phoenix with its risk, the read-back and the yes, so evals can check every fill from 56 up
+      // had its yes (decision 0011). The value itself stays out: the read-back carries it, masked like any turn.
+      for (const f of desk.fills.slice(before)) traceSpan('confirm', turnAt, f.yes, f.readback, { field: f.field, risk: f.risk ?? 0, asked: f.yes ? 'yes' : 'in passing', page: location.pathname });
       // A multi-step form: when this step's answers are all in, the copilot may press the step's Next button
       // (data-copilot-next, a type="button" that only moves on; never the form's submit). The next step then starts.
       const next = formDone() ? stepNext() : null;

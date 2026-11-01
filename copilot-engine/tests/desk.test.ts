@@ -1,7 +1,7 @@
 // Code guards of the v2 desk, tested with a scripted stand-in model (no network).
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Desk, clearYes, normalizeName, normalizeSerial, normalizePhone, normalizeEmail, readback, joinSpelled, docsFrom, textToolCalls, type ChatModel, type ToolCall } from '../src/desk.ts';
+import { Desk, RISK_BANDS, clearYes, normalizeName, normalizeSerial, normalizePhone, normalizeEmail, readback, joinSpelled, docsFrom, textToolCalls, type ChatModel, type ToolCall } from '../src/desk.ts';
 import { brookside, brooksideDocs } from '../src/flows/brookside.ts';
 import { halvorsen } from '../src/flows/halvorsen.ts';
 
@@ -175,7 +175,8 @@ test('a yes counts only for the read-back the agent just said, not for an older 
 
 test('two choices at once are read back together and one yes fills both', async () => {
   let step = 0;
-  const d = new Desk(brookside, { model: stub(() => (++step === 1 ? { calls: [call('propose_value', { field: 'visit_type', value: 'vaccination' }), call('propose_value', { field: 'preferred_time', value: 'morning' })] } : { calls: [call('confirm_pending')] })) });
+  const careful = { ...brookside, fields: brookside.fields.map(f => f.kind === 'choice' ? { ...f, risk: 40 } : f) };
+  const d = new Desk(careful, { model: stub(() => (++step === 1 ? { calls: [call('propose_value', { field: 'visit_type', value: 'vaccination' }), call('propose_value', { field: 'preferred_time', value: 'morning' })] } : { calls: [call('confirm_pending')] })) });
   d.start(); d.current = 'visit_type';
   await d.turn("it's for her shots, mornings are best");
   assert.equal(d.pending?.value, 'Vaccination');
@@ -340,4 +341,108 @@ test('a choice the customer never named is not read back; "my email should be â€
   assert.equal(d.values.budget, undefined, 'the model\'s made-up budget was never kept');
   await d.turn('I like the weather');
   assert.notEqual(d.pending?.field, 'budget');
+});
+
+// Decision 0011: a field's risk score from 1 to 100 sets how it is confirmed, and code enforces it.
+const risky = (risk: number, extra: object = {}) => ({ id: 'r', business: 'Brookside', scope: 'the form', intro: 'Hi.', doneMessage: '', fields: [
+  { name: 'plan', label: 'plan', kind: 'choice' as const, options: ['Basic', 'Plus'], question: 'Basic or Plus?' },
+  { name: 'who', label: 'account holder', kind: 'name' as const, question: "What's the account holder's name?", risk, ...extra },
+  { name: 'note', label: 'note', kind: 'text' as const, question: 'Anything else?' },
+] });
+const proposer = () => stub(s => /yes|sure|guess/i.test(s) ? { calls: [call('confirm_pending')] } : /Ana/.test(s) ? { calls: [call('propose_value', { field: 'who', value: 'Ana Ruiz' })] }
+  : /plus/i.test(s) ? { calls: [call('propose_value', { field: 'plan', value: 'Plus' })] } : {});
+
+test('risk 11 to 30: a pick is filled at once and said in passing, with no yes', async () => {
+  const d = new Desk(risky(40), { model: proposer() });
+  d.start();
+  const r = await d.turn('the plus one please');
+  assert.equal(d.values.plan, 'Plus');
+  assert.match(r, /Okay, Plus for the plan\./);
+  assert.match(r, /account holder's name\?$/);
+  assert.equal(d.fills[0].yes, '', 'no yes was asked for');
+  assert.equal(d.risk(d.flow.fields[0]), 25);
+});
+
+test('risk 56 to 75: code holds the value until a clear yes; "sure, whatever" is not one', async () => {
+  const d = new Desk(risky(60), { model: proposer() });
+  d.start(); d.current = 'who';
+  await d.turn('Ana Ruiz');
+  await d.turn('sure, whatever');
+  assert.equal(d.values.who, undefined);
+  await d.turn('I guess');
+  assert.equal(d.values.who, undefined);
+  await d.turn('yes');
+  assert.equal(d.values.who, 'Ana Ruiz');
+  assert.equal(d.fills[0].risk, 60);
+});
+
+test('risk 76 to 90: a yes, then "are you sure?", then it is filled; a skip is asked twice too', async () => {
+  const d = new Desk(risky(80), { model: proposer() });
+  d.start(); d.current = 'who';
+  await d.turn('Ana Ruiz');
+  const r = await d.turn('yes');
+  assert.match(r, /are you sure\?$/);
+  assert.doesNotMatch(r, /Perfect|Lovely|Great/);
+  assert.equal(d.values.who, undefined);
+  await d.turn('yes');
+  assert.equal(d.values.who, 'Ana Ruiz');
+  const s = new Desk(risky(80, { optional: true }), { model: stub(() => ({})) });
+  s.start(); s.current = 'who';
+  assert.match(await s.turn('none'), /leave the account holder blank\?$/);
+  assert.equal(s.values.who, undefined);
+  await s.turn('yes');
+  assert.equal(s.values.who, '');
+});
+
+test('risk 91 and up: never filled by the desk; a person approves it', async () => {
+  const d = new Desk(risky(95), { model: proposer() });
+  d.start(); d.current = 'who';
+  const r = await d.turn('Ana Ruiz');
+  await d.turn('yes');
+  assert.match(r, /needs a person/);
+  assert.equal(d.values.who, '');
+  assert.equal(d.fills.length, 0);
+});
+
+test('after a misheard value every step scores 15 higher, so a pick is read back', async () => {
+  const d = new Desk(risky(40), { model: stub(s => /^no/i.test(s) ? { calls: [call('reject_pending')] } : /Ana/.test(s) ? { calls: [call('propose_value', { field: 'who', value: 'Ana Ruiz' })] } : /plus/i.test(s) ? { calls: [call('propose_value', { field: 'plan', value: 'Plus' })] } : { calls: [call('confirm_pending')] }) });
+  d.start(); d.current = 'who';
+  await d.turn('Ana Ruiz');
+  await d.turn('no');
+  assert.equal(d.risk(d.flow.fields[0]), 40);
+  d.current = 'plan';
+  const r = await d.turn('plus');
+  assert.equal(d.values.plan, undefined, 'read back now, not filled in passing');
+  assert.match(r, /Plus for the plan.*\?$/);
+  assert.equal(RISK_BANDS[RISK_BANDS.length - 1].upTo, 100);
+});
+
+test('"the name should be â€¦" goes to the one filled name, even when the model only opens the field', async () => {
+  const d = new Desk(brookside, { model: stub(s => /Rahman/.test(s) ? { calls: [call('propose_value', { field: 'child_name', value: 'Leo Rahman' })] } : /should be/.test(s) ? { calls: [call('go_to_field', { field: 'child_name' })] } : { calls: [call('confirm_pending')] }) });
+  d.start();
+  await d.turn('Leo Rahman');
+  await d.turn('yes');
+  const r = await d.turn('Sorry, the name should be Leo Ray');
+  assert.match(r, /Leo Ray\b.*\?$/);
+  assert.equal(d.values.child_name, 'Leo Rahman', 'not changed before the yes');
+  await d.turn('yes');
+  assert.equal(d.values.child_name, 'Leo Ray');
+});
+
+test('a field that is not open, proposed from words the caller never said, is ignored; the open answer still lands', async () => {
+  const d = new Desk(brookside, { model: stub(() => ({ content: 'Got it.', calls: [call('propose_value', { field: 'phone', value: '555-000-1111' })] })) });
+  d.start(); d.current = 'visit_type';
+  const r = await d.turn('a vaccination');
+  assert.equal(d.values.visit_type, 'Vaccination', 'the net read the open field, filled in passing');
+  assert.equal(d.values.phone, undefined);
+  assert.doesNotMatch(r, /once more|phone/);
+});
+
+test('a filled field re-proposed from words the caller never said is ignored, with no "say it again"', async () => {
+  const d = new Desk(brookside, { model: stub(s => /^yes/.test(s) ? { calls: [call('confirm_pending'), call('propose_value', { field: 'child_name', value: 'Yes Sir' })] } : { calls: [call('propose_value', { field: 'child_name', value: 'Leo Rahman' })] }) });
+  d.start();
+  await d.turn('Leo Rahman');
+  const r = await d.turn('yes');
+  assert.equal(d.values.child_name, 'Leo Rahman');
+  assert.doesNotMatch(r, /once more|spell/);
 });

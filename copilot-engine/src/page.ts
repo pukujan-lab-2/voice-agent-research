@@ -14,6 +14,7 @@ export type PageField = {
   ask?: string; // the site's own wording of the question (data-copilot-ask), used instead of one built from the label
   kind?: string; // data-copilot-kind="code": a short letters-and-digits code, read back character by character
   spell?: boolean; // data-copilot-spell: read the answer back spelled out
+  risk?: number; // data-copilot-risk="1".."100": how the desk confirms it (decision 0011)
   options?: { label: string; value: string; also?: string[] }[]; // also: other ways people say it (data-copilot-also)
 };
 export type PageForm = { fields: PageField[]; yourself: string[]; submit: string };
@@ -84,13 +85,14 @@ export function readInPage(): PageForm {
       radios.forEach((r, i) => { r.dataset.copilotId = id; r.dataset.copilotOption = options[i].label; });
       const legend = el.closest('fieldset')?.querySelector('legend');
       const fs = el.closest('fieldset');
-      fields.push({ id, tag: 'radio', type, label: clean(legend?.textContent) || group, name: group, required: radios.some(r => r.required), autocomplete: auto, options, ask: fs?.getAttribute('data-copilot-ask') ?? undefined });
+      fields.push({ id, tag: 'radio', type, label: clean(legend?.textContent) || group, name: group, required: radios.some(r => r.required), autocomplete: auto, options, ask: fs?.getAttribute('data-copilot-ask') ?? undefined, risk: Number(fs?.getAttribute('data-copilot-risk')) || undefined });
       continue;
     }
     const id = `c${n++}`;
     el.dataset.copilotId = id;
     const f: PageField = { id, tag: el.tagName.toLowerCase() as PageField['tag'], type, label, name: nameAttr, required: el.required, autocomplete: auto, ask: el.getAttribute('data-copilot-ask') ?? undefined,
-      kind: el.getAttribute('data-copilot-kind') ?? undefined, spell: el.hasAttribute('data-copilot-spell') || undefined };
+      kind: el.getAttribute('data-copilot-kind') ?? undefined, spell: el.hasAttribute('data-copilot-spell') || undefined,
+      risk: Number(el.getAttribute('data-copilot-risk')) || undefined };
     if (el instanceof HTMLSelectElement) f.options = Array.from(el.options).filter(o => (o.value !== '' || o.hasAttribute('data-copilot-also')) && !o.disabled).map(o => ({ label: clean(o.textContent), value: o.value, also: also(o) }));
     fields.push(f);
   }
@@ -109,7 +111,7 @@ const or = (xs: string[]) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).j
 
 // Turns the fields into a Flow. Kinds and questions are written by code from the page, not by a model.
 export function flowFromPage(form: PageForm, opts: { business: string; id?: string }): Flow {
-  const fields: Field[] = form.fields.map(p => ({ ...field(p), ...(p.required ? {} : { optional: true }), ...(p.spell ? { spell: true } : {}) }));
+  const fields: Field[] = form.fields.map(p => ({ ...field(p), ...(p.required ? {} : { optional: true }), ...(p.spell ? { spell: true } : {}), ...(p.risk ? { risk: Math.min(100, Math.max(1, p.risk)) } : {}) }));
   function field(p: PageField): Field {
     const label = p.label || p.name;
     const low = label.toLowerCase().replace(/^your\s+/, ''); // "Your name" -> "What's your name?", not "your your name"

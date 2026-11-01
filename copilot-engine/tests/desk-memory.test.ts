@@ -17,7 +17,9 @@ const clock = () => { let t = 1_000_000; return { now: () => t, add: (ms: number
 test('a dropped call resumes with its state; a waiting read-back is asked again, never filled', async () => {
   const c = clock(); const sessions = new MemoryStore(c.now);
   const model = stub(s => /Maya/.test(s) ? { calls: [call('propose_value', { field: 'child_name', value: 'Maya Chen' })] } : /shots/.test(s) ? { calls: [call('propose_value', { field: 'visit_type', value: 'Vaccination' })] } : {});
-  const d1 = new Desk(brookside, { model, sessions });
+  // Choices default to a risk said in passing (decision 0011); this one is set to be read back, so it can wait on resume.
+  const careful = { ...brookside, fields: brookside.fields.map(f => f.kind === 'choice' ? { ...f, risk: 40 } : f) };
+  const d1 = new Desk(careful, { model, sessions });
   d1.start();
   await d1.turn("it's Maya Chen");
   await d1.turn('yes');
@@ -26,7 +28,7 @@ test('a dropped call resumes with its state; a waiting read-back is asked again,
   const sid = d1.sessionId!;
   assert.ok(sid && sid.length >= 20, 'opaque random id');
 
-  const d2 = new Desk(brookside, { model, sessions });
+  const d2 = new Desk(careful, { model, sessions });
   const w = await d2.restore(sid);
   assert.match(w, /Welcome back/);
   assert.match(w, /child's full name/i);

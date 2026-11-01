@@ -324,7 +324,7 @@ function reuseReadback(f: Field, v: string): string {
   return `From last time, ${r.replace(/^I have /, `I have the ${f.label} as `).replace(/\s*(Did I get that right|Is that right|Is that correct)\?$/, '')} Is that still right?`;
 }
 const META_Q = /\b(move on|moving|next|speed|hurry|quick|faster|keep going|go on|what else|anything else|done|continue|finish|wrap (this |it )?up|get on with|be done)\b/i;
-const NOT_YES = /\b(no|nope|nah|not|wrong|incorrect|wait|hold on|hang on|change|fix|actually|but|except|unless|if|however|though|instead|rather|mistake|misspel\w*|maybe|not sure|i guess|hmm+|almost|close|nearly|twice|typo|missing|forgot|spell(ed|t)?|sorry)\b/i;
+const NOT_YES = /\b(no|nope|nah|not|wrong|incorrect|wait|hold on|hang on|change|fix|actually|but|except|unless|if|however|though|instead|rather|mistake|misspel\w*|maybe|not sure|i guess|i suppose|whatever|if you say so|hmm+|almost|close|nearly|twice|typo|missing|forgot|spell(ed|t)?|sorry)\b/i;
 
 // A clear yes to a read-back: starts with a yes, and nothing hedges it or changes it ("yes but change the time" is not a yes).
 export function clearYes(said: string): boolean {
@@ -369,9 +369,30 @@ export function docsFrom(passages: Passage[], judge?: ChatModel): Docs {
 
 // ---------- the desk ----------
 export type DeskEvent = { turn: number; type: string; field?: string; value?: string; detail?: string; by?: 'model' | 'net' | 'rules' };
-export type Fill = { turn: number; field: string; value: string; readback: string; yes: string };
+export type Fill = { turn: number; field: string; value: string; readback: string; yes: string; risk?: number }; // readback and yes are empty for a fill said in passing
 export type TurnLog = { turn: number; said: string; reply: string; ms: number; model: string; calls: string[]; fallback?: string };
-type Pending = { field: string; value: string; text: string; group?: { field: string; value: string }[]; reuse?: boolean };
+type Pending = { field: string; value: string; text: string; group?: { field: string; value: string }[]; reuse?: boolean; sure?: boolean };
+
+// ---------- risk (decision 0011) ----------
+// Every field has a score from 1 to 100 that sets how it is confirmed. The bands live here only: the prompt prints
+// them and the code lock reads them, so the two cannot drift apart.
+export const RISK_BANDS = [
+  { upTo: 10, rule: 'just do it' },
+  { upTo: 30, rule: 'fill it and mention it in passing; no yes needed' },
+  { upTo: 55, rule: 'read it back and wait for a yes' },
+  { upTo: 75, rule: 'read it back and wait for a clear yes ("I guess" or "sure, whatever" is not one)' },
+  { upTo: 90, rule: 'read it back, get a clear yes, then ask "are you sure?"' },
+  { upTo: 100, rule: 'a person must approve it; never fill it yourself' },
+] as const;
+const RISK_LOCK = 56;     // from here up, code fills only after a recorded clear yes
+const RISK_TWICE = 76;    // from here up, the yes is asked twice (and so is a skip)
+const RISK_PERSON = 91;   // from here up, a person approves; the desk never fills it
+const RISK_MISHEARD = 15; // added to every remaining step once the caller has corrected a misheard value
+// Defaults when the business sets none: a pick from a short list is low, anything typed is read back, a secret locked.
+function defaultRisk(f: Field): number {
+  return f.secret ? 60 : f.kind === 'choice' || f.kind === 'when' ? 25 : 40;
+}
+const riskRule = (r: number) => RISK_BANDS.find(b => r <= b.upTo)!.rule;
 
 // A real question sentence anywhere in the turn (not a meta one like "can we move on?").
 const ASKED_Q = /\b(what|where|which|how|why|when|can i|do i|do you|does|is there|is it|are there|should i|will it)\b(?![^.?!]*\b(move on|speed|hurry|hear me|still there|get that|got that)\b)[^.?!]*\?/i;
@@ -419,6 +440,9 @@ export class Desk {
   private customers?: Store;
   private mem = { asked: false, awaiting: false, lookedUp: false, forget: false, returning: false };
   private notes: string[] = []; // things code must say this turn (from inside confirm)
+  private misheard = false; // the caller corrected a misheard value: every remaining step scores RISK_MISHEARD higher
+  private sureAsked = false; // this turn asked "are you sure?" instead of filling
+  private skipAsk = ''; // a skip from RISK_TWICE up, asked once and waiting for the second yes
 
   // answer: the site's own lookup for a question (it may also show the source); it returns the words to say, quoted
   // from the business's documents, or null when nothing answers. Without it, `docs` is searched and quoted here.
@@ -666,7 +690,7 @@ export class Desk {
   // ----- prompts -----
   private systemPrompt(): string {
     if (this.answerOnly) return this.askPrompt();
-    const fields = this.flow.fields.map(f => `- ${f.name}: ${f.label} (${f.kind}${f.options ? `; one of: ${f.options.join(' | ')}` : ''}${f.optional ? '; optional, the customer may say none' : ''})${f.hint ? `. ${f.hint}` : ''}`).join('\n');
+    const fields = this.flow.fields.map(f => `- ${f.name}: ${f.label} (${f.kind}${f.options ? `; one of: ${f.options.join(' | ')}` : ''}${f.optional ? '; optional, the customer may say none' : ''}; risk ${this.risk(f)}: ${riskRule(this.risk(f))})${f.hint ? `. ${f.hint}` : ''}`).join('\n');
     return `You are the front-desk receptionist at ${this.flow.business}, on a voice call. You fill in the online form for the customer while you talk. You cannot see or press the Submit button; the customer presses it at the end.
 
 How you sound: warm, calm and professional, like an experienced receptionist. Spoken English, 1 or 2 short sentences. No lists, no markdown, no emojis. A little small talk is fine, then gently steer back. Ask for one thing at a time.
@@ -681,6 +705,7 @@ How you work. The form changes ONLY through your tools:
 - Speech recognition garbles things: split or joined words, a name repeated, letters as words ("ess" = S, "oh" = O or zero, "double five" = 55). Clean these up. If they spell letter by letter, use exactly those letters.
 - A vague answer ("sometime next week, mornings are better"): propose what is clear, then ask one short question to pin down the rest.
 - Any question about ${this.flow.business} (hours, prices, address, policies, what to bring...): call answer_question. Never state such facts yourself. Anything unrelated: say kindly that you can only help with this form.
+- Each field has a risk score from 1 to 100 that says how to confirm it (shown beside it). Code holds anything from ${RISK_LOCK} up until the customer clearly says yes, and never fills anything from ${RISK_PERSON} up: that needs a person.
 - If the customer says goodbye or wants to stop, call end_call.
 - Never make up values. Never claim the form is submitted or booked.
 
@@ -721,7 +746,8 @@ Caller: "Thanks, that helps." -> no tool; say "You're welcome. Anything else?"`;
       return `${f.name}: ${v !== undefined ? `"${v}"` : 'empty'}${tag}${f.name === this.current && !this.pending ? '  <- asking now' : ''}`;
     });
     const back = this.returnTo.length ? `\nAfter this, return to: ${this.returnTo[this.returnTo.length - 1]}` : '';
-    return `[Form state, not said by the customer]\n${lines.join('\n')}${back}`;
+    const misheard = this.misheard ? `\nA value was misheard earlier: every risk is now ${RISK_MISHEARD} higher, so read back even short picks.` : '';
+    return `[Form state, not said by the customer]\n${lines.join('\n')}${back}${misheard}`;
   }
 
   // Past turns keep their tool calls (including the ones code made for the model), so the model sees how the form is
@@ -819,19 +845,30 @@ Caller: "Thanks, that helps." -> no tool; say "You're welcome. Anything else?"`;
     let confirmedNow = false, proposedNow = false, answered = false, acted = false, questionTail = false, keptNow = false;
     const said = this.lastUser;
     const stale = !!this.pending; // a read-back asked on an earlier turn
+    this.sureAsked = false;
     const ev = (e: Omit<DeskEvent, 'turn'>) => this.events.push({ turn: this.n, by, ...e });
     const rec = (c: ToolCall, result: string) => this.acts.push({ name: c.name, args: c.args ?? {}, result });
     // "My email should be …": a correction to a named field goes to that field, whatever the model called.
     const fix = CORRECTION.exec(said);
-    const ff = fix ? this.field(fix[1].trim()) : undefined;
+    // "The name should be …": the one filled field of that kind, when the words name no field directly.
+    const kindWord: Record<string, string> = { name: 'name', email: 'email', phone: 'phone', number: 'phone' };
+    const byKind = fix ? this.flow.fields.filter(f => f.kind === kindWord[fix[1].trim().split(/\s+/).pop()!.toLowerCase()] && this.values[f.name]) : [];
+    const ff = fix ? this.field(fix[1].trim()) ?? (byKind.length === 1 ? byKind[0] : undefined) : undefined;
     if (ff && !this.pending) {
       const v = this.ruleParse(ff, fix![2]);
       if (v && this.grounded(ff, v)) calls = [{ name: 'propose_value', args: { field: ff.name, value: v } }];
     }
     // "None" to an optional question: left blank, whatever the model called.
     const cur = this.field(this.current);
-    if (!this.pending && cur?.optional && this.values[cur.name] === undefined && NONE.test(said)) {
-      this.skip(cur); keptNow = true; acted = true; calls = [];
+    // From RISK_TWICE up a skip is asked twice: "none" asks "are you sure?", and only a clear yes then skips it.
+    const skipNow = !!cur && this.skipAsk === cur.name && clearYes(said);
+    if (cur && this.skipAsk === cur.name && !skipNow) this.skipAsk = '';
+    if (!this.pending && cur?.optional && this.values[cur.name] === undefined && NONE.test(said) && this.risk(cur) >= RISK_TWICE && !skipNow) {
+      this.skipAsk = cur.name; acted = true; calls = []; questionTail = true;
+      ev({ type: 'skip_asked', field: cur.name }); tails.push(`Just to be sure: you want to leave the ${cur.label} blank?`);
+    }
+    if (!this.pending && cur?.optional && this.values[cur.name] === undefined && (skipNow || (NONE.test(said) && this.risk(cur) < RISK_TWICE))) {
+      this.skip(cur); keptNow = true; acted = true; calls = []; this.skipAsk = '';
       rec({ name: 'skip_field', args: { field: cur.name } }, `Left ${cur.name} blank. ${this.allFilled() ? 'All fields are filled.' : `Next: ${this.current}.`}`);
       tails.push(`Okay, I'll leave the ${cur.label.replace(/\s*\(optional\)\s*$/i, '')} blank.`);
     }
@@ -847,7 +884,7 @@ Caller: "Thanks, that helps." -> no tool; say "You're welcome. Anything else?"`;
       if (c.name === 'propose_value') {
         const f = this.field(String(a.field ?? ''));
         if (!f) { ev({ type: 'bad_field', detail: String(a.field) }); rec(c, 'Error: no such field.'); continue; }
-        if (f.optional && NONE.test(String(a.value ?? '')) && NONE.test(said) && this.pending?.field !== f.name) {
+        if (f.optional && NONE.test(String(a.value ?? '')) && NONE.test(said) && this.pending?.field !== f.name && this.risk(f) < RISK_TWICE) {
           this.skip(f); keptNow = true; acted = true; rec(c, `Left ${f.name} blank.`); continue;
         }
         let nv = normalize(f, String(a.value ?? ''));
@@ -857,9 +894,20 @@ Caller: "Thanks, that helps." -> no tool; say "You're welcome. Anything else?"`;
           const rv = this.ruleParse(f, said);
           if (rv && rv !== nv.value && this.grounded(f, rv)) { ev({ type: 'rule_value', field: f.name, value: rv, detail: String(a.value ?? '') }); nv = { value: rv }; }
         }
+        // A choice the model named badly ("S" for "my son", the next range up): the option the customer's own words
+        // name wins, when just one does.
+        if (f.kind === 'choice') {
+          const rv = matchOption(f, said);
+          if (rv && rv !== nv.value && this.grounded(f, rv)) { ev({ type: 'rule_value', field: f.name, value: rv, detail: String(a.value ?? '') }); nv = { value: rv }; }
+        }
         if (!nv.value && (f.kind === 'serial' || f.kind === 'phone') && !/\d|\b(zero|oh|one|two|three|four|five|six|seven|eight|nine)\b/i.test(said)) { ev({ type: 'ungrounded', field: f.name, value: String(a.value ?? '') }); rec(c, 'Not used: the customer did not say that.'); continue; }
         if (!nv.value) { ev({ type: 'problem', field: f.name, detail: nv.problem }); rec(c, `Not valid: ${nv.problem}`); tails.push(`${nv.problem} ${/\?$/.test(nv.problem ?? '') ? '' : f.kind === 'name' ? 'Could you spell it for me?' : f.kind === 'serial' ? 'Could you read it again, in groups of four?' : f.question}${this.offer(f)}`); questionTail = true; acted = true; continue; }
         const value = nv.value; // non-empty from here; a const keeps that narrowing inside the callbacks below
+        // A field that isn't open, proposed from words the caller didn't say ("yes" read as a serial, a guessed tax
+        // year): ignored without a word, and it doesn't stop the net below from reading the open field's answer.
+        if (!this.grounded(f, nv.value) && f.name !== this.current && this.pending?.field !== f.name) {
+          ev({ type: 'ungrounded', field: f.name, value: nv.value }); rec(c, 'Not used: the customer did not say that.'); continue;
+        }
         if (!this.grounded(f, nv.value)) {
           ev({ type: 'ungrounded', field: f.name, value: nv.value }); rec(c, 'Not used: the customer did not say that. Ask them to say or spell it.');
           tails.push((f.kind === 'name' || f.kind === 'email' ? `Sorry, could you spell the ${f.label} for me, letter by letter?` : `Sorry, could you say the ${f.label} once more?`) + this.offer(f));
@@ -893,9 +941,11 @@ Caller: "Thanks, that helps." -> no tool; say "You're welcome. Anything else?"`;
           ev({ type: 'queued', field: f.name, value: nv.value }); rec(c, 'Queued: read back after the current one.');
           continue;
         }
+        if (this.needsPerson(f, tails)) { questionTail = true; continue; }
         this.setPending(f, nv.value);
         proposedNow = true;
         ev({ type: 'propose', field: f.name, value: nv.value }); rec(c, `Read back to the customer: "${this.pending!.text}" Waiting for yes or no.`);
+        if (await this.passing(by)) { confirmedNow = true; this.acts[this.acts.length - 1].result = this.confirmNote(); }
       } else if (c.name === 'confirm_pending') {
         if (!this.pending) { ev({ type: 'confirm_nothing' }); rec(c, 'Nothing is waiting for confirmation.'); continue; }
         if (!clearYes(said) || !this.lastAgentAskedReadback()) { ev({ type: 'confirm_refused', field: this.pending.field, detail: said }); rec(c, 'Refused: the customer did not clearly say yes.'); continue; }
@@ -905,7 +955,7 @@ Caller: "Thanks, that helps." -> no tool; say "You're welcome. Anything else?"`;
         if (!this.pending) continue;
         acted = true;
         const f = this.field(this.pending.field)!;
-        ev({ type: 'reject', field: f.name, value: this.pending.value }); rec(c, 'Cleared. Ask for it again.');
+        ev({ type: 'reject', field: f.name, value: this.pending.value }); rec(c, 'Cleared. Ask for it again.'); this.mishear(f);
         this.pending = null;
         this.current = f.name;
         tails.push((f.kind === 'name' || f.kind === 'email' ? `Sorry about that. Could you spell it for me, letter by letter?` : f.kind === 'serial' ? 'Sorry about that. Could you read it again, slowly, in groups of four?' : `Sorry about that. ${f.question}`) + this.offer(f));
@@ -963,7 +1013,7 @@ Caller: "Thanks, that helps." -> no tool; say "You're welcome. Anything else?"`;
     if (!acted && this.pending && this.lastAgentAskedReadback()) {
       if (clearYes(said)) { if (await this.confirm('net')) { confirmedNow = true; rec({ name: 'confirm_pending', args: {} }, this.confirmNote()); } }
       else if (clearNo(said) && said.trim().split(/\s+/).length <= 4) {
-        const f = this.field(this.pending.field)!; ev({ type: 'reject', field: f.name, value: this.pending.value, by: 'net' } as DeskEvent); rec({ name: 'reject_pending', args: {} }, 'Cleared. Ask for it again.'); this.pending = null; this.current = f.name;
+        const f = this.field(this.pending.field)!; ev({ type: 'reject', field: f.name, value: this.pending.value, by: 'net' } as DeskEvent); this.mishear(f); rec({ name: 'reject_pending', args: {} }, 'Cleared. Ask for it again.'); this.pending = null; this.current = f.name;
         tails.push(f.kind === 'name' || f.kind === 'email' ? 'Sorry about that. Could you spell it for me, letter by letter?' : `Sorry about that. ${f.question}`); questionTail = true;
       }
     } else if (!acted && !this.pending && !QUESTION.test(said) && !this.answerOnly) {
@@ -972,7 +1022,11 @@ Caller: "Thanks, that helps." -> no tool; say "You're welcome. Anything else?"`;
       const v = f.kind !== 'text' ? this.ruleParse(f, said) : said.trim().split(/\s+/).length >= 3 && !clearYes(said) && !clearNo(said) ? said.trim() : '';
       const refused = v && this.grounded(f, v) ? await this.hooks.check?.(f, v) : undefined;
       if (refused) { ev({ type: 'page_refused', field: f.name, detail: String(refused), by: 'net' } as DeskEvent); tails.push(`${refused} ${f.question}`); questionTail = true; }
-      else if (v && this.grounded(f, v)) { this.setPending(f, v); proposedNow = true; ev({ type: 'propose', field: f.name, value: v, by: 'net' } as DeskEvent); rec({ name: 'propose_value', args: { field: f.name, value: v } }, `Read back to the customer: "${this.pending!.text}" Waiting for yes or no.`); }
+      else if (v && this.grounded(f, v) && this.needsPerson(f, tails)) questionTail = true;
+      else if (v && this.grounded(f, v)) {
+        this.setPending(f, v); proposedNow = true; ev({ type: 'propose', field: f.name, value: v, by: 'net' } as DeskEvent); rec({ name: 'propose_value', args: { field: f.name, value: v } }, `Read back to the customer: "${this.pending!.text}" Waiting for yes or no.`);
+        if (await this.passing('net')) { confirmedNow = true; this.acts[this.acts.length - 1].result = this.confirmNote(); }
+      }
     }
 
     // Back on a field that is already filled, and the customer wants it kept: move on.
@@ -1000,7 +1054,8 @@ Caller: "Thanks, that helps." -> no tool; say "You're welcome. Anything else?"`;
     let text = this.answerOnly && answered ? '' : this.cleanModelText(content, tails.length > 0, confirmedNow);
     // Warmth that does not depend on the model: a short reply to small talk, a varied thank-you after a yes.
     if (!text && SMALL_TALK.test(said)) text = smallTalkReply(said);
-    if (!text && confirmedNow) text = ACKS[this.n % ACKS.length];    if (!tails.length) {
+    if (!text && confirmedNow && !this.sureAsked && this.fills[this.fills.length - 1]?.yes) text = ACKS[this.n % ACKS.length];
+    if (!tails.length) {
       if (this.pending) { tails.push(this.pending.text); questionTail = true; }
       else if (!this.pending && this.allFilled() && !this.done) { tails.push(this.finishLine()); this.complete = true; }
       else if (this.answerOnly) { if (!text) tails.push(this.done ? '' : "Sorry, I didn't catch that. What would you like to know?"); }
@@ -1011,6 +1066,7 @@ Caller: "Thanks, that helps." -> no tool; say "You're welcome. Anything else?"`;
   }
 
   private confirmNote(): string {
+    if (this.sureAsked) return `Asked again: "${this.pending!.text}" Waiting for a second clear yes.`;
     const last = this.fills[this.fills.length - 1];
     return `Filled ${last.field} = "${last.value}". ${this.pending ? `Now reading back ${this.pending.field}.` : this.allFilled() ? 'All fields are filled.' : `Next: ${this.current}.`}`;
   }
@@ -1029,6 +1085,9 @@ Caller: "Thanks, that helps." -> no tool; say "You're welcome. Anything else?"`;
   }
 
   private setPending(f: Field, v: string, group: { field: string; value: string }[] = []) {
+    // A new value for one just read back or filled is a correction: the rest of the call is more careful.
+    const was = this.pending?.field === f.name ? this.pending.value : this.values[f.name];
+    if (was && was !== v) this.mishear(f);
     const g = group.filter(x => x.field !== f.name);
     this.pending = { field: f.name, value: v, group: g, text: g.length ? groupReadback([v, ...g.map(x => x.value)], this.n, this.brisk) : readback(f, v, this.n, this.brisk) };
     this.queue = this.queue.filter(q => q.field !== f.name && !g.some(x => x.field === q.field));
@@ -1041,23 +1100,63 @@ Caller: "Thanks, that helps." -> no tool; say "You're welcome. Anything else?"`;
     return misses >= 2 ? ` ${this.flow.typeOffer}` : '';
   }
 
+  // A field's score now: the business's (or the default for its kind), raised once the caller has corrected a mishearing.
+  risk(f: Field): number { return Math.min(100, (f.risk ?? defaultRisk(f)) + (this.misheard ? RISK_MISHEARD : 0)); }
+
+  private mishear(f: Field) {
+    if (!this.misheard) this.events.push({ turn: this.n, type: 'misheard', field: f.name });
+    this.misheard = true;
+  }
+
+  // Up to 30: the value read from the caller's words is filled at once and said in passing ("Okay, Tuesday for the
+  // day."); the caller can still change it. A group read-back still waits for its yes.
+  private async passing(by: 'model' | 'net' | 'rules'): Promise<boolean> {
+    const p = this.pending;
+    if (!p || p.group?.length || p.reuse) return false;
+    const f = this.field(p.field)!;
+    if (this.risk(f) > 30) return false;
+    const said = `Okay, ${f.kind === 'when' || f.kind === 'date' ? formatDate(p.value) : p.value} for the ${f.label}.`;
+    if (!(await this.confirm(by, true))) return false;
+    this.notes.push(said);
+    return true;
+  }
+
+  // From RISK_PERSON up the desk never fills it: a person on the business's side approves it. The field is left
+  // blank and the caller is told.
+  private needsPerson(f: Field, tails: string[]): boolean {
+    if (this.risk(f) < RISK_PERSON) return false;
+    this.events.push({ turn: this.n, type: 'needs_person', field: f.name, detail: String(this.risk(f)) });
+    this.skip(f);
+    tails.push(`The ${f.label} needs a person on our team to approve it, so I'll leave it blank for them. ${this.allFilled() ? '' : this.field(this.current)!.question}`.trim());
+    return true;
+  }
+
   private goTo(f: Field) {
     if (this.pending && this.pending.field !== f.name) this.pending = null;
     if (f.name !== this.current && this.values[this.current] === undefined && !this.returnTo.includes(this.current)) this.returnTo.push(this.current);
     this.current = f.name;
   }
 
-  private async confirm(by: 'model' | 'net' | 'rules'): Promise<boolean> {
+  private async confirm(by: 'model' | 'net' | 'rules', passing = false): Promise<boolean> {
     const p = this.pending!;
     const f = this.field(p.field)!;
+    const risk = this.risk(f);
+    // The code lock (decision 0011): from RISK_LOCK up nothing is filled without a recorded clear yes, and from
+    // RISK_TWICE up the yes is asked for twice.
+    if (!passing && risk >= RISK_LOCK && !clearYes(this.lastUser)) { this.events.push({ turn: this.n, type: 'locked', field: f.name, detail: String(risk), by }); return false; }
+    if (!passing && risk >= RISK_TWICE && !p.sure) {
+      p.sure = true; p.text = `Just to be sure, ${f.kind === 'when' || f.kind === 'date' ? formatDate(p.value) : p.value} for the ${f.label}: are you sure?`;
+      this.sureAsked = true; this.events.push({ turn: this.n, type: 'are_you_sure', field: f.name, detail: String(risk), by });
+      return true;
+    }
     const no = await this.hooks.fill?.(f, p.value);
     if (no) { this.events.push({ turn: this.n, type: 'page_refused', field: f.name, detail: String(no), by }); this.pending = null; return false; }
     for (const it of [{ field: p.field, value: p.value }, ...(p.group ?? [])]) {
       const itf = this.field(it.field)!;
       if (it.field !== p.field) { const no2 = await this.hooks.fill?.(itf, it.value); if (no2) { this.events.push({ turn: this.n, type: 'page_refused', field: itf.name, detail: String(no2), by }); continue; } }
       this.values[it.field] = it.value;
-      this.fills.push({ turn: this.n, field: it.field, value: it.value, readback: p.text, yes: this.lastUser });
-      this.events.push({ turn: this.n, type: 'confirm', field: it.field, value: it.value, by });
+      this.fills.push({ turn: this.n, field: it.field, value: it.value, readback: passing ? '' : p.text, yes: passing ? '' : this.lastUser, risk });
+      this.events.push({ turn: this.n, type: 'confirm', field: it.field, value: it.value, by, ...(passing ? { detail: 'passing' } : {}) });
     }
     this.pending = null;
     for (const it of [{ field: p.field }, ...(p.group ?? [])]) await this.onContact(this.field(it.field)!);
@@ -1067,6 +1166,7 @@ Caller: "Thanks, that helps." -> no tool; say "You're welcome. Anything else?"`;
       if (this.values[q.field] !== q.value) {
         this.setPending(qf, q.value); this.current = q.field;
         if (q.reuse) { this.pending!.text = reuseReadback(qf, q.value); this.pending!.reuse = true; }
+        else await this.passing(by);
         return true;
       }
     }

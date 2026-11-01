@@ -14,6 +14,7 @@ export interface Field {
   aliases?: string[];
   optional?: boolean; // "none" or "skip" leaves it blank
   spell?: boolean;    // read the answer back spelled out, letter by letter
+  risk?: number;      // 1 to 100: how the desk confirms it (decision 0011); defaults by kind in desk.ts
   length?: number;    // digits: how many
   // A value that must never be shown or logged (a date of birth, the last four of an SSN). It is still read back aloud
   // for a yes, but every reply carries it between SECRET marks: forSpeech() keeps it, forDisplay() masks it.
