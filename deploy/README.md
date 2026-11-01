@@ -1,6 +1,6 @@
 # Deploying the copilot lab
 
-Push to `production` and the lab deploys by itself ([decision 0015](../docs/decisions/0015-production-branch-deploys.md)). The site is https://copilot.design-bakery.com.
+A merge to `main` goes live by itself: when CI passes, `.github/workflows/promote.yml` moves `production` to that commit and the lab deploys ([decision 0016](../docs/decisions/0016-merges-go-live.md), which replaces 0015). You can still move `production` by hand with `git push origin main:production`, for example to roll back one commit. The site is https://copilot.design-bakery.com.
 
 ```mermaid
 graph TD
