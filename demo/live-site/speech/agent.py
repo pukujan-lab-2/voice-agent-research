@@ -2,7 +2,11 @@
 
   caller's browser ──WebRTC──► LiveKit server (local, dev mode) ◄──► this worker
     Silero VAD + LiveKit's turn detector end each turn and handle barge-in (the caller talks over the voice);
-    LocalSTT / LocalTTS call speech/server.py (Parakeet to listen, Pocket TTS to speak, open models on this machine);
+    LocalSTT / LocalTTS call speech/server.py with the call's voice stack (speech/stacks.json, docs/decisions/0012):
+      english-fast  Parakeet to listen, the English turn detector, Pocket TTS to speak
+      multilingual  Whisper large-v3-turbo, the multilingual turn detector, Kokoro in the caller's language
+    The page puts the stack server.ts picked and the caller's language on the caller's participant attributes
+    (copilot.stack, copilot.language); a language changed mid-call takes effect from the next turn;
     the decision step is the copilot engine in the caller's page (widget/sdk.ts), reached over LiveKit RPC:
       copilot.greet  -> the short spoken intro          copilot.turn {text} -> the reply to speak
     so read-backs, never-submit, quote-only answers, verification and page actions all stay in the engine.
@@ -23,51 +27,87 @@ from livekit.agents import (
 from livekit.agents.types import DEFAULT_API_CONNECT_OPTIONS
 from livekit.plugins import silero
 from livekit.plugins.turn_detector.english import EnglishModel
+from livekit.plugins.turn_detector.multilingual import MultilingualModel
 from telemetry import CallTelemetry
 
 SPEECH = os.environ.get('SPEECH_URL', 'http://127.0.0.1:8799')
+with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'stacks.json')) as f:
+    STACKS = json.load(f)
+
+
+class Voice:
+    """The call's stack and language. language is the caller's pick, or '' to go by what the recogniser hears."""
+
+    def __init__(self, stack: str, language: str):
+        self.stack = stack if stack in STACKS['stacks'] else STACKS['default']
+        self.parts = STACKS['stacks'][self.stack]
+        self.picked = ''
+        self.heard = ''
+        self.pick(language)
+
+    def pick(self, language: str) -> None:
+        self.picked = language if language in self.parts['languages'] else ''
+
+    @property
+    def language(self) -> str:
+        """What the voice speaks and the reply is written in: the pick, else the last language heard that the stack speaks."""
+        return self.picked or (self.heard if self.heard in self.parts['languages'] else self.parts['languages'][0])
 
 
 class LocalSTT(stt.STT):
-    """One finished turn to text on speech/server.py (Parakeet). The VAD cuts the turns, so no streaming is needed."""
+    """One finished turn to text on speech/server.py with the stack's listener. The VAD cuts the turns, so no streaming is needed."""
 
-    def __init__(self, http: aiohttp.ClientSession):
+    def __init__(self, http: aiohttp.ClientSession, voice: Voice):
         super().__init__(capabilities=stt.STTCapabilities(streaming=False, interim_results=False))
-        self._http = http
+        self._http, self._voice = http, voice
         self.last_ms = 0
         self.last_confidence: float | None = None  # the model's mean token probability for the last turn, 0 to 1
         self.last_language = 'en'
 
     @property
     def model(self) -> str:
-        return 'parakeet-tdt-0.6b-v2'
+        return self._voice.parts['listens']
 
     @property
     def provider(self) -> str:
         return 'local'
 
     async def warm(self) -> None:
+        # Parakeet is slow on its first turn after a while idle; Whisper is warmed when it loads, and a second call on
+        # it would only queue behind the caller's first turn.
+        if not self._voice.parts['listens'].startswith('parakeet'):
+            return
         import numpy as np
         noise = (np.random.default_rng().standard_normal(16000 * 2) * 0.01).astype(np.float32).tobytes()
         try:
-            async with self._http.post(f'{SPEECH}/stt', params={'sr': 16000}, data=noise, headers={'content-type': 'application/octet-stream'}) as r:
+            async with self._http.post(f'{SPEECH}/stt', params={'sr': 16000, 'stack': self._voice.stack, 'lang': 'en'}, data=noise, headers={'content-type': 'application/octet-stream'}) as r:
                 await r.read()
         except aiohttp.ClientError:
             pass
 
+    def _timeout(self, conn_options: APIConnectOptions) -> float:
+        # Whisper pads every clip to 30 s of audio and shares the GPU, so on a busy 8 GB laptop a turn can take
+        # well over LiveKit's default 10 s (34 s for one turn, seen with the machine in swap); dropping it would lose what the caller said.
+        return conn_options.timeout if self._voice.parts['listens'].startswith('parakeet') else max(conn_options.timeout, 60.0)
+
     async def _recognize_impl(self, buffer, *, language=None, conn_options: APIConnectOptions) -> stt.SpeechEvent:
         frame = rtc.combine_audio_frames(buffer)
         t = time.perf_counter()
-        async with self._http.post(f'{SPEECH}/stt', params={'sr': frame.sample_rate}, data=_pcm_float(frame),
+        v = self._voice
+        async with self._http.post(f'{SPEECH}/stt', params={'sr': frame.sample_rate, 'stack': v.stack, 'lang': v.picked}, data=_pcm_float(frame),
                                    headers={'content-type': 'application/octet-stream'},
-                                   timeout=aiohttp.ClientTimeout(total=conn_options.timeout)) as r:
+                                   timeout=aiohttp.ClientTimeout(total=self._timeout(conn_options))) as r:
             r.raise_for_status()
             j = await r.json()
-            text = j.get('text', '')
+        text = j.get('text', '')
         self.last_confidence = j.get('confidence')
+        # The language the recogniser heard (or was told): the turn detector, the voice and the turn's record go by it.
+        if text and j.get('language'):
+            v.heard = j['language']
+        self.last_language = j.get('language') or v.language
         self.last_ms = round((time.perf_counter() - t) * 1000)
         return stt.SpeechEvent(type=stt.SpeechEventType.FINAL_TRANSCRIPT,
-                               alternatives=[stt.SpeechData(language='en', text=text)])
+                               alternatives=[stt.SpeechData(language=j.get('language') or v.language, text=text)])
 
 
 def _pcm_float(frame: rtc.AudioFrame) -> bytes:
@@ -79,16 +119,16 @@ def _pcm_float(frame: rtc.AudioFrame) -> bytes:
 
 
 class LocalTTS(tts.TTS):
-    """Pocket TTS on speech/server.py, streamed: the first words play while the rest is still being made."""
+    """The stack's voice on speech/server.py, in the call's language, streamed: the first words play while the rest is made."""
 
-    def __init__(self, http: aiohttp.ClientSession, sample_rate: int):
+    def __init__(self, http: aiohttp.ClientSession, sample_rate: int, voice: Voice):
         super().__init__(capabilities=tts.TTSCapabilities(streaming=False), sample_rate=sample_rate, num_channels=1)
-        self._http = http
+        self._http, self._voice = http, voice
         self.first_ms: int | None = None  # the last reply's first audio, from the request
 
     @property
     def model(self) -> str:
-        return 'pocket-tts'
+        return self._voice.parts['speaks']
 
     @property
     def provider(self) -> str:
@@ -103,7 +143,7 @@ class _LocalStream(tts.ChunkedStream):
         t: LocalTTS = self._tts  # type: ignore[assignment]
         output_emitter.initialize(request_id=uuid.uuid4().hex, sample_rate=t.sample_rate, num_channels=1,
                                   mime_type='audio/pcm', frame_size_ms=40, stream=False)
-        async with t._http.post(f'{SPEECH}/tts', json={'text': self._input_text},
+        async with t._http.post(f'{SPEECH}/tts', json={'text': self._input_text, 'stack': t._voice.stack, 'lang': t._voice.language},
                                 timeout=aiohttp.ClientTimeout(total=60, sock_read=self._conn_options.timeout)) as r:
             r.raise_for_status()
             async for chunk in r.content.iter_any():
@@ -116,9 +156,9 @@ class _LocalStream(tts.ChunkedStream):
 class Copilot(Agent):
     """No LLM of its own: each finished turn goes to the copilot engine in the caller's page, and its reply is spoken."""
 
-    def __init__(self, room: rtc.Room, caller: str, stt_: LocalSTT, tts_: LocalTTS, tel: CallTelemetry):
+    def __init__(self, room: rtc.Room, caller: str, stt_: LocalSTT, tts_: LocalTTS, tel: CallTelemetry, voice: Voice):
         super().__init__(instructions='The copilot engine in the page decides every reply.')
-        self._room, self._caller, self._stt, self._tts, self._tel = room, caller, stt_, tts_, tel
+        self._room, self._caller, self._stt, self._tts, self._tel, self._voice = room, caller, stt_, tts_, tel, voice
         self.turn: dict = {}
 
     async def _rpc(self, method: str, payload: dict, timeout: float = 45.0) -> dict:
@@ -149,7 +189,8 @@ class Copilot(Agent):
         turn = uuid.uuid4().hex
         heard = {'turn': turn, 'stt_ms': self._stt.last_ms, 'confidence': self._stt.last_confidence, 'language': self._stt.last_language}
         try:
-            r = await self._rpc('copilot.turn', {'text': said, **heard})
+            # The language goes with the words, so the reply is written in it (a pick, or what the recogniser heard).
+            r = await self._rpc('copilot.turn', {'text': said, **heard, 'language': self._voice.language, 'heard': self._voice.heard})
         except Exception as e:  # noqa: BLE001 - a page that went away or timed out: say so, don't hang
             print('copilot.turn failed:', e, flush=True)
             r = {'say': "Sorry, something went wrong on my side. Could you say that again?"}
@@ -174,21 +215,31 @@ def prewarm(proc: JobProcess):
 server.setup_fnc = prewarm
 
 
+def voice_parts(http: aiohttp.ClientSession, voice: Voice, rates: dict) -> tuple[LocalSTT, LocalTTS, object]:
+    """The stack's listener, voice and turn detector. A stack whose one model hears, thinks and speaks (lfm3-audio, later)
+    replaces this cascade with its own adapter here; the engine's turns and decision 0011's code lock stay as they are."""
+    turns = MultilingualModel() if voice.parts['turns'] == 'multilingual' else EnglishModel()
+    return LocalSTT(http, voice), LocalTTS(http, int(rates.get(voice.parts['speaks'], 24000)), voice), turns
+
+
 @server.rtc_session()
 async def entrypoint(ctx: JobContext):
     await ctx.connect()
     caller = await ctx.wait_for_participant()
     http = aiohttp.ClientSession()
     async with http.get(f'{SPEECH}/health') as r:
-        rate = int((await r.json()).get('rate', 24000))
-    stt_, tts_ = LocalSTT(http), LocalTTS(http, rate)
-    tel = CallTelemetry(ctx.room.name, {'stt': f'{stt_.provider}:{stt_.model}', 'tts': f'{tts_.provider}:{tts_.model}',
-                                        'turn_detector': 'livekit-english', 'vad': 'silero', 'language': 'en'})
-    agent = Copilot(ctx.room, caller.identity, stt_, tts_, tel)
+        health = await r.json()
+    rates = health.get('rates') or {'pocket-tts': health.get('rate', 24000)}
+    voice = Voice(caller.attributes.get('copilot.stack', ''), caller.attributes.get('copilot.language', ''))
+    print('call', ctx.room.name, 'stack', voice.stack, 'language', voice.picked or 'heard', flush=True)
+    stt_, tts_, turns = voice_parts(http, voice, rates)
+    tel = CallTelemetry(ctx.room.name, {'stack': voice.stack, 'stt': f'{stt_.provider}:{stt_.model}', 'tts': f'{tts_.provider}:{tts_.model}',
+                                        'turn_detector': f"livekit-{voice.parts['turns']}", 'vad': 'silero', 'language': voice.picked or 'heard'})
+    agent = Copilot(ctx.room, caller.identity, stt_, tts_, tel, voice)
     session = AgentSession(
         vad=ctx.proc.userdata['vad'], stt=stt_, tts=tts_,
         turn_handling={
-            'turn_detection': EnglishModel(),
+            'turn_detection': turns,
             # A third of a second of quiet ends a turn when the turn detector thinks the caller is done; up to 2 s when
             # the sentence sounds unfinished ("my number is 512…").
             'endpointing': {'min_delay': 0.3, 'max_delay': 2.0},
@@ -245,6 +296,15 @@ async def entrypoint(ctx: JobContext):
         closed['reason'] = str(getattr(ev.reason, 'value', ev.reason)) + (f': {ev.error}' if ev.error else '')
 
     ctx.room.local_participant.register_rpc_method('agent.say', agent_say)
+
+    # The caller switched language mid-call (the page's picker, or asking to): the next turn listens and speaks in it.
+    @ctx.room.on('participant_attributes_changed')
+    def _attrs(changed: dict, p: rtc.Participant):
+        if p.identity == caller.identity and 'copilot.language' in changed:
+            voice.pick(changed['copilot.language'])
+            tel.stack['language'] = voice.picked or 'heard'  # the call's record says the language it ended in
+            print('language', voice.picked or 'heard', flush=True)
+
     ctx.add_shutdown_callback(http.close)
 
     async def _sent(reason: str):

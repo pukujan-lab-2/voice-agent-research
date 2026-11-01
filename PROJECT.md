@@ -53,7 +53,7 @@ A visitor opens the copilot on a site and talks to it. The copilot can:
 | Voice | Uses browser speech today, which breaks the in-house rule. Being rebuilt on LiveKit Agents |
 | Hosting | Local only. Not hosted yet, by the owner's choice |
 | Phone calls | Planned (LiveKit SIP) |
-| Multi-language | Planned |
+| Multi-language | Voice: English on the default stack; English, Spanish, French, Italian, Portuguese, Hindi and Chinese on the `multilingual` stack (decision 0012). Text chat passes the visitor's words through |
 
 <!-- pcm:github-progression:start -->
 ## GitHub-owned progression

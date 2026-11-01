@@ -1,0 +1,74 @@
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CopilotWidget } from "@/components/copilot/CopilotWidget";
+import { useCopilot, useCopilotMount } from "@/hooks/useCopilot";
+import { COPILOT_CONFIGS } from "@/lib/copilot";
+
+const MODELS: Record<string, { listener: string; speaker: string }> = {
+  "english-fast": { listener: "parakeet", speaker: "pocket" },
+  "parakeet-kokoro": { listener: "parakeet", speaker: "kokoro" },
+  "whisper-pocket": { listener: "whisper", speaker: "pocket" },
+  multilingual: { listener: "whisper", speaker: "kokoro" },
+};
+const OTHER_LISTENERS = ["Parakeet v3", "Whisper large-v3", "faster-whisper large-v3", "Distil-Whisper", "Canary", "Voxtral", "Kyutai STT", "Granite Speech"];
+const OTHER_VOICES = ["Chatterbox", "VibeVoice", "Kyutai TTS", "Dia", "CSM", "NeuTTS", "MeloTTS", "Orpheus", "IndexTTS", "OmniVoice", "F5-TTS", "XTTS", "Fish Speech"];
+
+export default function VoiceLab() {
+  useCopilotMount(COPILOT_CONFIGS.clinic);
+  const { snapshot } = useCopilot();
+  return (
+    <main className="mx-auto min-h-screen max-w-5xl px-5 py-12 pb-48 text-slate-900">
+      <a href="/" className="text-sm underline">Back to demos</a>
+      <p className="mt-10 text-sm font-semibold uppercase tracking-widest text-orange-800">Voice lab</p>
+      <h1 className="mt-3 text-4xl font-semibold tracking-tight">Choose a voice and try a call</h1>
+      <p className="mt-4 max-w-2xl text-slate-600">Pick a voice stack and language, then use the call panel to try the sample form. The models run on the configured voice backend.</p>
+      <Card className="mt-8"><CardHeader><CardTitle>Models in each available setup</CardTitle></CardHeader><CardContent>
+        <p className="mb-4 text-sm text-slate-600">Combine either connected listening model with either connected voice. All four pairs have passed recorded call checks.</p>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label>Listening model<select className="mt-2 block w-full rounded-md border bg-white p-3" value={MODELS[snapshot.stack ?? ""]?.listener ?? "parakeet"} disabled={snapshot.open || !snapshot.voiceStacks?.length} onChange={e => { const match = (snapshot.voiceStacks ?? []).find(s => MODELS[s.id]?.listener === e.target.value && MODELS[s.id]?.speaker === MODELS[snapshot.stack ?? ""]?.speaker); if (match) window.copilot?.setStack?.(match.id); }}>
+            <option value="parakeet">Parakeet TDT v2</option><option value="whisper">Whisper large-v3-turbo</option>
+            <optgroup label="Not connected yet">{OTHER_LISTENERS.map(name => <option key={name} disabled>{name}</option>)}</optgroup>
+          </select></label>
+          <label>Speaking model<select className="mt-2 block w-full rounded-md border bg-white p-3" value={MODELS[snapshot.stack ?? ""]?.speaker ?? "pocket"} disabled={snapshot.open || !snapshot.voiceStacks?.length} onChange={e => { const match = (snapshot.voiceStacks ?? []).find(s => MODELS[s.id]?.speaker === e.target.value && MODELS[s.id]?.listener === MODELS[snapshot.stack ?? ""]?.listener); if (match) window.copilot?.setStack?.(match.id); }}>
+            <option value="pocket">Pocket TTS</option><option value="kokoro">Kokoro-82M</option>
+            <optgroup label="Not connected yet">{OTHER_VOICES.map(name => <option key={name} disabled>{name}</option>)}</optgroup>
+          </select></label>
+        </div>
+        <p className="mt-4 text-sm">Response model: LFM3-1.7B on the configured server. Turn detection: {MODELS[snapshot.stack ?? ""]?.listener === "whisper" ? "LiveKit multilingual" : "LiveKit English"}.</p>
+      </CardContent></Card>
+      <div className="mt-8 grid gap-4 md:grid-cols-2">
+        {(snapshot.voiceStacks ?? []).map(stack => (
+          <Card key={stack.id} className={snapshot.stack === stack.id ? "border-orange-600 ring-2 ring-orange-200" : ""}>
+            <CardHeader><CardTitle>{stack.label}</CardTitle></CardHeader>
+            <CardContent>
+              <p className="mb-4 text-sm text-slate-600">Languages: {stack.languages.map(l => l.native).join(", ")}</p>
+              <Button type="button" variant={snapshot.stack === stack.id ? "default" : "outline"} disabled={snapshot.open} onClick={() => window.copilot?.setStack?.(stack.id)}>
+                {snapshot.stack === stack.id ? "Selected" : "Select voice"}
+              </Button>
+            </CardContent>
+          </Card>
+        ))}
+        {["LFM3-Audio-2B", "LFM3-Omni-2B"].map(name => (
+          <Card key={name}><CardHeader><CardTitle>{name}</CardTitle></CardHeader><CardContent>
+            <p className="text-sm text-slate-600">Not connected yet. This model cannot be tested here until its voice adapter is ready.</p>
+          </CardContent></Card>
+        ))}
+      </div>
+      <Card className="mt-8"><CardHeader><CardTitle>More models to evaluate</CardTitle></CardHeader><CardContent className="space-y-3 text-sm text-slate-600">
+        <p>Listening: Parakeet v3, Whisper large-v3, faster-whisper large-v3, Distil-Whisper, Canary, Voxtral, Kyutai STT and Granite Speech.</p>
+        <p>Speaking: Chatterbox, VibeVoice, Kyutai TTS, Dia, CSM, NeuTTS, MeloTTS, Orpheus, IndexTTS, OmniVoice, F5-TTS, XTTS and Fish Speech.</p>
+        <p>End to end: LFM3-Audio-2B and LFM3-Omni-2B. These candidates need an adapter before they can be selected for a call. Some candidates have restricted or non-commercial licenses.</p>
+        <p>Previous tests compared LFM3-1.7B with Qwen-Flash for text replies. The voice stacks have functional call tests, but there is no comparable benchmark across all of these models yet.</p>
+      </CardContent></Card>
+      <Card className="mt-8"><CardHeader><CardTitle>Sample booking</CardTitle></CardHeader><CardContent>
+        <p className="mb-5 text-sm text-slate-600">Use fictional details. The assistant leaves the final button for you.</p>
+        <form data-copilot-form className="grid max-w-xl gap-3" onSubmit={e => e.preventDefault()}>
+          <label htmlFor="lab-name">Full name</label><input className="rounded-md border p-3" id="lab-name" name="name" required />
+          <label htmlFor="lab-email">Email</label><input className="rounded-md border p-3" id="lab-email" name="email" type="email" required />
+          <Button type="submit" className="mt-3 w-fit">Finish sample</Button>
+        </form>
+      </CardContent></Card>
+      <CopilotWidget />
+    </main>
+  );
+}

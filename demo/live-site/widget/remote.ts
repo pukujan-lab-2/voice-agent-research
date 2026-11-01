@@ -70,11 +70,47 @@ export class RemoteModel implements Model {
 
 // One turn of the v2 desk's model (LFM3 on our server). Any failure throws, and the desk runs that turn on its code
 // rules; when the server has no desk model (offline), every later turn goes straight to the rules.
+// The caller's language on a voice call (docs/decisions/0012): LFM3 writes its replies in it, and the lines code writes
+// (greetings, read-backs, small talk) are put into it before they are spoken. English needs neither.
+let replyLanguage = 'English';
+export function setReplyLanguage(name: string) { replyLanguage = name || 'English'; }
+function inLanguage(messages: ChatMsg[]): ChatMsg[] {
+  if (replyLanguage === 'English') return messages;
+  const rule = `\nThe caller speaks ${replyLanguage}. Write every reply in ${replyLanguage}, read-backs and confirmations included. Keep names, numbers, email addresses and tool arguments exactly as the caller gave them.`;
+  let done = false;
+  return messages.map(m => {
+    if (done || m.role !== 'system' || typeof m.content !== 'string') return m;
+    done = true;
+    return { ...m, content: m.content.replace(/Spoken English/g, `Spoken ${replyLanguage}`) + rule };
+  });
+}
+const translated = new Map<string, string>();
+export async function toReplyLanguage(text: string): Promise<string> {
+  if (replyLanguage === 'English' || !text.trim()) return text;
+  const key = `${replyLanguage}\n${text}`;
+  const hit = translated.get(key);
+  if (hit) return hit;
+  try {
+    const r = await post('/api/desk', { messages: [
+      { role: 'system', content: `Translate what the assistant is about to say on a phone call into natural spoken ${replyLanguage}. If it is already in ${replyLanguage}, return it unchanged. Keep names, numbers, spelled-out letters and email addresses exactly as they are. Reply with the translation only.` },
+      { role: 'user', content: text }], tools: [], max_tokens: 220 });
+    const out = String(r.content ?? '').trim();
+    if (!out) return text;
+    if (translated.size > 200) translated.clear();
+    translated.set(key, out);
+    return out;
+  } catch (e) {
+    report('voice', `translate: ${(e as Error).message}`);
+    return text;
+  }
+}
+
 export class RemoteDeskModel implements ChatModel {
   name = 'lfm3';
   private off = false;
   async chat(messages: ChatMsg[], tools: unknown[], opts: { maxTokens?: number; temperature?: number } = {}): Promise<ChatResult> {
     if (this.off) throw new Error('no desk model');
+    messages = inLanguage(messages);
     const t0 = Date.now();
     const r = await fetch(`${API_BASE}/api/desk`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-session-id': callId },
       body: JSON.stringify({ messages, tools, max_tokens: opts.maxTokens, temperature: opts.temperature }) });

@@ -15,3 +15,4 @@ One file per decision. A decision changes only through a new file that replaces 
 | 0009 | [LFM3 writes replies](0009-lfm3-writes-replies.md) | 2026-11-01 |
 | 0010 | [CI runs on GitHub-hosted runners](0010-ci-on-hosted-runners.md) | 2026-11-01 |
 | 0011 | [The model leads; a risk score sets how it confirms](0011-model-leads-risk-sets-confirmation.md) | 2026-11-01 |
+| 0012 | [Voice calls run on swappable voice stacks](0012-swappable-voice-stacks.md) | 2026-11-01 |

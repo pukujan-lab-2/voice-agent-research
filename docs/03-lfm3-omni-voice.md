@@ -43,7 +43,7 @@ LFM Open License v1.0 (Apache-2.0 based): free if annual revenue is **under $10M
 
 ## Fit for business bots
 
-A 2B model is good for conversation and simple commands, and weaker at reasoning and **tool calling**. For bots that book and update CRMs, start with a speech-to-text → LLM → text-to-speech cascade (see [04](04-bot-factory-architecture.md), [08](08-speech-model-licenses.md)).
+*Unverified rule of thumb, no source:* a 2B model is often said to be good for conversation and simple commands but weaker at reasoning and **tool calling**. Nothing here measured that, and no model card or benchmark is cited for it (corrected 2026-11-01, #55); treat it as a question to check, not a finding. The copilot runs a speech-to-text → LLM → text-to-speech cascade today, and LFM3-Audio is a planned swappable voice stack ([decision 0012](decisions/0012-swappable-voice-stacks.md)); see also [04](04-bot-factory-architecture.md), [08](08-speech-model-licenses.md).
 
 ## Links
 

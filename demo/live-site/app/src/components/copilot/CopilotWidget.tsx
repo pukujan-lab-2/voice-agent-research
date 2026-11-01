@@ -11,12 +11,50 @@ import {
   FormInput,
 } from "lucide-react";
 import { useCopilot } from "@/hooks/useCopilot";
-import type { CopilotMessage } from "@/lib/copilot";
+import type { CopilotMessage, CopilotSnapshot } from "@/lib/copilot";
 import { cn } from "@/lib/utils";
 import { SourceChip } from "@/components/tax/SourceChip";
 import { ReturnCard } from "@/components/tax/ReturnCard";
 
 /* ---------- helpers ---------- */
+
+/** The caller's language (and, when the business offers several, the voice stack), by the call button and during a call. */
+function VoicePicker({ snapshot, inCall }: { snapshot: CopilotSnapshot; inCall: boolean }) {
+  const languages = snapshot.languages ?? [];
+  const stacks = snapshot.voiceStacks ?? [];
+  const heard = languages.find((l) => l.code === snapshot.spokenLanguage);
+  return (
+    <span className="copilot-voice-picker">
+      {!inCall && stacks.length > 1 && (
+        <select
+          className="copilot-select"
+          aria-label="Voice"
+          data-testid="call-stack"
+          value={snapshot.stack ?? ""}
+          onChange={(e) => window.copilot?.setStack?.(e.target.value)}
+        >
+          {stacks.map((st) => (
+            <option key={st.id} value={st.id}>{st.label}</option>
+          ))}
+        </select>
+      )}
+      {languages.length > 1 && (
+        <select
+          className="copilot-select"
+          aria-label="Language"
+          data-testid="call-language"
+          value={snapshot.language ?? ""}
+          onChange={(e) => window.copilot?.setLanguage?.(e.target.value)}
+        >
+          <option value="">{inCall && heard ? `Heard: ${heard.native}` : "Any language"}</option>
+          {languages.map((l) => (
+            <option key={l.code} value={l.code}>{l.native}</option>
+          ))}
+        </select>
+      )}
+    </span>
+  );
+}
 
 function StatusIcon({ status }: { status: string }) {
   if (status === "speaking")
@@ -203,6 +241,7 @@ export function CopilotWidget() {
           <Phone size={18} />
           Start voice call
         </button>
+        <VoicePicker snapshot={snapshot} inCall={false} />
         <button
           type="button"
           className="copilot-btn-ghost"
@@ -330,6 +369,7 @@ export function CopilotWidget() {
           </span>
         </div>
         <div className="copilot-controls-row">
+          {snapshot.voice && <VoicePicker snapshot={snapshot} inCall />}
           <button
             type="button"
             className={cn(

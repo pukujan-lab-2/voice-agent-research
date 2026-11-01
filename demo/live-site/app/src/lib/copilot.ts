@@ -97,6 +97,20 @@ export interface CopilotConfig {
   desk?: CopilotDesk;
   /** Caller verification ("check on my return"): handoff is what to offer when a caller can't be verified. */
   verify?: { handoff: string };
+  /** The voice stacks visitors may pick from, and the business default (speech/stacks.json, decision 0012). */
+  voice?: { stacks?: string[]; default?: string };
+}
+
+export interface CopilotLanguage {
+  code: string;
+  name: string;
+  native: string;
+}
+
+export interface CopilotVoiceStack {
+  id: string;
+  label: string;
+  languages: CopilotLanguage[];
 }
 
 /** The verified caller's return status (fictional sample data; never any identity details). */
@@ -133,6 +147,14 @@ export interface CopilotSnapshot {
   source?: CopilotSource | null;
   /** Shown as a card while set: the verified caller's return status. */
   account?: CopilotReturnCard | null;
+  /** The voice stacks the picker offers, and the one the next or current call runs on. */
+  voiceStacks?: CopilotVoiceStack[];
+  stack?: string;
+  /** The caller's language ("" = not picked: the agent asks), and what the picker offers. */
+  language?: string;
+  languages?: CopilotLanguage[];
+  /** The language the recogniser last heard on this call. */
+  spokenLanguage?: string;
 }
 
 export interface Copilot {
@@ -141,6 +163,10 @@ export interface Copilot {
   start(opts: { voice: boolean }): void;
   send(text: string): void;
   toggleMic(): void;
+  /** The caller's language, before or during a call ("" lets the agent ask). */
+  setLanguage?(code: string): void;
+  /** The visitor's voice stack, before a call. */
+  setStack?(id: string): void;
   setMode(mode: "form" | "guide" | "ask"): void;
   setCovered(px: number): void;
   end(): void;
@@ -185,10 +211,14 @@ export const EMPTY_SNAPSHOT: CopilotSnapshot = {
   account: null,
 };
 
+/** Every demo site lets visitors try each voice stack; the fast English one is the default (decision 0012). */
+const VOICE: CopilotConfig["voice"] = { stacks: ["english-fast", "parakeet-kokoro", "whisper-pocket", "multilingual"], default: "english-fast" };
+
 /** Copilot configs for each form page. */
 export const COPILOT_CONFIGS: Record<string, CopilotConfig> = {
   clinic: {
     business: "Tumbleberry Children's Clinic",
+    voice: VOICE,
     form: "booking",
     can: [
       "Fill in this booking form with you",
@@ -198,6 +228,7 @@ export const COPILOT_CONFIGS: Record<string, CopilotConfig> = {
   },
   appliance: {
     business: "Kettlewisp Appliances",
+    voice: VOICE,
     form: "service request",
     can: [
       "Walk you through the E24 fix",
@@ -220,6 +251,7 @@ export const COPILOT_CONFIGS: Record<string, CopilotConfig> = {
   },
   pricing: {
     business: "Larchmoss Studio",
+    voice: VOICE,
     form: "quote request",
     can: [
       "Fill the quote request with you",
@@ -229,6 +261,7 @@ export const COPILOT_CONFIGS: Record<string, CopilotConfig> = {
   },
   itdesk: {
     business: "Cobblefin IT Desk",
+    voice: VOICE,
     form: "ticket",
     can: [
       "File this ticket with you",
@@ -238,6 +271,7 @@ export const COPILOT_CONFIGS: Record<string, CopilotConfig> = {
   },
   pension: {
     business: "Saltmere Pension Fund",
+    voice: VOICE,
     form: "R-17",
     large: true,
     can: [
@@ -277,6 +311,7 @@ export const COPILOT_CONFIGS: Record<string, CopilotConfig> = {
 function TAX_BASE(): CopilotConfig {
   return {
     business: "Brindlewick Tax & Accounting",
+    voice: VOICE,
     note: "this is a demo site, so no real details please",
     guidePage: "/tax/guides",
     pages: [
@@ -361,6 +396,7 @@ function TAX_INTAKE_CONFIG(): CopilotConfig {
 function STAFF_BASE(): CopilotConfig {
   return {
     business: "Brindlewick Practice",
+    voice: VOICE,
     note: "everything here is fictional sample data",
     guidePage: "/tax/guides",
     pages: [
