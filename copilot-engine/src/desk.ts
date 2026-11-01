@@ -612,6 +612,15 @@ export class Desk {
     return reply;
   }
 
+  // A turn code answered without the model ("yeah", a clarifying question's answer): the model sees it in its history.
+  note(said: string, reply: string) {
+    this.n++;
+    this.acts = [];
+    this.log.push({ who: 'user', text: said }, { who: 'agent', text: reply });
+    this.remember(said, reply);
+    this.turns.push({ turn: this.n, said, reply, ms: 0, model: 'code', calls: [] });
+  }
+
   // ----- memory: call resume -----
   // Saves the call under an opaque random id (30 minute TTL). Called after every turn when a session store is set.
   async save(): Promise<string | undefined> {
@@ -790,6 +799,8 @@ How you work:
 - Greetings, thanks, small talk, and questions about you ("can I ask you about taxes?", "what can you do?", "are you a bot?"): answer briefly yourself, with no tool, from what you told the caller you can do. You are the ${this.flow.business} assistant, an AI; never name a model or the company that made it.
 - Anything unrelated to ${this.flow.business}: say kindly that you can only help with questions the ${docs} answer.
 - If the caller says goodbye or wants to stop, call end_call.
+- If you can't tell what the caller means, ask what they mean in one short sentence. Don't guess, and don't praise the question ("great question").
+- Never offer anything that isn't in what you told the caller you can do. Don't bring up verifying who they are unless they ask to check on their return.
 
 Examples:
 Caller: "Hi, can I ask you about taxes?" -> no tool; say "Of course, go ahead. What would you like to know?"

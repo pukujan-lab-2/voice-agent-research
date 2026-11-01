@@ -23,6 +23,8 @@ export interface Judge {
   pick(question: string, passages: Passage[]): Promise<string>;
   // Optional: which sentences of the chosen passage answer the question (indices). Without it, shortQuote decides.
   sentences?(question: string, sentences: string[]): Promise<number[]>;
+  // Optional: Jev's probabilities for the passages of the last pick ("p0", "p1"… and "none"), when the judge has them.
+  lastProbs?: Record<string, number>;
 }
 
 const NEXT = /^\s*(next|done|ok(ay)?,? (done|next)|finished|got it|did it|i did( it| that)?|that'?s done|ready|go on|continue|what'?s next|and then\??)\W*$/i;
@@ -37,6 +39,10 @@ export class Guide {
   log: { who: 'user' | 'copilot'; text: string }[] = [];
   last?: Passage; // the passage the last lookup quoted (none when it didn't know), for its citation link
   lastQuote: string[] = []; // the sentences of that passage it quoted, word for word
+  // Set when the judge found two different passages nearly equally likely to answer: a sign the question can mean two things.
+  lastSplit?: { a: Passage; b: Passage; pa: number; pb: number };
+  lastRepeat = false; // the last lookup could only quote a passage this guide already quoted earlier
+  seen = new Set<string>(); // ids of the passages quoted so far, so the same one is not passed off as a new answer
   private manual: Manual;
   private retriever: Retriever;
   private judge: Judge;
@@ -82,14 +88,31 @@ export class Guide {
 
   // Answers one question from the manual, or says it doesn't know. Also used outside a walk-through (a form's side question).
   async lookup(q: string, filter?: SearchFilter): Promise<string> {
-    const hits = await this.retriever.search(q, 4, filter);
-    const id = hits.length ? await this.judge.pick(q, hits) : '';
-    const p = hits.find(h => h.id === id);
+    const found = await this.retriever.search(q, 4, filter);
+    // A guide for a narrow audience (US possessions, citizens abroad) is not a general answer: the judge sees the
+    // other passages first, and the narrow ones only when none of those answers (or the question names that audience).
+    const hits = withoutNiche(found, q);
+    let p = await this.pick(q, hits);
+    this.lastSplit = p ? splitOf(hits, this.judge.lastProbs, p) : undefined;
+    if (!p && hits.length < found.length) p = await this.pick(q, found);
+    this.lastRepeat = false;
+    if (p && this.seen.has(p.id)) {
+      // The same passage again: see whether the search found another that answers before repeating it.
+      const rest = found.filter(h => !this.seen.has(h.id) && hits.includes(h));
+      const other = rest.length ? await this.pick(q, rest) : undefined;
+      if (other) p = other; else this.lastRepeat = true;
+    }
     this.last = p;
     this.lastQuote = [];
     if (!p) return this.manual.unknown ?? NO_ANSWER;
+    this.seen.add(p.id);
     if (p.cite) return `${p.cite.title} says: "${await this.quote(p.text, q)}"`;
     return `The manual says${p.page ? ` (page ${p.page})` : ''}: "${await this.quote(p.text, q)}"`;
+  }
+
+  private async pick(q: string, hits: Passage[]): Promise<Passage | undefined> {
+    const id = hits.length ? await this.judge.pick(q, hits) : '';
+    return hits.find(h => h.id === id);
   }
 
   private async quote(text: string, q: string): Promise<string> {
@@ -126,6 +149,27 @@ export function shortQuote(text: string, question: string, maxChars = 260): stri
   return keep.sort((a, b) => a.i - b.i).map(k => k.s).join(' ');
 }
 
+// The two passages Jev rates highest, when the runner-up is a real contender (a short question that two passages answer
+// differently is often a question that can mean two things).
+const SPLIT_MIN = 0.2;
+function splitOf(hits: Passage[], probs: Record<string, number> | undefined, picked: Passage): Guide['lastSplit'] {
+  if (!probs) return undefined;
+  const ranked = hits.map((h, i) => ({ h, p: probs[`p${i}`] ?? 0 })).sort((x, y) => y.p - x.p);
+  const [a, b] = ranked;
+  return a && b && a.h.id === picked.id && b.p >= SPLIT_MIN ? { a: a.h, b: b.h, pa: a.p, pb: b.p } : undefined;
+}
+
+// Publications written for a narrow audience. "How do I file my return?" is not answered by the guide for people with
+// income from US possessions, however well one of its lines matches the words.
+const NICHE_DOC = /\bpublications-p(54|515|519|570|597|901)\b|^IRS Pub (54|515|519|570|597|901)\b/;
+const NICHE_ASKED = /\b(possessions?|puerto rico|guam|virgin islands|samoa|mariana|abroad|overseas|expat\w*|foreign|nonresident|non-resident|alien|treat(y|ies)|canad\w*|bona fide)\b/i;
+export const isNiche = (p: Passage): boolean => NICHE_DOC.test(`${p.title ?? ''}`) || NICHE_DOC.test(p.cite?.title ?? '');
+export function withoutNiche(hits: Passage[], question: string): Passage[] {
+  if (NICHE_ASKED.test(question)) return hits;
+  const general = hits.filter(h => !isNiche(h));
+  return general.length ? general : hits;
+}
+
 // Keyword retriever for tests and small manuals: scores passages by shared words (Octo RAG replaces it in production).
 const STOPWORDS = new Set('a an the is are do does i my me you your to of in on for and or it this that can how what where which when why should will with be at by from'.split(' '));
 const words = (s: string) => s.toLowerCase().match(/[a-z0-9]+/g)?.filter(w => !STOPWORDS.has(w)).map(w => w.replace(/s$/, '')) ?? [];
@@ -152,6 +196,28 @@ export class OverlapJudge implements Judge {
   }
 }
 
+// What Jev said about one passage pick, for the trace as well as the decision.
+//   rule: why the pick stands or not: 'sure' (Jev thinks it unlikely that no passage answers), 'ahead' (the passage it
+//   picked is clearly more likely than "none"), 'none' (Jev did not choose a passage, or is not sure enough), 'error'
+//   (the call failed: see error), 'skipped' (no key or no passages).
+type Pick = { id: string; rule: 'sure' | 'ahead' | 'none' | 'error' | 'skipped'; probs: Record<string, number>; error: string };
+
+// Jev's confidence that SOME passage answers is 1 minus its probability for "none": two passages that both answer
+// split the rest between them. So a pick stands when "none" is unlikely (the original gate), or when the picked passage
+// is a clear favourite over "none" even though "none" kept more than a quarter (a question phrased in an unusual way,
+// such as "can I file from here?", scored 0.70 for the right passage against 0.26 for none, and was thrown away at 0.25).
+// A passage that is merely on the same topic does not get there: its own probability stays low and "none" stays high.
+export const NONE_MAX = 0.25;
+const AHEAD_MIN = 0.65;
+const AHEAD_BY = 0.35;
+export function pickRule(probs: Record<string, number>, i: number): 'sure' | 'ahead' | 'none' {
+  if (i < 0) return 'none';
+  const none = probs.none ?? 1;
+  if (none <= NONE_MAX) return 'sure';
+  const own = probs[`p${i}`] ?? 0;
+  return own >= AHEAD_MIN && own - none >= AHEAD_BY ? 'ahead' : 'none';
+}
+
 // Jev decides whether one of the passages answers the question. Locked to Jev models like JevGate.
 export class JevJudge implements Judge {
   calls = 0;
@@ -159,6 +225,7 @@ export class JevJudge implements Judge {
   // Why the last call got no answer from Jev (HTTP status, timeout); empty when Jev answered. Lets a caller tell
   // "no passage answers" apart from "Jev was down" and fall back.
   lastError = '';
+  lastProbs?: Record<string, number>;
   private key?: string;
   private url: string;
   constructor(opts: { key?: string; url?: string } = {}) {
@@ -166,7 +233,13 @@ export class JevJudge implements Judge {
     this.url = opts.url ?? process.env.JEV_URL ?? 'https://openrouter.ai/api/alpha/decisions';
   }
   async pick(question: string, passages: Passage[]): Promise<string> {
-    if (!this.key || !passages.length) return '';
+    return (await this.choose(question, passages)).id;
+  }
+
+  // The same decision with what Jev said: its probabilities and the rule that kept or dropped the pick, or the error.
+  async choose(question: string, passages: Passage[]): Promise<Pick> {
+    this.lastProbs = undefined;
+    if (!this.key || !passages.length) return { id: '', rule: 'skipped', probs: {}, error: '' };
     const criteria: Record<string, string> = { none: 'None of the passages answers the question' };
     passages.forEach((p, i) => { criteria[`p${i}`] = `This passage answers the question: "${p.text}"`; });
     try {
@@ -175,15 +248,19 @@ export class JevJudge implements Judge {
         state: { question },
         questions: { source: { type: 'choice', criteria, instructions: 'Pick the passage that directly answers the question. Pick none if no passage does; a passage on the same topic that does not answer it is none.' } },
       });
-      if (!j) return '';
+      if (!j) return { id: '', rule: 'error', probs: {}, error: this.lastError };
       this.calls++; this.cost += j.usage?.cost ?? 0;
       const a = j.answers?.source;
+      const probs: Record<string, number> = a?.probabilities ?? {};
       const i = typeof a?.choice === 'string' && a.choice.startsWith('p') ? +a.choice.slice(1) : -1;
-      // Two passages can both answer, which splits Jev's confidence between them; what matters is how sure it is
-      // that SOME passage answers, so the gate is the probability of "none".
-      const none = a?.probabilities?.none ?? 1;
-      return i >= 0 && none <= 0.25 ? passages[i]?.id ?? '' : '';
-    } catch { return ''; }
+      this.lastProbs = probs;
+      const rule = pickRule(probs, i);
+      return { id: rule === 'none' ? '' : passages[i]?.id ?? '', rule, probs, error: '' };
+    } catch (e) {
+      // A reply that could not be read is an error, not "no passage answers": callers fall back on lastError.
+      this.lastError = `jev ${(e as Error).name}`;
+      return { id: '', rule: 'error', probs: {}, error: this.lastError };
+    }
   }
 
   async sentences(question: string, sentences: string[]): Promise<number[]> {

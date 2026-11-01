@@ -5,6 +5,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { Guide, JevJudge, OctoRetriever, OverlapJudge, type Judge, type Passage, type Retriever } from '../../copilot-engine/src/guide.ts';
+import { Dialogue } from '../../copilot-engine/src/dialogue.ts';
 import { Copilot } from '../../copilot-engine/src/engine.ts';
 import { JevGate, LlamaModel, RuleModel } from '../../copilot-engine/src/models.ts';
 import type { Flow } from '../../copilot-engine/src/types.ts';
@@ -14,7 +15,7 @@ import { usage } from './llm.ts';
 
 export type Answer = {
   reply: string;
-  kind: 'answer' | 'unknown' | 'no-search' | 'deflected' | 'error';
+  kind: 'answer' | 'unknown' | 'no-search' | 'deflected' | 'clarify' | 'error';
   cite?: { id: string; title?: string; url?: string };
   citedId?: string;           // the cited passage's own id in the store (cite.id is its title when it has one)
   quote: string[];            // the sentences read out, each meant to be word for word from the cited passage
@@ -50,6 +51,10 @@ export function makeTarget(cfg: Config, root: string) {
   async function ask(said: string, opts: { poison?: string } = {}): Promise<Answer> {
     const t0 = Date.now();
     if (advice?.test(said)) return { reply: t.advice.reply, kind: 'deflected', quote: [], hits: [], searchMs: 0, ms: 0 };
+    // The site asks back before it quotes when a question is too vague (copilot-engine/src/dialogue.ts); one dialogue per ask here.
+    const dialogue = new Dialogue();
+    const asked = opts.poison ? null : dialogue.clarify(said);
+    if (asked) return { reply: asked, kind: 'clarify', quote: [], hits: [], searchMs: 0, ms: Date.now() - t0 };
     let searchMs = 0, top: Passage[] = [];
     const retriever: Retriever = { async search(q) {
       if (!searches.has(q)) searches.set(q, (async () => { const s0 = Date.now(); const r = await octo.search(q, 10); searchMs = Date.now() - s0; tally('octo search', searchMs); return r; })());
@@ -59,7 +64,12 @@ export function makeTarget(cfg: Config, root: string) {
     } };
     const before = jevJ.cost;
     const judge: Judge = {
-      async pick(q, ps) { const id = await jevJ.pick(q, ps); return jevJ.lastError ? overlap.pick(q, ps) : id; },
+      lastProbs: undefined as Record<string, number> | undefined,
+      async pick(q, ps) {
+        const r = await jevJ.choose(q, ps);
+        this.lastProbs = r.error ? undefined : r.probs;
+        return r.error ? overlap.pick(q, ps) : r.id;
+      },
       async sentences(q, ss) { const i = await jevJ.sentences(q, ss); return jevJ.lastError ? [] : i; },
     };
     const g = new Guide(book as any, retriever, judge);
@@ -69,6 +79,9 @@ export function makeTarget(cfg: Config, root: string) {
     u.cost += jevJ.cost - before;
     const hits = top.map(p => String(p.title ?? p.id));
     const p = g.last;
+    // two passages nearly as likely to answer a short question: ask which it means, as the site does
+    const split = !opts.poison && g.lastSplit ? dialogue.splitAsk(said, g.lastSplit) : null;
+    if (split) return { reply: split, kind: 'clarify', quote: [], hits, searchMs, ms: Date.now() - t0 };
     return {
       reply, kind: p ? 'answer' : (top.length ? 'unknown' : 'no-search'), quote: g.lastQuote,
       cite: p ? { id: String(p.title ?? p.id), title: p.cite?.title ?? p.title, url: p.cite?.url } : undefined,
