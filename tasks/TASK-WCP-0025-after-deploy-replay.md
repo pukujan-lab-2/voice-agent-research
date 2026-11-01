@@ -152,6 +152,29 @@ Blocked/uncertain:
 Next:
 - Merge #37
 
+### 2026-11-01 23:40:39 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["eval/README.md"],"completed":["Merged main, which now holds the propose-fixes routine, into the after-deploy branch"],"decisions":["no new decisions"],"evidence":["npm run check passes on the merged tree"],"next_action":"Merge #37","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0025","timestamp":"2026-11-01T23:40:39Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"12ae45b5245ef56d7c081bfaa3b9d77affc6583e491ca627a1433d73fe30e9d9","request_id":"d84786fb05fe41b0a8b93fcbcda8beea","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0025"} -->
+
+Completed:
+- Merged main, which now holds the propose-fixes routine, into the after-deploy branch
+
+Evidence:
+- npm run check passes on the merged tree
+
+Decisions:
+- no new decisions
+
+Changed:
+- eval/README.md
+
+Blocked/uncertain:
+- none
+
+Next:
+- Merge #37
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
