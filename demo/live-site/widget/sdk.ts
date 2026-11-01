@@ -149,6 +149,10 @@ let lastSearchMs: number | undefined;
 // browser speech). With no agent after AGENT_WAIT_MS, the call carries on as text instead of sitting on "Connecting…".
 // A cold local worker can take over 20 seconds to register while loading speech models.
 const AGENT_WAIT_MS = 45_000;
+// The voice agent can leave a call that is still going (its container replaced, a crash). A new agent only joins a room
+// when it is created, so the page opens a fresh room and carries on, twice at most (#67).
+const AGENT_REJOINS = 2;
+let agentRejoins = 0;
 let ring: { ctx: AudioContext; timer: ReturnType<typeof setInterval> } | null = null;
 let agentTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -258,7 +262,8 @@ function helpLine(): string {
 }
 
 // From the caller's tap on "Start voice call": the microphone first, and nothing is said until they have answered.
-async function startVoice() {
+async function startVoice(rejoin = false) {
+  if (!rejoin) agentRejoins = 0;
   const seq = ++voiceSeq;
   set({ status: 'waiting' });
   let lk: LiveKit;
@@ -326,6 +331,13 @@ async function startVoice() {
     document.body.appendChild(el);
   });
   rm.on(lk.RoomEvent.ParticipantAttributesChanged, (_changed, p) => { if (p.isAgent) agentState(p.attributes['lk.agent.state']); });
+  rm.on(lk.RoomEvent.ParticipantDisconnected, p => {
+    if (!p.isAgent || room !== rm || !snap.voice) return;
+    failure('agent-lost', 'the voice agent left the call', { rejoin: agentRejoins + 1 });
+    if (agentRejoins >= AGENT_REJOINS) { toText("The voice line dropped, so let's carry on by typing."); return; }
+    agentRejoins++;
+    stopVoice(); void startVoice(true);
+  });
   rm.on(lk.RoomEvent.Disconnected, () => { if (room === rm && snap.voice) toText("The voice line dropped, so let's carry on by typing."); });
   // What the agent heard, live on screen ("heard: …"). A secret answer is never shown.
   rm.registerTextStreamHandler('lk.transcription', async (reader, from) => {

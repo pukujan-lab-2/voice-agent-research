@@ -426,6 +426,7 @@ const BYE = /\b(bye|goodbye|that'?s all|have to go|gotta go|hang up|stop|cancel|
 const NONE = /^\s*(no(ne|pe)?|n\/?a|skip( it| that)?|nothing|not applicable|no notice|leave it (blank|empty)|there (isn'?t|is no) (one|code)|i (didn'?t|did not|haven'?t|have not) (get|got|receive[d]?)( one| a notice| any( notice)?)?)\W*$/i;
 // A desk with no form only answers questions. Model text that states a rule, a date, an amount or what the caller can or
 // must do is a fact that has to come from the business's own passages, so that turn is looked up instead.
+const MODEL_REFUSAL = /\b(i (don'?t|do not) (have|know)|i (can'?t|cannot|couldn'?t) (find|tell)|not in (my|the) (guides|documents)|i'?m not sure|no information on)\b/i;
 const FACTS = /\b(deduct\w*|credits?|deadlines?|due (date|by|on)|penalt\w*|refunds?|percent|withh[eo]ld\w*|exempt\w*|qualif\w*|eligib\w*|owe|filing status|you (can|can't|cannot|must|need to|have to|should|may|will)|the (rule|law|limit)s?|allowed|required|costs?|prices?|hours|open (on|at|from|until))\b|[$%]|\d/i;
 
 export class Desk {
@@ -1168,7 +1169,10 @@ Caller: "Thanks, that helps." -> no tool; say "You're welcome. Anything else?"`;
     // code looks it up only when the model stated a fact itself, or said nothing at all to a question.
     const askedQ = said.match(ASKED_Q)?.[0];
     const stated = content.split(/(?<=[.!?])\s+/).some(x => FACTS.test(x));
-    const netAsk = this.answerOnly ? !answered && !this.done && (stated || (!content.trim() && QUESTION.test(said)))
+    // A model that tells a caller who asked a question that it has nothing ("I don't have that detail in my guides") has not
+    // looked: the library decides that, not the model.
+    const modelRefuses = QUESTION.test(said) && MODEL_REFUSAL.test(content);
+    const netAsk = this.answerOnly ? !answered && !this.done && (stated || modelRefuses || (!content.trim() && QUESTION.test(said)))
       : !answered && (askedQ || (!proposedNow && !confirmedNow && QUESTION.test(said))) && !calls.some(c => c.name === 'go_to_field' || c.name === 'end_call');
     if (netAsk && this.canLookUp) {
       const p = await this.lookup(askedQ && (proposedNow || confirmedNow) ? askedQ : said);
