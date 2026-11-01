@@ -8,3 +8,8 @@ node_modules/
 
 # deploy/pro/update.sh starts the voice check after a deploy when this file exists
 deploy/.voice-check
+# Python
+__pycache__/
+.pytest_cache/
+.venv/
+.ruff_cache/

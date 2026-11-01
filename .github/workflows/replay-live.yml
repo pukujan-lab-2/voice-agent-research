@@ -23,7 +23,7 @@ jobs:
     timeout-minutes: 20
     env:
       SITE: https://copilot.design-bakery.com
-      STANDING_ISSUE: "97"
+      STANDING_ISSUE: "22"
       GH_REPO: ${{ github.repository }}
       GH_TOKEN: ${{ github.token }}
     steps:

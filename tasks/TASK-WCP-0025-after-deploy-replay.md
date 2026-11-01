@@ -1,6 +1,6 @@
 # TASK-WCP-0025 — After Deploy Replay
 
-<!-- continuity:task {"acceptance":["When `production` moves and Komodo has deployed, the replay cases run against https://copilot.design-bakery.com","The voice test runs against the public URL","An eval span on the deploy is in Phoenix with the outcome"],"depends_on":["WCP-0024"],"goal":"Replay the cases against the live site after each deploy","id":"WCP-0025","issue_url":"https://github.com/Pukujan-lab/voice-agent-research/issues/92","next_action":"Find how GitHub can tell that the deploy has finished","owner":"owner","priority":"P2","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"active","why":"A merge doesn't show whether the live site answers right (#92)"} -->
+<!-- continuity:task {"acceptance":["When `production` moves and Komodo has deployed, the replay cases run against https://copilot.design-bakery.com","The voice test runs against the public URL","An eval span on the deploy is in Phoenix with the outcome"],"depends_on":["WCP-0024"],"goal":"Replay the cases against the live site after each deploy","id":"WCP-0025","issue_url":"https://github.com/pukujan-lab-2/voice-agent-research/issues/20","next_action":"Find how GitHub can tell that the deploy has finished","owner":"owner","priority":"P2","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"active","why":"A merge doesn't show whether the live site answers right (#92)"} -->
 
 - Status: active
 - Owner: owner
