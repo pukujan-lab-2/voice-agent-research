@@ -1,8 +1,8 @@
 # TASK-WCP-0001 — CI on the Pro (stopgap)
 
-<!-- continuity:task {"acceptance": ["A runner for this repository is online on the MacBook Pro and ci.yml targets it (stopgap until the VPS, #25)", "The gates check passes on that runner", "main requires a pull request and the gates check, and auto-merge is allowed", "The OIO workflows target the same runner through the OIO_RUNS_ON variable"], "depends_on": [], "goal": "Run CI on a runner we own and protect main with the gates check", "id": "WCP-0001", "issue_url": "https://github.com/Pukujan/voice-agent-research/issues/20", "next_action": "Merge this records PR, post the receipt on #20 with the merged SHA, then close #20", "owner": "owner", "priority": "P1", "protocol_version": "0.1.0-draft", "schema": "project-continuity.task.v1", "status": "active", "why": "GitHub-hosted Actions minutes are used up, so no CI job could start"} -->
+<!-- continuity:task {"acceptance": ["A runner for this repository is online on the MacBook Pro and ci.yml targets it (stopgap until the VPS, #25)", "The gates check passes on that runner", "main requires a pull request and the gates check, and auto-merge is allowed", "The OIO workflows target the same runner through the OIO_RUNS_ON variable"], "depends_on": [], "goal": "Run CI on a runner we own and protect main with the gates check", "id": "WCP-0001", "issue_url": "https://github.com/Pukujan/voice-agent-research/issues/20", "next_action": "none; CI runs on the VPS org-pool runners (#25, #30)", "owner": "owner", "priority": "P1", "protocol_version": "0.1.0-draft", "schema": "project-continuity.task.v1", "status": "done", "why": "GitHub-hosted Actions minutes are used up, so no CI job could start"} -->
 
-- Status: active
+- Status: done
 - Owner: owner
 - Priority: P1
 - Depends on: none
@@ -75,6 +75,29 @@ Blocked/uncertain:
 
 Next:
 - Merge the records PR, post the receipt on #20 with the merged SHA, close #20
+
+### 2026-11-01 01:48:36 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["docs/decisions/0008-repo-checks-and-ci.md, checkpoints/CURRENT.md, tasks/TASK-WCP-0001-ci-on-the-pro.md"],"completed":["Confirmed #25 is met: ci.yml and OIO_RUNS_ON target [self-hosted, org-pool] on the VPS (#30), and the Pro runner folder and service are gone; records updated"],"decisions":["No branch protection on Pukujan-lab free plan; PRs merged by hand after gates (owner, #29)"],"evidence":["gates and stack-train passed on org-pool in run 41262473328 (#35); repo runners count 0; ~/ci/runners on the Pro is empty; npm run check passed"],"next_action":"none; close #25 after this merges","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0001","timestamp":"2026-11-01T01:48:36Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"a7b1d920576a4119578ad22f189d92809ad3897b63a1a04e0060675a2c749207","request_id":"f0d3bd24132044678662ecbd54fd90b6","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0001"} -->
+
+Completed:
+- Confirmed #25 is met: ci.yml and OIO_RUNS_ON target [self-hosted, org-pool] on the VPS (#30), and the Pro runner folder and service are gone; records updated
+
+Evidence:
+- gates and stack-train passed on org-pool in run 41262473328 (#35); repo runners count 0; ~/ci/runners on the Pro is empty; npm run check passed
+
+Decisions:
+- No branch protection on Pukujan-lab free plan; PRs merged by hand after gates (owner, #29)
+
+Changed:
+- docs/decisions/0008-repo-checks-and-ci.md, checkpoints/CURRENT.md, tasks/TASK-WCP-0001-ci-on-the-pro.md
+
+Blocked/uncertain:
+- none
+
+Next:
+- none; close #25 after this merges
 
 ## Handoff
 

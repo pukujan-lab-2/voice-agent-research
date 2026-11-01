@@ -19,7 +19,6 @@ Phase: demo build. The copilot runs locally on fictional demo sites; nothing is 
 
 - Clarifying questions (#12), follow-up context (#13), advice hand-off (#14), eval re-baseline (#15).
 - v2 desk merge (#16), call logger and insights (#17), offline scene test (#19).
-- Move CI from the Pro stopgap to the VPS once it exists (#25). On the Pro, the stack-train check (not required) fails in `setup-python`.
 
 ## Blockers
 
