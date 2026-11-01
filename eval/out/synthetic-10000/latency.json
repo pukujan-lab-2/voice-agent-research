@@ -1,0 +1,40 @@
+{
+ "passages": 10000,
+ "otherTenantPassages": 2000,
+ "queries": 60,
+ "loadS": 4,
+ "indexS": 4,
+ "latencyMs": {
+  "unfiltered": {
+   "p50": 23,
+   "p90": 62,
+   "max": 72
+  },
+  "business": {
+   "p50": 53,
+   "p90": 97,
+   "max": 240
+  },
+  "language": {
+   "p50": 37,
+   "p90": 78,
+   "max": 102
+  },
+  "language+page type": {
+   "p50": 15,
+   "p90": 24,
+   "max": 28
+  },
+  "section": {
+   "p50": 15,
+   "p90": 18,
+   "max": 20
+  },
+  "small tenant (prefix)": {
+   "p50": 18,
+   "p90": 26,
+   "max": 29
+  }
+ },
+ "armExperiment": {}
+}

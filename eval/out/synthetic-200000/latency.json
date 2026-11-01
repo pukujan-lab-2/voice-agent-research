@@ -1,0 +1,56 @@
+{
+ "passages": 200000,
+ "otherTenantPassages": 2000,
+ "queries": 100,
+ "loadS": 27,
+ "indexS": 111,
+ "latencyMs": {
+  "unfiltered": {
+   "p50": 238,
+   "p90": 1000,
+   "max": 1214
+  },
+  "business": {
+   "p50": 2112,
+   "p90": 3174,
+   "max": 4577
+  },
+  "language": {
+   "p50": 1788,
+   "p90": 3644,
+   "max": 6055
+  },
+  "language+page type": {
+   "p50": 375,
+   "p90": 847,
+   "max": 1739
+  },
+  "section": {
+   "p50": 267,
+   "p90": 520,
+   "max": 1327
+  },
+  "small tenant (prefix)": {
+   "p50": 209,
+   "p90": 1004,
+   "max": 2037
+  }
+ },
+ "armExperiment": {
+  "allowed set (every chunk under the prefix)": {
+   "p50Ms": 725
+  },
+  "vector arm as written (order by distance + 0)": {
+   "p50Ms": 787
+  },
+  "vector arm on the HNSW index, iterative scan": {
+   "p50Ms": 2
+  },
+  "lexical arm restricted to the prefix": {
+   "p50Ms": 781
+  },
+  "lexical arm, no prefix": {
+   "p50Ms": 19
+  }
+ }
+}
