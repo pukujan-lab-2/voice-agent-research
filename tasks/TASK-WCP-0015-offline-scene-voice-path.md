@@ -1,8 +1,8 @@
 # TASK-WCP-0015 — The offline scene suite finishes and says what it could not run
 
-<!-- continuity:task {"acceptance":["A full offline run reaches its summary line instead of throwing","A scene the browser cannot run prints SKIP with the reason and is not counted as a pass","The layout scene's call checks are named for what they measure","A known failing check is recorded as a failure, not as a dead run"],"depends_on":[],"goal":"The offline scene suite runs to the end and says which scenes it could not run","id":"WCP-0015","issue_url":"https://github.com/Pukujan-lab/voice-agent-research/issues/69","next_action":"Open the pull request, merge it, then remove the worktree","owner":"owner","priority":"P1","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"active","why":"A full offline run stops in its voice scene, so it prints no summary and never reaches the phone layout scene (#69)"} -->
+<!-- continuity:task {"acceptance":["A full offline run reaches its summary line instead of throwing","A scene the browser cannot run prints SKIP with the reason and is not counted as a pass","The layout scene's call checks are named for what they measure","A known failing check is recorded as a failure, not as a dead run"],"depends_on":[],"goal":"The offline scene suite runs to the end and says which scenes it could not run","id":"WCP-0015","issue_url":"https://github.com/Pukujan-lab/voice-agent-research/issues/69","next_action":"none; delivered in #70 and merged as 839a083","owner":"owner","priority":"P1","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"completed","why":"A full offline run stops in its voice scene, so it prints no summary and never reaches the phone layout scene (#69)"} -->
 
-- Status: active
+- Status: completed
 - Owner: owner
 - Priority: P1
 - Depends on: none
@@ -53,6 +53,12 @@ Headless Chromium from the Playwright cache; no keys, no network.
 ## Related records
 
 - Leaf #69; parent none; depends on none. Transferred here from #65's "voice tests pass" acceptance.
+
+## Delivery
+
+- Delivered in pull request #70, merged as `839a083` on 2026-11-01 07:18 UTC from pushed head `dafde79`; #69 closed on merge.
+- Checks on the branch: `npm run check` passed (49 engine tests, 8 of 8 scenarios); `npm run test:offline` printed `live-site (offline): 172/178 (5 skipped)` with per-scene totals and one line per skip.
+- The six failures are older than this change and stay open elsewhere: two offline guide lookups, the tax submit (#19), the FAQ list with no document store, and two timing checks.
 - Primary writer / branch: claude-code / task/WCP-0015-offline-scene-voice-path; source issue open as of 2026-11-01.
 - Related: #61 (moved calls to LiveKit, which left the stubs unused), #19 (the other offline scene failure).
 

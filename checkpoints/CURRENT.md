@@ -12,13 +12,13 @@ Phase: demo build. The copilot runs locally on fictional demo sites; nothing is 
 
 ## Active
 
-- Offline scene suite voice path (#69), by the live-demo-site session: the suite stops in its voice scene, so a full run prints no summary.
 - IRS library load into Octo (#18), running with 4 workers.
 
 ## Done recently
 
 - Demo sites redesign (#64): merged as `35b9ad1`, task WCP-0013 completed.
 - Copilot call panel redesign (#65): merged as `da521b8`, task WCP-0014 completed; its voice-test acceptance moved to #69.
+- Offline scene suite voice path (#69): merged as `839a083`, task WCP-0015 completed. A full run now prints `172/178 (5 skipped)` and names each skip.
 
 ## Queued
 
@@ -31,4 +31,4 @@ Phase: demo build. The copilot runs locally on fictional demo sites; nothing is 
 
 ## Next atomic action
 
-Make the offline scene suite skip its voice scene with a printed reason, so a full run reaches its summary and the phone layout scene (#69).
+Find why the tax form never reaches its `/sent` page in the offline scene, which is the one failing check the suite now records instead of dying on (#19).
