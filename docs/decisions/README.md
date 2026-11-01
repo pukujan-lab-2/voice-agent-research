@@ -19,3 +19,4 @@ One file per decision. A decision changes only through a new file that replaces 
 | 0013 | [The lfm3-audio stack is one model, listed in English only](0013-lfm3-audio-stack.md) | 2026-11-01 |
 | 0014 | [Voice models are swapped: only the stack in use is resident](0014-voice-models-are-swapped.md) | 2026-11-01 |
 | 0015 | [The production branch deploys the lab](0015-production-branch-deploys.md) | 2026-11-01 |
+| 0017 | [The model sees a window of the form; state lives in stores with a cap](0017-model-sees-a-window-state-lives-in-capped-stores.md) | 2026-11-01 |

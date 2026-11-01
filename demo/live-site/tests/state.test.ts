@@ -6,6 +6,7 @@ import { createApi } from '../api.ts';
 import { MemoryStore, type Store } from '../../../copilot-engine/src/memory.ts';
 import { OctoStore } from '../../../copilot-engine/src/octo-store.ts';
 import type { Sites, SiteConfig } from '../../../copilot-engine/src/site-config.ts';
+import { SiteMap } from '../../../copilot-engine/src/site-map.ts';
 import { pgSql } from '../../../copilot-engine/tests/pg-sql.ts';
 
 let clients: { id: string; full_name: string }[] = [];
@@ -146,4 +147,23 @@ test('a snapshot cannot be kept for a business the backend does not know', async
   const a = instance({ sessions: new MemoryStore() });
   const r = await post(a, '/api/session', { op: 'set', business: 'nobody', id: 'session-abcdefgh-1234', snapshot: { v: 1, flow: 'f', values: {}, log: [] } });
   assert.equal(r.status, 404);
+});
+
+test('the form for a page or a request is found in the business\'s own map; one flow is sent on request', async () => {
+  const { sql } = await pgSql();
+  const siteMap = new SiteMap(sql, { table: 'map_api' });
+  const flow = (id: string) => ({ id, business: 'Acme', intro: 'Hi', scope: 's', doneMessage: 'd', fields: [{ name: 'a', label: 'A', question: 'A?', kind: 'text' as const }] });
+  await siteMap.put('acme', { id: 'refund', kind: 'form', path: '/refund', title: 'Refund request', flow: flow('refund') });
+  await siteMap.put('other', { id: 'refund', kind: 'form', path: '/refund', title: 'Other refund request', flow: flow('other-refund') });
+  const a = createApi(ENV, { matchNames: same, stores: {}, sites: knownSites, siteMap });
+  const get = (q: string) => a.handle(new Request(`http://x/api/copilot/form?${q}`), '2.2.2.2').then(async r => ({ status: r.status, ...(await r.json() as object) } as Reply));
+  assert.deepEqual((await get('business=acme&path=/refund/')).forms.map((f: { id: string }) => f.id), ['refund']);
+  assert.equal((await get('business=acme&q=I want my money back refund')).forms[0].title, 'Refund request');
+  assert.equal((await get('business=other&q=refund')).forms[0].title, 'Other refund request', 'another business has its own');
+  const one = await get('business=acme&id=refund');
+  assert.equal(one.flow.id, 'refund');
+  assert.equal((await get('business=acme&id=nope')).status, 404);
+  assert.equal((await get('business=nobody&q=refund')).status, 404);
+  assert.equal((await get('business=acme')).status, 400);
+  assert.equal((await get('business=Bad%20Id&q=x')).status, 400);
 });

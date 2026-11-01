@@ -13,6 +13,7 @@
 //                         here with the fictional client list in Octo; the answer is only match / no_match / need_more /
 //                         locked. Nothing on file is ever sent back, and 3 failed tries lock verification for that call.
 //   GET  /api/copilot/config?business=  a business's config (pages, voice stacks, desk), kept in Octo and loaded on demand
+//   GET  /api/copilot/form?business=&(path=|q=|id=)  the form for a page or a request, or one form's flow; a large site's map is in Octo
 //   POST /api/session     a resume snapshot for a dropped call, by business and session: { op: get | set | delete, business, id,
 //                         snapshot? }, kept 30 minutes in the shared store (Octo when live)
 //   POST /api/account/status  the verified caller's (fictional) return status card
@@ -30,6 +31,7 @@ import { maskPII } from '../../copilot-engine/src/guard.ts';
 import { MemoryStore, SESSION_TTL_MS, type Store } from '../../copilot-engine/src/memory.ts';
 import { OctoStore } from '../../copilot-engine/src/octo-store.ts';
 import { BUSINESS_ID, SiteConfigs, type Sites } from '../../copilot-engine/src/site-config.ts';
+import { SiteMap } from '../../copilot-engine/src/site-map.ts';
 
 export type ApiEnv = {
   OPENROUTER_JEV_KEY?: string; OCTO_KEY?: string; OCTO_WORKSPACE?: string; JEV_URL?: string; OCTO_BASE?: string; OCTO_TIMEOUT_MS?: string; OCTO_TRACES?: string;
@@ -97,7 +99,9 @@ export function createApi(env: ApiEnv, opts: { offlinePassages?: Record<string, 
   // in-process store otherwise or when STATE_STORE=memory.
   stores?: { calls?: Store; sessions?: Store; limits?: Store };
   // Each business's config (voice stacks allowed, pages, desk). Default: the Octo table copilot_sites when live, none offline.
-  sites?: Sites } = {}) {
+  sites?: Sites;
+  // The business's map of pages and forms, searched on demand (default: the Octo table copilot_site_map when live).
+  siteMap?: Pick<SiteMap, 'forPage' | 'find' | 'load'> } = {}) {
   const offline = env.OFFLINE === '1';
   if (!offline && !(env.OPENROUTER_JEV_KEY && env.OCTO_KEY && env.OCTO_WORKSPACE)) throw new Error('missing OPENROUTER_JEV_KEY, OCTO_KEY or OCTO_WORKSPACE (or set OFFLINE=1)');
   const jevUrl = env.JEV_URL || JEV_URL;
@@ -215,6 +219,7 @@ export function createApi(env: ApiEnv, opts: { offlinePassages?: Record<string, 
   const sessionStore = opts.stores?.sessions ?? (inOcto ? octoStore() : new MemoryStore(Date.now, { max: 20_000 }));
 
   const sites: Sites | null = opts.sites ?? (offline ? null : new SiteConfigs(sql));
+  const siteMap = opts.siteMap ?? (offline ? null : new SiteMap(sql));
 
   // Per-visitor rate limit (a window of one minute from the visitor's first request) and a daily cap on Jev calls.
   const perMin = Number(env.RATE_PER_MIN) || 40;
@@ -375,7 +380,8 @@ export function createApi(env: ApiEnv, opts: { offlinePassages?: Record<string, 
       // A business that sends its id may only use the voice stacks its own config allows.
       const stack = clip(b.stack, 40);
       if (sites && BUSINESS_ID.test(b.business ?? '') && stack) {
-        const allowed = (await sites.get(b.business))?.voice?.stacks;
+        // The stack list is a business's preference, not a secret: if Octo can't be reached the turn goes ahead.
+        const allowed = await sites.get(b.business).then(c => c?.voice?.stacks, e => { log(`site config: ${(e as Error).message}, stack not checked`); return undefined; });
         if (allowed && !allowed.includes(stack)) return json({ error: 'stack not allowed for this business' }, 403);
       }
       const model = stack === 'lfm3-audio' ? audioDeskModel : deskModel;
@@ -500,6 +506,20 @@ export function createApi(env: ApiEnv, opts: { offlinePassages?: Record<string, 
           const config = sites ? await sites.get(business) : null;
           if (!config) return json({ error: 'unknown business' }, 404);
           const r = json({ config }); r.headers.set('Cache-Control', 'public, max-age=60'); return r;
+        } catch (e) { log(`${path} failed: ${(e as Error).message}`); return json({ error: 'backend error' }, 502); }
+      }
+      if (path === '/api/copilot/form' && req.method === 'GET') {
+        // Find the form (or page) for the page a visitor is on (path=) or for what they asked for (q=), or load one form (id=).
+        // References come back small; only id= returns a flow, and it returns one.
+        if (await limited(ip || req.headers.get('cf-connecting-ip') || 'local')) return json({ error: 'slow down' }, 429);
+        const u = new URL(req.url).searchParams, business = clip(u.get('business'), 60);
+        if (!BUSINESS_ID.test(business)) return json({ error: 'bad business' }, 400);
+        try {
+          if (!siteMap || !sites || !(await sites.get(business))) return json({ error: 'unknown business' }, 404);
+          if (u.has('id')) { const flow = await siteMap.load(business, clip(u.get('id'), 80)); return flow ? json({ flow }) : json({ error: 'not found' }, 404); }
+          if (u.has('path')) return json({ forms: await siteMap.forPage(business, clip(u.get('path'), 300)) });
+          if (u.has('q')) return json({ forms: await siteMap.find(business, clip(u.get('q'), 300), { k: Number(u.get('k')) || 3 }) });
+          return json({ error: 'path, q or id is required' }, 400);
         } catch (e) { log(`${path} failed: ${(e as Error).message}`); return json({ error: 'backend error' }, 502); }
       }
       if (path.startsWith('/api/library/') && path !== '/api/library/search' && req.method === 'GET') {
