@@ -1,6 +1,6 @@
 # TASK-WCP-0070 — Ingest Pipeline
 
-<!-- continuity:task {"acceptance":["A fixture site loads into a business prefix with metadata on every passage and a printed count","A second run with nothing changed writes nothing; a changed page replaces only its passages; a deleted page's passages are removed","Duplicates are indexed once; two businesses never share a prefix or rows"],"depends_on":[],"goal":"Any business's site and documents load into its own Octo prefix with metadata, incrementally","id":"WCP-0070","issue_url":"https://github.com/Pukujan-lab/voice-agent-research/issues/108","next_action":"Start the leaf on its task branch","owner":"owner","priority":"P2","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"active","why":"A new business has no way to put its site into Octo; the IRS scripts are one-off (#108)"} -->
+<!-- continuity:task {"acceptance":["A fixture site loads into a business prefix with metadata on every passage and a printed count","A second run with nothing changed writes nothing; a changed page replaces only its passages; a deleted page's passages are removed","Duplicates are indexed once; two businesses never share a prefix or rows"],"depends_on":[],"goal":"Any business's site and documents load into its own Octo prefix with metadata, incrementally","id":"WCP-0070","issue_url":"https://github.com/pukujan-lab-2/voice-agent-research/issues/32","next_action":"Start the leaf on its task branch","owner":"owner","priority":"P2","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"active","why":"A new business has no way to put its site into Octo; the IRS scripts are one-off (#32)"} -->
 
 - Status: active
 - Owner: owner
@@ -13,7 +13,7 @@ Any business's site and documents load into its own Octo prefix with metadata, i
 
 ## Why
 
-A new business has no way to put its site into Octo; the IRS scripts are one-off (#108)
+A new business has no way to put its site into Octo; the IRS scripts are one-off (#32)
 
 ## Allowed files
 
@@ -30,7 +30,7 @@ A business with its own site can have it searched by the copilot after one comma
 ## Scope and boundaries
 
 - In scope: a sitemap or start URL plus HTML, PDF and Markdown documents in; passages with url, title, section, page type, language, last modified out; a business prefix in Octo; incremental re-crawl; dedupe; indexed count.
-- Out of scope: the IRS fetchers' site-specific parsing; the 880k load (#18); the page and form map (#104).
+- Out of scope: the IRS fetchers' site-specific parsing; the 880k load (#8); the page and form map (#29).
 - Dependencies/uncertainty: none. Octo's RAG has no metadata filter; title paths and an Octo table stand in until Octo adds one.
 
 ## Acceptance criteria
@@ -49,7 +49,7 @@ Starting revision, material inputs/configuration, runtime, exact command or prom
 
 ## Related records
 
-- Leaf #108; parent #107; depends on none.
+- Leaf #32; parent #31; depends on none.
 - Primary writer claude-code / `task/WCP-0070-*`; source issue open as of 2026-11-01.
 - PR/CI evidence: pending.
 
