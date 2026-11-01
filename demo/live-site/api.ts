@@ -12,6 +12,8 @@
 //   POST /api/verify      caller verification: the caller's confirmed name, date of birth, last four and zip are compared
 //                         here with the fictional client list in Octo; the answer is only match / no_match / need_more /
 //                         locked. Nothing on file is ever sent back, and 3 failed tries lock verification for that call.
+//   POST /api/session     a resume snapshot for a dropped call, by business and session: { op: get | set | delete, business, id,
+//                         snapshot? }, kept 30 minutes in the shared store (Octo when live)
 //   POST /api/account/status  the verified caller's (fictional) return status card
 //   GET  /api/library/…   the tax library, all from Octo: search, docs (the list), doc?doc= (one source: its sections, or
 //                         the article body of a web-page source), pdf?doc= (a publication's printed PDF), faq
@@ -24,10 +26,12 @@ import { JevJudge, KeywordRetriever, OctoRetriever, OverlapJudge, type Judge, ty
 import { JevGate, LlamaModel, RuleModel } from '../../copilot-engine/src/models.ts';
 import type { Field, FieldKind, Flow, Model } from '../../copilot-engine/src/types.ts';
 import { maskPII } from '../../copilot-engine/src/guard.ts';
+import { MemoryStore, SESSION_TTL_MS, type Store } from '../../copilot-engine/src/memory.ts';
+import { OctoStore } from '../../copilot-engine/src/octo-store.ts';
 
 export type ApiEnv = {
   OPENROUTER_JEV_KEY?: string; OCTO_KEY?: string; OCTO_WORKSPACE?: string; JEV_URL?: string; OCTO_BASE?: string; OCTO_TIMEOUT_MS?: string; OCTO_TRACES?: string;
-  SIGNING_SECRET?: string; LLAMA_URL?: string; DESK_URL?: string; DESK_MODEL?: string; LFM3_AUDIO_URL?: string; OFFLINE?: string; JEV_DAILY_CAP?: string; RATE_PER_MIN?: string;
+  SIGNING_SECRET?: string; LLAMA_URL?: string; DESK_URL?: string; DESK_MODEL?: string; LFM3_AUDIO_URL?: string; OFFLINE?: string; JEV_DAILY_CAP?: string; RATE_PER_MIN?: string; STATE_STORE?: string;
 };
 
 // Only the fictional demo manuals and the IRS library (public-domain IRS.gov pages, data/irs.passages.json) can be searched.
@@ -85,7 +89,11 @@ function deskTools(raw: unknown): unknown[] | null {
 
 const WARM_FIELD: Field = { name: 'warm', label: 'warm-up', question: 'Say hello.', kind: 'text' };
 
-export function createApi(env: ApiEnv, opts: { offlinePassages?: Record<string, LibraryPassage[]>; matchNames?: NameMatcher; trace?: ExportTrace; score?: (s: EvalScore) => Promise<'annotation' | 'span'> } = {}) {
+export function createApi(env: ApiEnv, opts: { offlinePassages?: Record<string, LibraryPassage[]>; matchNames?: NameMatcher; trace?: ExportTrace; score?: (s: EvalScore) => Promise<'annotation' | 'span'>;
+  // Where state lives. calls: caller verification (shared, so a restart or a second instance keeps a lock); sessions: resume
+  // snapshots; limits: rate-limit counters (hot path, so per instance). Default: Octo for the first two when live, a capped
+  // in-process store otherwise or when STATE_STORE=memory.
+  stores?: { calls?: Store; sessions?: Store; limits?: Store } } = {}) {
   const offline = env.OFFLINE === '1';
   if (!offline && !(env.OPENROUTER_JEV_KEY && env.OCTO_KEY && env.OCTO_WORKSPACE)) throw new Error('missing OPENROUTER_JEV_KEY, OCTO_KEY or OCTO_WORKSPACE (or set OFFLINE=1)');
   const jevUrl = env.JEV_URL || JEV_URL;
@@ -194,8 +202,15 @@ export function createApi(env: ApiEnv, opts: { offlinePassages?: Record<string, 
     return (await sign(q)) === p.sig ? q : null;
   };
 
-  // Per-visitor rate limit and a daily cap on Jev calls (judge + gate), counted per running instance.
-  const hits = new Map<string, number[]>();
+  // State that outlives a request lives in Stores with a time limit and a hard size cap (MemoryStore evicts the oldest past
+  // its cap; the Octo store sweeps), never in bare Maps. Rate limits stay per instance: they are on every request.
+  const inOcto = !offline && env.STATE_STORE !== 'memory';
+  const octoStore = () => new OctoStore(sql, { max: 200_000 });
+  const limits = opts.stores?.limits ?? new MemoryStore(Date.now, { max: 20_000 });
+  const callStore = opts.stores?.calls ?? (inOcto ? octoStore() : new MemoryStore(Date.now, { max: 20_000 }));
+  const sessionStore = opts.stores?.sessions ?? (inOcto ? octoStore() : new MemoryStore(Date.now, { max: 20_000 }));
+
+  // Per-visitor rate limit (a window of one minute from the visitor's first request) and a daily cap on Jev calls.
   const perMin = Number(env.RATE_PER_MIN) || 40;
   const cap = Number(env.JEV_DAILY_CAP) || 2000;
   let day = '', jevToday = 0;
@@ -205,14 +220,7 @@ export function createApi(env: ApiEnv, opts: { offlinePassages?: Record<string, 
     if (d !== day) { day = d; jevToday = 0; }
     return jevToday++ < cap;
   };
-  const limited = (ip: string) => {
-    const now = Date.now();
-    const h = (hits.get(ip) ?? []).filter(t => now - t < 60_000);
-    h.push(now);
-    hits.set(ip, h);
-    if (hits.size > 5000) hits.clear();
-    return h.length > perMin;
-  };
+  const limited = async (ip: string) => (await limits.incr(`rl:${ip.slice(0, 64)}`, 60_000)) > perMin;
 
   // The library's pages read from Octo. Lists and documents are cached a few minutes in memory; PDFs (a few MB each)
   // keep the last few, so paging through one guide doesn't fetch it again.
@@ -275,26 +283,30 @@ export function createApi(env: ApiEnv, opts: { offlinePassages?: Record<string, 
   }
 
   // ---- Caller verification. The server compares, never a model; the browser only ever hears the result.
-  type Call = { tries: number; locked: boolean; client: string; at: number };
-  const calls = new Map<string, Call>();
-  const fails = new Map<string, number[]>();
-  const newCall = (): [string, Call] => {
+  // A call is one entry (who it was verified as, whether it is locked) plus a counter of failed tries, both gone
+  // CALL_TTL after the call began. Failed tries per visitor are a counter that lives an hour from the first failure.
+  type Call = { locked: boolean; client: string; at: number };
+  const CALL_ID = /^[0-9a-f]{32}$/;
+  const putCall = (id: string, c: Call) => callStore.set(`call:${id}`, c, Math.max(1000, CALL_TTL - (Date.now() - c.at)));
+  const newCall = async (): Promise<[string, Call]> => {
     const id = Array.from(crypto.getRandomValues(new Uint8Array(16)), b => b.toString(16).padStart(2, '0')).join('');
-    const c: Call = { tries: 0, locked: false, client: '', at: Date.now() };
-    if (calls.size > 5000) for (const [k, v] of calls) if (Date.now() - v.at > CALL_TTL) calls.delete(k);
-    calls.set(id, c);
+    const c: Call = { locked: false, client: '', at: Date.now() };
+    await putCall(id, c);
     return [id, c];
   };
-  const callOf = (id: unknown): [string, Call] | null => {
-    const c = typeof id === 'string' ? calls.get(id) : undefined;
-    return c && Date.now() - c.at < CALL_TTL ? [id as string, c] : null;
+  const callOf = async (id: unknown): Promise<[string, Call] | null> => {
+    if (typeof id !== 'string' || !CALL_ID.test(id)) return null;
+    const c = (await callStore.get(`call:${id}`)) as Call | undefined;
+    return c && Date.now() - c.at < CALL_TTL ? [id, c] : null;
   };
+  const clientOf = async (call: unknown) => (await callOf(call))?.[1].client ?? '';
   async function verify(b: any, ip: string): Promise<Response> {
     if (offline || !opts.matchNames) return json({ error: 'verification needs the live backend' }, 503);
-    const [call, c] = callOf(b.call) ?? newCall();
-    const recent = (fails.get(ip) ?? []).filter(t => Date.now() - t < 3600_000);
-    const out = (result: string, extra: Record<string, unknown> = {}) => json({ result, call, triesLeft: Math.max(0, VERIFY_TRIES - c.tries), ...extra });
-    if (c.locked || recent.length >= VERIFY_IP_FAILS) { c.locked = true; return out('locked'); }
+    const [call, c] = (await callOf(b.call)) ?? await newCall();
+    const ipKey = `vf:${ip.slice(0, 64)}`;
+    const triesOf = async () => Number(await callStore.get(`ct:${call}`)) || 0;
+    const out = async (result: string, extra: Record<string, unknown> = {}) => json({ result, call, triesLeft: Math.max(0, VERIFY_TRIES - await triesOf()), ...extra });
+    if (c.locked || (Number(await callStore.get(ipKey)) || 0) >= VERIFY_IP_FAILS || await triesOf() >= VERIFY_TRIES) { c.locked = true; await putCall(call, c); return out('locked'); }
     if (c.client) return out('match');
     const name = clip(b.name, 80).trim(), dob = clip(b.dob, 10), ssn4 = clip(b.ssn4, 4), zip = clip(b.zip, 5);
     // What is still needed. The zip is always asked last and always the same way, so "need more" says nothing about
@@ -307,24 +319,40 @@ export function createApi(env: ApiEnv, opts: { offlinePassages?: Record<string, 
     const rows = await sql(`select id, full_name from bw_clients where dob = $1::date and ssn4 = $2 and zip = $3 limit 10`, [dob, ssn4, zip]);
     const same = rows.length ? await opts.matchNames(name, rows.map(r => r.full_name)) : [];
     const hit = rows.filter((_, i) => same[i]);
-    if (hit.length === 1) { c.client = hit[0].id; log('verify: match'); return out('match'); }
-    c.tries++;
-    recent.push(Date.now()); fails.set(ip, recent);
-    if (fails.size > 5000) fails.clear();
-    if (c.tries >= VERIFY_TRIES) c.locked = true;
-    log(`verify: no match (try ${c.tries} of ${VERIFY_TRIES}${hit.length > 1 ? ', ambiguous' : ''})`);
+    if (hit.length === 1) { c.client = hit[0].id; await putCall(call, c); log('verify: match'); return out('match'); }
+    const tries = await callStore.incr(`ct:${call}`, CALL_TTL);
+    await callStore.incr(ipKey, 3600_000);
+    if (tries >= VERIFY_TRIES) { c.locked = true; await putCall(call, c); }
+    log(`verify: no match (try ${tries} of ${VERIFY_TRIES}${hit.length > 1 ? ', ambiguous' : ''})`);
     return out(c.locked ? 'locked' : 'no_match');
   }
   async function accountStatus(b: any): Promise<Response> {
-    const found = callOf(b.call);
-    if (!found || !found[1].client) return json({ error: 'not verified' }, 403);
-    const r = (await sql(`select tax_year, status, updated::text, next_step, preparer, amount from bw_returns where client_id = $1`, [found[1].client]))[0];
+    const client = await clientOf(b.call);
+    if (!client) return json({ error: 'not verified' }, 403);
+    const r = (await sql(`select tax_year, status, updated::text, next_step, preparer, amount from bw_returns where client_id = $1`, [client]))[0];
     if (!r) return json({ error: 'not found' }, 404);
     return json({ card: { taxYear: r.tax_year, status: r.status, updated: r.updated, nextStep: r.next_step, preparer: r.preparer, amount: r.amount, sample: true } });
   }
 
+  // ---- Resume snapshots (a dropped call picked up again). One key per business and session, a snapshot of at most 16 KB
+  // that lives SESSION_TTL_MS; the desk's own check (flow id) decides whether a snapshot fits the form it is restored on.
+  const BUSINESS = /^[a-z0-9][a-z0-9-]{0,39}$/, SESSION = /^[\w-]{16,64}$/;
+  async function sessionApi(b: any): Promise<Response> {
+    if (!BUSINESS.test(b.business ?? '') || !SESSION.test(b.id ?? '')) return json({ error: 'bad session request' }, 400);
+    const key = `sess:${b.business}:${b.id}`;
+    if (b.op === 'get') return json({ snapshot: (await sessionStore.get(key)) ?? null });
+    if (b.op === 'delete') { await sessionStore.delete(key); return json({ ok: true }); }
+    if (b.op !== 'set') return json({ error: 'bad session request' }, 400);
+    const snap = b.snapshot;
+    const strings = (o: unknown) => !!o && typeof o === 'object' && !Array.isArray(o) && Object.keys(o).length <= 2000 && Object.values(o).every(v => typeof v === 'string' && v.length <= 1000);
+    if (!snap || snap.v !== 1 || typeof snap.flow !== 'string' || !strings(snap.values) || !Array.isArray(snap.log) || JSON.stringify(snap).length > 16_000) return json({ error: 'bad snapshot' }, 400);
+    await sessionStore.set(key, { ...snap, savedAt: Date.now() }, SESSION_TTL_MS);
+    return json({ ok: true });
+  }
+
   async function route(path: string, b: any, ip = '', session: string | null = null): Promise<Response> {
     if (path === '/api/verify') return verify(b, ip);
+    if (path === '/api/session') return sessionApi(b);
     if (path === '/api/account/status') return accountStatus(b);
     if (path === '/api/understand') {
       const said = clip(b.said, 500);
@@ -416,7 +444,7 @@ export function createApi(env: ApiEnv, opts: { offlinePassages?: Record<string, 
     sql, log,
     upload: async (name, mimeType, data, metadata) => (await (await octo('/files/upload', { workspaceId: env.OCTO_WORKSPACE, name, mimeType, data: data.toString('base64'), dataEncoding: 'base64', metadata })).json()).id,
     download: async fileId => (await octo(`/files/content?workspaceId=${env.OCTO_WORKSPACE}&fileId=${fileId}`)).arrayBuffer(),
-    verifiedClient: call => calls.get(call)?.client ?? '',
+    verifiedClient: clientOf,
   });
 
   // One trace per backend call, after it answered, so tracing never slows a reply.
@@ -441,7 +469,7 @@ export function createApi(env: ApiEnv, opts: { offlinePassages?: Record<string, 
 
   return {
     // For tests only (never over HTTP): which client a call was verified as.
-    verifiedAs: (call: string) => calls.get(call)?.client ?? '',
+    verifiedAs: clientOf,
     mode: offline ? 'offline (keyword search, word-overlap judge, rules)' : `live (Octo RAG, Jev ${env.LLAMA_URL ? '+ local LFM' : '+ rules'})`,
     async handle(req: Request, ip = ''): Promise<Response> {
       const path = new URL(req.url).pathname;
@@ -451,12 +479,12 @@ export function createApi(env: ApiEnv, opts: { offlinePassages?: Record<string, 
         return practice.handle(req, ip || req.headers.get('cf-connecting-ip') || 'local');
       }
       if (path.startsWith('/api/library/') && path !== '/api/library/search' && req.method === 'GET') {
-        if (limited(ip || req.headers.get('cf-connecting-ip') || 'local')) return json({ error: 'slow down' }, 429);
+        if (await limited(ip || req.headers.get('cf-connecting-ip') || 'local')) return json({ error: 'slow down' }, 429);
         try { return await library(path, new URL(req.url).searchParams); } catch (e) { log(`${path} failed: ${(e as Error).message}`); return json({ error: 'backend error' }, 502); }
       }
       if (path === '/api/library/search' && req.method === 'GET') {
         // The site's own library search (Tax Guides page): Octo search over the irs/ library, no model call.
-        if (limited(ip || req.headers.get('cf-connecting-ip') || 'local')) return json({ error: 'slow down' }, 429);
+        if (await limited(ip || req.headers.get('cf-connecting-ip') || 'local')) return json({ error: 'slow down' }, 429);
         const u = new URL(req.url);
         const q = clip(u.searchParams.get('q'), 200).trim();
         if (!q) return json({ results: [] });
@@ -468,7 +496,7 @@ export function createApi(env: ApiEnv, opts: { offlinePassages?: Record<string, 
       }
       if (req.method !== 'POST') return json({ error: 'POST only' }, 405);
       // The warm-up is free (no Jev, one at a time), so it does not use up the visitor's answers; so are /api/trace and /api/score.
-      if (path !== '/api/warm' && path !== '/api/trace' && path !== '/api/score' && limited(ip || req.headers.get('cf-connecting-ip') || 'local')) { log(`${path} 429 rate limit`); return json({ error: 'slow down' }, 429); }
+      if (path !== '/api/warm' && path !== '/api/trace' && path !== '/api/score' && await limited(ip || req.headers.get('cf-connecting-ip') || 'local')) { log(`${path} 429 rate limit`); return json({ error: 'slow down' }, 429); }
       const raw = await req.text();
       if (raw.length > (path === '/api/desk' ? 64_000 : 32_000)) { log(`${path} 413`); return json({ error: 'too large' }, 413); }
       let b: any;

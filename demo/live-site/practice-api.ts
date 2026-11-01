@@ -14,7 +14,7 @@ export type PracticeDeps = {
   sql: Sql;
   upload: (name: string, mime: string, data: Buffer, meta: Record<string, string>) => Promise<string>; // Octo file id
   download: (fileId: string) => Promise<ArrayBuffer>;
-  verifiedClient: (call: string) => string; // the client id a voice call was verified as, or ''
+  verifiedClient: (call: string) => Promise<string>; // the client id a voice call was verified as, or ''
   log: (msg: string) => void;
   now?: () => Date;
 };
@@ -614,7 +614,7 @@ export function createPractice(d: PracticeDeps) {
     if (path === '/api/portal/session') {
       let hh = '';
       let client = '';
-      if (b.call) { client = d.verifiedClient(clip(b.call, 64)); if (!client) return json({ error: 'This call is not verified.' }, 403); }
+      if (b.call) { client = await d.verifiedClient(clip(b.call, 64)); if (!client) return json({ error: 'This call is not verified.' }, 403); }
       else if (b.demo) client = 'BW-10042';
       else return json({ error: 'Verify on a call, or use the demo login.' }, 400);
       hh = (await sql('select household_id from bw_clients where id = $1', [client]))[0]?.household_id ?? '';
