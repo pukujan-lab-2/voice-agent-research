@@ -9,6 +9,8 @@
 //   copilot.start({ voice })     from the person's tap: "Start voice call" (voice: true) or "Type instead" (false)
 //   copilot.send(text)           a typed message
 //   copilot.toggleMic()          from a tap: "Tap to talk" / "Mute"
+//   copilot.setLanguage(code)    the caller's language, from the picker by the call button or during the call ('' = ask)
+//   copilot.setStack(id)         the visitor's voice stack, from those the business allows (snapshot.voiceStacks)
 //   copilot.setMode(m)           'form' or 'guide' (walk through the manual), when both exist
 //   copilot.setCovered(px)       how much of the bottom of the window the panel covers, so the asked field stays visible
 //   copilot.end()                hang up
@@ -23,7 +25,7 @@ import { forDisplay, forSpeech } from '../../../copilot-engine/src/guard.ts';
 import { Verifier, WANTS_VERIFY, type ReturnCard } from '../../../copilot-engine/src/verify.ts';
 import { DomFiller } from './dom-filler.ts';
 import { API_BASE } from './config.ts';
-import { newCall, RemoteDeskModel, RemoteJudge, RemoteModel, RemoteRetriever, RemoteVerify, report, traceSpan, warmUp } from './remote.ts';
+import { newCall, RemoteDeskModel, RemoteJudge, setReplyLanguage, toReplyLanguage, RemoteModel, RemoteRetriever, RemoteVerify, report, traceSpan, warmUp } from './remote.ts';
 
 export type Config = {
   business: string;
@@ -40,7 +42,12 @@ export type Config = {
   // Caller verification on a desk page ("check on my return"): the server compares, the copilot only hears the result.
   // handoff: what to offer when a caller can't be verified or asks for a person.
   verify?: { handoff: string };
+  // The voice stacks this business lets visitors pick from, and its default (speech/stacks.json, docs/decisions/0012).
+  // The owner can still force one for every call on the server.
+  voice?: { stacks?: string[]; default?: string };
 };
+export type Language = { code: string; name: string; native: string };
+export type VoiceStack = { id: string; label: string; languages: Language[] };
 // The document an answer was quoted from, shown by the site's source viewer while snapshot.source is set. doc is the
 // library id (GET /api/library/doc?doc=…); page is the printed PDF's page (PDF sources), anchor the section (articles).
 export type Source = { label: string; title: string; credit: string; doc: string; page?: number; anchor?: string; href: string; quote: string[]; found: boolean | null };
@@ -67,6 +74,11 @@ export type Snapshot = {
   wait: { text: string; until: number } | null; // a slow model call: what to show, and when it should be done (ms)
   source: Source | null;               // the source viewer's document, or null when it is closed
   account: ReturnCard | null;          // the verified caller's return status card (fictional sample data), or null
+  voiceStacks: VoiceStack[];           // the stacks the picker offers (one when the business or the owner fixes it)
+  stack: string;                       // the stack the next or current call runs on
+  language: string;                    // the caller's pick ('' = not picked: the agent asks and goes by what it hears)
+  languages: Language[];               // what the picker offers: every allowed stack's before a call, the call's stack's during one
+  spokenLanguage: string;              // the language the recogniser last heard on this call ('' before the first turn)
 };
 
 type Mode = 'form' | 'guide' | 'ask';
@@ -77,7 +89,8 @@ let snap: Snapshot = blank();
 const subs = new Set<() => void>();
 function blank(): Snapshot {
   return { mounted: false, open: false, voice: false, mic: canHear() ? 'off' : 'unavailable', textInput: false, status: 'idle', busy: false,
-    heard: '', mode: 'form', modes: [], business: '', can: [], large: false, messages: [], startedAt: 0, wait: null, source: null, account: null };
+    heard: '', mode: 'form', modes: [], business: '', can: [], large: false, messages: [], startedAt: 0, wait: null, source: null, account: null,
+    voiceStacks: [], stack: '', language: '', languages: [], spokenLanguage: '' };
 }
 function set(p: Partial<Snapshot>) {
   snap = { ...snap, ...p };
@@ -175,6 +188,9 @@ function spoken(raw: string) {
   sayNow(text);
 }
 function sayNow(text: string) {
+  void toReplyLanguage(text).then(sayIt);
+}
+function sayIt(text: string) {
   const agent = agentIdentity();
   if (room && agent) void room.localParticipant.performRpc({ destinationIdentity: agent, method: 'agent.say', payload: JSON.stringify({ text }) }).catch(e => report('voice', `agent.say: ${(e as Error).message}`));
 }
@@ -255,11 +271,13 @@ async function startVoice() {
     return;
   }
   if (seq !== voiceSeq || !snap.open) { micTrack.stop(); micTrack = null; return; }
-  let grant: { url: string; token: string };
+  let grant: { url: string; token: string; stack: string; language: string };
   try {
-    const r = await fetch(`${API_BASE}/api/voice/token`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
+    const r = await fetch(`${API_BASE}/api/voice/token`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(voiceAsk()) });
     if (!r.ok) throw new Error(`token ${r.status}`);
     grant = await r.json();
+    set({ stack: grant.stack, language: grant.language, languages: stackLanguages(grant.stack), spokenLanguage: '' });
+    setReplyLanguage(languageName(grant.language) || 'English');
   } catch (e) {
     report('voice', (e as Error).message);
     toText("Voice isn't available right now, so let's carry on by typing. Your answers go in the box below.");
@@ -271,15 +289,21 @@ async function startVoice() {
     collect = [];
     if (!snap.messages.length) setMode(snap.mode);
     else { introSaid = false; spoken([...snap.messages].reverse().find(m => m.who === 'bot')?.text ?? ''); }
-    const say = collect.join(' '); collect = null;
-    return JSON.stringify({ say });
+    let say = collect.join(' '); collect = null;
+    // No language picked on a stack that speaks several: the agent asks, and goes by what it hears meanwhile.
+    if (!snap.language && snap.languages.length > 1) { say += ` ${LANGUAGE_ASK}`; add('bot', LANGUAGE_ASK, false); }
+    return JSON.stringify({ say: await toReplyLanguage(say) });
   });
   rm.registerRpcMethod('copilot.turn', async data => {
-    const text = String(JSON.parse(data.payload || '{}').text ?? '');
+    const p = JSON.parse(data.payload || '{}');
+    const text = String(p.text ?? '');
+    heardLanguage(String(p.language ?? ''), String(p.heard ?? ''));
     collect = []; lastSearchMs = undefined;
     const t0 = performance.now();
-    const kind = await send(text);
-    const say = collect.join(' '); collect = null;
+    const asked = askedLanguage(text);
+    const kind = asked ? 'language' : await send(text);
+    if (asked) { setLanguage(asked.code); collect.push(await toReplyLanguage(`Sure, let's talk in ${asked.name}. What can I help with?`)); }
+    const say = await toReplyLanguage(collect.join(' ')); collect = null;
     return JSON.stringify({ say, kind, decideMs: Math.round(performance.now() - t0), searchMs: lastSearchMs });
   });
   rm.on(lk.RoomEvent.TrackSubscribed, track => {
@@ -311,6 +335,59 @@ async function startVoice() {
     report('voice', `connect: ${(e as Error).message}`);
     toText("Voice isn't available right now, so let's carry on by typing. Your answers go in the box below.");
   }
+}
+
+// ---- The caller's language (docs/decisions/0012). They can pick it by the call button, answer the agent's question at
+// the start, or switch during the call (the picker, or "can we speak Spanish?"). It goes to the agent on the caller's
+// participant attributes, so speech to text, the turn detector and the voice all follow it, and LFM3 writes in it.
+const LANGUAGE_ASK = 'Which language would you like to talk in? You can just start speaking it.';
+function voiceAsk() {
+  return { stack: snap.stack, language: snap.language, allowed: cfg?.voice?.stacks, default: cfg?.voice?.default };
+}
+function stackLanguages(stack: string): Language[] {
+  return snap.voiceStacks.find(s => s.id === stack)?.languages ?? snap.languages;
+}
+// Before a call the picker offers every language the allowed stacks speak; picking one the chosen stack doesn't speak
+// moves the call to a stack that does.
+function allLanguages(): Language[] {
+  const seen = new Map<string, Language>();
+  for (const st of snap.voiceStacks) for (const l of st.languages) if (!seen.has(l.code)) seen.set(l.code, l);
+  return [...seen.values()];
+}
+const languageName = (code: string) => allLanguages().find(l => l.code === code)?.name ?? '';
+function heardLanguage(language: string, heard: string) {
+  if (heard && heard !== snap.spokenLanguage) set({ spokenLanguage: heard });
+  setReplyLanguage(languageName(language) || 'English');
+}
+// "Can we speak Spanish?", "en español por favor", "parlons français": a language this stack speaks, named in a request.
+function askedLanguage(text: string): Language | null {
+  const t = text.toLowerCase();
+  if (!/\b(speak|talk|switch|change|use|language|in)\b|habl|parl|fala|en |por favor|请|说/.test(t)) return null;
+  const hit = snap.languages.find(l => l.code !== snap.language && [l.name, l.native].some(n => t.includes(n.toLowerCase())));
+  return hit && t.split(/\s+/).length <= 8 ? hit : null;
+}
+function setLanguage(code: string) {
+  const language = snap.languages.some(l => l.code === code) ? code : '';
+  const stack = !language || snap.open || stackLanguages(snap.stack).some(l => l.code === language) ? snap.stack
+    : snap.voiceStacks.find(st => st.languages.some(l => l.code === language))?.id ?? snap.stack;
+  set({ language, stack });
+  if (language) setReplyLanguage(languageName(language));
+  void room?.localParticipant.setAttributes({ 'copilot.language': language }).catch(e => report('voice', `language: ${(e as Error).message}`));
+}
+function setStack(id: string) {
+  if (snap.open || !snap.voiceStacks.some(s => s.id === id)) return;
+  set({ stack: id, language: stackLanguages(id).some(l => l.code === snap.language) ? snap.language : '' });
+}
+// What the picker offers on this page: asked of the server, which knows the stacks and whether the owner forced one.
+async function loadVoiceOptions() {
+  try {
+    const r = await fetch(`${API_BASE}/api/voice/options`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(voiceAsk()) });
+    if (!r.ok) return;
+    const o: { stack: string; stacks: VoiceStack[] } = await r.json();
+    set({ voiceStacks: o.stacks, stack: o.stack });
+    const languages = allLanguages();
+    set({ languages, language: languages.length === 1 ? languages[0].code : snap.language });
+  } catch { /* no voice options: the call still starts on the server's default */ }
 }
 
 function stopVoice() {
@@ -935,7 +1012,7 @@ function end() {
   verifier = null; verifyBackend = null; // a new call starts verification over (the server still counts failures per visitor)
   asker = null; // and a new conversation
   set({ account: null });
-  set({ open: false, voice: false, heard: '', status: 'idle', startedAt: 0, wait: null });
+  set({ open: false, voice: false, heard: '', status: 'idle', startedAt: 0, wait: null, spokenLanguage: '', languages: allLanguages() });
   document.querySelectorAll('[data-copilot-active]').forEach(e => e.removeAttribute('data-copilot-active'));
 }
 
@@ -963,6 +1040,7 @@ function mount(c: Config) {
   const modes: Mode[] = [...(c.form ? ['form' as const] : []), ...(manual?.steps.length ? ['guide' as const] : []), ...(c.desk && !c.form ? ['ask' as const] : [])];
   const page = { mounted: true, business: c.business, can: c.can ?? [], large: !!c.large, modes, mode: modes[0] ?? 'form' } as const;
   set(carried ? page : { ...blank(), ...page });
+  if (!carried) void loadVoiceOptions();
   watchForm();
   if (carried) {
     if (snap.mode === 'form') startForm();
@@ -996,7 +1074,7 @@ function unmount(now = false) {
 }
 
 const api = {
-  mount, unmount: () => unmount(), start, end, toggleMic, setMode, showSource, closeSource,
+  mount, unmount: () => unmount(), start, end, toggleMic, setMode, showSource, closeSource, setLanguage, setStack,
   // The site's router, so the copilot changes page without a reload (and the call stays on): copilot.onNavigate(p => navigate(p)).
   onNavigate: (fn: (path: string) => void) => { navigateFn = fn; },
   // The staff app's session, so the copilot can look clients up by name (read-only).

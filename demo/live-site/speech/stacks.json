@@ -1,0 +1,29 @@
+{
+  "_": "The voice stacks a call can run on (docs/decisions/0012). Read by server.ts (who picks), speech/agent.py and speech/server.py. Each language lists what its parts are told: Whisper's code, Kokoro's espeak code and voice.",
+  "default": "english-fast",
+  "stacks": {
+    "english-fast": {
+      "label": "English, fastest",
+      "listens": "parakeet-tdt-0.6b-v2",
+      "turns": "english",
+      "speaks": "pocket-tts",
+      "languages": ["en"]
+    },
+    "multilingual": {
+      "label": "Many languages",
+      "listens": "whisper-large-v3-turbo",
+      "turns": "multilingual",
+      "speaks": "kokoro",
+      "languages": ["en", "es", "fr", "it", "pt", "hi", "zh"]
+    }
+  },
+  "languages": {
+    "en": { "name": "English", "native": "English", "kokoro": ["en-us", "af_heart"] },
+    "es": { "name": "Spanish", "native": "Español", "kokoro": ["es", "ef_dora"] },
+    "fr": { "name": "French", "native": "Français", "kokoro": ["fr-fr", "ff_siwis"] },
+    "it": { "name": "Italian", "native": "Italiano", "kokoro": ["it", "if_sara"] },
+    "pt": { "name": "Portuguese", "native": "Português", "kokoro": ["pt-br", "pf_dora"] },
+    "hi": { "name": "Hindi", "native": "हिन्दी", "kokoro": ["hi", "hf_alpha"] },
+    "zh": { "name": "Chinese", "native": "中文", "kokoro": ["cmn", "zf_xiaobei"] }
+  }
+}

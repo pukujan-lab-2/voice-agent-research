@@ -6,7 +6,7 @@ const walk = d => { for (const e of fs.readdirSync(d, { withFileTypes: true })) 
 walk('src');
 const src = files.map(f => fs.readFileSync(f, 'utf8')).join('\n');
 const errors = [];
-const testids = ['call-start', 'call-type', 'call-panel', 'call-input', 'call-send', 'call-message', 'call-mic', 'call-keyboard', 'call-end', 'call-mode-form', 'call-mode-guide', 'call-status', 'demo-banner', 'guest-enter',
+const testids = ['call-start', 'call-type', 'call-language', 'call-panel', 'call-input', 'call-send', 'call-message', 'call-mic', 'call-keyboard', 'call-end', 'call-mode-form', 'call-mode-guide', 'call-status', 'demo-banner', 'guest-enter',
   'call-source-chip', 'source-viewer', 'source-body', 'source-close', 'source-original', 'tax-chip', 'tax-disclaimer', 'tax-guide', 'tax-guide-search', 'tax-search-result', 'tax-faq',
   // the staff app (/staff) and the client portal (/tax/portal)
   'staff-login', 'staff-nav', 'staff-dashboard', 'staff-list-summary', 'staff-pagination', 'staff-client-search', 'staff-client-row', 'staff-client-detail', 'staff-client-tab',

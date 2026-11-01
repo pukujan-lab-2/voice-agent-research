@@ -785,6 +785,17 @@
 
 .copilot-btn-ghost:hover { background: hsl(var(--site-accent-soft, 250 60% 95%)); }
 
+.copilot-voice-picker { display: inline-flex; gap: 0.25rem; }
+.copilot-select {
+  max-width: 9.5rem;
+  border-radius: 9999px;
+  border: 1px solid hsl(var(--site-border, 220 13% 85%));
+  background: transparent;
+  color: hsl(var(--site-text, 222 84% 5%));
+  font-size: 0.8125rem;
+  padding: 0.375rem 0.5rem;
+}
+
 .copilot-backdrop {
   position: fixed;
   inset: 0;

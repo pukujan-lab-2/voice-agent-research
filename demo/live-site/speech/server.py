@@ -1,13 +1,18 @@
 """The copilot's own speech: speech-to-text and text-to-speech on this machine, open models only, no audio leaves it.
 
-  POST /stt   (used by speech/agent.py) body: 16 kHz mono float32 PCM (application/octet-stream) or a WAV file  ->  {"text", "ms"}
-  POST /tts   {"text"}  ->  streamed 16-bit PCM at X-Sample-Rate Hz, first sound as soon as it is made
+  POST /stt?stack=&lang=   (used by speech/agent.py) body: 16 kHz mono float32 PCM (application/octet-stream) or a WAV
+              file  ->  {"text", "language", "ms"}; lang is the caller's pick, left out to let the recogniser tell
+  POST /tts   {"text", "stack", "lang"}  ->  streamed 16-bit PCM at X-Sample-Rate Hz, first sound as soon as it is made
   POST /log   one JSON line per call turn (the widget's timings), appended to speech/turns.jsonl
   GET  /health
 
 STT is NVIDIA Parakeet TDT 0.6B v2 (CC-BY-4.0, sherpa-onnx int8; docs/decisions/0002): about 0.4-1 s for a sentence
 on an M1, against 3-4 s for faster-whisper small.en, which pads every clip to 30 s. TTS is Kyutai's Pocket TTS (CPU, streams its first audio in about 0.2-0.5 s);
 Kokoro-82M is used instead when Pocket TTS can't load and speech/models/kokoro/ holds its files.
+
+Those two are the english-fast voice stack. The multilingual stack (speech/stacks.json, docs/decisions/0012) listens with
+Whisper large-v3-turbo on Apple's GPU (mlx-whisper) and speaks with Kokoro in the caller's language. Its models load on
+the first call that uses them, so an English-only day doesn't hold them in this machine's 8 GB.
 
 Run: speech/.venv/bin/python speech/server.py [--port 8799]   (server.ts starts it when it isn't running)
 """
@@ -20,6 +25,9 @@ import soundfile as sf
 HERE = os.path.dirname(os.path.abspath(__file__))
 MODELS = os.path.join(HERE, 'models')
 PARAKEET = os.path.join(MODELS, 'sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8')
+WHISPER = os.environ.get('WHISPER_MODEL', 'mlx-community/whisper-large-v3-turbo')
+with open(os.path.join(HERE, 'stacks.json')) as f:
+    STACKS = json.load(f)
 
 
 def log(*a):
@@ -35,14 +43,33 @@ class Stt:
             tokens=d + 'tokens.txt', model_type='nemo_transducer', num_threads=4)
         self.lock = threading.Lock()
 
-    def __call__(self, audio: np.ndarray, sr: int) -> str:
+    def __call__(self, audio: np.ndarray, sr: int, lang: str | None = None) -> tuple[str, str]:
         # A last word that ends right at the clip's edge can be dropped, so pad both ends with a little silence.
         audio = np.concatenate([np.zeros(int(sr * 0.3), 'float32'), audio.astype('float32'), np.zeros(int(sr * 0.5), 'float32')])
         with self.lock:
             s = self.rec.create_stream()
             s.accept_waveform(sr, audio)
             self.rec.decode_stream(s)
-            return s.result.text.strip()
+            return s.result.text.strip(), 'en'  # Parakeet v2 hears English only
+
+
+class WhisperStt:
+    """Whisper large-v3-turbo on Apple's GPU. Told the caller's language when they picked one; otherwise it says which it heard."""
+
+    def __init__(self):
+        import mlx_whisper
+        self.mw = mlx_whisper
+        self.lock = threading.Lock()
+        with self.lock:
+            self.mw.transcribe(np.zeros(16000, 'float32'), path_or_hf_repo=WHISPER, language='en')
+
+    def __call__(self, audio: np.ndarray, sr: int, lang: str | None = None) -> tuple[str, str]:
+        if sr != 16000:
+            audio = np.interp(np.arange(0, len(audio), sr / 16000), np.arange(len(audio)), audio).astype('float32')
+        with self.lock:
+            r = self.mw.transcribe(audio.astype('float32'), path_or_hf_repo=WHISPER, language=lang or None,
+                                   condition_on_previous_text=False, temperature=0.0)
+        return str(r.get('text', '')).strip(), str(r.get('language') or lang or '')
 
 
 class PocketTts:
@@ -53,7 +80,7 @@ class PocketTts:
         self.rate = self.model.sample_rate
         self.lock = threading.Lock()
 
-    def stream(self, text: str, stop: threading.Event):
+    def stream(self, text: str, stop: threading.Event, lang: str = 'en'):
         with self.lock:
             for chunk in self.model.generate_audio_stream(self.voice, text, stop=stop):
                 yield chunk.numpy()
@@ -68,14 +95,18 @@ class KokoroTts:
         self.rate = 24000
         self.lock = threading.Lock()
 
-    def stream(self, text: str, stop: threading.Event):
+    def stream(self, text: str, stop: threading.Event, lang: str = 'en'):
+        # The caller's language picks Kokoro's pronunciation and a voice made for it (speech/stacks.json).
+        espeak, voice = STACKS['languages'].get(lang, STACKS['languages']['en'])['kokoro']
+        if lang == 'en':
+            voice = self.voice
         # Kokoro makes a sentence at a time, so each sentence plays while the next is made.
         with self.lock:
-            for s in re.split(r'(?<=[.!?])\s+', text):
+            for s in re.split(r'(?<=[.!?。！？])\s*', text):
                 if stop.is_set():
                     return
                 if s.strip():
-                    audio, self.rate = self.k.create(s, voice=self.voice, speed=1.0, lang='en-us')
+                    audio, self.rate = self.k.create(s, voice=voice, speed=1.0, lang=espeak)
                     yield audio
 
 
@@ -91,13 +122,13 @@ class Cached:
         self.made: dict[str, list] = {}
         self.lock = threading.Lock()
 
-    def stream(self, text: str, stop: threading.Event):
-        key = ' '.join(text.split())
+    def stream(self, text: str, stop: threading.Event, lang: str = 'en'):
+        key = f"{lang} {' '.join(text.split())}"
         if key in self.made:
             yield from self.made[key]
             return
         chunks = []
-        for c in self.tts.stream(text, stop):
+        for c in self.tts.stream(text, stop, lang):
             chunks.append(c)
             yield c
         if len(key) <= 120 and not stop.is_set():
@@ -117,6 +148,31 @@ def load_tts(voice: str):
         raise
 
 
+class Stacks:
+    """Each voice stack's listener and voice. english-fast's are loaded at start; the others on their first call."""
+
+    def __init__(self, stt: Stt, tts):
+        self.made = {'parakeet-tdt-0.6b-v2': stt, 'pocket-tts': tts}
+        if not isinstance(tts.tts, PocketTts):
+            self.made['kokoro'] = tts
+        self.lock = threading.Lock()
+
+    def part(self, stack: str, kind: str):
+        name = STACKS['stacks'].get(stack, STACKS['stacks'][STACKS['default']])[kind]
+        with self.lock:
+            if name not in self.made:
+                t = time.time()
+                self.made[name] = WhisperStt() if name.startswith('whisper') else Cached(KokoroTts('af_heart'))
+                log(f'{name} ready in {time.time() - t:.1f} s')
+            return self.made[name]
+
+    def listener(self, stack: str):
+        return self.part(stack, 'listens')
+
+    def voice(self, stack: str):
+        return self.part(stack, 'speaks')
+
+
 def read_audio(body: bytes, ctype: str, sr_param: str | None):
     if ctype.startswith('application/octet-stream'):
         return np.frombuffer(body, dtype='<f4'), int(sr_param or 16000)
@@ -126,7 +182,7 @@ def read_audio(body: bytes, ctype: str, sr_param: str | None):
     return audio, sr
 
 
-def handler(stt: Stt, tts, turns_path: str):
+def handler(stacks: Stacks, turns_path: str):
     class H(BaseHTTPRequestHandler):
         protocol_version = 'HTTP/1.1'
 
@@ -147,7 +203,9 @@ def handler(stt: Stt, tts, turns_path: str):
 
         def do_GET(self):
             if self.path == '/health':
-                return self.json(200, {'ok': True, 'stt': 'parakeet-tdt-0.6b-v2', 'tts': type(tts.tts).__name__, 'rate': tts.rate})
+                tts = stacks.made['pocket-tts']
+                return self.json(200, {'ok': True, 'stt': 'parakeet-tdt-0.6b-v2', 'tts': type(tts.tts).__name__, 'rate': tts.rate,
+                                       'loaded': sorted(stacks.made), 'rates': {'kokoro': 24000, 'pocket-tts': tts.rate}})
             self.json(404, {'error': 'not found'})
 
         def do_POST(self):
@@ -159,17 +217,21 @@ def handler(stt: Stt, tts, turns_path: str):
                     audio, sr = read_audio(self.body(), self.headers.get('content-type', ''), q.get('sr'))
                 except Exception as e:  # noqa: BLE001
                     return self.json(400, {'error': f'bad audio: {e}'})
+                lang = q.get('lang') or None
                 if len(audio) < sr * 0.15:
-                    return self.json(200, {'text': '', 'ms': 0})
-                text = stt(audio, sr)
+                    return self.json(200, {'text': '', 'language': lang or '', 'ms': 0})
+                text, heard = stacks.listener(q.get("stack", ""))(audio, sr, lang)
                 ms = round((time.time() - t) * 1000)
-                log(f'stt {ms} ms, {len(audio) / sr:.1f} s audio:', text[:80])
-                return self.json(200, {'text': text, 'ms': ms, 'seconds': round(len(audio) / sr, 2)})
+                log(f'stt {ms} ms, {len(audio) / sr:.1f} s audio, {heard}:', text[:80])
+                return self.json(200, {'text': text, 'language': heard, 'ms': ms, 'seconds': round(len(audio) / sr, 2)})
             if path == '/tts':
                 try:
-                    text = str(json.loads(self.body() or b'{}').get('text', '')).strip()[:1200]
+                    b = json.loads(self.body() or b'{}')
+                    text = str(b.get('text', '')).strip()[:1200]
                 except ValueError:
                     return self.json(400, {'error': 'bad json'})
+                lang = str(b.get('lang') or 'en').split('-')[0]
+                tts = stacks.voice(str(b.get('stack') or ''))
                 if not text:
                     return self.json(400, {'error': 'no text'})
                 t = time.time()
@@ -182,7 +244,7 @@ def handler(stt: Stt, tts, turns_path: str):
                 self.end_headers()
                 first, samples = None, 0
                 try:
-                    for chunk in tts.stream(text, stop):
+                    for chunk in tts.stream(text, stop, lang):
                         pcm = (np.clip(chunk, -1, 1) * 32767).astype('<i2').tobytes()
                         if first is None:
                             first = round((time.time() - t) * 1000)
@@ -230,7 +292,7 @@ def main():
         for _ in tts.stream(line, threading.Event()):
             pass
     log(f'tts ready in {time.time() - t:.1f} s ({type(tts.tts).__name__}, {tts.rate} Hz)')
-    srv = ThreadingHTTPServer(('127.0.0.1', a.port), handler(stt, tts, os.path.join(HERE, 'turns.jsonl')))
+    srv = ThreadingHTTPServer(('127.0.0.1', a.port), handler(Stacks(stt, tts), os.path.join(HERE, 'turns.jsonl')))
     log(f'speech on http://127.0.0.1:{a.port}')
     srv.serve_forever()
 

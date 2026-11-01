@@ -93,14 +93,40 @@ function voiceUp(): Promise<void> {
   })().finally(() => { voiceStarting = null; });
   return voiceStarting;
 }
-// A LiveKit access token (HS256 JWT) for one caller in a new room; the agent is dispatched to every new room.
-function voiceToken(): { url: string; token: string; room: string } {
+// The voice stacks (speech/stacks.json, docs/decisions/0012) and who picks one for a call: the owner can force a stack
+// for every call (VOICE_STACK); otherwise the visitor's pick, if the business allows it; otherwise the business default.
+// The business's choices come from its copilot config (voice.stacks, voice.default); every site's config is in the
+// page today, so until businesses are stored server-side they are taken from the request.
+type Stacks = { default: string; stacks: Record<string, { label: string; languages: string[] }>; languages: Record<string, { name: string; native: string }> };
+const STACKS: Stacks = JSON.parse(fs.readFileSync(path.join(here, 'speech/stacks.json'), 'utf8'));
+type VoiceAsk = { stack?: unknown; language?: unknown; allowed?: unknown; default?: unknown };
+function pickStack(ask: VoiceAsk, owner = process.env.VOICE_STACK ?? ''): { stack: string; by: 'owner' | 'visitor' | 'business' | 'default'; allowed: string[] } {
+  const known = (s: unknown): s is string => typeof s === 'string' && s in STACKS.stacks;
+  const allowed = Array.isArray(ask.allowed) && ask.allowed.some(known) ? ask.allowed.filter(known) : [known(ask.default) ? ask.default : STACKS.default];
+  if (known(owner)) return { stack: owner, by: 'owner', allowed: [owner] };
+  if (known(ask.stack) && allowed.includes(ask.stack)) return { stack: ask.stack, by: 'visitor', allowed };
+  if (known(ask.default) && allowed.includes(ask.default)) return { stack: ask.default, by: 'business', allowed };
+  return { stack: allowed.includes(STACKS.default) ? STACKS.default : allowed[0], by: 'default', allowed };
+}
+// What the page's picker offers: the stacks this business allows, each with its languages.
+function voiceOptions(ask: VoiceAsk) {
+  const p = pickStack(ask);
+  return { ...p, stacks: p.allowed.map(id => ({ id, label: STACKS.stacks[id].label,
+    languages: STACKS.stacks[id].languages.map(code => ({ code, ...STACKS.languages[code] })) })) };
+}
+
+// A LiveKit access token (HS256 JWT) for one caller in a new room; the agent is dispatched to every new room. The call's
+// stack and the caller's language ride on the caller's attributes; the page may change its language mid-call.
+function voiceToken(ask: VoiceAsk = {}): { url: string; token: string; room: string; stack: string; language: string } {
+  const { stack } = pickStack(ask);
+  const language = typeof ask.language === 'string' && STACKS.stacks[stack].languages.includes(ask.language) ? ask.language : '';
   const room = `call-${crypto.randomUUID().slice(0, 8)}`;
   const now = Math.floor(Date.now() / 1000);
   const b64 = (o: object) => Buffer.from(JSON.stringify(o)).toString('base64url');
   const body = `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64({ iss: LIVEKIT.key, sub: `caller-${crypto.randomUUID().slice(0, 8)}`, nbf: now - 5, exp: now + 3600,
-    video: { room, roomJoin: true, canPublish: true, canSubscribe: true, canPublishData: true } })}`;
-  return { url: LIVEKIT.url, room, token: `${body}.${crypto.createHmac('sha256', LIVEKIT.secret).update(body).digest('base64url')}` };
+    attributes: { 'copilot.stack': stack, 'copilot.language': language },
+    video: { room, roomJoin: true, canPublish: true, canSubscribe: true, canPublishData: true, canUpdateOwnMetadata: true } })}`;
+  return { url: LIVEKIT.url, room, stack, language, token: `${body}.${crypto.createHmac('sha256', LIVEKIT.secret).update(body).digest('base64url')}` };
 }
 
 const HEADERS = { 'X-Robots-Tag': 'noindex, nofollow', 'Referrer-Policy': 'no-referrer', 'X-Frame-Options': 'DENY',
@@ -124,9 +150,14 @@ export async function start(opts: { port?: number; host?: string; offline?: bool
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url ?? '/', 'http://local');
     for (const [k, v] of Object.entries(HEADERS)) res.setHeader(k, v);
-    if (req.method === 'POST' && url.pathname === '/api/voice/token') {
-      void voiceUp();
-      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(voiceToken())); return;
+    if (req.method === 'POST' && (url.pathname === '/api/voice/token' || url.pathname === '/api/voice/options')) {
+      const chunks: Buffer[] = [];
+      for await (const c of req) chunks.push(c as Buffer);
+      let ask: VoiceAsk = {};
+      try { ask = JSON.parse(Buffer.concat(chunks).toString('utf8').slice(0, 2000) || '{}'); } catch { /* no picks: the defaults */ }
+      if (url.pathname === '/api/voice/token') void voiceUp();
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+      res.end(JSON.stringify(url.pathname === '/api/voice/token' ? voiceToken(ask) : voiceOptions(ask))); return;
     }
     if (url.pathname.startsWith('/api/')) {
       const chunks: Buffer[] = [];
