@@ -82,6 +82,29 @@ Blocked/uncertain:
 Next:
 - Merge the pull request, then start the per-business config leaf (#103)
 
+### 2026-11-01 23:29:36 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["copilot-engine/src/desk.ts, copilot-engine/package.json"],"completed":["The bounded-state branch is up to date with main (huge-site changes) and the updated prompt-budget branch, both sides kept in the desk constructor and test scripts"],"decisions":["no new decisions"],"evidence":["npm run check passes after the merge"],"next_action":"Bring #50 (WCP-0042) and #51 (WCP-0043) up to date the same way","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0041","timestamp":"2026-11-01T23:29:36Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"8f23cfd09a617dcb0479baec0c2cf6cb27f29aa0f1d5ded0d06afb4ad52f15c3","request_id":"63133819f2a34306bb8b904b10fcc346","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0041"} -->
+
+Completed:
+- The bounded-state branch is up to date with main (huge-site changes) and the updated prompt-budget branch, both sides kept in the desk constructor and test scripts
+
+Evidence:
+- npm run check passes after the merge
+
+Decisions:
+- no new decisions
+
+Changed:
+- copilot-engine/src/desk.ts, copilot-engine/package.json
+
+Blocked/uncertain:
+- none
+
+Next:
+- Bring #50 (WCP-0042) and #51 (WCP-0043) up to date the same way
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.

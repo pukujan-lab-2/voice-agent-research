@@ -1,6 +1,6 @@
 # TASK-WCP-0026 — Propose Fixes
 
-<!-- continuity:task {"acceptance":["One issue per failure pattern with call, turn, rule and text as evidence","No second issue while one for the pattern is open","The routine changes no code and moves no branch"],"depends_on":["WCP-0022"],"goal":"File one issue per failure pattern from flagged turns","id":"WCP-0026","issue_url":"https://github.com/Pukujan-lab/voice-agent-research/issues/93","next_action":"Choose the grouping key and the schedule","owner":"owner","priority":"P2","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"active","why":"Flagged turns pile up with no one reading them (#93)"} -->
+<!-- continuity:task {"acceptance":["One issue per failure pattern with call, turn, rule and text as evidence","No second issue while one for the pattern is open","The routine changes no code and moves no branch"],"depends_on":["WCP-0022"],"goal":"File one issue per failure pattern from flagged turns","id":"WCP-0026","issue_url":"https://github.com/pukujan-lab-2/voice-agent-research/issues/21","next_action":"Choose the grouping key and the schedule","owner":"owner","priority":"P2","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"active","why":"Flagged turns pile up with no one reading them (#93)"} -->
 
 - Status: active
 - Owner: owner
