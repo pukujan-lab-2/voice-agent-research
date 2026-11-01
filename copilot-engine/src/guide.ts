@@ -81,8 +81,8 @@ export class Guide {
   }
 
   // Answers one question from the manual, or says it doesn't know. Also used outside a walk-through (a form's side question).
-  async lookup(q: string): Promise<string> {
-    const hits = await this.retriever.search(q, 4);
+  async lookup(q: string, filter?: SearchFilter): Promise<string> {
+    const hits = await this.retriever.search(q, 4, filter);
     const id = hits.length ? await this.judge.pick(q, hits) : '';
     const p = hits.find(h => h.id === id);
     this.last = p;
