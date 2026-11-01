@@ -4,7 +4,7 @@ endpoint and auth as the page's traces (tracing.ts), under the page's call id, s
   voice.turn      each turn: what was heard, the speech model and its confidence, the language heard, and the timings
                   from the moment the caller stopped talking (end-of-turn wait, speech to text, deciding, first audio),
                   with the barge-ins since the last turn. turn.id matches the page's span of the same turn.
-  voice.failure   an error (speech to text, voice, a failed RPC call to the page), with whether it was retried
+  voice.failure   an error (speech to text, voice, a failed RPC call to the page, a stall the watchdog caught), with whether it was retried
   voice.call      when the room closes: the voice stack, the language, turns, barge-ins, failures and why it closed
 
 Nothing is masked (each business decides what it keeps), and Octo is the one store (docs/decisions/0004): there is no
@@ -30,8 +30,9 @@ def _tracer():
     if _provider is None:
         base = os.environ.get('OCTO_BASE', 'https://octodb.design-bakery.com/api').rstrip('/')
         _provider = TracerProvider(resource=Resource.create({'service.name': 'voice-copilot-agent'}))
+        # Sent within half a second, not the default 5: a turn must reach Phoenix before an agent restart can lose it (#67).
         _provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(
-            endpoint=f'{base}/workspaces/{ws}/otel/v1/traces', headers={'authorization': f'Bearer {key}'})))
+            endpoint=f'{base}/workspaces/{ws}/otel/v1/traces', headers={'authorization': f'Bearer {key}'}), schedule_delay_millis=500))
     return _provider.get_tracer('voice-copilot-agent')
 
 
