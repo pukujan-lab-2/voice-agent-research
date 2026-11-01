@@ -107,6 +107,29 @@ Blocked/uncertain:
 Next:
 - Merge PR #56 after #55, then post the table on #31
 
+### 2026-11-01 23:19:38 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["tasks/TASK-WCP-0074-*.md"],"completed":["Carried the earlier branch's final state into this one so the stacked pull requests merge cleanly in order"],"decisions":["none"],"evidence":["merge of task/WCP-0073-declared-lookups; npm run check passed on the stack top just before"],"next_action":"Merge PR #56 after #55, then post the table on #31","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0074","timestamp":"2026-11-01T23:19:38Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"8644aaf2b2bd97dee9ee2b227ef9faa2e16f2efb1b5c9827793f48907a464a42","request_id":"4852602c754d4390b88a545554ef948b","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0074"} -->
+
+Completed:
+- Carried the earlier branch's final state into this one so the stacked pull requests merge cleanly in order
+
+Evidence:
+- merge of task/WCP-0073-declared-lookups; npm run check passed on the stack top just before
+
+Decisions:
+- none
+
+Changed:
+- tasks/TASK-WCP-0074-*.md
+
+Blocked/uncertain:
+- none
+
+Next:
+- Merge PR #56 after #55, then post the table on #31
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
