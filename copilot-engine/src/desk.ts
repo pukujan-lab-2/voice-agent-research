@@ -509,7 +509,7 @@ export class Desk {
   }
 
   // Appends to the call log. A long call keeps its first entry (the opening line) and the latest ones.
-  private note(who: 'user' | 'agent', text: string) {
+  private logLine(who: 'user' | 'agent', text: string) {
     this.log.push({ who, text });
     if (this.log.length > 2 * LOG_KEEP) this.log.splice(1, this.log.length - LOG_KEEP - 1);
   }
@@ -525,7 +525,7 @@ export class Desk {
   start(): string {
     const f = this.field(this.current);
     const say = f ? `${this.flow.intro} ${f.question}` : this.flow.intro;
-    this.note('agent', say);
+    this.logLine('agent', say);
     return say;
   }
 
@@ -537,7 +537,7 @@ export class Desk {
     let say: string;
     if (this.allFilled()) { say = `${lead} ${this.finishLine()}`; this.complete = true; }
     else say = `${lead} ${this.field(this.current)!.question}`;
-    this.note('agent', say);
+    this.logLine('agent', say);
     return say;
   }
 
@@ -545,10 +545,10 @@ export class Desk {
     this.n++;
     this.lastUser = said;
     if (HURRY.test(said)) this.brisk = true;
-    this.note('user', said);
+    this.logLine('user', said);
     const memReply = await this.memoryTurn(said);
     if (memReply !== null) {
-      this.note('agent', memReply);
+      this.logLine('agent', memReply);
       this.remember(said, memReply);
       this.turns.push({ turn: this.n, said, reply: memReply, ms: 0, model: 'code', calls: [] });
       await this.save();
@@ -560,7 +560,7 @@ export class Desk {
       this.pendingLookup = null;
       if (clearYes(said)) {
         const out = await this.runLookup(waiting, true);
-        this.log.push({ who: 'agent', text: out });
+        this.logLine('agent', out);
         this.remember(said, out);
         this.turns.push({ turn: this.n, said, reply: out, ms: 0, model: 'code', calls: [waiting.name] });
         await this.save();
@@ -605,7 +605,7 @@ export class Desk {
       reply = await this.rulesTurn(said);
     }
     reply = reply.replace(/\s+/g, ' ').trim();
-    this.note('agent', reply);
+    this.logLine('agent', reply);
     this.remember(said, reply);
     this.turns.push({ turn: this.n, said, reply, ms: Date.now() - waited() - t0, model: modelName, calls, fallback });
     await this.save();
@@ -616,7 +616,7 @@ export class Desk {
   note(said: string, reply: string) {
     this.n++;
     this.acts = [];
-    this.log.push({ who: 'user', text: said }, { who: 'agent', text: reply });
+    this.logLine('user', said); this.logLine('agent', reply);
     this.remember(said, reply);
     this.turns.push({ turn: this.n, said, reply, ms: 0, model: 'code', calls: [] });
   }
@@ -650,7 +650,7 @@ export class Desk {
     if (this.pending) say += ` Before we got cut off I was checking this: ${this.pending.text}`;
     else if (this.allFilled()) say += ` ${this.finishLine()}`;
     else say += ` Next is the ${this.field(this.current)!.label}. ${this.field(this.current)!.question}`;
-    this.note('agent', say);
+    this.logLine('agent', say);
     this.hist.push({ role: 'assistant', content: say });
     this.events.push({ turn: this.n, type: 'resumed', detail: had.join(',') });
     return say;
