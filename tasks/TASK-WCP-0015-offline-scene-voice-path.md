@@ -89,6 +89,29 @@ Blocked/uncertain:
 Next:
 - Open the pull request for the branch, merge it, then remove the worktree.
 
+### 2026-11-01 07:19:51 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["tasks/TASK-WCP-0015-offline-scene-voice-path.md, checkpoints/CURRENT.md"],"completed":["The offline scene suite stopped in its voice scene and printed no summary; it now finishes, reports 172 of 178 checks, and names the five scenes it could not run, so the task record is closed."],"decisions":["no new decisions"],"evidence":["Pull request #70 merged as 839a083; npm run check passed on the branch (49 engine tests, 8 of 8 scenarios); npm run test:offline printed live-site (offline): 172/178 (5 skipped) with one line per skip."],"next_action":"Find why the tax form never reaches its /sent page in the offline scene (#19), the one failing check the suite now records instead of dying on.","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0015","timestamp":"2026-11-01T07:19:51Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"378295c67031d666f707e7e256410056edf2948a14a4f94c97dbb800bd8862fc","request_id":"730b537eedd445f49e506e9f60d746c6","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0015"} -->
+
+Completed:
+- The offline scene suite stopped in its voice scene and printed no summary; it now finishes, reports 172 of 178 checks, and names the five scenes it could not run, so the task record is closed.
+
+Evidence:
+- Pull request #70 merged as 839a083; npm run check passed on the branch (49 engine tests, 8 of 8 scenarios); npm run test:offline printed live-site (offline): 172/178 (5 skipped) with one line per skip.
+
+Decisions:
+- no new decisions
+
+Changed:
+- tasks/TASK-WCP-0015-offline-scene-voice-path.md, checkpoints/CURRENT.md
+
+Blocked/uncertain:
+- none
+
+Next:
+- Find why the tax form never reaches its /sent page in the offline scene (#19), the one failing check the suite now records instead of dying on.
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
