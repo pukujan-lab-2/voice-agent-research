@@ -80,6 +80,29 @@ Blocked/uncertain:
 Next:
 - Merge; once GitHub's issue list answers again, run propose.ts a second time to confirm it files nothing new
 
+### 2026-11-01 23:27:38 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["eval/README.md, eval/propose.ts, eval/lib/patterns.ts, task record"],"completed":["The propose-fixes branch now contains main after the move to pukujan-lab-2, with the repository name and issue numbers in the routine updated (loop #18, routine #21)"],"decisions":["no new decisions"],"evidence":["npm run check passes on the merged tree"],"next_action":"Merge #39","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0026","timestamp":"2026-11-01T23:27:38Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"c132adbbc9d81d7c0266b7b5cfe73e09d34e3af98b5bdbe56de5be9f3a8a8205","request_id":"4ceb53fdfa84481f954cf6c458cf6041","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0026"} -->
+
+Completed:
+- The propose-fixes branch now contains main after the move to pukujan-lab-2, with the repository name and issue numbers in the routine updated (loop #18, routine #21)
+
+Evidence:
+- npm run check passes on the merged tree
+
+Decisions:
+- no new decisions
+
+Changed:
+- eval/README.md, eval/propose.ts, eval/lib/patterns.ts, task record
+
+Blocked/uncertain:
+- none
+
+Next:
+- Merge #39
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
