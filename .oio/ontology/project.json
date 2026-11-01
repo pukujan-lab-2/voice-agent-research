@@ -1,6 +1,6 @@
 {
   "schema_version": "oio.project-issue-log-ontology.v1",
-  "project_id": "Pukujan-lab/voice-agent-research",
+  "project_id": "pukujan-lab-2/voice-agent-research",
   "namespace": "pukujan-voice-agent-research",
   "extends": {
     "ontology_id": "oio:issue-log",

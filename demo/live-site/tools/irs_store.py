@@ -10,22 +10,30 @@
 Both tables live in the workspace's own Postgres (POST /workspaces/<id>/query). Resumable: re-running upserts rows and
 skips PDFs already uploaded. Usage: python3 tools/irs_store.py [--no-files]
 """
-import base64, json, pathlib, re, sys, urllib.request
+import base64, json, pathlib, re, sys
 
 HERE = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(HERE.parent.parent / "copilot-engine" / "tools"))
 import paddle_passages as pp  # noqa: E402  (reads the Octo key/workspace from ~/Documents/projects/.env, never printed)
 
-BASE = "https://octodb.design-bakery.com/api"
+sys.path.insert(0, str(HERE.parent.parent / "ingest" / "src"))
+from site_ingest.octo import Octo  # noqa: E402  (the one Octo client; ingest/ also loads other businesses' sites)
+
 SITE = HERE / "build" / "irs" / "site"
+_client = None
+
+
+def client() -> Octo:
+    global _client
+    if _client is None:
+        _client = Octo.from_env()
+    return _client
 
 
 def octo(path, body=None, timeout=300):
-    e = pp.env()
-    req = urllib.request.Request(BASE + path, data=json.dumps(body).encode() if body is not None else None, method="POST" if body is not None else "GET",
-                                 headers={"Authorization": "Bearer " + e["octo_db_chatbots"], "Content-Type": "application/json",
-                                          "User-Agent": "chatbots-rag/0.1"})
-    return json.load(urllib.request.urlopen(req, timeout=timeout))
+    c = client()
+    c.timeout = timeout
+    return c.request("POST" if body is not None else "GET", path, body)
 
 
 def sql(ws, text, params=None):
@@ -44,15 +52,7 @@ create index if not exists irs_passages_doc on irs_passages (doc, seq);
 
 
 def upsert(ws, table, cols, rows, key, chunk=150):
-    for i in range(0, len(rows), chunk):
-        part = rows[i:i + chunk]
-        vals, params = [], []
-        for r in part:
-            vals.append("(" + ",".join(f"${len(params) + j + 1}" + ("::jsonb" if c in ("sections", "body") else "") for j, c in enumerate(cols)) + ")")
-            params += [json.dumps(r[c], ensure_ascii=False) if c in ("sections", "body") and r[c] is not None else r[c] for c in cols]
-        sets = ",".join(f"{c}=excluded.{c}" for c in cols if c != key)
-        sql(ws, f"insert into {table} ({','.join(cols)}) values {','.join(vals)} on conflict ({key}) do update set {sets}", params)
-        pass
+    Octo(client().key, ws, client().base, client().timeout).upsert(table, cols, rows, key, chunk, jsonb=("sections", "body"))
 
 
 def main():

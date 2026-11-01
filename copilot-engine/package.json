@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Step-by-step website copilot engine: asks, reads back, confirms, then acts. No dependencies; Node 24 runs the TypeScript directly.",
   "scripts": {
-    "test": "node --test tests/engine.test.ts tests/desk.test.ts tests/desk-scale.test.ts",
+    "test": "node --test tests/engine.test.ts tests/desk.test.ts tests/desk-scale.test.ts tests/site-search.test.ts tests/search-site.test.ts tests/lookups.test.ts tests/lookups-desk.test.ts",
     "scenarios": "node tests/run.ts",
     "scenarios:llama": "node tests/run.ts --llama",
     "holdout2": "node tests/holdout2.ts",

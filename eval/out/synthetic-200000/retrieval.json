@@ -1,0 +1,44 @@
+{
+ "unfiltered": {
+  "queries": 100,
+  "recall@5": 0.98,
+  "recall@10": 0.98,
+  "mrr": 0.955
+ },
+ "all": {
+  "queries": 600,
+  "recall@5": 0.997,
+  "recall@10": 0.997,
+  "mrr": 0.993
+ },
+ "business": {
+  "queries": 100,
+  "recall@5": 1.0,
+  "recall@10": 1.0,
+  "mrr": 1.0
+ },
+ "language": {
+  "queries": 100,
+  "recall@5": 1.0,
+  "recall@10": 1.0,
+  "mrr": 1.0
+ },
+ "language+page type": {
+  "queries": 100,
+  "recall@5": 1.0,
+  "recall@10": 1.0,
+  "mrr": 1.0
+ },
+ "section": {
+  "queries": 100,
+  "recall@5": 1.0,
+  "recall@10": 1.0,
+  "mrr": 1.0
+ },
+ "small tenant (prefix)": {
+  "queries": 100,
+  "recall@5": 1.0,
+  "recall@10": 1.0,
+  "mrr": 1.0
+ }
+}

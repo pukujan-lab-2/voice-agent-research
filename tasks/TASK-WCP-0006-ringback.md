@@ -1,6 +1,6 @@
 # TASK-WCP-0006 — Ringback
 
-<!-- continuity:task {"acceptance":["While the call waits for the agent, the caller hears a soft ringback made in the page","The ringback stops when the agent joins and speaks","With no agent after 20 seconds the call switches to typing with a message","npm run check passes"],"depends_on":[],"goal":"A voice call rings while it connects and falls back to typing when no agent joins","id":"WCP-0006","issue_url":"https://github.com/Pukujan-lab/voice-agent-research/issues/43","next_action":"Open the pull request for #43 and let auto-merge wait for gates","owner":"owner","priority":"P2","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"active","why":"Callers waited in silence, and forever when the agent was down"} -->
+<!-- continuity:task {"acceptance":["While the call waits for the agent, the caller hears a soft ringback made in the page","The ringback stops when the agent joins and speaks","With no agent after 20 seconds the call switches to typing with a message","npm run check passes"],"depends_on":[],"goal":"A voice call rings while it connects and falls back to typing when no agent joins","id":"WCP-0006","next_action":"Open the pull request for #43 and let auto-merge wait for gates","owner":"owner","priority":"P2","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"active","why":"Callers waited in silence, and forever when the agent was down"} -->
 
 - Status: active
 - Owner: owner

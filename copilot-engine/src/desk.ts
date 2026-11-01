@@ -6,7 +6,9 @@
 // It runs in Node (tests, the desk simulator) and in the browser (the live site), so it reads no Node-only globals.
 import type { Field, Flow, Hooks } from './types.ts';
 import { formatDate, formatSerial, parseName, spellOut, spokenDigits, spokenToCode, spokenToDate, spokenToEmail, spokenToPhone, spokenToSerial, stripFiller, validEmail, validSerial, yesNo } from './guard.ts';
-import { shortQuote, type Passage } from './guide.ts';
+import { shortQuote, type Passage, type SearchFilter } from './guide.ts';
+import { filterFrom, SEARCH_HINT, withSearchTools, type SiteSearch } from './search-site.ts';
+import { LOOKUP_HINT, type Caller, type Lookups } from './lookups.ts';
 import { customerKey, newSessionId, SESSION_TTL_MS, type CustomerRecord, type SessionSnapshot, type Store } from './memory.ts';
 
 // Environment settings in Node; none in the browser.
@@ -100,7 +102,7 @@ function parseArgs(a: unknown): Record<string, unknown> {
 }
 
 // Small models sometimes write tool calls as text: JSON {"name":..,"arguments":..} or python style propose_value(field="x", value="y").
-const TOOL_NAMES = ['propose_value', 'confirm_pending', 'reject_pending', 'go_to_field', 'answer_question', 'end_call'];
+const TOOL_NAMES = ['propose_value', 'confirm_pending', 'reject_pending', 'go_to_field', 'answer_question', 'search_site', 'end_call'];
 export function textToolCalls(content: string): { calls: ToolCall[]; rest: string } {
   const calls: ToolCall[] = [];
   let rest = content.replace(/<\|?tool_call(_start)?\|?>|<\|?tool_call(_end)?\|?>|<\/?tool_call>/g, ' ');
@@ -475,11 +477,16 @@ export class Desk {
   // from the business's documents, or null when nothing answers. Without it, `docs` is searched and quoted here.
   // unknown: what to say when nothing answers. finish: what to say when every field is filled (a page form names its
   // own submit button, and anything the customer still has to do by hand).
-  private answer?: (question: string) => Promise<string | null>;
+  private answer?: (question: string, filter?: SearchFilter) => Promise<string | null>;
+  private search?: SiteSearch; // search_site: look before answering (search-site.ts)
+  private lookupsThisTurn = 0;
+  private lookups?: Lookups; // the business's declared record lookups (lookups.ts); code runs them, the model only names one
+  private caller?: () => Caller; // who the caller is, from the host's verification (never from the model)
+  private pendingLookup: ToolCall | null = null; // a lookup waiting for the caller's yes
   private unknown: string;
   private finish?: string;
 
-  constructor(flow: Flow, opts: { model?: ChatModel; heavy?: ChatModel; docs?: Docs; answer?: (question: string) => Promise<string | null>; unknown?: string; finish?: string; hooks?: Partial<Hooks>; route?: (said: string, d: Desk) => boolean; sessions?: Store; customers?: Store; fullFormFields?: number } = {}) {
+  constructor(flow: Flow, opts: { model?: ChatModel; heavy?: ChatModel; docs?: Docs; answer?: (question: string, filter?: SearchFilter) => Promise<string | null>; search?: SiteSearch; lookups?: Lookups; caller?: () => Caller; unknown?: string; finish?: string; hooks?: Partial<Hooks>; route?: (said: string, d: Desk) => boolean; sessions?: Store; customers?: Store; fullFormFields?: number } = {}) {
     this.flow = flow;
     this.windowed = flow.fields.length > (opts.fullFormFields ?? FULL_FORM_FIELDS);
     this.answer = opts.answer;
@@ -494,8 +501,11 @@ export class Desk {
     this.hooks = opts.hooks ?? {};
     if (opts.route) this.route = opts.route;
     this.current = flow.fields[0]?.name ?? '';
-    this.toolsSpec = this.tools();
-    this.system = this.systemPrompt();
+    this.search = opts.search;
+    this.lookups = opts.lookups;
+    this.caller = opts.caller;
+    this.toolsSpec = [...(this.search ? withSearchTools(this.tools()) : this.tools()), ...(this.lookups?.tools ?? [])];
+    this.system = this.systemPrompt() + (this.search ? SEARCH_HINT : '') + (this.lookups ? LOOKUP_HINT : '');
   }
 
   // Appends to the call log. A long call keeps its first entry (the opening line) and the latest ones.
@@ -544,16 +554,30 @@ export class Desk {
       await this.save();
       return memReply;
     }
+    // A lookup that asked for a yes: this turn is the answer. A yes runs it; anything else drops it.
+    if (this.pendingLookup) {
+      const waiting = this.pendingLookup;
+      this.pendingLookup = null;
+      if (clearYes(said)) {
+        const out = await this.runLookup(waiting, true);
+        this.log.push({ who: 'agent', text: out });
+        this.remember(said, out);
+        this.turns.push({ turn: this.n, said, reply: out, ms: 0, model: 'code', calls: [waiting.name] });
+        await this.save();
+        return out;
+      }
+    }
     const waited = () => [this.chatModel, this.heavy].reduce((a, m) => a + ((m as { waitedMs?: number } | undefined)?.waitedMs ?? 0), 0);
     const t0 = Date.now() - waited();
     this.acts = [];
+    this.lookupsThisTurn = 0;
     let reply = '', modelName = 'rules', calls: string[] = [], fallback: string | undefined;
     const useHeavy = !!this.heavy && this.route(said, this);
     const first = useHeavy ? this.heavy : this.chatModel;
     try {
       if (!first) throw new Error('no model');
       let r: ChatResult;
-      try { r = await first.chat(this.messages(said), this.toolsSpec); }
+      try { r = await this.chatRounds(first, said); }
       catch (e) {
         // A small local model with a short context: keep less history from now on and try again at once.
         if (!/context/i.test((e as Error).message) || this.histTurns <= 1) throw e;
@@ -827,6 +851,31 @@ Caller: "Thanks, that helps." -> no tool; say "You're welcome. Anything else?"`;
 
   // Past turns keep their tool calls (including the ones code made for the model), so the model sees how the form is
   // worked and does not learn to type read-backs as plain text.
+  // The model's reply, with up to `rounds` trips back to it while it only searches (search_site). Code runs the searches under
+  // their caps and hands the results back; search calls never reach apply(), so searching alone never speaks or changes a field.
+  private async chatRounds(model: ChatModel, said: string): Promise<ChatResult> {
+    const msgs = this.messages(said);
+    let r = await model.chat(msgs, this.toolsSpec);
+    const search = this.search;
+    if (!search) return r;
+    search.startTurn();
+    let ms = r.ms;
+    for (let round = 0; round < search.limits.rounds; round++) {
+      const looks = r.calls.filter(c => c.name === 'search_site');
+      if (!looks.length || looks.length !== r.calls.length) break; // nothing to look up, or it also acted: act on that
+      const ids = looks.map((_, i) => `search_${this.n}_${round}_${i}`);
+      msgs.push({ role: 'assistant', content: '', tool_calls: looks.map((c, i) => ({ id: ids[i], type: 'function', function: { name: c.name, arguments: JSON.stringify(c.args) } })) });
+      for (const [i, c] of looks.entries()) {
+        const out = await search.run(c.args ?? {});
+        this.events.push({ turn: this.n, type: out.refused ? 'search_refused' : 'search', detail: `${String(c.args?.query ?? '').slice(0, 80)} -> ${out.hits.length}${out.relaxed ? ' (filter dropped)' : ''}` });
+        msgs.push({ role: 'tool', tool_call_id: ids[i], content: out.text });
+      }
+      r = await model.chat(msgs, this.toolsSpec);
+      ms += r.ms;
+    }
+    return { ...r, ms, calls: r.calls.filter(c => c.name !== 'search_site') };
+  }
+
   private messages(said: string): ChatMsg[] {
     let h = this.hist;
     const starts = h.map((m, i) => (m.role === 'user' ? i : -1)).filter(i => i >= 0);
@@ -908,9 +957,17 @@ Caller: "Thanks, that helps." -> no tool; say "You're welcome. Anything else?"`;
     return w.length === 0 || w.filter(x => have.has(x)).length / w.length >= 0.5;
   }
 
+  // A declared record lookup, run by code. The events say which lookup ran and what came of it, never the values.
+  private async runLookup(c: ToolCall, confirmed: boolean): Promise<string> {
+    const r = await this.lookups!.run(c.name, c.args ?? {}, this.caller?.() ?? { verified: false }, confirmed);
+    this.events.push({ turn: this.n, type: 'lookup', detail: `${c.name} ${r.status} risk ${r.risk}`, by: 'model' });
+    if (r.status === 'needs_confirmation') this.pendingLookup = c;
+    return r.text;
+  }
+
   // One question looked up: the site's own answer, else a quote from the business's passages; null when nothing answers.
-  private async lookup(q: string): Promise<{ text: string; id: string } | null> {
-    if (this.answer) { const t = await this.answer(q); return t ? { text: t, id: 'site' } : null; }
+  private async lookup(q: string, filter?: SearchFilter): Promise<{ text: string; id: string } | null> {
+    if (this.answer) { const t = await this.answer(q, filter); return t ? { text: t, id: 'site' } : null; }
     const p = this.docs ? await this.docs(q) : null;
     return p ? { text: shortQuote(p.text, q, 140), id: p.id } : null;
   }
@@ -1063,13 +1120,22 @@ Caller: "Thanks, that helps." -> no tool; say "You're welcome. Anything else?"`;
       } else if (c.name === 'answer_question') {
         acted = true; answered = true;
         const q = String(a.question ?? said);
-        let p = await this.lookup(q);
+        // At most 3 lookups a turn (a two-part question is two); a filter the model took from a search is tried first, and dropped if it finds nothing.
+        if (++this.lookupsThisTurn > 3) { ev({ type: 'lookup_limit' }); rec(c, 'Too many lookups this turn; ask the caller to take the rest one at a time.'); continue; }
+        const filter = this.search ? filterFrom(a) : undefined;
+        let p = await this.lookup(q, filter);
+        if (!p && filter && (filter.section || filter.pageType || filter.language)) { ev({ type: 'filter_dropped', detail: JSON.stringify(filter) }); p = await this.lookup(q); }
         // The model's rewording can lose the point; try the customer's own question too.
         const own = said.match(ASKED_Q)?.[0] ?? said;
         const same = (x: string) => x.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
         if (!p && same(own) !== same(q)) p = await this.lookup(own);
         ev({ type: 'answer', detail: p ? p.id : 'none' }); rec(c, p ? `Read to the customer: ${p.text}` : 'Nothing in the documents answers this; told the customer you do not know.');
         tails.push(p ? p.text : this.unknown);
+      } else if (this.lookups && c.name.startsWith('lookup_')) {
+        acted = true; answered = true;
+        if (++this.lookupsThisTurn > 3) { ev({ type: 'lookup_limit' }); rec(c, 'Too many lookups this turn.'); continue; } // the cap is shared with answer_question
+        const text = await this.runLookup(c, false);
+        rec(c, text); tails.push(text);
       } else if (c.name === 'end_call') {
         if (this.allFilled() || BYE.test(said)) {
           acted = true; this.done = true; ev({ type: 'end' });
