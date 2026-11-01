@@ -13,7 +13,8 @@
     "orphans": "knip",
     "test": "npm --prefix copilot-engine test && node --test eval/tests/*.test.ts && node --no-warnings --test demo/live-site/tests/*.test.ts",
     "scenarios": "npm --prefix copilot-engine run scenarios",
-    "check": "npm run lint && npm run lint:py && npm run typecheck && npm run orphans && npm test && npm run scenarios"
+    "check": "npm run lint && npm run lint:py && npm run typecheck && npm run orphans && npm test && npm run test:py && npm run scenarios",
+    "test:py": "uv run --directory ingest --extra dev pytest -q"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.6.4",

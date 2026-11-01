@@ -1,0 +1,50 @@
+{
+  "name": "Synthetic large site and database (two businesses in one workspace)",
+  "seed": 11,
+  "sizes": { "default": 3000, "ci": 1200 },
+  "businesses": {
+    "acme": { "passages": 1.0, "name": "Acme Outfitters" },
+    "globex": { "passages": 0.25, "name": "Globex Supply" }
+  },
+  "callers": { "facts": 40, "vague": 20, "unanswerable": 10, "records": 12, "hostile": 12 },
+  "records": {
+    "clients": 6,
+    "ordersPerClient": 3
+  },
+  "lookups": {
+    "businessColumn": "business_id",
+    "lookups": [
+      {
+        "id": "order_status",
+        "description": "Status of an order by its number.",
+        "table": "orders",
+        "about": "person",
+        "ownerColumn": "customer_id",
+        "params": [{ "name": "order_number", "column": "order_number", "type": "string", "pattern": "[A-Za-z0-9-]{4,16}", "upper": true, "description": "order number" }],
+        "fields": [{ "column": "status", "label": "Status" }, { "column": "eta", "label": "Expected" }],
+        "say": "Order {Status}, expected {Expected}."
+      },
+      {
+        "id": "my_appointments",
+        "description": "The caller's upcoming appointments.",
+        "table": "appointments",
+        "about": "person",
+        "ownerColumn": "customer_id",
+        "params": [],
+        "limit": 3,
+        "fields": [{ "column": "starts_at", "label": "When" }, { "column": "staff", "label": "With" }]
+      },
+      {
+        "id": "price",
+        "description": "Price of a product by its name.",
+        "table": "prices",
+        "about": "none",
+        "params": [{ "name": "product", "column": "name", "type": "string", "description": "product name" }],
+        "fields": [{ "column": "price", "label": "Price" }],
+        "say": "It costs {Price} dollars."
+      }
+    ]
+  },
+  "limits": { "searchResults": 4, "searchChars": 400, "searchCallsPerTurn": 3, "lookupsPerTurn": 3 },
+  "pass": { "goldCitedFacts": 0.9 }
+}

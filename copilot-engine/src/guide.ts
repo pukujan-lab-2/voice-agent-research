@@ -12,9 +12,12 @@ export interface Step { n: number; text: string; page?: number }
 export interface Manual { id: string; title: string; business: string; steps: Step[]; passages: Passage[]; unknown?: string }
 // cite: where a passage comes from, for a library of many documents ("IRS Pub 17, Filing Requirements" and its link).
 // title: the passage's document title in the retriever's store.
-export interface Passage { id: string; text: string; page?: number; cite?: { title: string; url: string; doc?: string; anchor?: string }; title?: string }
+// section, pageType, language, lastModified: set by the site retriever (a business's own pages); see site-search.ts.
+export interface Passage { id: string; text: string; page?: number; cite?: { title: string; url: string; doc?: string; anchor?: string }; title?: string; section?: string; pageType?: string; language?: string; lastModified?: string }
 
-export interface Retriever { search(query: string, k: number): Promise<Passage[]> }
+// Narrows a search to part of a site. Each part is optional; a retriever that cannot filter ignores it.
+export interface SearchFilter { section?: string; pageType?: string; language?: string }
+export interface Retriever { search(query: string, k: number, filter?: SearchFilter): Promise<Passage[]> }
 // Returns the id of the passage that answers the question, or '' when none does.
 export interface Judge {
   pick(question: string, passages: Passage[]): Promise<string>;
@@ -84,8 +87,8 @@ export class Guide {
   }
 
   // Answers one question from the manual, or says it doesn't know. Also used outside a walk-through (a form's side question).
-  async lookup(q: string): Promise<string> {
-    const found = await this.retriever.search(q, 4);
+  async lookup(q: string, filter?: SearchFilter): Promise<string> {
+    const found = await this.retriever.search(q, 4, filter);
     // A guide for a narrow audience (US possessions, citizens abroad) is not a general answer: the judge sees the
     // other passages first, and the narrow ones only when none of those answers (or the question names that audience).
     const hits = withoutNiche(found, q);

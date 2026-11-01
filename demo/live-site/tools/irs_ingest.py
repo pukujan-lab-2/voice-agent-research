@@ -5,26 +5,19 @@ Resumable: passages already in Octo (by title) or in build/irs/ingested.jsonl ar
 Pro's free memory over `ssh mac-pro` and waits while it is under the floor.
 Usage: python3 tools/irs_ingest.py [--batch 200] [--workers 3] [--floor 25] [--limit N]
 """
-import argparse, json, pathlib, re, subprocess, sys, time, urllib.request
+import argparse, json, pathlib, re, subprocess, sys, time
 from concurrent.futures import ThreadPoolExecutor
 
 HERE = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(HERE.parent.parent / "copilot-engine" / "tools"))
 import paddle_passages as pp  # noqa: E402  (reads the Octo key/workspace from ~/Documents/projects/.env, never printed)
+from irs_store import octo  # noqa: E402  (the shared Octo client from ingest/)
 
 LEDGER = HERE / "build" / "irs" / "ingested.jsonl"
 STOP = HERE / "build" / "irs" / "STOP"
-BASE = "https://octodb.design-bakery.com/api"
+
 # The brief's own sources go in first, so the demo works long before the whole library is loaded.
 FIRST = re.compile(r"^irs/(faqs-|taxtopics-|publications-p(17|501|505|334|463|583|587|590a|590b|596|970|936|523|527|15) #|instructions-i1040gi )")
-
-
-def octo(path, body=None, timeout=180):
-    e = pp.env()
-    req = urllib.request.Request(BASE + path, data=json.dumps(body).encode() if body else None, method="POST" if body else "GET",
-                                 headers={"Authorization": "Bearer " + e["octo_db_chatbots"], "Content-Type": "application/json",
-                                          "User-Agent": "chatbots-rag/0.1"})
-    return json.load(urllib.request.urlopen(req, timeout=timeout))
 
 
 def pro_free():
