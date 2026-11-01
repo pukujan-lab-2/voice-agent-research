@@ -52,6 +52,29 @@ The owner merges (or auto-merge does) and the live site updates within about 5 m
 
 No checkpoints yet.
 
+### 2026-11-01 18:15:05 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["none"],"completed":["Merged work waited for a hand push of production; a workflow now fast-forwards production to the commit CI passed on main, and decision 0016 records the rule"],"decisions":["no new decisions"],"evidence":["npm run check passes and the workflow YAML parses; it cannot run end to end until GitHub Actions starts runs again"],"next_action":"Merge once Actions runs, then check the first promotion","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0050","timestamp":"2026-11-01T18:15:05Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"e23b0e145e198d7f5903d3f6f926c1ee1ff26955d70a7a9210e9d44649c7f55f","request_id":"f26cd6c7eace4f02a14127bcb2c538a2","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0050"} -->
+
+Completed:
+- Merged work waited for a hand push of production; a workflow now fast-forwards production to the commit CI passed on main, and decision 0016 records the rule
+
+Evidence:
+- npm run check passes and the workflow YAML parses; it cannot run end to end until GitHub Actions starts runs again
+
+Decisions:
+- no new decisions
+
+Changed:
+- none
+
+Blocked/uncertain:
+- none
+
+Next:
+- Merge once Actions runs, then check the first promotion
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
