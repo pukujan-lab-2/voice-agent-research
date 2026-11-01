@@ -465,3 +465,24 @@ test('LFM3-Audio is asked the way its model card says: the system prompt ends "L
     assert.equal(sent[1].messages[0].content, 'You are the desk.', 'no tools, no header');
   } finally { globalThis.fetch = realFetch; }
 });
+
+// Call 7d689fcd, "You guide me how to file it. Can I file it from here?": the model said "I don't have that detail in my
+// guides" without looking. The library decides, not the model.
+test('a question desk looks up a question its model refused to answer, and says the library\'s answer, not the model\'s', async () => {
+  const looked: string[] = [];
+  const d = new Desk(taxDesk, {
+    model: stub(() => ({ content: "I don't have that detail in my guides right now. A preparer can walk you through the form." })),
+    answer: async q => { looked.push(q); return 'IRS FAQ says: "Yes, you can file an original Form 1040 series tax return electronically."'; },
+  });
+  d.start();
+  const reply = await d.turn('You guide me how to file it. Can I file it from here?');
+  assert.equal(looked.length, 1);
+  assert.match(reply, /Yes, you can file an original Form 1040/);
+  assert.doesNotMatch(reply, /don't have that detail/);
+  // small talk is still the model's
+  const e = new Desk(taxDesk, { model: stub(() => ({ content: "I don't know about that, but thanks!" })), answer: async q => { looked.push(q); return 'x'; } });
+  e.start();
+  const before = looked.length;
+  await e.turn('Thanks, that helps.');
+  assert.equal(looked.length, before);
+});

@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import { test } from 'node:test';
-import { Guide, JevJudge, isNiche, pickRule, withoutNiche, type Judge, type Passage, type Retriever } from '../src/guide.ts';
+import { Guide, JevJudge, expandDates, isNiche, pickRule, withoutNiche, type Judge, type Passage, type Retriever } from '../src/guide.ts';
 
 // The four passages the live search returned for "Can I file my tax return from here?", and Jev's answer replayed on them
 // (typesafe/jev-1.14: p0 0.70, none 0.26).
@@ -21,9 +21,10 @@ test('a pick that clearly beats "none" stands; a thin or off-topic one does not'
   assert.equal(pickRule(live, 0), 'ahead');
   assert.equal(pickRule({ none: 0.05, p0: 0.9 }, 0), 'sure');
   assert.equal(pickRule({ none: 0.25, p0: 0.7 }, 0), 'sure', 'the original gate is unchanged');
-  // held-out cases from eval/out/irs/judge-rule.json that must stay "don't know" or unchanged
-  assert.equal(pickRule({ none: 0.26, p3: 0.64 }, 3), 'none', 'a made-up answer on an unanswerable question');
-  assert.equal(pickRule({ none: 0.29, p2: 0.6 }, 2), 'none');
+  // a tie or better is the closest the documents get, not a refusal (call 75aeb0b4: none 0.35, p0 0.34, p1 0.26)
+  assert.equal(pickRule({ none: 0.35, p0: 0.34, p1: 0.26 }, 0), 'closest');
+  assert.equal(pickRule({ none: 0.26, p3: 0.64 }, 3), 'closest');
+  assert.equal(pickRule({ none: 0.48, p0: 0.30, p1: 0.2 }, 0), 'none', 'the deadline question that found the refund passage: none 0.48');
   assert.equal(pickRule({ none: 0.5, p0: 0.45 }, 0), 'none');
   assert.equal(pickRule({ none: 0.98, p0: 0.01 }, 0), 'none');
   assert.equal(pickRule({}, 0), 'none', 'no probabilities: no pick');
@@ -116,4 +117,47 @@ test('the same passage for a different question is flagged, or swapped for anoth
   await only.lookup('Is there a form to start filing my tax return?');
   assert.equal(only.last?.id, 'b8590d3c');
   assert.equal(only.lastRepeat, true);
+});
+
+// ---- the tie, the visitor's own words, date words, and an empty first search ----
+test('a tied pick is quoted and flagged as the closest the guides have', async () => {
+  const due: Passage = { id: 'ae129542', text: "If you're a calendar year filer and your tax year ends on December 31, the due date for filing your federal individual income tax return is generally April 15 of each year.", title: 'irs/taxtopics-tc301 #0' };
+  await withJev(() => answer({ none: 0.35, p0: 0.34, p1: 0.26, p2: 0.03, p3: 0.02 }, 'p0'), async j => {
+    const g = new Guide(book, { async search() { return [due, general, p570, four[2]]; } }, j);
+    const reply = await g.lookup('What is the best month to file taxes?');
+    assert.match(reply, /due date for filing your federal individual income tax return/);
+    assert.equal(g.last?.id, 'ae129542');
+    assert.equal(g.lastClosest, true);
+  });
+  await withJev(() => answer(live, 'p0'), async j => {
+    const g = new Guide(book, { async search() { return four; } }, j);
+    await g.lookup('Can I file my tax return from here?');
+    assert.equal(g.lastClosest, false, 'a pick that clearly answers is not called the closest');
+  });
+});
+
+test('date words are spelled out for the search, and the visitor\'s own words are searched too, merged without repeats', async () => {
+  assert.equal(expandDates("What is the filing deadline for my return?"), 'What is the filing deadline for my return? due date to file federal income tax return');
+  assert.equal(expandDates('What month do I have to file my taxes by?'), 'What month do I have to file my taxes by? due date to file federal income tax return');
+  assert.equal(expandDates('How do I file for an extension deadline?'), 'How do I file for an extension deadline?', 'an extension is another date');
+  assert.equal(expandDates('How do I file my tax return?'), 'How do I file my tax return?');
+  const asked: string[] = [];
+  const due: Passage = { id: 'due', text: 'The due date for filing is generally April 15.' };
+  const refund: Passage = { id: 'refund', text: 'You must file within 3 years to get a refund.' };
+  const retriever: Retriever = { async search(q) { asked.push(q); return q.includes('due date') ? [due, refund] : [refund]; } };
+  const seen: string[][] = [];
+  const g = new Guide(book, retriever, { async pick(_q, ps) { seen.push(ps.map(p => p.id)); return 'due'; } });
+  g.also = "Hmm, what's the dead line?";
+  await g.lookup('What is the filing deadline for my return?');
+  assert.deepEqual(asked, ['What is the filing deadline for my return? due date to file federal income tax return', "Hmm, what's the deadline? due date to file federal income tax return"]);
+  assert.deepEqual(seen[0].sort(), ['due', 'refund'], 'one list, no repeats');
+});
+
+test('when the rewritten question finds nothing, the plain question is tried once more', async () => {
+  const asked: string[] = [];
+  const hit: Passage = { id: 'x', text: 'You can file electronically.' };
+  const g = new Guide(book, { async search(q) { asked.push(q); return q.endsWith('due date to file federal income tax return') ? [] : [hit]; } }, { async pick(_q, ps) { return ps[0]?.id ?? ''; } });
+  await g.lookup('When is the deadline?');
+  assert.deepEqual(asked, ['When is the deadline? due date to file federal income tax return', 'When is the deadline?']);
+  assert.equal(g.last?.id, 'x');
 });

@@ -25,6 +25,8 @@ export interface Judge {
   sentences?(question: string, sentences: string[]): Promise<number[]>;
   // Optional: Jev's probabilities for the passages of the last pick ("p0", "p1"… and "none"), when the judge has them.
   lastProbs?: Record<string, number>;
+  // Optional: the rule that kept the last pick ('sure', 'ahead' or 'closest'), when the judge reports one.
+  lastRule?: string;
 }
 
 const NEXT = /^\s*(next|done|ok(ay)?,? (done|next)|finished|got it|did it|i did( it| that)?|that'?s done|ready|go on|continue|what'?s next|and then\??)\W*$/i;
@@ -41,6 +43,12 @@ export class Guide {
   lastQuote: string[] = []; // the sentences of that passage it quoted, word for word
   // Set when the judge found two different passages nearly equally likely to answer: a sign the question can mean two things.
   lastSplit?: { a: Passage; b: Passage; pa: number; pb: number };
+  // The visitor's own words for this turn, searched alongside the rewritten question: the rewrite can lose the very word
+  // that finds the passage ("what's the deadline" became "the filing deadline for my return" and found the refund limit).
+  also = '';
+  lastHits: Passage[] = []; // what the last lookup's search(es) returned, merged
+  lastNearest?: Passage; // the best search hit of the last lookup, even when none answered, for "the closest I have"
+  lastClosest = false; // the last answer is the closest passage the guides have, not one Jev found to answer it
   lastRepeat = false; // the last lookup could only quote a passage this guide already quoted earlier
   seen = new Set<string>(); // ids of the passages quoted so far, so the same one is not passed off as a new answer
   private manual: Manual;
@@ -88,21 +96,25 @@ export class Guide {
 
   // Answers one question from the manual, or says it doesn't know. Also used outside a walk-through (a form's side question).
   async lookup(q: string, filter?: SearchFilter): Promise<string> {
-    const found = await this.retriever.search(q, 4, filter);
+    const found = await this.search(q, filter);
+    this.lastHits = found;
     // A guide for a narrow audience (US possessions, citizens abroad) is not a general answer: the judge sees the
     // other passages first, and the narrow ones only when none of those answers (or the question names that audience).
     const hits = withoutNiche(found, q);
-    let p = await this.pick(q, hits);
+    this.lastNearest = hits[0];
+    let picked = await this.pick(q, hits);
+    let p = picked.p;
     this.lastSplit = p ? splitOf(hits, this.judge.lastProbs, p) : undefined;
-    if (!p && hits.length < found.length) p = await this.pick(q, found);
+    if (!p && hits.length < found.length) { picked = await this.pick(q, found); p = picked.p; }
     this.lastRepeat = false;
     if (p && this.seen.has(p.id)) {
       // The same passage again: see whether the search found another that answers before repeating it.
       const rest = found.filter(h => !this.seen.has(h.id) && hits.includes(h));
       const other = rest.length ? await this.pick(q, rest) : undefined;
-      if (other) p = other; else this.lastRepeat = true;
+      if (other?.p) { p = other.p; picked = other; } else this.lastRepeat = true;
     }
     this.last = p;
+    this.lastClosest = !!p && picked.closest;
     this.lastQuote = [];
     if (!p) return this.manual.unknown ?? NO_ANSWER;
     this.seen.add(p.id);
@@ -110,9 +122,22 @@ export class Guide {
     return `The manual says${p.page ? ` (page ${p.page})` : ''}: "${await this.quote(p.text, q)}"`;
   }
 
-  private async pick(q: string, hits: Passage[]): Promise<Passage | undefined> {
+  // The search for a question: the question with date words spelled out, and the visitor's own words too when they differ,
+  // merged and de-duplicated. When nothing comes back at all, the plain question once more.
+  private async search(q: string, filter?: SearchFilter): Promise<Passage[]> {
+    const asks = [expandDates(q)];
+    const own = tidy(this.also);
+    if (own && own.toLowerCase() !== tidy(q).toLowerCase()) asks.push(expandDates(own));
+    const lists = await Promise.all(asks.map(a => this.retriever.search(a, 4, filter)));
+    let merged = mergeHits(lists, asks.length > 1 ? 6 : 4);
+    if (!merged.length && asks[0] !== q) merged = await this.retriever.search(q, 4, filter);
+    return merged;
+  }
+
+  private async pick(q: string, hits: Passage[]): Promise<{ p?: Passage; closest: boolean }> {
     const id = hits.length ? await this.judge.pick(q, hits) : '';
-    return hits.find(h => h.id === id);
+    const p = hits.find(h => h.id === id);
+    return { p, closest: !!p && this.judge.lastRule === 'closest' };
   }
 
   private async quote(text: string, q: string): Promise<string> {
@@ -196,11 +221,26 @@ export class OverlapJudge implements Judge {
   }
 }
 
+// Words a visitor says about a date ("deadline", "last day", "what month") are not the words the guides use ("due date",
+// "when to file"), and a search for them finds the refund time limit first. Spelling the topic out finds Tax Topic 301.
+const DATE_WORDS = /\b(deadline|dead line|due date|last day (to|for)|when (do|should|must|can) (i|we) (have to )?file|what month|which month|best month|how late|by when)\b/i;
+const NOT_ABOUT_RETURN_DATE = /\b(extension|estimated|quarterly|payroll|941|940|1099|w-?2|partnership|corporation|state|property|gift|estate|fbar|payment plan|installment|amend\w*|1040-?x|appeal|notice)\b/i;
+export function expandDates(q: string): string {
+  return DATE_WORDS.test(q) && !NOT_ABOUT_RETURN_DATE.test(q) && !/due date to file/i.test(q) ? `${q.replace(/\s+$/, '')} due date to file federal income tax return` : q;
+}
+const tidy = (s: string) => s.replace(/\bdead line\b/gi, 'deadline').replace(/\s+/g, ' ').trim();
+// Hits from several searches, one from each in turn, without repeats.
+function mergeHits(lists: Passage[][], cap: number): Passage[] {
+  const out: Passage[] = [];
+  for (let i = 0; out.length < cap && lists.some(l => i < l.length); i++) for (const l of lists) if (l[i] && !out.some(o => o.id === l[i].id) && out.length < cap) out.push(l[i]);
+  return out;
+}
+
 // What Jev said about one passage pick, for the trace as well as the decision.
 //   rule: why the pick stands or not: 'sure' (Jev thinks it unlikely that no passage answers), 'ahead' (the passage it
 //   picked is clearly more likely than "none"), 'none' (Jev did not choose a passage, or is not sure enough), 'error'
 //   (the call failed: see error), 'skipped' (no key or no passages).
-type Pick = { id: string; rule: 'sure' | 'ahead' | 'none' | 'error' | 'skipped'; probs: Record<string, number>; error: string };
+type Pick = { id: string; rule: 'sure' | 'ahead' | 'closest' | 'none' | 'error' | 'skipped'; probs: Record<string, number>; error: string };
 
 // Jev's confidence that SOME passage answers is 1 minus its probability for "none": two passages that both answer
 // split the rest between them. So a pick stands when "none" is unlikely (the original gate), or when the picked passage
@@ -210,12 +250,16 @@ type Pick = { id: string; rule: 'sure' | 'ahead' | 'none' | 'error' | 'skipped';
 export const NONE_MAX = 0.25;
 const AHEAD_MIN = 0.65;
 const AHEAD_BY = 0.35;
-export function pickRule(probs: Record<string, number>, i: number): 'sure' | 'ahead' | 'none' {
+const TIE_BY = 0.02; // Jev's probabilities are rounded: 0.34 against 0.35 is a tie
+// A tie or better ("none" 0.35, the due-date passage 0.34 for "what is the best month to file taxes?") is not a refusal:
+// the passage is quoted and said to be the closest the documents get.
+export function pickRule(probs: Record<string, number>, i: number): 'sure' | 'ahead' | 'closest' | 'none' {
   if (i < 0) return 'none';
   const none = probs.none ?? 1;
   if (none <= NONE_MAX) return 'sure';
   const own = probs[`p${i}`] ?? 0;
-  return own >= AHEAD_MIN && own - none >= AHEAD_BY ? 'ahead' : 'none';
+  if (own >= AHEAD_MIN && own - none >= AHEAD_BY) return 'ahead';
+  return own >= none - TIE_BY ? 'closest' : 'none';
 }
 
 // Jev decides whether one of the passages answers the question. Locked to Jev models like JevGate.
@@ -226,6 +270,7 @@ export class JevJudge implements Judge {
   // "no passage answers" apart from "Jev was down" and fall back.
   lastError = '';
   lastProbs?: Record<string, number>;
+  lastRule?: string;
   private key?: string;
   private url: string;
   constructor(opts: { key?: string; url?: string } = {}) {
@@ -238,7 +283,7 @@ export class JevJudge implements Judge {
 
   // The same decision with what Jev said: its probabilities and the rule that kept or dropped the pick, or the error.
   async choose(question: string, passages: Passage[]): Promise<Pick> {
-    this.lastProbs = undefined;
+    this.lastProbs = undefined; this.lastRule = undefined;
     if (!this.key || !passages.length) return { id: '', rule: 'skipped', probs: {}, error: '' };
     const criteria: Record<string, string> = { none: 'None of the passages answers the question' };
     passages.forEach((p, i) => { criteria[`p${i}`] = `This passage answers the question: "${p.text}"`; });
@@ -255,6 +300,7 @@ export class JevJudge implements Judge {
       const i = typeof a?.choice === 'string' && a.choice.startsWith('p') ? +a.choice.slice(1) : -1;
       this.lastProbs = probs;
       const rule = pickRule(probs, i);
+      this.lastRule = rule;
       return { id: rule === 'none' ? '' : passages[i]?.id ?? '', rule, probs, error: '' };
     } catch (e) {
       // A reply that could not be read is an error, not "no passage answers": callers fall back on lastError.

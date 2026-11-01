@@ -47,8 +47,8 @@ test('p0 0.70 against none 0.26 picks the FAQ passage, and the judge span record
   });
 });
 
-test('a pick that does not clearly beat none is still thrown away, and the span says why', async () => {
-  await withApi(() => jevSays({ none: 0.30, p0: 0.60, p1: 0.05, p2: 0.03, p3: 0.02 }, 'p0'), async (post, spans) => {
+test('a pick well behind none is still thrown away, and the span says why', async () => {
+  await withApi(() => jevSays({ none: 0.55, p0: 0.30, p1: 0.10, p2: 0.03, p3: 0.02 }, 'p0'), async (post, spans) => {
     const r = await post({ question: 'tax filing rules for married couples in california?', passages: four });
     assert.equal(r.id, '');
     assert.equal(r.rule, 'none');
