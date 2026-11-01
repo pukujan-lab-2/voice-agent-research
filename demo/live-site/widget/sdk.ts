@@ -199,12 +199,13 @@ function agentState(state: string | undefined) {
 }
 
 // Small talk is answered at once and never searched: "can you hear me", "hello?", "are you there", "sorry, what?",
-// "wait", "thanks". Every part of what was said has to be small talk, so "hello, how do I file an extension" is a question.
+// "wait", "thanks", "can I ask you about taxes?", "what can you help with?". Every part of what was said has to be small talk, so "hello, how do I file an extension" is a question.
 const SMALL_TALK: [RegExp, string][] = [
   [/^(hello|hallo|hi|hey|hey there|hi there|hello there|um|uh|hmm|testing|test|testing testing|mic check)$/, 'here'],
   [/^(can|could|do|did) you (hear|here|understand) me( now| ok| okay| alright| at all)?$|^(are|r) you (there|still there|listening|hearing me|with me|on)$|^(is )?(anyone|anybody|somebody|someone) (there|home)$|^is (this|it) (working|on)$|^hello can you hear me$/, 'hear'],
   [/^(sorry|pardon|pardon me|what|what was that|come again|say that again|say again|can you repeat that|could you repeat that|repeat that|repeat|huh|excuse me|i didn't catch that|i didnt catch that|sorry what)$/, 'repeat'],
   [/^(wait|hold on|hang on|one sec|one second|one moment|just a sec|just a second|just a moment|give me a sec|give me a second|wait a second|wait a minute|hold on a sec|hold on a second|sorry wait)$/, 'wait'],
+  [/^(can|could|may) i (ask|ask you)( a question| questions| some questions| a few questions| something| anything| stuff)?( about (tax|taxes|my taxes|tax stuff|tax questions|this|that|something|anything))?$|^(can|could) you (help|help me|answer questions|answer tax questions|answer my questions)$|^what can (you|i) (do|ask|help with|help me with|ask you|ask about)$|^what do you (do|know|help with)$|^(who|what) are you$|^how does (this|it) work$|^is this (a|an) (bot|robot|ai|real person|person)$|^are you (a|an) (bot|robot|ai|real person|person|human)$/, 'help'],
   [/^(thanks|thank you|thank you so much|thanks so much|thanks a lot|thank you very much|cheers|ok thanks|okay thanks|ok thank you|okay thank you|great thanks|perfect thanks)$/, 'thanks'],
 ];
 function smallTalk(text: string): string | null {
@@ -220,8 +221,16 @@ function smallTalk(text: string): string | null {
   if (kinds.includes('repeat')) return lastBot || ask;
   if (kinds.includes('hear')) return `Yes, I can hear you. ${ask}`;
   if (kinds.includes('wait')) return 'Sure, take your time.';
+  if (kinds.includes('help')) return `${helpLine()} ${ask}`;
   if (kinds.includes('thanks')) return formOpen ? `You're welcome. ${ask}` : "You're welcome. Anything else?";
   return `Hi, I'm here. ${ask}`;
+}
+
+// "Can I ask you about taxes?" is a question about the assistant, not one for the guides: say what it can do.
+function helpLine(): string {
+  const d = cfg?.desk;
+  if (d) return `Yes, go ahead. I'm the ${cfg?.business ?? 'site'} assistant. I answer from the IRS guides and show you the part I'm quoting${d.book ? `, and I can help you ${d.book.text.toLowerCase()}` : ''}. For advice on your own situation, a preparer can help.`;
+  return `Yes. I'm the ${cfg?.business ?? 'site'} assistant: I can fill in this form with you, one question at a time, or take you to another page.`;
 }
 
 // From the caller's tap on "Start voice call": the microphone first, and nothing is said until they have answered.
