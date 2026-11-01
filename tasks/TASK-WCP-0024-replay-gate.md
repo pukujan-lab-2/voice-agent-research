@@ -67,6 +67,29 @@ Starting revision, material inputs/configuration, runtime, exact command or prom
 
 No checkpoints yet.
 
+### 2026-11-01 17:44:50 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":[".github/workflows/{ci,replay-live}.yml, eval/{replay,post-replay}.ts, eval/lib/{replay,site,standing}.ts, eval/cases/snapshot.json, eval/tests/, package.json, task records"],"completed":["CI now replays the guarded cases on every pull request and fails when one regresses; a nightly workflow replays all cases against the live site and posts per-rule counts on standing issue #97"],"decisions":["The cases are exported to eval/cases/snapshot.json as a test fixture so CI and the nightly run need no keys; the run on every production move is #92's, because it must wait for Komodo to finish deploying"],"evidence":["npm run check passes with the new replay step; 16 eval tests, including the gate exiting 1 for a guarded failure and 0 for an open one; a run of the snapshot against https://copilot.design-bakery.com gave 1 pass, 6 fail"],"next_action":"Merge, dispatch the nightly workflow once to post the baseline on #97, then file and build the fix for the dropped-answer case","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0024","timestamp":"2026-11-01T17:44:50Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"89c09ce185827a2c9376e85301dbb4583cc1c30a995bfa8afc4f54cef19dfd65","request_id":"335b2806f5434ca99c5742c1830f72d4","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0024"} -->
+
+Completed:
+- CI now replays the guarded cases on every pull request and fails when one regresses; a nightly workflow replays all cases against the live site and posts per-rule counts on standing issue #97
+
+Evidence:
+- npm run check passes with the new replay step; 16 eval tests, including the gate exiting 1 for a guarded failure and 0 for an open one; a run of the snapshot against https://copilot.design-bakery.com gave 1 pass, 6 fail
+
+Decisions:
+- The cases are exported to eval/cases/snapshot.json as a test fixture so CI and the nightly run need no keys; the run on every production move is #92's, because it must wait for Komodo to finish deploying
+
+Changed:
+- .github/workflows/{ci,replay-live}.yml, eval/{replay,post-replay}.ts, eval/lib/{replay,site,standing}.ts, eval/cases/snapshot.json, eval/tests/, package.json, task records
+
+Blocked/uncertain:
+- none
+
+Next:
+- Merge, dispatch the nightly workflow once to post the baseline on #97, then file and build the fix for the dropped-answer case
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
