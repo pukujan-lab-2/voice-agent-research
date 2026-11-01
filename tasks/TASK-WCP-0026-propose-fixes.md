@@ -18,6 +18,7 @@ Flagged turns pile up with no one reading them (#93)
 ## Allowed files
 
 - `eval/propose.ts`
+- `eval/README.md`
 - `eval/lib/patterns.ts`
 - `eval/tests/propose.test.ts`
 - `tasks/TASK-WCP-0026-propose-fixes.md`
@@ -34,9 +35,9 @@ Flagged turns turn into issues a coding session can pick up, one per failure pat
 
 ## Acceptance criteria
 
-- [ ] One issue per failure pattern with call, turn, rule and text as evidence
-- [ ] No second issue while one for the pattern is open
-- [ ] The routine changes no code and moves no branch
+- [x] One issue per failure pattern with call, turn, rule and text as evidence
+- [x] No second issue while one for the pattern is open
+- [x] The routine changes no code and moves no branch
 
 ## Evidence and sources
 
@@ -49,7 +50,7 @@ Starting revision, material inputs/configuration, runtime, exact command or prom
 ## Related records
 
 - Leaf #93; parent #88; depends on WCP-0022 (#89); related #17, #12, #13, #15.
-- Primary writer / branch: claude-code / `task/WCP-0026-*` (not started); source issue open as of 2026-11-01.
+- Primary writer / branch: claude-code / `task/WCP-0026-propose-fixes`; source issue open as of 2026-11-01.
 - Related PR/CI evidence and push receipt: none yet.
 
 ## Checkpoint log
