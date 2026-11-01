@@ -6,7 +6,8 @@ import { PdfPages } from "./PdfPages";
 import { articleOf, fetchLibDoc, hostOf, type TaxLibDoc } from "@/lib/tax";
 
 /**
- * While snapshot.source is set: a side panel on desktop, a bottom sheet on a phone.
+ * While snapshot.source is set: a wide side panel on desktop (72% of the window, up to 1200 px, so a two-column page is
+ * readable), a bottom sheet on a phone.
  * The body renders the source from Octo, unchanged, so the copilot can find its quote in it: a PDF's cited page (and the
  * next, in case the quote runs over) in pdf.js with its text layer, or a web-page source's whole article.
  * Hand edit: ABA's viewer fetched a static JSON file per guide.
@@ -103,7 +104,7 @@ export function SourceViewer() {
           <p className="tax-source-note">The quoted line couldn't be located on this page.</p>
         )}
         {doc && doc.kind === "pdf" && doc.pdf ? (
-          <PdfPages url={doc.pdf} from={source.page ?? 1} to={(source.page ?? 1) + 1} />
+          <PdfPages url={doc.pdf} from={source.page ?? 1} to={(source.page ?? 1) + 1} maxWidth={1200} />
         ) : doc ? (
           <GuideBody doc={articleOf(doc)} />
         ) : failed ? (

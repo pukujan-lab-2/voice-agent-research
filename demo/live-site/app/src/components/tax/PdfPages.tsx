@@ -53,7 +53,7 @@ function PdfPage({ pdf, n, width }: { pdf: pdfjs.PDFDocumentProxy; n: number; wi
 }
 
 /** Pages `from`..`to` (1-based, clipped to the document) of the PDF at `url`, fitted to the container's width. */
-export function PdfPages({ url, from, to, onPages }: { url: string; from: number; to: number; onPages?: (n: number) => void }) {
+export function PdfPages({ url, from, to, onPages, maxWidth = 900 }: { url: string; from: number; to: number; onPages?: (n: number) => void; maxWidth?: number }) {
   const box = useRef<HTMLDivElement>(null);
   const [pdf, setPdf] = useState<pdfjs.PDFDocumentProxy | null>(null);
   const [error, setError] = useState("");
@@ -67,10 +67,10 @@ export function PdfPages({ url, from, to, onPages }: { url: string; from: number
   useEffect(() => {
     const el = box.current;
     if (!el) return;
-    const ro = new ResizeObserver(() => setWidth(Math.min(900, Math.floor(el.clientWidth))));
+    const ro = new ResizeObserver(() => setWidth(Math.min(maxWidth, Math.floor(el.clientWidth))));
     ro.observe(el);
     return () => ro.disconnect();
-  }, []);
+  }, [maxWidth]);
   const pages = pdf ? Array.from({ length: Math.max(0, Math.min(to, pdf.numPages) - Math.max(1, from) + 1) }, (_, i) => Math.max(1, from) + i) : [];
   return (
     // data-loading until every page's text layer is drawn: the copilot waits for it before it looks for its quote.

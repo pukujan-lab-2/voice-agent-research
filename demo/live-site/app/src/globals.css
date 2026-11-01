@@ -2643,6 +2643,7 @@
   overscroll-behavior: contain;
 }
 
+.tax-source-body > :not(.tax-pdf) { max-width: 46rem; margin-left: auto; margin-right: auto; }
 .tax-source-body .tax-guide-p { font-size: 0.8125rem; line-height: 1.6; }
 .tax-source-body .tax-h2 { font-size: 0.9375rem; margin: 1.25rem 0 0.5rem; }
 .tax-source-body .tax-table { min-width: 16rem; font-size: 0.75rem; }
@@ -2675,12 +2676,13 @@
 
 /* desktop: a side panel on the right, page still usable on the left */
 @media (min-width: 768px) {
+  :root { --tax-viewer-w: min(72vw, 1200px); }
   .tax-source-viewer {
     top: var(--tax-chrome-h, 6.5rem);
     right: 0;
     bottom: 0;
-    width: 440px;
-    max-width: 46vw;
+    /* wide enough that a two-column publication page is readable; set here, before the page is drawn, so the quote's highlight survives */
+    width: var(--tax-viewer-w);
     border-left: 1px solid hsl(40 16% 87%);
     box-shadow: -10px 0 30px rgba(20, 40, 30, 0.08);
   }
@@ -2688,12 +2690,13 @@
   /* keep the call panel beside the viewer instead of on top of it */
   body:has(.tax-source-viewer) .copilot-panel-desktop.copilot-panel-compact,
   body:has(.tax-source-viewer) .copilot-panel-desktop.copilot-panel-expanded {
-    right: calc(min(440px, 46vw) + 1rem);
+    right: calc(var(--tax-viewer-w) + 1rem);
     width: 360px;
   }
 }
 
 @media (min-width: 768px) and (max-width: 940px) {
+  :root { --tax-viewer-w: 58vw; }
   body:has(.tax-source-viewer) .copilot-panel-desktop.copilot-panel-compact,
   body:has(.tax-source-viewer) .copilot-panel-desktop.copilot-panel-expanded {
     width: 300px;
