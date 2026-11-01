@@ -41,7 +41,14 @@ A business can let the copilot look up an order, appointment or price without th
 
 ## Evidence and sources
 
-Link repository state at a revision and cite external factual claims directly. Record commands and results for claims that need verification.
+Observed on branch `task/WCP-0073-declared-lookups` (stacked on #108 to #110):
+
+- `npm run check` passes: 92 engine tests, 17 of them new (13 for the lookups, 4 through the desk), plus the Python and scenario steps.
+- Injection: 17 hostile values (quotes, `OR 1=1`, `DROP TABLE`, `UNION SELECT`, comment tricks, a null byte, full-width quotes, `$1`) in an order-number parameter and a free-text parameter changed no row, leaked no secret and never appeared in a statement; the statement text was identical on every call. Objects, arrays, booleans, null and a 5,000-character string never reached SQL.
+- Cross-business: the same order number at two businesses returns each its own row; a business id or client id supplied by the model is ignored; one business cannot call another's lookup.
+- Verified versus unverified: a person lookup runs no SQL for an unverified caller (three shapes of "unverified"), a verified caller reads only their own rows, and a yes does not stand in for verification.
+- Risk: under 56 runs, 56 to 90 waits for a recorded yes (the yes runs it with no model call), 91 and up is never run; the 56 and 91 limits are asserted equal to RISK_BANDS.
+- Not shown: Postgres itself (tests use SQLite's parameter binding; the statements use only `$n` parameters and quoted identifiers).
 
 ## Reproduction details (only when needed)
 

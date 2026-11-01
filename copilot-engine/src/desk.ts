@@ -8,6 +8,7 @@ import type { Field, Flow, Hooks } from './types.ts';
 import { formatDate, formatSerial, parseName, spellOut, spokenDigits, spokenToCode, spokenToDate, spokenToEmail, spokenToPhone, spokenToSerial, stripFiller, validEmail, validSerial, yesNo } from './guard.ts';
 import { shortQuote, type Passage, type SearchFilter } from './guide.ts';
 import { filterFrom, SEARCH_HINT, withSearchTools, type SiteSearch } from './search-site.ts';
+import { LOOKUP_HINT, type Caller, type Lookups } from './lookups.ts';
 import { customerKey, newSessionId, SESSION_TTL_MS, type CustomerRecord, type SessionSnapshot, type Store } from './memory.ts';
 
 // Environment settings in Node; none in the browser.
@@ -465,10 +466,13 @@ export class Desk {
   private answer?: (question: string, filter?: SearchFilter) => Promise<string | null>;
   private search?: SiteSearch; // search_site: look before answering (search-site.ts)
   private lookupsThisTurn = 0;
+  private lookups?: Lookups; // the business's declared record lookups (lookups.ts); code runs them, the model only names one
+  private caller?: () => Caller; // who the caller is, from the host's verification (never from the model)
+  private pendingLookup: ToolCall | null = null; // a lookup waiting for the caller's yes
   private unknown: string;
   private finish?: string;
 
-  constructor(flow: Flow, opts: { model?: ChatModel; heavy?: ChatModel; docs?: Docs; answer?: (question: string, filter?: SearchFilter) => Promise<string | null>; search?: SiteSearch; unknown?: string; finish?: string; hooks?: Partial<Hooks>; route?: (said: string, d: Desk) => boolean; sessions?: Store; customers?: Store } = {}) {
+  constructor(flow: Flow, opts: { model?: ChatModel; heavy?: ChatModel; docs?: Docs; answer?: (question: string, filter?: SearchFilter) => Promise<string | null>; search?: SiteSearch; lookups?: Lookups; caller?: () => Caller; unknown?: string; finish?: string; hooks?: Partial<Hooks>; route?: (said: string, d: Desk) => boolean; sessions?: Store; customers?: Store } = {}) {
     this.flow = flow;
     this.answer = opts.answer;
     this.unknown = opts.unknown ?? "I'm sorry, I don't have that information.";
@@ -483,8 +487,10 @@ export class Desk {
     if (opts.route) this.route = opts.route;
     this.current = flow.fields[0]?.name ?? '';
     this.search = opts.search;
-    this.toolsSpec = this.search ? withSearchTools(this.tools()) : this.tools();
-    this.system = this.systemPrompt() + (this.search ? SEARCH_HINT : '');
+    this.lookups = opts.lookups;
+    this.caller = opts.caller;
+    this.toolsSpec = [...(this.search ? withSearchTools(this.tools()) : this.tools()), ...(this.lookups?.tools ?? [])];
+    this.system = this.systemPrompt() + (this.search ? SEARCH_HINT : '') + (this.lookups ? LOOKUP_HINT : '');
   }
 
   field(name: string): Field | undefined {
@@ -526,6 +532,19 @@ export class Desk {
       this.turns.push({ turn: this.n, said, reply: memReply, ms: 0, model: 'code', calls: [] });
       await this.save();
       return memReply;
+    }
+    // A lookup that asked for a yes: this turn is the answer. A yes runs it; anything else drops it.
+    if (this.pendingLookup) {
+      const waiting = this.pendingLookup;
+      this.pendingLookup = null;
+      if (clearYes(said)) {
+        const out = await this.runLookup(waiting, true);
+        this.log.push({ who: 'agent', text: out });
+        this.remember(said, out);
+        this.turns.push({ turn: this.n, said, reply: out, ms: 0, model: 'code', calls: [waiting.name] });
+        await this.save();
+        return out;
+      }
     }
     const waited = () => [this.chatModel, this.heavy].reduce((a, m) => a + ((m as { waitedMs?: number } | undefined)?.waitedMs ?? 0), 0);
     const t0 = Date.now() - waited();
@@ -867,6 +886,14 @@ Caller: "Thanks, that helps." -> no tool; say "You're welcome. Anything else?"`;
     return w.length === 0 || w.filter(x => have.has(x)).length / w.length >= 0.5;
   }
 
+  // A declared record lookup, run by code. The events say which lookup ran and what came of it, never the values.
+  private async runLookup(c: ToolCall, confirmed: boolean): Promise<string> {
+    const r = await this.lookups!.run(c.name, c.args ?? {}, this.caller?.() ?? { verified: false }, confirmed);
+    this.events.push({ turn: this.n, type: 'lookup', detail: `${c.name} ${r.status} risk ${r.risk}`, by: 'model' });
+    if (r.status === 'needs_confirmation') this.pendingLookup = c;
+    return r.text;
+  }
+
   // One question looked up: the site's own answer, else a quote from the business's passages; null when nothing answers.
   private async lookup(q: string, filter?: SearchFilter): Promise<{ text: string; id: string } | null> {
     if (this.answer) { const t = await this.answer(q, filter); return t ? { text: t, id: 'site' } : null; }
@@ -1033,6 +1060,10 @@ Caller: "Thanks, that helps." -> no tool; say "You're welcome. Anything else?"`;
         if (!p && same(own) !== same(q)) p = await this.lookup(own);
         ev({ type: 'answer', detail: p ? p.id : 'none' }); rec(c, p ? `Read to the customer: ${p.text}` : 'Nothing in the documents answers this; told the customer you do not know.');
         tails.push(p ? p.text : this.unknown);
+      } else if (this.lookups && c.name.startsWith('lookup_')) {
+        acted = true; answered = true;
+        const text = await this.runLookup(c, false);
+        rec(c, text); tails.push(text);
       } else if (c.name === 'end_call') {
         if (this.allFilled() || BYE.test(said)) {
           acted = true; this.done = true; ev({ type: 'end' });
