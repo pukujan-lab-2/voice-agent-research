@@ -21,13 +21,14 @@ export interface ChatModel { name: string; chat(messages: ChatMsg[], tools: unkn
 export class OpenAIChat implements ChatModel {
   name: string;
   waitedMs = 0; // time spent waiting out rate limits (a test harness subtracts it from latency)
-  private o: { url: string; key: string; model: string; stream: boolean; nothink: boolean; timeoutMs: number; patient: boolean };
+  private o: { url: string; key: string; model: string; stream: boolean; nothink: boolean; timeoutMs: number; patient: boolean; toolsHeader: string };
   // patient: in tests, wait out 429 rate-limit windows (up to ~10 min) instead of failing the turn.
-  constructor(o: { url?: string; key?: string; model?: string; stream?: boolean; nothink?: boolean; timeoutMs?: number; patient?: boolean } = {}) {
+  // toolsHeader: a line the system prompt ends with when tools are offered (LFM3-Audio's card: "List of tools:"; its chat template then adds the tools).
+  constructor(o: { url?: string; key?: string; model?: string; stream?: boolean; nothink?: boolean; timeoutMs?: number; patient?: boolean; toolsHeader?: string } = {}) {
     this.o = {
       url: (o.url ?? ENV.DESK_URL ?? '').replace(/\/$/, ''), key: o.key ?? ENV.DESK_KEY ?? '',
       model: o.model ?? ENV.DESK_MODEL ?? '', stream: o.stream ?? ENV.DESK_STREAM === '1',
-      nothink: o.nothink ?? ENV.DESK_THINK !== '1', timeoutMs: o.timeoutMs ?? 15000, patient: o.patient ?? false,
+      nothink: o.nothink ?? ENV.DESK_THINK !== '1', timeoutMs: o.timeoutMs ?? 15000, patient: o.patient ?? false, toolsHeader: o.toolsHeader ?? '',
     };
     if (!this.o.url) throw new Error('DESK_URL is not set');
     this.name = this.o.model || 'desk-model';
@@ -35,6 +36,7 @@ export class OpenAIChat implements ChatModel {
 
   async chat(messages: ChatMsg[], tools: unknown[], opts: { maxTokens?: number; temperature?: number; json?: boolean } = {}): Promise<ChatResult> {
     const t0 = Date.now();
+    if (this.o.toolsHeader && tools.length && messages[0]?.role === 'system') messages = [{ ...messages[0], content: `${messages[0].content ?? ''}\n\n${this.o.toolsHeader}` }, ...messages.slice(1)];
     const body: Record<string, unknown> = { model: this.o.model, messages, max_tokens: opts.maxTokens ?? 220, temperature: opts.temperature ?? 0.3 };
     if (tools.length) { body.tools = tools; body.tool_choice = 'auto'; }
     if (this.o.nothink) body.chat_template_kwargs = { enable_thinking: false };
@@ -85,6 +87,11 @@ export class OpenAIChat implements ChatModel {
     }
     throw new Error(`chat failed: ${lastErr}`);
   }
+}
+
+// LFM3-Audio-2B as the desk's model, on the llama.cpp server speech/server.py runs (the lfm3-audio voice stack, decision 0012).
+export function lfm3AudioChat(baseUrl: string): OpenAIChat {
+  return new OpenAIChat({ url: `${baseUrl.replace(/\/$/, '')}/v1`, key: '', model: 'lfm3-audio', stream: false, nothink: true, timeoutMs: 30000, toolsHeader: 'List of tools:' });
 }
 
 function parseArgs(a: unknown): Record<string, unknown> {

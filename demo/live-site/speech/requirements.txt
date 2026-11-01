@@ -2,6 +2,11 @@
 # Models (not in git): speech/models/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8 from
 #   https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8.tar.bz2
 # Pocket TTS downloads its own weights and voices from Hugging Face on first start.
+# The lfm3-audio stack (stacks.json): LFM3-Audio-2B on llama.cpp's server, in speech/models/lfm3-audio/ (not in git):
+#   bin/llama-server       from the macOS arm64 build of llama.cpp b11960 (v0.8.0) or newer, https://github.com/ggml-org/llama.cpp/releases
+#                          (the build's tarball holds llama-server and its libraries; keep them in bin/)
+#   LFM3-Audio-2B-Q4_K_M.gguf and mmproj-LFM3-Audio-2B-Q8_0.gguf from https://huggingface.co/LiquidAI/LFM3-Audio-2B-GGUF (1.1 GB + 0.3 GB)
+#   LFM Open License v1.0: free under $10M annual revenue (docs/08-speech-model-licenses.md)
 # The multilingual stack (stacks.json): Whisper large-v3-turbo downloads from Hugging Face (mlx-community/whisper-large-v3-turbo)
 #   on its first call; Kokoro needs speech/models/kokoro/{kokoro-v1.0.onnx,voices-v1.0.bin} from
 #   https://github.com/thewh1teagle/kokoro-onnx/releases/tag/model-files-v1.0

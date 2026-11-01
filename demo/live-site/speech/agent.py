@@ -5,6 +5,7 @@
     LocalSTT / LocalTTS call speech/server.py with the call's voice stack (speech/stacks.json, docs/decisions/0012):
       english-fast  Parakeet to listen, the English turn detector, Pocket TTS to speak
       multilingual  Whisper large-v3-turbo, the multilingual turn detector, Kokoro in the caller's language
+      lfm3-audio    LFM3-Audio hears and speaks (one model on llama.cpp), turns end on voice activity alone
     The page puts the stack server.ts picked and the caller's language on the caller's participant attributes
     (copilot.stack, copilot.language); a language changed mid-call takes effect from the next turn;
     the decision step is the copilot engine in the caller's page (widget/sdk.ts), reached over LiveKit RPC:
@@ -74,15 +75,17 @@ class LocalSTT(stt.STT):
 
     async def warm(self) -> None:
         # Parakeet is slow on its first turn after a while idle; Whisper is warmed when it loads, and a second call on
-        # it would only queue behind the caller's first turn.
-        if not self._voice.parts['listens'].startswith('parakeet'):
+        # it would only queue behind the caller's first turn. LFM3-Audio is started by the first request that names it,
+        # so the call asks for it before the greeting (which would otherwise wait for it past the voice's 10 s).
+        if not self._voice.parts['listens'].startswith(('parakeet', 'lfm3-audio')):
             return
         import numpy as np
         noise = (np.random.default_rng().standard_normal(16000 * 2) * 0.01).astype(np.float32).tobytes()
         try:
-            async with self._http.post(f'{SPEECH}/stt', params={'sr': 16000, 'stack': self._voice.stack, 'lang': 'en'}, data=noise, headers={'content-type': 'application/octet-stream'}) as r:
+            async with self._http.post(f'{SPEECH}/stt', params={'sr': 16000, 'stack': self._voice.stack, 'lang': 'en'}, data=noise, headers={'content-type': 'application/octet-stream'},
+                                       timeout=aiohttp.ClientTimeout(total=300)) as r:
                 await r.read()
-        except aiohttp.ClientError:
+        except (aiohttp.ClientError, asyncio.TimeoutError):
             pass
 
     def _timeout(self, conn_options: APIConnectOptions) -> float:
@@ -216,9 +219,11 @@ server.setup_fnc = prewarm
 
 
 def voice_parts(http: aiohttp.ClientSession, voice: Voice, rates: dict) -> tuple[LocalSTT, LocalTTS, object]:
-    """The stack's listener, voice and turn detector. A stack whose one model hears, thinks and speaks (lfm3-audio, later)
-    replaces this cascade with its own adapter here; the engine's turns and decision 0011's code lock stay as they are."""
-    turns = MultilingualModel() if voice.parts['turns'] == 'multilingual' else EnglishModel()
+    """The stack's listener, voice and turn detector. lfm3-audio is one model that hears and speaks (speech/server.py runs it
+    on llama.cpp), so it has no turn detector of its own: the Silero VAD ends a turn after a short silence. The engine's
+    turns and decision 0011's code lock stay as they are; the desk's tool calls go to the same model (api.ts)."""
+    kind = voice.parts['turns']
+    turns = 'vad' if kind == 'vad' else MultilingualModel() if kind == 'multilingual' else EnglishModel()
     return LocalSTT(http, voice), LocalTTS(http, int(rates.get(voice.parts['speaks'], 24000)), voice), turns
 
 
@@ -234,8 +239,10 @@ async def entrypoint(ctx: JobContext):
     print('call', ctx.room.name, 'stack', voice.stack, 'language', voice.picked or 'heard', flush=True)
     stt_, tts_, turns = voice_parts(http, voice, rates)
     tel = CallTelemetry(ctx.room.name, {'stack': voice.stack, 'stt': f'{stt_.provider}:{stt_.model}', 'tts': f'{tts_.provider}:{tts_.model}',
-                                        'turn_detector': f"livekit-{voice.parts['turns']}", 'vad': 'silero', 'language': voice.picked or 'heard'})
+                                        'turn_detector': 'silero-vad' if turns == 'vad' else f"livekit-{voice.parts['turns']}", 'vad': 'silero', 'language': voice.picked or 'heard'})
     agent = Copilot(ctx.room, caller.identity, stt_, tts_, tel, voice)
+    if voice.parts['listens'] == 'lfm3-audio':
+        await stt_.warm()  # the model loads once, before the greeting asks the voice for audio
     session = AgentSession(
         vad=ctx.proc.userdata['vad'], stt=stt_, tts=tts_,
         turn_handling={

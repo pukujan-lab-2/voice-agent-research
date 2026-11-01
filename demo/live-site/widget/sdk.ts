@@ -26,7 +26,7 @@ import { Verifier, WANTS_VERIFY, type ReturnCard } from '../../../copilot-engine
 import { DomFiller } from './dom-filler.ts';
 import { stackForLanguage } from './voice-choice.ts';
 import { API_BASE } from './config.ts';
-import { callId, newCall, RemoteDeskModel, RemoteJudge, RemoteModel, RemoteRetriever, RemoteVerify, report, setReplyLanguage, toReplyLanguage, warmUp } from './remote.ts';
+import { callId, newCall, RemoteDeskModel, RemoteJudge, RemoteModel, RemoteRetriever, RemoteVerify, report, setDeskStack, setReplyLanguage, toReplyLanguage, warmUp } from './remote.ts';
 import { beginCall, endCall, failure, happened, logTurn, markDesk, notePage, noteVoice, type DeskMark } from './calllog.ts';
 
 export type Config = {
@@ -280,6 +280,7 @@ async function startVoice() {
     if (!r.ok) throw new Error(`token ${r.status}`);
     grant = await r.json();
     set({ stack: grant.stack, language: grant.language, languages: allLanguages(), spokenLanguage: '' });
+    setDeskStack(grant.stack);
     setReplyLanguage(languageName(grant.language) || 'English');
   } catch (e) {
     report('voice', (e as Error).message);

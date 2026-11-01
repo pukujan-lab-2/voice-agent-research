@@ -19,7 +19,7 @@
 // Jev calls have a daily cap, so the open demo can't be used as a free model relay.
 import { createPractice } from './practice-api.ts';
 import type { EvalScore, ExportTrace, SpanKind, SpanSpec } from './tracing.ts';
-import { OpenAIChat, type ChatMsg } from '../../copilot-engine/src/desk.ts';
+import { lfm3AudioChat, OpenAIChat, type ChatMsg } from '../../copilot-engine/src/desk.ts';
 import { JevJudge, KeywordRetriever, OctoRetriever, OverlapJudge, type Judge, type Passage, type Retriever } from '../../copilot-engine/src/guide.ts';
 import { JevGate, LlamaModel, RuleModel } from '../../copilot-engine/src/models.ts';
 import type { Field, FieldKind, Flow, Model } from '../../copilot-engine/src/types.ts';
@@ -27,7 +27,7 @@ import { maskPII } from '../../copilot-engine/src/guard.ts';
 
 export type ApiEnv = {
   OPENROUTER_JEV_KEY?: string; OCTO_KEY?: string; OCTO_WORKSPACE?: string; JEV_URL?: string; OCTO_BASE?: string; OCTO_TIMEOUT_MS?: string; OCTO_TRACES?: string;
-  SIGNING_SECRET?: string; LLAMA_URL?: string; DESK_URL?: string; DESK_MODEL?: string; OFFLINE?: string; JEV_DAILY_CAP?: string; RATE_PER_MIN?: string;
+  SIGNING_SECRET?: string; LLAMA_URL?: string; DESK_URL?: string; DESK_MODEL?: string; LFM3_AUDIO_URL?: string; OFFLINE?: string; JEV_DAILY_CAP?: string; RATE_PER_MIN?: string;
 };
 
 // Only the fictional demo manuals and the IRS library (public-domain IRS.gov pages, data/irs.passages.json) can be searched.
@@ -96,6 +96,9 @@ export function createApi(env: ApiEnv, opts: { offlinePassages?: Record<string, 
   // the desk then runs each turn on its code rules.
   const deskModel = offline || !(env.DESK_URL || env.LLAMA_URL) ? null
     : new OpenAIChat({ url: env.DESK_URL || `${env.LLAMA_URL!.replace(/\/$/, '')}/v1`, key: '', model: env.DESK_MODEL || 'lfm3', stream: false, nothink: true, timeoutMs: 15000 });
+  // The lfm3-audio voice stack (docs/decisions/0012) is one model: its desk turns go to LFM3-Audio on llama.cpp (the
+  // server speech/server.py starts), not to the text model. The desk's code lock is the same either way.
+  const audioDeskModel = offline || !env.LFM3_AUDIO_URL ? null : lfm3AudioChat(env.LFM3_AUDIO_URL);
   const overlap = new OverlapJudge();
   // When Jev is overloaded or down, the word-overlap judge stands in, so a covered question isn't answered "I don't know".
   const judge: Judge = !jev ? overlap : {
@@ -334,10 +337,11 @@ export function createApi(env: ApiEnv, opts: { offlinePassages?: Record<string, 
       return json(await m.understand({ flow, field, said, values }));
     }
     if (path === '/api/desk') {
-      if (!deskModel) return json({ error: 'no desk model' }, 503);
+      const model = clip(b.stack, 40) === 'lfm3-audio' ? audioDeskModel : deskModel;
+      if (!model) return json({ error: 'no desk model' }, 503);
       const messages = deskMessages(b.messages), tools = deskTools(b.tools ?? []);
       if (!messages || !tools) return json({ error: 'bad desk request' }, 400);
-      const r = await deskModel.chat(messages, tools, { maxTokens: Math.min(Math.max(Number(b.max_tokens) || 220, 1), 220), temperature: Math.min(Math.max(Number(b.temperature) || 0, 0), 1) });
+      const r = await model.chat(messages, tools, { maxTokens: Math.min(Math.max(Number(b.max_tokens) || 220, 1), 220), temperature: Math.min(Math.max(Number(b.temperature) || 0, 0), 1) });
       return json({ content: r.content, calls: r.calls.filter(c => DESK_TOOLS.has(c.name)), model: r.model });
     }
     if (path === '/api/search') {

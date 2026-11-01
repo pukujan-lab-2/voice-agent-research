@@ -12,7 +12,10 @@ type Signed = Passage & { sig?: string };
 
 // One id per call, sent with every request, so the server's traces of one call group into one Phoenix session.
 export let callId = crypto.randomUUID();
-export function newCall() { callId = crypto.randomUUID(); }
+export function newCall() { callId = crypto.randomUUID(); deskStack = ''; }
+// The voice stack the call runs on, so the server can send the desk's tool calls to the stack's own model (stacks.json "thinks").
+let deskStack = '';
+export function setDeskStack(stack: string) { deskStack = stack; }
 
 // Every failed backend call goes to the call's traces as it happens (the caller's turn then carries on without it).
 async function post(path: string, body: unknown): Promise<any> {
@@ -107,14 +110,14 @@ export async function toReplyLanguage(text: string): Promise<string> {
 
 export class RemoteDeskModel implements ChatModel {
   name = 'lfm3';
-  private off = false;
+  private off = new Set<string>(); // the stacks whose model the server said it has none of (a call on another stack still has its own)
   async chat(messages: ChatMsg[], tools: unknown[], opts: { maxTokens?: number; temperature?: number } = {}): Promise<ChatResult> {
-    if (this.off) throw new Error('no desk model');
+    if (this.off.has(deskStack)) throw new Error('no desk model');
     messages = inLanguage(messages);
     const t0 = Date.now();
     const r = await fetch(`${API_BASE}/api/desk`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-session-id': callId },
-      body: JSON.stringify({ messages, tools, max_tokens: opts.maxTokens, temperature: opts.temperature }) });
-    if (r.status === 503) this.off = true;
+      body: JSON.stringify({ messages, tools, max_tokens: opts.maxTokens, temperature: opts.temperature, stack: deskStack }) });
+    if (r.status === 503) this.off.add(deskStack);
     if (!r.ok) { failure('desk-model', `/api/desk: ${r.status}`, { path: '/api/desk', fallback: 'code rules' }); throw new Error(`/api/desk: ${r.status}`); }
     const j = await r.json();
     return { content: String(j.content ?? ''), calls: Array.isArray(j.calls) ? j.calls : [], ms: Date.now() - t0, model: String(j.model ?? this.name) };

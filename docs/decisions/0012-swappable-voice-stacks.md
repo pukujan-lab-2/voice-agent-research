@@ -1,6 +1,6 @@
 # 0012. Voice calls run on swappable voice stacks
 
-**Status:** Accepted · **Date:** 2026-11-01
+**Status:** Accepted · **Date:** 2026-11-01 · **Refined by:** [0013](0013-lfm3-audio-stack.md) (the `lfm3-audio` stack)
 
 ## Decision
 

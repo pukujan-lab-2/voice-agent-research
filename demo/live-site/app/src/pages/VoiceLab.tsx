@@ -9,7 +9,16 @@ const MODELS: Record<string, { listener: string; speaker: string }> = {
   "parakeet-kokoro": { listener: "parakeet", speaker: "kokoro" },
   "whisper-pocket": { listener: "whisper", speaker: "pocket" },
   multilingual: { listener: "whisper", speaker: "kokoro" },
+  "lfm3-audio": { listener: "lfm3-audio", speaker: "lfm3-audio" },
 };
+// LFM3-Audio is one model that listens and speaks, so choosing it in either box selects its stack; leaving it picks the first pair again.
+function stackFor(stacks: { id: string }[], current: string, change: { listener?: string; speaker?: string }): string | undefined {
+  const now = MODELS[current] ?? MODELS["english-fast"];
+  const listener = change.listener ?? (now.listener === "lfm3-audio" ? "parakeet" : now.listener);
+  const speaker = change.speaker ?? (now.speaker === "lfm3-audio" ? "pocket" : now.speaker);
+  if (listener === "lfm3-audio" || speaker === "lfm3-audio") return stacks.find(s => s.id === "lfm3-audio")?.id;
+  return stacks.find(s => MODELS[s.id]?.listener === listener && MODELS[s.id]?.speaker === speaker)?.id;
+}
 const OTHER_LISTENERS = ["Parakeet v3", "Whisper large-v3", "faster-whisper large-v3", "Distil-Whisper", "Canary", "Voxtral", "Kyutai STT", "Granite Speech"];
 const OTHER_VOICES = ["Chatterbox", "VibeVoice", "Kyutai TTS", "Dia", "CSM", "NeuTTS", "MeloTTS", "Orpheus", "IndexTTS", "OmniVoice", "F5-TTS", "XTTS", "Fish Speech"];
 
@@ -23,18 +32,20 @@ export default function VoiceLab() {
       <h1 className="mt-3 text-4xl font-semibold tracking-tight">Choose a voice and try a call</h1>
       <p className="mt-4 max-w-2xl text-slate-600">Pick a voice stack and language, then use the call panel to try the sample form. The models run on the configured voice backend.</p>
       <Card className="mt-8"><CardHeader><CardTitle>Models in each available setup</CardTitle></CardHeader><CardContent>
-        <p className="mb-4 text-sm text-slate-600">Combine either connected listening model with either connected voice. All four pairs have passed recorded call checks.</p>
+        <p className="mb-4 text-sm text-slate-600">Combine either connected listening model with either connected voice. All four pairs have passed recorded call checks. LFM3-Audio-2B is one model for both, so choosing it in either box selects it for both.</p>
         <div className="grid gap-4 sm:grid-cols-2">
-          <label>Listening model<select className="mt-2 block w-full rounded-md border bg-white p-3" value={MODELS[snapshot.stack ?? ""]?.listener ?? "parakeet"} disabled={snapshot.open || !snapshot.voiceStacks?.length} onChange={e => { const match = (snapshot.voiceStacks ?? []).find(s => MODELS[s.id]?.listener === e.target.value && MODELS[s.id]?.speaker === MODELS[snapshot.stack ?? ""]?.speaker); if (match) window.copilot?.setStack?.(match.id); }}>
-            <option value="parakeet">Parakeet TDT v2</option><option value="whisper">Whisper large-v3-turbo</option>
+          <label>Listening model<select className="mt-2 block w-full rounded-md border bg-white p-3" value={MODELS[snapshot.stack ?? ""]?.listener ?? "parakeet"} disabled={snapshot.open || !snapshot.voiceStacks?.length} onChange={e => { const id = stackFor(snapshot.voiceStacks ?? [], snapshot.stack ?? "", { listener: e.target.value }); if (id) window.copilot?.setStack?.(id); }}>
+            <option value="parakeet">Parakeet TDT v2</option><option value="whisper">Whisper large-v3-turbo</option><option value="lfm3-audio">LFM3-Audio-2B</option>
             <optgroup label="Not connected yet">{OTHER_LISTENERS.map(name => <option key={name} disabled>{name}</option>)}</optgroup>
           </select></label>
-          <label>Speaking model<select className="mt-2 block w-full rounded-md border bg-white p-3" value={MODELS[snapshot.stack ?? ""]?.speaker ?? "pocket"} disabled={snapshot.open || !snapshot.voiceStacks?.length} onChange={e => { const match = (snapshot.voiceStacks ?? []).find(s => MODELS[s.id]?.speaker === e.target.value && MODELS[s.id]?.listener === MODELS[snapshot.stack ?? ""]?.listener); if (match) window.copilot?.setStack?.(match.id); }}>
-            <option value="pocket">Pocket TTS</option><option value="kokoro">Kokoro-82M</option>
+          <label>Speaking model<select className="mt-2 block w-full rounded-md border bg-white p-3" value={MODELS[snapshot.stack ?? ""]?.speaker ?? "pocket"} disabled={snapshot.open || !snapshot.voiceStacks?.length} onChange={e => { const id = stackFor(snapshot.voiceStacks ?? [], snapshot.stack ?? "", { speaker: e.target.value }); if (id) window.copilot?.setStack?.(id); }}>
+            <option value="pocket">Pocket TTS</option><option value="kokoro">Kokoro-82M</option><option value="lfm3-audio">LFM3-Audio-2B</option>
             <optgroup label="Not connected yet">{OTHER_VOICES.map(name => <option key={name} disabled>{name}</option>)}</optgroup>
           </select></label>
         </div>
-        <p className="mt-4 text-sm">Response model: LFM3-1.7B on the configured server. Turn detection: {MODELS[snapshot.stack ?? ""]?.listener === "whisper" ? "LiveKit multilingual" : "LiveKit English"}.</p>
+        <p className="mt-4 text-sm">{snapshot.stack === "lfm3-audio"
+          ? "Response model: LFM3-Audio-2B, the same model that listens and speaks. Turn detection: voice activity only."
+          : `Response model: LFM3-1.7B on the configured server. Turn detection: ${MODELS[snapshot.stack ?? ""]?.listener === "whisper" ? "LiveKit multilingual" : "LiveKit English"}.`}</p>
       </CardContent></Card>
       <div className="mt-8 grid gap-4 md:grid-cols-2">
         {(snapshot.voiceStacks ?? []).map(stack => (
@@ -48,7 +59,7 @@ export default function VoiceLab() {
             </CardContent>
           </Card>
         ))}
-        {["LFM3-Audio-2B", "LFM3-Omni-2B"].map(name => (
+        {["LFM3-Omni-2B"].map(name => (
           <Card key={name}><CardHeader><CardTitle>{name}</CardTitle></CardHeader><CardContent>
             <p className="text-sm text-slate-600">Not connected yet. This model cannot be tested here until its voice adapter is ready.</p>
           </CardContent></Card>
@@ -57,7 +68,7 @@ export default function VoiceLab() {
       <Card className="mt-8"><CardHeader><CardTitle>More models to evaluate</CardTitle></CardHeader><CardContent className="space-y-3 text-sm text-slate-600">
         <p>Listening: Parakeet v3, Whisper large-v3, faster-whisper large-v3, Distil-Whisper, Canary, Voxtral, Kyutai STT and Granite Speech.</p>
         <p>Speaking: Chatterbox, VibeVoice, Kyutai TTS, Dia, CSM, NeuTTS, MeloTTS, Orpheus, IndexTTS, OmniVoice, F5-TTS, XTTS and Fish Speech.</p>
-        <p>End to end: LFM3-Audio-2B and LFM3-Omni-2B. These candidates need an adapter before they can be selected for a call. Some candidates have restricted or non-commercial licenses.</p>
+        <p>End to end: LFM3-Omni-2B needs an adapter before it can be selected for a call (LFM3-Audio-2B is connected above). Some candidates have restricted or non-commercial licenses.</p>
         <p>Previous tests compared LFM3-1.7B with Qwen-Flash for text replies. The voice stacks have functional call tests, but there is no comparable benchmark across all of these models yet.</p>
       </CardContent></Card>
       <Card className="mt-8"><CardHeader><CardTitle>Sample booking</CardTitle></CardHeader><CardContent>

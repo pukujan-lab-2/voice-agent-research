@@ -14,9 +14,13 @@ Those two are the english-fast voice stack. The multilingual stack (speech/stack
 Whisper large-v3-turbo on Apple's GPU (mlx-whisper) and speaks with Kokoro in the caller's language. Its models load on
 the first call that uses them, so an English-only day doesn't hold them in this machine's 8 GB.
 
+The lfm3-audio stack is one model for all of it: LFM3-Audio-2B on llama.cpp's server (speech/models/lfm3-audio/) hears the
+caller's turn (/stt), speaks the reply (/tts) and, for the page's desk, answers the tool calls (api.ts reaches the same
+process at LFM3_AUDIO_URL). It starts on the first call that picks the stack.
+
 Run: speech/.venv/bin/python speech/server.py [--port 8799]   (server.ts starts it when it isn't running)
 """
-import argparse, io, json, os, re, sys, threading, time
+import argparse, atexit, base64, io, json, os, re, subprocess, sys, threading, time, urllib.error, urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import numpy as np
@@ -26,6 +30,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 MODELS = os.path.join(HERE, 'models')
 PARAKEET = os.path.join(MODELS, 'sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8')
 WHISPER = os.environ.get('WHISPER_MODEL', 'mlx-community/whisper-large-v3-turbo')
+LFM3_AUDIO = os.path.join(MODELS, 'lfm3-audio')
+LFM3_AUDIO_PORT = int(os.environ.get('LFM3_AUDIO_PORT', 8798))
+LFM3_AUDIO_URL = os.environ.get('LFM3_AUDIO_URL', '')  # a llama.cpp server already running; left out, one is started from models/lfm3-audio
 with open(os.path.join(HERE, 'stacks.json')) as f:
     STACKS = json.load(f)
 
@@ -143,6 +150,88 @@ class Cached:
                 self.made[key] = chunks
 
 
+class Lfm3Audio:
+    """LFM3-Audio-2B on llama.cpp's server: the stack's listener, its voice and the model behind the desk's tool calls.
+
+    A caller's turn is cut by voice activity and recognised whole (`Perform ASR in <language>.`), not by the English-only
+    live recogniser; the reply is spoken by /tts in the model's own voice. Both take the model card's 18 languages;
+    stacks.json lists the ones a call test has shown."""
+    rate = 24000
+
+    def __init__(self):
+        self.confidence: float | None = None  # the server gives none per turn
+        self.proc: subprocess.Popen | None = None
+        self.url = LFM3_AUDIO_URL.rstrip('/') or self._start()
+        for _ in range(240):
+            if self.proc and self.proc.poll() is not None:
+                raise RuntimeError(f'llama.cpp server exited with {self.proc.returncode}; see speech/lfm3-audio.log')
+            try:
+                with urllib.request.urlopen(f'{self.url}/health', timeout=2) as r:
+                    if r.status == 200:
+                        break
+            except (urllib.error.URLError, OSError):
+                time.sleep(1)
+        else:
+            raise RuntimeError('llama.cpp server was not ready in 240 s')
+        self.voice = Cached(_Lfm3Voice(self))
+
+    def _start(self) -> str:
+        server = os.path.join(LFM3_AUDIO, 'bin', 'llama-server')
+        model = os.path.join(LFM3_AUDIO, 'LFM3-Audio-2B-Q4_K_M.gguf')
+        mmproj = os.path.join(LFM3_AUDIO, 'mmproj-LFM3-Audio-2B-Q8_0.gguf')
+        for need in (server, model, mmproj):
+            if not os.path.exists(need):
+                raise FileNotFoundError(f'{need} is missing (see speech/requirements.txt, the lfm3-audio stack)')
+        # Greedy text (the GGUF card); the audio sampling is stored in the GGUF; --jinja uses the chat template's tool format.
+        out = open(os.path.join(HERE, 'lfm3-audio.log'), 'ab')
+        self.proc = subprocess.Popen([server, '-m', model, '--mmproj', mmproj, '--host', '127.0.0.1', '--port', str(LFM3_AUDIO_PORT),
+                                      '-c', '8192', '--jinja', '--temp', '0'], stdout=out, stderr=subprocess.STDOUT)
+        atexit.register(self.proc.terminate)
+        return f'http://127.0.0.1:{LFM3_AUDIO_PORT}'
+
+    def _post(self, path: str, body: dict, timeout: float = 60):
+        req = urllib.request.Request(self.url + path, data=json.dumps(body).encode(), headers={'content-type': 'application/json'})
+        return urllib.request.urlopen(req, timeout=timeout)
+
+    def __call__(self, audio: np.ndarray, sr: int, lang: str | None = None) -> tuple[str, str]:
+        if sr != 16000:
+            audio = np.interp(np.arange(0, len(audio), sr / 16000), np.arange(len(audio)), audio).astype('float32')
+        wav = io.BytesIO()
+        sf.write(wav, audio.astype('float32'), 16000, format='WAV', subtype='PCM_16')
+        # The caller's pick goes into the prompt; with none, the model is left to tell which language it hears.
+        name = STACKS['languages'].get(lang or '', {}).get('name')
+        body = {'messages': [{'role': 'system', 'content': f'Perform ASR in {name}.' if name else 'Perform ASR.'},
+                             {'role': 'user', 'content': [{'type': 'input_audio', 'input_audio': {'data': base64.b64encode(wav.getvalue()).decode()}}]}],
+                'temperature': 0, 'max_tokens': 400}
+        with self._post('/v1/chat/completions', body) as r:
+            text = json.load(r)['choices'][0]['message']['content']
+        return str(text or '').strip(), lang or 'en'  # the text names no language: with no pick, a call is English
+
+    def stream(self, text: str, stop: threading.Event, lang: str = 'en'):
+        body = {'input': text, 'lang': lang, 'voice': 'female', 'response_format': 'pcm', 'stream': True}
+        with self._post('/tts', body) as r:
+            rest = b''
+            while not stop.is_set():
+                chunk = r.read1(16384)
+                if not chunk:
+                    return
+                rest += chunk
+                n = len(rest) - len(rest) % 4
+                if n:
+                    yield np.frombuffer(rest[:n], dtype='<f4').copy()
+                    rest = rest[n:]
+
+
+class _Lfm3Voice:
+    """Lfm3Audio's voice, shaped like the other voices so Cached keeps the lines the copilot says again and again."""
+
+    def __init__(self, model: Lfm3Audio):
+        self.model, self.rate = model, model.rate
+
+    def stream(self, text: str, stop: threading.Event, lang: str = 'en'):
+        yield from self.model.stream(text, stop, lang)
+
+
 def load_tts(voice: str):
     try:
         return PocketTts(voice)
@@ -167,9 +256,11 @@ class Stacks:
         with self.lock:
             if name not in self.made:
                 t = time.time()
-                self.made[name] = WhisperStt() if name.startswith('whisper') else Cached(KokoroTts('af_heart'))
+                self.made[name] = (Lfm3Audio() if name == 'lfm3-audio' else WhisperStt() if name.startswith('whisper')
+                                   else Cached(KokoroTts('af_heart')))
                 log(f'{name} ready in {time.time() - t:.1f} s')
-            return self.made[name]
+            # lfm3-audio is one model: the listener is the model itself, the voice is its cached /tts.
+            return self.made[name].voice if name == 'lfm3-audio' and kind == 'speaks' else self.made[name]
 
     def listener(self, stack: str):
         return self.part(stack, 'listens')
@@ -210,7 +301,7 @@ def handler(stacks: Stacks, turns_path: str):
             if self.path == '/health':
                 tts = stacks.made['pocket-tts']
                 return self.json(200, {'ok': True, 'stt': 'parakeet-tdt-0.6b-v2', 'tts': type(tts.tts).__name__, 'rate': tts.rate,
-                                       'loaded': sorted(stacks.made), 'rates': {'kokoro': 24000, 'pocket-tts': tts.rate}})
+                                       'loaded': sorted(stacks.made), 'rates': {'kokoro': 24000, 'pocket-tts': tts.rate, 'lfm3-audio': 24000}})
             self.json(404, {'error': 'not found'})
 
         def do_POST(self):

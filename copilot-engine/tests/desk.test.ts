@@ -1,7 +1,7 @@
 // Code guards of the v2 desk, tested with a scripted stand-in model (no network).
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Desk, RISK_BANDS, clearYes, normalizeName, normalizeSerial, normalizePhone, normalizeEmail, readback, joinSpelled, docsFrom, textToolCalls, type ChatModel, type ToolCall } from '../src/desk.ts';
+import { Desk, RISK_BANDS, clearYes, lfm3AudioChat, normalizeName, normalizeSerial, normalizePhone, normalizeEmail, readback, joinSpelled, docsFrom, textToolCalls, type ChatModel, type ToolCall } from '../src/desk.ts';
 import { brookside, brooksideDocs } from '../src/flows/brookside.ts';
 import { halvorsen } from '../src/flows/halvorsen.ts';
 
@@ -445,4 +445,23 @@ test('a filled field re-proposed from words the caller never said is ignored, wi
   const r = await d.turn('yes');
   assert.equal(d.values.child_name, 'Leo Rahman');
   assert.doesNotMatch(r, /once more|spell/);
+});
+
+test('LFM3-Audio is asked the way its model card says: the system prompt ends "List of tools:" when tools are offered', async () => {
+  const sent: { messages: { role: string; content: string }[]; tools?: unknown[] }[] = [];
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = (async (_url: unknown, init: { body: string }) => {
+    sent.push(JSON.parse(init.body));
+    return new Response(JSON.stringify({ model: 'lfm3-audio', choices: [{ message: { content: '', tool_calls: [{ function: { name: 'confirm_pending', arguments: '{}' } }] } }] }));
+  }) as typeof fetch;
+  try {
+    const chat = lfm3AudioChat('http://127.0.0.1:8798/');
+    const msgs = [{ role: 'system' as const, content: 'You are the desk.' }, { role: 'user' as const, content: 'yes' }];
+    const r = await chat.chat(msgs, [{ type: 'function', function: { name: 'confirm_pending', parameters: { type: 'object', properties: {} } } }]);
+    assert.deepEqual(r.calls, [{ name: 'confirm_pending', args: {} }]);
+    assert.equal(sent[0].messages[0].content, 'You are the desk.\n\nList of tools:');
+    assert.equal(msgs[0].content, 'You are the desk.', 'the caller\'s messages are not changed');
+    await chat.chat(msgs, []);
+    assert.equal(sent[1].messages[0].content, 'You are the desk.', 'no tools, no header');
+  } finally { globalThis.fetch = realFetch; }
 });

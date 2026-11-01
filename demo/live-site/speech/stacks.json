@@ -1,11 +1,12 @@
 {
-  "_": "The voice stacks a call can run on (docs/decisions/0012). Read by server.ts (who picks), speech/agent.py and speech/server.py. Each language lists what its parts are told: Whisper's code, Kokoro's espeak code and voice.",
+  "_": "The voice stacks a call can run on (docs/decisions/0012). Read by server.ts (who picks), speech/agent.py and speech/server.py. thinks says which model the desk's tool calls go to (lfm3 is the text model, decision 0009). Each language lists what its parts are told: Whisper's code, Kokoro's espeak code and voice.",
   "default": "english-fast",
   "stacks": {
     "english-fast": {
       "label": "Parakeet + Pocket TTS",
       "listens": "parakeet-tdt-0.6b-v2",
       "turns": "english",
+      "thinks": "lfm3",
       "speaks": "pocket-tts",
       "languages": ["en"]
     },
@@ -13,6 +14,7 @@
       "label": "Parakeet + Kokoro",
       "listens": "parakeet-tdt-0.6b-v2",
       "turns": "english",
+      "thinks": "lfm3",
       "speaks": "kokoro",
       "languages": ["en"]
     },
@@ -20,6 +22,7 @@
       "label": "Whisper + Pocket TTS",
       "listens": "whisper-large-v3-turbo",
       "turns": "multilingual",
+      "thinks": "lfm3",
       "speaks": "pocket-tts",
       "languages": ["en"]
     },
@@ -27,8 +30,17 @@
       "label": "Whisper + Kokoro (multilingual)",
       "listens": "whisper-large-v3-turbo",
       "turns": "multilingual",
+      "thinks": "lfm3",
       "speaks": "kokoro",
       "languages": ["en", "es", "fr", "it", "pt", "hi", "zh"]
+    },
+    "lfm3-audio": {
+      "label": "LFM3-Audio (one model)",
+      "listens": "lfm3-audio",
+      "turns": "vad",
+      "thinks": "lfm3-audio",
+      "speaks": "lfm3-audio",
+      "languages": ["en"]
     }
   },
   "languages": {
