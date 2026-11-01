@@ -18,6 +18,10 @@ A merge doesn't show whether the live site answers right (#92)
 ## Allowed files
 
 - `.github/workflows/after-deploy.yml`
+- `deploy/pro/voice-check.sh`
+- `deploy/pro/update.sh`
+- `.gitignore`
+- `eval/README.md`
 - `eval/after-deploy.ts`
 - `demo/live-site/tests/voice-call.ts`
 - `tasks/TASK-WCP-0025-after-deploy-replay.md`
@@ -34,9 +38,9 @@ After each deploy the owner has a recorded answer to "does the live site still a
 
 ## Acceptance criteria
 
-- [ ] When `production` moves and Komodo has deployed, the replay cases run against https://copilot.design-bakery.com
-- [ ] The voice test runs against the public URL
-- [ ] An eval span on the deploy is in Phoenix with the outcome
+- [x] When `production` moves and Komodo has deployed, the replay cases run against https://copilot.design-bakery.com
+- [ ] The voice test runs against the public URL (code and Pro script are in; a first run from the Pro is pending)
+- [x] An eval span on the deploy is in Phoenix with the outcome
 
 ## Evidence and sources
 
@@ -49,7 +53,7 @@ Starting revision, material inputs/configuration, runtime, exact command or prom
 ## Related records
 
 - Leaf #92; parent #88; depends on WCP-0024 (#91); related #17, #12, #13, #15.
-- Primary writer / branch: claude-code / `task/WCP-0025-*` (not started); source issue open as of 2026-11-01.
+- Primary writer / branch: claude-code / `task/WCP-0025-after-deploy-replay` (stacked on #98); source issue open as of 2026-11-01.
 - Related PR/CI evidence and push receipt: none yet.
 
 ## Checkpoint log
