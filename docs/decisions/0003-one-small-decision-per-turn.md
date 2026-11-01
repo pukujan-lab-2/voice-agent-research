@@ -1,6 +1,6 @@
 # 0003. The model makes one small decision; code acts
 
-**Status:** Accepted · **Date:** 2026-10-30
+**Status:** Replaced by [0011](0011-model-leads-risk-sets-confirmation.md) · **Date:** 2026-10-30
 
 ## Decision
 
