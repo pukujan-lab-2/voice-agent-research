@@ -5,7 +5,8 @@
       "entry": [
         "eval/*.ts",
         "eval/traps/*.ts",
-        "eval/tests/*.test.ts"
+        "eval/tests/*.test.ts",
+        "eval/size/*.ts"
       ],
       "project": [
         "eval/**/*.ts"
