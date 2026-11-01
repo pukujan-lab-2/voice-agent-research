@@ -92,3 +92,26 @@ Blocked/uncertain:
 
 Next:
 - Connect additional models and host selection, then benchmark each runnable configuration.
+
+### 2026-11-01 05:49:14 UTC — codex
+
+<!-- continuity:checkpoint {"agent":"codex","blocked":["Additional model adapters, host switching and comparative benchmarks remain unfinished."],"changed":["demo/live-site/app/src/lib/copilot.ts, demo/live-site/app/src/pages/VoiceLab.tsx, demo/live-site/speech/stacks.json, demo/live-site/tests/voice-languages.ts, demo/live-site/widget/sdk.ts, docs/decisions/0012-swappable-voice-stacks.md"],"completed":["Added four selectable combinations of the connected listeners and voices, and listed unconnected candidates."],"decisions":["no new decisions"],"evidence":["Recorded audio passed 11 of 11 checks including four combinations and changing from English to Spanish; the build and repository checks passed."],"next_action":"Connect further models and machine routing and compare their performance.","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0011","timestamp":"2026-11-01T05:49:14Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"f808af6d1a05f21fcff5f7b08b450f93eea53ffc1343650b82ada5100399747d","request_id":"f643981331544498bbcff60c60250b5e","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0011"} -->
+
+Completed:
+- Added four selectable combinations of the connected listeners and voices, and listed unconnected candidates.
+
+Evidence:
+- Recorded audio passed 11 of 11 checks including four combinations and changing from English to Spanish; the build and repository checks passed.
+
+Decisions:
+- no new decisions
+
+Changed:
+- demo/live-site/app/src/lib/copilot.ts, demo/live-site/app/src/pages/VoiceLab.tsx, demo/live-site/speech/stacks.json, demo/live-site/tests/voice-languages.ts, demo/live-site/widget/sdk.ts, docs/decisions/0012-swappable-voice-stacks.md
+
+Blocked/uncertain:
+- Additional model adapters, host switching and comparative benchmarks remain unfinished.
+
+Next:
+- Connect further models and machine routing and compare their performance.
