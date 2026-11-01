@@ -11,6 +11,7 @@ import {
   Globe,
   MonitorSmartphone,
   Landmark,
+  Calculator,
   type LucideIcon,
 } from "lucide-react";
 
@@ -61,6 +62,14 @@ const DEMOS: {
     name: "Saltmere Pension Fund",
     blurb: "Nominate a beneficiary on form R-17.",
     href: "/pension/forms/r17?guest=1",
+  },
+  {
+    icon: Calculator,
+    iconBg: "hsl(160 35% 90%)",
+    iconColor: "hsl(160 45% 24%)",
+    name: "Brindlewick Tax & Accounting",
+    blurb: "Ask about a tax return or book a consultation.",
+    href: "/tax",
   },
 ];
 
@@ -216,7 +225,7 @@ export default function Index() {
       <section className="mkt-section" id="demos">
         <h2 className="mkt-section-title">Try it live</h2>
         <p className="mkt-section-sub">
-          Five fictional companies. Each has a real form you can fill by hand or with
+          Six fictional companies. Each has a real form you can fill by hand or with
           the copilot. Pick one and tap Start voice call.
         </p>
         <div className="mkt-demo-grid">
