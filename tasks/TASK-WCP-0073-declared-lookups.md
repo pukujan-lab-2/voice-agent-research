@@ -66,6 +66,29 @@ Starting revision, material inputs/configuration, runtime, exact command or prom
 
 No checkpoints yet.
 
+### 2026-11-01 18:52:49 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["copilot-engine/src/lookups.ts, desk.ts, tests/lookups*.test.ts, docs/lookups.md"],"completed":["A business can declare read-only record lookups that code runs with bound parameters, declared fields only, its own rows, and a verified caller for anything about a person"],"decisions":["risk under 56 runs, 56 to 90 needs a recorded yes, 91 and up goes to a person; a person lookup is never below 45"],"evidence":["npm run check passes; 17 new tests: injection (17 hostile values), cross-business, verified versus unverified, risk gating"],"next_action":"Open the PR for #111, then build the huge-site evals (#112)","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0073","timestamp":"2026-11-01T18:52:49Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"fdb19a3abb23cd00a1c7c38f2cdf35948dbbf3c29877ec152264bf22a00d4170","request_id":"3d193f457ad64e6e9f98693eec971d2d","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0073"} -->
+
+Completed:
+- A business can declare read-only record lookups that code runs with bound parameters, declared fields only, its own rows, and a verified caller for anything about a person
+
+Evidence:
+- npm run check passes; 17 new tests: injection (17 hostile values), cross-business, verified versus unverified, risk gating
+
+Decisions:
+- risk under 56 runs, 56 to 90 needs a recorded yes, 91 and up goes to a person; a person lookup is never below 45
+
+Changed:
+- copilot-engine/src/lookups.ts, desk.ts, tests/lookups*.test.ts, docs/lookups.md
+
+Blocked/uncertain:
+- none
+
+Next:
+- Open the PR for #111, then build the huge-site evals (#112)
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
