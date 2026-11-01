@@ -77,6 +77,29 @@ Starting revision, material inputs/configuration, runtime, exact command or prom
 
 No checkpoints yet.
 
+### 2026-11-01 18:13:53 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["copilot-engine/src/dialogue.ts, copilot-engine/src/guide.ts, demo/live-site/widget/sdk.ts, demo/live-site/api.ts, eval/lib/target.ts, tests"],"completed":["The tax copilot asked nothing back and dropped a right answer at a 0.25 cut-off; it now asks vague questions back, keeps a pick that clearly beats none, words answers with one follow-up and offers the site form."],"decisions":["Pick stands when Jev's own probability is at least 0.65 and 0.35 above none; a looser 0.5/0.3 let one unanswerable question through."],"evidence":["npm run check passed (73 engine tests, 20 eval and live-site tests, 8 scenarios). Held-out: right passage 139 of 200 either way, made-up answers 3 of 100 either way; vague questions asked back 35 of 100 (0 before), clear ones 4 of 200."],"next_action":"Open the pull request, merge, move production, replay the call on the live site and check Phoenix.","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0027","timestamp":"2026-11-01T18:13:53Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"7c351869a230eddadaa198d22d7be6f2b590fd6d8a09ee2ea2706e60a4a62433","request_id":"bdf590b4e4744ac6bb158dadef3e68c4","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0027"} -->
+
+Completed:
+- The tax copilot asked nothing back and dropped a right answer at a 0.25 cut-off; it now asks vague questions back, keeps a pick that clearly beats none, words answers with one follow-up and offers the site form.
+
+Evidence:
+- npm run check passed (73 engine tests, 20 eval and live-site tests, 8 scenarios). Held-out: right passage 139 of 200 either way, made-up answers 3 of 100 either way; vague questions asked back 35 of 100 (0 before), clear ones 4 of 200.
+
+Decisions:
+- Pick stands when Jev's own probability is at least 0.65 and 0.35 above none; a looser 0.5/0.3 let one unanswerable question through.
+
+Changed:
+- copilot-engine/src/dialogue.ts, copilot-engine/src/guide.ts, demo/live-site/widget/sdk.ts, demo/live-site/api.ts, eval/lib/target.ts, tests
+
+Blocked/uncertain:
+- none
+
+Next:
+- Open the pull request, merge, move production, replay the call on the live site and check Phoenix.
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
