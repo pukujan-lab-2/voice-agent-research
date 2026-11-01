@@ -56,6 +56,29 @@ Starting revision, material inputs/configuration, runtime, exact command or prom
 
 No checkpoints yet.
 
+### 2026-11-01 18:27:43 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["copilot-engine/src/site-map.ts, demo/live-site/api.ts, tools/site-config.ts, docs/scaling-limits.md, docs/decisions/0017, PROJECT.md"],"completed":["A site with 200 forms no longer needs every flow in memory: the right form is found by the page or the visitor's words and only that flow is loaded"],"decisions":["decision 0017: the model sees a window of the form; state lives in capped stores"],"evidence":["npm run check passes; 6 new site-map tests on a real Postgres engine (200 forms, 30 requests all right) and one API test; SiteMap smoke-tested on the live Octo workspace"],"next_action":"Merge #105, #128, #130 and this pull request in order, push main to production, post the before-and-after table on #100","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0043","timestamp":"2026-11-01T18:27:43Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"96ec54c0283de33409c94881468a79c4b4b473455fccefed316372080fe01b19","request_id":"ba67a2d579e14a7bab15958e4d265a73","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0043"} -->
+
+Completed:
+- A site with 200 forms no longer needs every flow in memory: the right form is found by the page or the visitor's words and only that flow is loaded
+
+Evidence:
+- npm run check passes; 6 new site-map tests on a real Postgres engine (200 forms, 30 requests all right) and one API test; SiteMap smoke-tested on the live Octo workspace
+
+Decisions:
+- decision 0017: the model sees a window of the form; state lives in capped stores
+
+Changed:
+- copilot-engine/src/site-map.ts, demo/live-site/api.ts, tools/site-config.ts, docs/scaling-limits.md, docs/decisions/0017, PROJECT.md
+
+Blocked/uncertain:
+- none
+
+Next:
+- Merge #105, #128, #130 and this pull request in order, push main to production, post the before-and-after table on #100
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
