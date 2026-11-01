@@ -70,6 +70,29 @@ Starting revision, material inputs/configuration, runtime, exact command or prom
 
 No checkpoints yet.
 
+### 2026-11-01 23:50:55 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["copilot-engine/src/dialogue.ts, guide.ts, desk.ts, demo/live-site/widget/sdk.ts, speech/agent.py, speech/server.py, tests"],"completed":["A pause cut the owner's question in pieces that were searched alone, the same refusal came back three times and a tied passage was refused; fragments are joined, refusals vary, a tie is quoted as the closest, date questions find the due-date passage, and the waiting line varies."],"decisions":["A tie (own probability within 0.02 of none) is quoted and said to be the closest; the agent.py changes are not covered by an automated test, which the repo has no harness for."],"evidence":["npm run check passed (130 engine tests, 41 eval and live-site tests, 15 python tests, 8 scenarios); node eval/deadline-cases.ts 5 of 5 on the real search and judge; held-out: right passage 141 of 200 (139 before), made-up answers 4 of 100 (3 before)."],"next_action":"Merge, then replay both owner calls on the live site and post the dialogues.","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0075","timestamp":"2026-11-01T23:50:55Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"b27934f73803954185aad03b3c623478dd5bdca46b9965683b6ab7d5bbbdd19f","request_id":"30f277b3d90d4e52bd9d0561d1901ffc","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0075"} -->
+
+Completed:
+- A pause cut the owner's question in pieces that were searched alone, the same refusal came back three times and a tied passage was refused; fragments are joined, refusals vary, a tie is quoted as the closest, date questions find the due-date passage, and the waiting line varies.
+
+Evidence:
+- npm run check passed (130 engine tests, 41 eval and live-site tests, 15 python tests, 8 scenarios); node eval/deadline-cases.ts 5 of 5 on the real search and judge; held-out: right passage 141 of 200 (139 before), made-up answers 4 of 100 (3 before).
+
+Decisions:
+- A tie (own probability within 0.02 of none) is quoted and said to be the closest; the agent.py changes are not covered by an automated test, which the repo has no harness for.
+
+Changed:
+- copilot-engine/src/dialogue.ts, guide.ts, desk.ts, demo/live-site/widget/sdk.ts, speech/agent.py, speech/server.py, tests
+
+Blocked/uncertain:
+- none
+
+Next:
+- Merge, then replay both owner calls on the live site and post the dialogues.
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
