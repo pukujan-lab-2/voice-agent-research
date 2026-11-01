@@ -1,9 +1,16 @@
 {
-  "feature": "Demo illustration",
-  "glossary": {
-    "Conversation": "A visitor talking with the assistant"
-  },
-  "paths": [
-    "demo/live-site/app/public/Conversation.png"
+  "schema_version": "content-generation.filename-legend.v1",
+  "feature": "demo-illustration",
+  "title": "Demo illustration",
+  "glossary": [
+    {
+      "token": "Conversation",
+      "meaning": "A visitor talking with the assistant"
+    }
+  ],
+  "files": [
+    {
+      "path": "demo/live-site/app/public/Conversation.png"
+    }
   ]
 }

@@ -1,0 +1,14 @@
+{
+ "casual": {
+  "queries": 80,
+  "recall@5": 0.762,
+  "recall@10": 0.838,
+  "mrr": 0.7
+ },
+ "all": {
+  "queries": 80,
+  "recall@5": 0.762,
+  "recall@10": 0.838,
+  "mrr": 0.7
+ }
+}
