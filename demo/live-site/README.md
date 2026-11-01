@@ -97,6 +97,14 @@ Not tax advice." The team has illustrated SVG avatars, no photos.
   answering passage and sentences. Passages are HMAC-signed when handed out, so Jev only judges real manual text.
   Per-visitor rate limit and a daily Jev cap. The same handler runs in Node (`server.ts`) and as a Cloudflare Pages
   Function (`functions/api/[[path]].ts`).
+- **The call record** (#17): every call goes to Phoenix through Octo in full, with nothing masked (each business
+  decides what it keeps). The page (`widget/calllog.ts`, through `POST /api/trace`) and the voice agent
+  (`speech/telemetry.py`, straight to Octo's OTLP route) write under the same call id, so a call is one Phoenix session:
+  the call (business, pages, device and browser, voice stack, language, start, end, outcome), each turn (what was heard
+  and the speech model's confidence, the decision and why, model and prompt version, reply, quoted passages, timings,
+  barge-ins), its tool calls, read-back confirmations, code-lock blocks and corrections, and every failure. Automated
+  evals score a call or one turn with `POST /api/score {call, turn?, name, score?, label?, explanation?}`, which becomes
+  a Phoenix span annotation on that span. Call audio is not recorded.
 - **Documents** (`docs-src/`): a fictional HDW-500 manual and R-17 guide, with tables. `tools/docs.py` splits them with
   the existing loader `copilot-engine/tools/paddle_passages.py` (same splitter and number check as the IRS test), writes
   `static/docs/*.html` (the pages citations link to) and `data/*.passages.json`, and with `--upload` loads them into Octo.

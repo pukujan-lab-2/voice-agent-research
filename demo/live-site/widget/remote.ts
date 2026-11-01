@@ -6,7 +6,7 @@ import type { Judge, Passage, Retriever } from '../../../copilot-engine/src/guid
 import type { ReturnCard, VerifyBackend, VerifyResult } from '../../../copilot-engine/src/verify.ts';
 import { maskPII } from '../../../copilot-engine/src/guard.ts';
 import { API_BASE } from './config.ts';
-import { mask } from './mask.ts';
+import { failure } from './calllog.ts';
 
 type Signed = Passage & { sig?: string };
 
@@ -14,10 +14,16 @@ type Signed = Passage & { sig?: string };
 export let callId = crypto.randomUUID();
 export function newCall() { callId = crypto.randomUUID(); }
 
+// Every failed backend call goes to the call's traces as it happens (the caller's turn then carries on without it).
 async function post(path: string, body: unknown): Promise<any> {
-  const r = await fetch(`${API_BASE}${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-session-id': callId }, body: JSON.stringify(body) });
-  if (!r.ok) throw new Error(`${path}: ${r.status}`);
-  return r.json();
+  try {
+    const r = await fetch(`${API_BASE}${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-session-id': callId }, body: JSON.stringify(body) });
+    if (!r.ok) throw new Error(`${path}: ${r.status}`);
+    return await r.json();
+  } catch (e) {
+    failure('backend', (e as Error).message, { path });
+    throw e;
+  }
 }
 
 // Errors in the visitor's browser go to the server log (at most 10 per page), so failures on real phones can be seen.
@@ -28,13 +34,6 @@ export function report(where: string, message: string) {
     void fetch(`${API_BASE}/api/log`, { method: 'POST', keepalive: true, headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ where, message: maskPII(String(message)).slice(0, 300), page: location.pathname, ua: navigator.userAgent }) }).catch(() => {});
   } catch { /* never let reporting break the page */ }
-}
-// A step the widget timed itself (speech to text, voice, a turn, the call), sent to the server's traces. Masked here too.
-export function traceSpan(name: string, start: number, input = '', output = '', attrs: Record<string, string | number> = {}, error = false) {
-  try {
-    void fetch(`${API_BASE}/api/trace`, { method: 'POST', keepalive: true, headers: { 'Content-Type': 'application/json', 'x-session-id': callId },
-      body: JSON.stringify({ spans: [{ name, start, end: Date.now(), input: mask(input).slice(0, 2000), output: mask(output).slice(0, 2000), attrs, error }] }) }).catch(() => {});
-  } catch { /* never let tracing break the page */ }
 }
 addEventListener('error', e => report('page', `${e.message} @ ${e.filename?.split('/').pop()}:${e.lineno}`));
 addEventListener('unhandledrejection', e => report('promise', String((e as PromiseRejectionEvent).reason?.message ?? (e as PromiseRejectionEvent).reason)));
@@ -80,7 +79,7 @@ export class RemoteDeskModel implements ChatModel {
     const r = await fetch(`${API_BASE}/api/desk`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-session-id': callId },
       body: JSON.stringify({ messages, tools, max_tokens: opts.maxTokens, temperature: opts.temperature }) });
     if (r.status === 503) this.off = true;
-    if (!r.ok) throw new Error(`/api/desk: ${r.status}`);
+    if (!r.ok) { failure('desk-model', `/api/desk: ${r.status}`, { path: '/api/desk', fallback: 'code rules' }); throw new Error(`/api/desk: ${r.status}`); }
     const j = await r.json();
     return { content: String(j.content ?? ''), calls: Array.isArray(j.calls) ? j.calls : [], ms: Date.now() - t0, model: String(j.model ?? this.name) };
   }

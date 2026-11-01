@@ -7,8 +7,9 @@
       copilot.greet  -> the short spoken intro          copilot.turn {text} -> the reply to speak
     so read-backs, never-submit, quote-only answers, verification and page actions all stay in the engine.
 
-Every turn's timings go to speech/turns.jsonl: from the moment the caller stops talking, the end-of-turn wait (VAD and
-turn detector), STT, the engine's decision (which includes any library search) and the voice's first audio.
+Every turn goes to Phoenix through Octo (speech/telemetry.py), in the page's call session: what was heard, and from the
+moment the caller stops talking, the end-of-turn wait (VAD and turn detector), STT, the engine's decision (which includes
+any library search) and the voice's first audio; barge-ins, failed RPC calls and speech errors too.
 
 Run: speech/.venv/bin/python speech/agent.py dev    (server.ts starts it with the speech server)
 """
@@ -22,17 +23,9 @@ from livekit.agents import (
 from livekit.agents.types import DEFAULT_API_CONNECT_OPTIONS
 from livekit.plugins import silero
 from livekit.plugins.turn_detector.english import EnglishModel
+from telemetry import CallTelemetry
 
 SPEECH = os.environ.get('SPEECH_URL', 'http://127.0.0.1:8799')
-HERE = os.path.dirname(os.path.abspath(__file__))
-TURNS = os.path.join(HERE, 'turns.jsonl')
-
-
-def log_turn(row: dict):
-    row = {'at': time.strftime('%Y-%m-%dT%H:%M:%S'), **row}
-    print('turn', json.dumps(row), flush=True)
-    with open(TURNS, 'a') as f:
-        f.write(json.dumps(row) + '\n')
 
 
 class LocalSTT(stt.STT):
@@ -42,6 +35,8 @@ class LocalSTT(stt.STT):
         super().__init__(capabilities=stt.STTCapabilities(streaming=False, interim_results=False))
         self._http = http
         self.last_ms = 0
+        self.last_confidence: float | None = None  # the model's mean token probability for the last turn, 0 to 1
+        self.last_language = 'en'
 
     @property
     def model(self) -> str:
@@ -67,7 +62,9 @@ class LocalSTT(stt.STT):
                                    headers={'content-type': 'application/octet-stream'},
                                    timeout=aiohttp.ClientTimeout(total=conn_options.timeout)) as r:
             r.raise_for_status()
-            text = (await r.json()).get('text', '')
+            j = await r.json()
+            text = j.get('text', '')
+        self.last_confidence = j.get('confidence')
         self.last_ms = round((time.perf_counter() - t) * 1000)
         return stt.SpeechEvent(type=stt.SpeechEventType.FINAL_TRANSCRIPT,
                                alternatives=[stt.SpeechData(language='en', text=text)])
@@ -119,21 +116,28 @@ class _LocalStream(tts.ChunkedStream):
 class Copilot(Agent):
     """No LLM of its own: each finished turn goes to the copilot engine in the caller's page, and its reply is spoken."""
 
-    def __init__(self, room: rtc.Room, caller: str, stt_: LocalSTT, tts_: LocalTTS):
+    def __init__(self, room: rtc.Room, caller: str, stt_: LocalSTT, tts_: LocalTTS, tel: CallTelemetry):
         super().__init__(instructions='The copilot engine in the page decides every reply.')
-        self._room, self._caller, self._stt, self._tts = room, caller, stt_, tts_
+        self._room, self._caller, self._stt, self._tts, self._tel = room, caller, stt_, tts_, tel
         self.turn: dict = {}
 
     async def _rpc(self, method: str, payload: dict, timeout: float = 45.0) -> dict:
-        r = await self._room.local_participant.perform_rpc(
-            destination_identity=self._caller, method=method, payload=json.dumps(payload), response_timeout=timeout)
-        return json.loads(r or '{}')
+        t = time.perf_counter()
+        try:
+            r = await self._room.local_participant.perform_rpc(
+                destination_identity=self._caller, method=method, payload=json.dumps(payload), response_timeout=timeout)
+        except Exception as e:
+            self._tel.failure('rpc', str(e), method=method, ms=round((time.perf_counter() - t) * 1000), timeout_s=timeout)
+            raise
+        r = json.loads(r or '{}')
+        self._tel.link(r.get('call', ''))  # the page's call id: this call's Phoenix session
+        return r
 
     async def on_enter(self) -> None:
         # Wake the speech-to-text model while the intro plays: after a while idle, its first turn is seconds slower.
         self._warming = asyncio.create_task(self._stt.warm())
         # The page asked for the microphone before it joined, so the caller already answered that prompt.
-        r = await self._rpc('copilot.greet', {})
+        r = await self._rpc('copilot.greet', self._tel.stack)
         if r.get('say'):
             self.session.say(r['say'], allow_interruptions=True)
 
@@ -142,12 +146,14 @@ class Copilot(Agent):
         if not said:
             raise StopResponse()
         t = time.perf_counter()
+        turn = uuid.uuid4().hex
+        heard = {'turn': turn, 'stt_ms': self._stt.last_ms, 'confidence': self._stt.last_confidence, 'language': self._stt.last_language}
         try:
-            r = await self._rpc('copilot.turn', {'text': said})
+            r = await self._rpc('copilot.turn', {'text': said, **heard})
         except Exception as e:  # noqa: BLE001 - a page that went away or timed out: say so, don't hang
             print('copilot.turn failed:', e, flush=True)
             r = {'say': "Sorry, something went wrong on my side. Could you say that again?"}
-        self.turn = {'stt_ms': self._stt.last_ms, 'decide_ms': round((time.perf_counter() - t) * 1000),
+        self.turn = {**heard, 'decide_ms': round((time.perf_counter() - t) * 1000), 'heard': said, 'reply': r.get('say', ''),
                      'kind': r.get('kind', ''), 'search_ms': r.get('searchMs')}
         if r.get('say'):
             self._tts.first_ms = None
@@ -176,7 +182,9 @@ async def entrypoint(ctx: JobContext):
     async with http.get(f'{SPEECH}/health') as r:
         rate = int((await r.json()).get('rate', 24000))
     stt_, tts_ = LocalSTT(http), LocalTTS(http, rate)
-    agent = Copilot(ctx.room, caller.identity, stt_, tts_)
+    tel = CallTelemetry(ctx.room.name, {'stt': f'{stt_.provider}:{stt_.model}', 'tts': f'{tts_.provider}:{tts_.model}',
+                                        'turn_detector': 'livekit-english', 'vad': 'silero', 'language': 'en'})
+    agent = Copilot(ctx.room, caller.identity, stt_, tts_, tel)
     session = AgentSession(
         vad=ctx.proc.userdata['vad'], stt=stt_, tts=tts_,
         turn_handling={
@@ -196,6 +204,8 @@ async def entrypoint(ctx: JobContext):
     # A turn's total: from the moment the caller stopped talking to the moment the copilot's voice started.
     @session.on('user_state_changed')
     def _user(ev):
+        if ev.new_state == 'speaking' and session.agent_state == 'speaking':
+            tel.barge_in()  # the caller talked over the copilot's voice
         if ev.old_state == 'speaking' and ev.new_state != 'speaking':
             pending['stopped_at'] = ev.created_at
 
@@ -210,7 +220,7 @@ async def entrypoint(ctx: JobContext):
             return
         row = {**agent.turn, 'tts_first_ms': tts_.first_ms, 'total_ms': since, **({'filler_ms': pending['filler_ms']} if 'filler_ms' in pending else {})}
         row['end_of_turn_ms'] = since - (row.get('stt_ms') or 0) - row['decide_ms'] - (row.get('tts_first_ms') or 0)
-        log_turn(row)
+        tel.turn(row, pending['stopped_at'], ev.created_at)
         agent.turn = {}
         pending.clear()
 
@@ -221,8 +231,26 @@ async def entrypoint(ctx: JobContext):
             session.say(text, allow_interruptions=True)
         return '{}'
 
+    # Speech-to-text and voice errors (a recoverable one is retried by LiveKit), and why the session closed.
+    @session.on('error')
+    def _error(ev):
+        err = getattr(ev, 'error', None)
+        tel.failure(type(err).__name__ if err else 'error', str(getattr(err, 'error', err)), source=type(ev.source).__name__,
+                    recoverable=bool(getattr(err, 'recoverable', False)))
+
+    closed: dict = {}
+
+    @session.on('close')
+    def _close(ev):
+        closed['reason'] = str(getattr(ev.reason, 'value', ev.reason)) + (f': {ev.error}' if ev.error else '')
+
     ctx.room.local_participant.register_rpc_method('agent.say', agent_say)
     ctx.add_shutdown_callback(http.close)
+
+    async def _sent(reason: str):
+        await tel.close(closed.get('reason') or reason or 'room closed')
+
+    ctx.add_shutdown_callback(_sent)
     await session.start(agent=agent, room=ctx.room)
 
 

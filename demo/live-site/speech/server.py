@@ -34,6 +34,7 @@ class Stt:
             encoder=d + 'encoder.int8.onnx', decoder=d + 'decoder.int8.onnx', joiner=d + 'joiner.int8.onnx',
             tokens=d + 'tokens.txt', model_type='nemo_transducer', num_threads=4)
         self.lock = threading.Lock()
+        self.confidence: float | None = None
 
     def __call__(self, audio: np.ndarray, sr: int) -> str:
         # A last word that ends right at the clip's edge can be dropped, so pad both ends with a little silence.
@@ -42,6 +43,9 @@ class Stt:
             s = self.rec.create_stream()
             s.accept_waveform(sr, audio)
             self.rec.decode_stream(s)
+            # The model's confidence for the turn: its mean token probability (0 to 1), recorded with the turn (#17).
+            lp = list(s.result.ys_log_probs or [])
+            self.confidence = round(float(np.exp(np.mean(lp))), 3) if lp else None
             return s.result.text.strip()
 
 
@@ -164,7 +168,7 @@ def handler(stt: Stt, tts, turns_path: str):
                 text = stt(audio, sr)
                 ms = round((time.time() - t) * 1000)
                 log(f'stt {ms} ms, {len(audio) / sr:.1f} s audio:', text[:80])
-                return self.json(200, {'text': text, 'ms': ms, 'seconds': round(len(audio) / sr, 2)})
+                return self.json(200, {'text': text, 'ms': ms, 'seconds': round(len(audio) / sr, 2), 'confidence': stt.confidence})
             if path == '/tts':
                 try:
                     text = str(json.loads(self.body() or b'{}').get('text', '')).strip()[:1200]
