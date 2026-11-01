@@ -59,6 +59,29 @@ Starting revision, material inputs/configuration, runtime, exact command or prom
 
 No checkpoints yet.
 
+### 2026-11-01 23:48:36 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["deploy/vps/autodeploy.sh, deploy/vps/open-calls.py, deploy/docker-compose.vps.yml, deploy/agent.Dockerfile, demo/live-site/speech/{agent,telemetry,stall_watchdog}.py, demo/live-site/widget/sdk.ts, demo/live-site/tests/, .github/workflows/ci.yml, package.json"],"completed":["A voice call kept silent after a merge replaced the voice agent mid-call (#67). The deploy now waits for open calls, the page rejoins when the agent leaves, spans are sent within half a second, and a stall watchdog and a per-stack barge-in test are added."],"decisions":["Fix the deploy order and add recovery, not the lfm3-audio stack: the stack was not at fault"],"evidence":["npm run check passes locally (lint, types, orphans, 7 watchdog tests, deploy-order tests). The cause is shown by container timestamps and a missing voice.call span; not yet reproduced live."],"next_action":"Open the pull request with Closes #67, wait for the gates check, then run tests/voice-barge-in.ts on the live site for lfm3-audio","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0081","timestamp":"2026-11-01T23:48:36Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"16690b9dbf6298ce49e09c1251c94ab0cf464347cd45577a1f4718dbb77d468b","request_id":"c87a9a21048f4737bb5069e441b12236","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0081"} -->
+
+Completed:
+- A voice call kept silent after a merge replaced the voice agent mid-call (#67). The deploy now waits for open calls, the page rejoins when the agent leaves, spans are sent within half a second, and a stall watchdog and a per-stack barge-in test are added.
+
+Evidence:
+- npm run check passes locally (lint, types, orphans, 7 watchdog tests, deploy-order tests). The cause is shown by container timestamps and a missing voice.call span; not yet reproduced live.
+
+Decisions:
+- Fix the deploy order and add recovery, not the lfm3-audio stack: the stack was not at fault
+
+Changed:
+- deploy/vps/autodeploy.sh, deploy/vps/open-calls.py, deploy/docker-compose.vps.yml, deploy/agent.Dockerfile, demo/live-site/speech/{agent,telemetry,stall_watchdog}.py, demo/live-site/widget/sdk.ts, demo/live-site/tests/, .github/workflows/ci.yml, package.json
+
+Blocked/uncertain:
+- none
+
+Next:
+- Open the pull request with Closes #67, wait for the gates check, then run tests/voice-barge-in.ts on the live site for lfm3-audio
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
