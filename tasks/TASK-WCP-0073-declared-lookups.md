@@ -18,7 +18,9 @@ Nothing reads an order, appointment or price from a table (#111)
 ## Allowed files
 
 - `copilot-engine/src/lookups.ts` (new)
-- `schemas/lookups.schema.json` (new)
+- `copilot-engine/src/desk.ts` (a small hook: lookup tools, the caller, the yes for a high-risk lookup)
+- `copilot-engine/tests/lookups-desk.test.ts`
+- `copilot-engine/package.json` (test script)
 - `copilot-engine/tests/lookups.test.ts`
 - `docs/lookups.md`
 - `tasks/TASK-WCP-0073-declared-lookups.md`
