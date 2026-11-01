@@ -109,6 +109,29 @@ Blocked/uncertain:
 Next:
 - Merge PR #52 when CI passes, then #53 to #56 in order
 
+### 2026-11-01 23:25:24 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["none (merge of main)"],"completed":["The ingestion branch now equals main: its content (and the fuller task records) reached main through #53, so PR #52 has nothing left to merge"],"decisions":["keep PR #52 closed; issue #32 was closed with the evidence"],"evidence":["git diff origin/main HEAD is empty after merging main; npm run check passed on main plus this stack just before"],"next_action":"Merge #54, #55, #56 in order","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0070","timestamp":"2026-11-01T23:25:24Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"a078209e4259786ae4406c0f670996ea3e12dd486a8d2e156b182f3610bbc1e7","request_id":"9aa48bb8ee3f4b01a0867f2c60e2818f","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0070"} -->
+
+Completed:
+- The ingestion branch now equals main: its content (and the fuller task records) reached main through #53, so PR #52 has nothing left to merge
+
+Evidence:
+- git diff origin/main HEAD is empty after merging main; npm run check passed on main plus this stack just before
+
+Decisions:
+- keep PR #52 closed; issue #32 was closed with the evidence
+
+Changed:
+- none (merge of main)
+
+Blocked/uncertain:
+- none
+
+Next:
+- Merge #54, #55, #56 in order
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
