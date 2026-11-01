@@ -1,6 +1,6 @@
 # TASK-WCP-0010 — Confirmation policy
 
-<!-- continuity:task {"acceptance":["Decision 0011 replaces 0003 with the model-led policy and the 1 to 100 risk scale","It records that the NYC map agent is low stakes","It cites Mycroft, LiveKit and OpenAI's agent guide","0003 is marked replaced and the index is updated"],"depends_on":[],"goal":"Record the owner's confirmation policy: the model leads, a 1 to 100 risk score sets how it confirms","id":"WCP-0010","issue_url":"https://github.com/Pukujan-lab/voice-agent-research/issues/52","next_action":"Open the pull request for #52 and arm auto-merge","owner":"owner","priority":"P1","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"active","why":"Decision 0003 has code own every confirmation, which no longer matches the owner's direction"} -->
+<!-- continuity:task {"acceptance":["Decision 0011 replaces 0003 with the model-led policy and the 1 to 100 risk scale","It records that the NYC map agent is low stakes","It cites Mycroft, LiveKit and OpenAI's agent guide","0003 is marked replaced and the index is updated"],"depends_on":[],"goal":"Record the owner's confirmation policy: the model leads, a 1 to 100 risk score sets how it confirms","id":"WCP-0010","next_action":"Open the pull request for #52 and arm auto-merge","owner":"owner","priority":"P1","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"active","why":"Decision 0003 has code own every confirmation, which no longer matches the owner's direction"} -->
 
 - Status: active
 - Owner: owner

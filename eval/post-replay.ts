@@ -15,7 +15,7 @@ const links: string[] = [];
 for (const r of rose) {
   const title = `Replay failures rose for ${r.rule}: ${r.from} to ${r.to}`;
   const mine = run.failures.filter(f => f.rule === r.rule);
-  const body = `The live replay (${process.env.RUN_URL ?? 'a scheduled run'}) found more failing cases for the rule \`${r.rule}\` than the run before: ${r.from} before, ${r.to} now. Standing issue: #${standing}. Parent: #88.\n\n${mine.map(f => `- \`${f.status}\` "${f.said}": ${f.why}`).join('\n')}\n\nThis was opened by the replay workflow; a coding session takes it through a pull request.`;
+  const body = `The live replay (${process.env.RUN_URL ?? 'a scheduled run'}) found more failing cases for the rule \`${r.rule}\` than the run before: ${r.from} before, ${r.to} now. Standing issue: #${standing}. Parent: #18.\n\n${mine.map(f => `- \`${f.status}\` "${f.said}": ${f.why}`).join('\n')}\n\nThis was opened by the replay workflow; a coding session takes it through a pull request.`;
   const open = JSON.parse(gh('issue', 'list', '--repo', repo, '--state', 'open', '--search', `"Replay failures rose for ${r.rule}" in:title`, '--json', 'number,title')) as { number: number; title: string }[];
   const dup = open.find(i => i.title.startsWith(`Replay failures rose for ${r.rule}:`));
   if (dup) { gh('issue', 'comment', String(dup.number), '--repo', repo, '--body', body); links.push(`#${dup.number}`); }
