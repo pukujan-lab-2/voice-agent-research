@@ -83,6 +83,29 @@ Blocked/uncertain:
 Next:
 - Merge #98, then this; dispatch After deploy once; run deploy/pro/voice-check.sh from the Pro
 
+### 2026-11-01 23:28:22 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["eval/README.md, .gitignore, task record"],"completed":["The after-deploy branch now contains the updated replay gate branch and main after the move to pukujan-lab-2"],"decisions":["no new decisions"],"evidence":["npm run check passes on the merged tree (python tests, 8/8 scenarios, replay gate ok)"],"next_action":"Merge #37 after #23","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0025","timestamp":"2026-11-01T23:28:22Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"19118b1a0af5f295e9322d245a962b0ecd2c0328234e6ed34893ce463da7ba52","request_id":"41d93f7f26ce45f2b21d230124957644","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0025"} -->
+
+Completed:
+- The after-deploy branch now contains the updated replay gate branch and main after the move to pukujan-lab-2
+
+Evidence:
+- npm run check passes on the merged tree (python tests, 8/8 scenarios, replay gate ok)
+
+Decisions:
+- no new decisions
+
+Changed:
+- eval/README.md, .gitignore, task record
+
+Blocked/uncertain:
+- none
+
+Next:
+- Merge #37 after #23
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
