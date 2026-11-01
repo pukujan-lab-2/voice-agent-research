@@ -15,7 +15,7 @@ This file says what the project is and what is already decided. Decisions are re
 A visitor opens the copilot on a site and talks to it. The copilot can:
 
 - **Answer questions** from the business's own documents only, quoting the passage it used. If the documents don't answer it, it says so instead of guessing.
-- **Walk the visitor through the site's forms**, one question at a time. It reads every value back and waits for a yes, lets the visitor go back and fix any answer, and never presses submit: the visitor does that.
+- **Walk the visitor through the site's forms**, one question at a time. It confirms each value as much as its risk calls for, lets the visitor go back and fix any answer, and submits for them once they have given the confirmations that step needs.
 - **Check who a caller is** against the business's customer records (for example the last four SSN digits and a date of birth) before talking about their account. It never reads records out, and impostors are turned away.
 - **Hand off to a person** when the visitor asks, or when a question needs personal advice.
 
@@ -41,12 +41,12 @@ A visitor opens the copilot on a site and talks to it. The copilot can:
 
 1. **Open models only in the product.** The runtime uses open-weight models (LFM3, Qwen and similar) and the Jev decisions API. Claude may help us build, but it never runs inside a customer's copilot.
 2. **Customer data stays in house.** Keys and records stay on our backend and in Octo. Nothing goes to a third-party speech or AI service a customer didn't approve. Browser speech APIs send audio to Google, so they are not allowed.
-3. **Every value is read back and confirmed.** The copilot never submits a form or takes an irreversible step for the visitor.
+3. **Risk sets how much the copilot confirms** ([decision 0011](docs/decisions/0011-model-leads-risk-sets-confirmation.md)). Each field or action gets a risk score from 1 to 100. Low-risk steps just happen. From 56 up, code won't run the step until the visitor has said a recorded yes. Skips and submits from 76 up are asked twice. From 91 up (payments, cancellations, anything that can't be undone), a person approves first.
 4. **Answers come from the documents, with a citation.** If the documents don't say it, the copilot says it doesn't know.
 5. **Evals are fully automated.** No human spot-check step. Exact code checks are preferred over judge-model scores.
 6. **Octo is the one store.** No local or static fallback copies.
 7. **Demo sites are original.** Popular sites can be references, never copies of a real brand.
-8. **Every module is swappable.** No model or module is hard-wired. Each one is a named option with versions that the owner, a business (from its allowed list and default) or a visitor picks per task, as [decision 0012](docs/decisions/0012-swappable-voice-stacks.md) does for voice. Decision models are #74; vision, video and audio understanding is #73.
+8. **Every module is swappable.** No model or module is hard-wired. Each one is a named option with versions that the owner, a business (from its allowed list and default) or a visitor picks per task, as [decision 0012](docs/decisions/0012-swappable-voice-stacks.md) does for voice. Only the models the active config picks are loaded; changing the config swaps them out, so the lab never runs every option at once. Decision models are #74; vision, video and audio understanding is #73.
 
 ## Status (2026-10-31)
 
