@@ -48,6 +48,29 @@ The owner reads the cited page without zooming, with the call panel still beside
 
 No checkpoints yet.
 
+### 2026-11-01 23:30:45 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["none"],"completed":["A cited PDF in the tax demo was drawn in a 440 px panel and was hard to read; the viewer now takes up to 72% of the window and the page is drawn to that width"],"decisions":["no new decisions"],"evidence":["npm run check passes; the app builds in a scratch copy with the copilot contract check"],"next_action":"Merge, then check the live viewer in a browser","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0080","timestamp":"2026-11-01T23:30:45Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"dbe657e08e57ddde37a590dff14b3e24d887067417e1d3cd78b4f5bfe5dbb167","request_id":"a0669a0111c545eab171096e8615d651","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0080"} -->
+
+Completed:
+- A cited PDF in the tax demo was drawn in a 440 px panel and was hard to read; the viewer now takes up to 72% of the window and the page is drawn to that width
+
+Evidence:
+- npm run check passes; the app builds in a scratch copy with the copilot contract check
+
+Decisions:
+- no new decisions
+
+Changed:
+- none
+
+Blocked/uncertain:
+- none
+
+Next:
+- Merge, then check the live viewer in a browser
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
