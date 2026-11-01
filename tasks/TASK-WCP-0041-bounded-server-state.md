@@ -59,6 +59,29 @@ Starting revision, material inputs/configuration, runtime, exact command or prom
 
 No checkpoints yet.
 
+### 2026-11-01 18:18:42 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["copilot-engine/src/memory.ts, octo-store.ts, demo/live-site/api.ts, tests, docs/scaling-limits.md"],"completed":["A restart or a second instance no longer loses caller-verification locks or resume snapshots, and no per-call state grows without a cap"],"decisions":["no new decisions; rate limits stay per instance because an Octo round trip is slower than a desk turn can spare"],"evidence":["npm run check passes; 14 new tests, the Octo store on a real Postgres engine; OctoStore smoke-tested against the live workspace (about 67 ms a read)"],"next_action":"Merge the pull request, then start the per-business config leaf (#103)","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0041","timestamp":"2026-11-01T18:18:42Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"ff52c12b0bf636c63c5fa91fcef1b2387d7688891a828a120be5693d396d9c15","request_id":"b88cd5fe5db24f6d8b2bbe2ed99cf555","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0041"} -->
+
+Completed:
+- A restart or a second instance no longer loses caller-verification locks or resume snapshots, and no per-call state grows without a cap
+
+Evidence:
+- npm run check passes; 14 new tests, the Octo store on a real Postgres engine; OctoStore smoke-tested against the live workspace (about 67 ms a read)
+
+Decisions:
+- no new decisions; rate limits stay per instance because an Octo round trip is slower than a desk turn can spare
+
+Changed:
+- copilot-engine/src/memory.ts, octo-store.ts, demo/live-site/api.ts, tests, docs/scaling-limits.md
+
+Blocked/uncertain:
+- none
+
+Next:
+- Merge the pull request, then start the per-business config leaf (#103)
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
