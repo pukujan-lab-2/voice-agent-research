@@ -63,6 +63,29 @@ Starting revision, material inputs/configuration, runtime, exact command or prom
 
 No checkpoints yet.
 
+### 2026-11-01 18:49:07 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["ingest/, docs/ingest.md, demo/live-site/tools/irs_store.py, irs_ingest.py, package.json, knip.json, ci.yml"],"completed":["A business's own site and documents can be loaded into its own Octo prefix with one command, and a re-run only touches what changed"],"decisions":["trafilatura for HTML, Docling for PDF, httpx for conditional GETs; Crawl4AI not included"],"evidence":["npm run check passes with 31 Python tests; live Octo round trip: load, no-op re-run, delete; IRS scripts verified live on the shared client; Docling PDF read verified"],"next_action":"Open the PR for #108, then add the section, page-type and language filters (#109)","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0070","timestamp":"2026-11-01T18:49:07Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"00a3aea377f50aed3771647c54bf848224f17ca91ee64d73f22ae29f31364740","request_id":"5544550c57604ee7b3145a007b67a07a","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0070"} -->
+
+Completed:
+- A business's own site and documents can be loaded into its own Octo prefix with one command, and a re-run only touches what changed
+
+Evidence:
+- npm run check passes with 31 Python tests; live Octo round trip: load, no-op re-run, delete; IRS scripts verified live on the shared client; Docling PDF read verified
+
+Decisions:
+- trafilatura for HTML, Docling for PDF, httpx for conditional GETs; Crawl4AI not included
+
+Changed:
+- ingest/, docs/ingest.md, demo/live-site/tools/irs_store.py, irs_ingest.py, package.json, knip.json, ci.yml
+
+Blocked/uncertain:
+- none
+
+Next:
+- Open the PR for #108, then add the section, page-type and language filters (#109)
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
