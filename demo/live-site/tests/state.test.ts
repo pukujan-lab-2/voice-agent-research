@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import { createApi } from '../api.ts';
 import { MemoryStore, type Store } from '../../../copilot-engine/src/memory.ts';
 import { OctoStore } from '../../../copilot-engine/src/octo-store.ts';
+import type { Sites, SiteConfig } from '../../../copilot-engine/src/site-config.ts';
 import { pgSql } from '../../../copilot-engine/tests/pg-sql.ts';
 
 let clients: { id: string; full_name: string }[] = [];
@@ -16,7 +17,10 @@ globalThis.fetch = (async (_url: string, init: { body: string }) => {
 
 const ENV = { OPENROUTER_JEV_KEY: 'k', OCTO_KEY: 'k', OCTO_WORKSPACE: 'ws', OCTO_BASE: 'http://octo.test/api', SIGNING_SECRET: 's' };
 const same = async (said: string, names: string[]) => names.map(n => n === said);
-const instance = (stores: { calls?: Store; sessions?: Store; limits?: Store }, env: Record<string, string> = {}) => createApi({ ...ENV, ...env }, { matchNames: same, stores });
+// Businesses the backend knows: acme allows only the default voice stack.
+const known: Record<string, SiteConfig> = { acme: { voice: { stacks: ['default'] }, pages: [{ path: '/', title: 'Home' }] }, other: {} };
+const knownSites: Sites = { get: async b => known[b] ?? null };
+const instance = (stores: { calls?: Store; sessions?: Store; limits?: Store }, env: Record<string, string> = {}, sites: Sites = knownSites) => createApi({ ...ENV, ...env }, { matchNames: same, stores, sites });
 const post = (api: ReturnType<typeof instance>, path: string, body: unknown, ip = '9.9.9.9') =>
   api.handle(new Request(`http://x${path}`, { method: 'POST', body: JSON.stringify(body) }), ip).then(async (r): Promise<Reply> => ({ status: r.status, ...(await r.json() as object) }));
 // biome-ignore lint/suspicious/noExplicitAny: a reply is whatever JSON the endpoint sent
@@ -116,4 +120,30 @@ test('the same state works on the Octo-backed store: a restart loses neither a l
   const restarted = mk();
   assert.equal((await post(restarted, '/api/verify', { ...guess, call })).result, 'locked');
   assert.deepEqual(((await post(restarted, '/api/session', { op: 'get', business: 'acme', id })).snapshot as { values: unknown }).values, { a: 'b' });
+});
+
+test('a business\'s config is loaded on demand by id; unknown and odd ids are refused', async () => {
+  const a = instance({});
+  const get = (q: string) => a.handle(new Request(`http://x/api/copilot/config?business=${q}`), '1.1.1.1').then(async r => ({ status: r.status, ...(await r.json() as object) } as Reply));
+  const ok = await get('acme');
+  assert.equal(ok.status, 200);
+  assert.deepEqual(ok.config.voice, { stacks: ['default'] });
+  assert.equal((await get('nobody')).status, 404);
+  assert.equal((await get('Bad%20Id')).status, 400);
+  assert.equal((await get('')).status, 400);
+});
+
+test('a call that names its business may only use the voice stacks that business allows', async () => {
+  const a = instance({});
+  const desk = (body: object) => post(a, '/api/desk', { messages: [{ role: 'system', content: 'x' }], tools: [], ...body });
+  assert.equal((await desk({ business: 'acme', stack: 'multilingual' })).status, 403);
+  assert.equal((await desk({ business: 'acme', stack: 'default' })).status, 503, 'allowed: it gets as far as the model, which this test has none of');
+  assert.equal((await desk({ business: 'other', stack: 'multilingual' })).status, 503, 'a business with no stack list allows any');
+  assert.equal((await desk({ business: 'acme' })).status, 503, 'no stack named: the default');
+});
+
+test('a snapshot cannot be kept for a business the backend does not know', async () => {
+  const a = instance({ sessions: new MemoryStore() });
+  const r = await post(a, '/api/session', { op: 'set', business: 'nobody', id: 'session-abcdefgh-1234', snapshot: { v: 1, flow: 'f', values: {}, log: [] } });
+  assert.equal(r.status, 404);
 });
