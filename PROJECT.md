@@ -58,6 +58,7 @@ A visitor opens the copilot on a site and talks to it. The copilot can:
 | Caller verification | 24/24 scenarios, no impostor verified, no leaks |
 | Voice | Uses browser speech today, which breaks the in-house rule. Being rebuilt on LiveKit Agents |
 | Hosting | https://copilot.design-bakery.com, every merge to `main` that passes CI goes live (decision 0016, `deploy/`) |
+| Size limits | A form of any size keeps the model's prompt at about 9,000 characters; call, rate-limit and resume state sits in capped stores (Octo for what must survive a restart); a business's config and its pages and forms live in Octo and are found by search. Limits and measurements: [docs/scaling-limits.md](docs/scaling-limits.md), decision 0017 |
 | Phone calls | Planned (LiveKit SIP) |
 | Multi-language | Voice: English on the default stack; English, Spanish, French, Italian, Portuguese, Hindi and Chinese on the `multilingual` stack (decision 0012); English on the one-model `lfm3-audio` stack (decision 0013). Text chat passes the visitor's words through |
 

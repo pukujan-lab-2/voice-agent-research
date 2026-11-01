@@ -11,22 +11,45 @@ export interface Store {
   get(key: string): Promise<unknown | undefined>;
   set(key: string, value: unknown, ttlMs?: number): Promise<void>;
   delete(key: string): Promise<void>;
+  // Adds 1 to a counter and returns the new count. The counter expires ttlMs after its first increment: the window
+  // does not slide, so an attacker can't keep it alive, and it can't straddle a boundary.
+  incr(key: string, ttlMs: number): Promise<number>;
 }
 
 type Entry = { v: unknown; exp?: number };
 
+// In-process store with a time limit per entry and a hard cap on how many it holds: past `max`, expired entries go
+// first, then the oldest written. Memory is therefore bounded however many calls come in; a restart loses it.
 export class MemoryStore implements Store {
   private m = new Map<string, Entry>();
   private now: () => number;
-  constructor(now: () => number = Date.now) { this.now = now; }
+  private max: number;
+  private puts = 0;
+  constructor(now: () => number = Date.now, opts: { max?: number } = {}) { this.now = now; this.max = opts.max ?? Infinity; }
+  get size() { return this.m.size; }
+  private put(key: string, e: Entry) {
+    this.m.delete(key); this.m.set(key, e); // a rewritten key becomes the newest
+    if (this.m.size > this.max || ++this.puts % 256 === 0) this.trim();
+  }
+  private trim() {
+    const t = this.now();
+    for (const [k, e] of this.m) if (e.exp !== undefined && e.exp <= t) this.m.delete(k);
+    for (const k of this.m.keys()) { if (this.m.size <= this.max) break; this.m.delete(k); }
+  }
   async get(key: string) {
     const e = this.m.get(key);
     if (!e) return undefined;
     if (e.exp !== undefined && e.exp <= this.now()) { this.m.delete(key); return undefined; }
     return structuredClone(e.v);
   }
-  async set(key: string, value: unknown, ttlMs?: number) { this.m.set(key, { v: structuredClone(value), exp: ttlMs ? this.now() + ttlMs : undefined }); }
+  async set(key: string, value: unknown, ttlMs?: number) { this.put(key, { v: structuredClone(value), exp: ttlMs ? this.now() + ttlMs : undefined }); }
   async delete(key: string) { this.m.delete(key); }
+  async incr(key: string, ttlMs: number) {
+    const e = this.m.get(key), t = this.now();
+    if (e && typeof e.v === 'number' && (e.exp === undefined || e.exp > t)) { e.v++; return e.v; }
+    this.put(key, { v: 1, exp: t + ttlMs });
+    return 1;
+  }
 }
 
 // Whole-file JSON store: fine for tests and a single process, not for concurrent writers.
@@ -45,6 +68,12 @@ export class JsonFileStore implements Store {
   }
   async set(key: string, value: unknown, ttlMs?: number) { const d = this.read(); d[key] = { v: value, exp: ttlMs ? this.now() + ttlMs : undefined }; this.write(d); }
   async delete(key: string) { const d = this.read(); delete d[key]; this.write(d); }
+  async incr(key: string, ttlMs: number) {
+    const d = this.read(), t = this.now(), e = d[key];
+    const n = e && typeof e.v === 'number' && (e.exp === undefined || e.exp > t) ? e.v + 1 : 1;
+    d[key] = { v: n, exp: n === 1 ? t + ttlMs : e.exp }; this.write(d);
+    return n;
+  }
 }
 
 export const SESSION_TTL_MS = 30 * 60 * 1000;
