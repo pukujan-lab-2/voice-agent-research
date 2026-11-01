@@ -1,8 +1,8 @@
 # TASK-WCP-0013 — The demo home page and company sites redesigned to a polished product standard
 
-<!-- continuity:task {"acceptance":["Home page and every demo site share one new design system","Nothing copied from obvious.ai","Scene tests and the copilot contract pass"],"depends_on":[],"goal":"The demo home page and company sites redesigned to a polished product standard","id":"WCP-0013","issue_url":"https://github.com/Pukujan-lab/voice-agent-research/issues/64","next_action":"Read obvious.ai's real styles and start the redesign","owner":"owner","priority":"P1","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"active","why":"The owner finds the demo plain next to obvious.ai"} -->
+<!-- continuity:task {"acceptance":["Home page and every demo site share one new design system","Nothing copied from obvious.ai","Scene tests and the copilot contract pass"],"depends_on":[],"goal":"The demo home page and company sites redesigned to a polished product standard","id":"WCP-0013","issue_url":"https://github.com/Pukujan-lab/voice-agent-research/issues/64","next_action":"none; delivered in #67 and merged as 35b9ad1","owner":"owner","priority":"P1","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"completed","why":"The owner finds the demo plain next to obvious.ai"} -->
 
-- Status: active
+- Status: completed
 - Owner: owner
 - Priority: P1
 - Depends on: none
@@ -18,7 +18,15 @@ The owner finds the demo plain next to obvious.ai (#64).
 ## Related records
 
 - Leaf #64; parent none; depends on none.
-- Primary writer / branch: claude-code / set when the worktree is created.
+- Primary writer / branch: claude-code / task/WCP-0013-demo-sites-redesign.
+
+## Delivery
+
+- Delivered in pull request #67, merged as `35b9ad1` on 2026-11-01 06:29 UTC from pushed head `96da0f2`.
+- The shared sheet is `demo/live-site/app/src/styles/design.css`; the hero illustration is `components/site/SiteHeroArt.tsx`; the five business home pages use both.
+- Checks on merged `main` (`da521b8`): `npm run check` passed (49 engine tests, 8 of 8 scenarios), `npm run build` passed including the copilot contract check, and the layout scene passed at 390×664, 375×560, 360×640 and 1280×800.
+- Issue #64 closed as completed with the evidence in [the delivery comment](https://github.com/Pukujan-lab/voice-agent-research/issues/64#issuecomment-6554680857).
+- Gaps recorded, not hidden: two offline guide lookups failed before this change and still do, and a full offline run stops in the voice scene (#69).
 
 ## Checkpoint log
 

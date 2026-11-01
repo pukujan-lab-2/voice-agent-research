@@ -2,7 +2,7 @@
 
 <!-- continuity:current {"active_task":null,"active_task_file":null,"protocol_version":"0.1.0-draft","schema":"project-continuity.current.v1"} -->
 
-This is an as-of projection (2026-10-31); live GitHub issues own progression. Link the owning leaf, parent ancestry and dependencies for active work.
+This is an as-of projection (2026-11-01); live GitHub issues own progression. Link the owning leaf, parent ancestry and dependencies for active work.
 
 Older state: [`history/2026-10.md`](history/2026-10.md) and earlier months in `history/`.
 
@@ -12,8 +12,13 @@ Phase: demo build. The copilot runs locally on fictional demo sites; nothing is 
 
 ## Active
 
-- Voice rebuild on LiveKit Agents (#11), by the live-demo-site session.
+- Offline scene suite voice path (#69), by the live-demo-site session: the suite stops in its voice scene, so a full run prints no summary.
 - IRS library load into Octo (#18), running with 4 workers.
+
+## Done recently
+
+- Demo sites redesign (#64): merged as `35b9ad1`, task WCP-0013 completed.
+- Copilot call panel redesign (#65): merged as `da521b8`, task WCP-0014 completed; its voice-test acceptance moved to #69.
 
 ## Queued
 
@@ -26,4 +31,4 @@ Phase: demo build. The copilot runs locally on fictional demo sites; nothing is 
 
 ## Next atomic action
 
-Get the owner's decision on the folder layout, then run `continuity worktree migrate --root ~/Documents/chatbots` (dry run first).
+Make the offline scene suite skip its voice scene with a printed reason, so a full run reaches its summary and the phone layout scene (#69).

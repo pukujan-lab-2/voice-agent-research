@@ -1,8 +1,8 @@
 # TASK-WCP-0014 — The copilot call widget redesigned and its page actions easy to follow
 
-<!-- continuity:task {"acceptance":["Widget, chat panel and on-page activity are readable on desktop and phone","Scene and voice tests pass","Matches the new demo design system"],"depends_on":[],"goal":"The copilot call widget redesigned and its page actions easy to follow","id":"WCP-0014","issue_url":"https://github.com/Pukujan-lab/voice-agent-research/issues/65","next_action":"Read obvious.ai's real styles and start the redesign","owner":"owner","priority":"P1","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"active","why":"The owner finds the widget bad and its activity view too small"} -->
+<!-- continuity:task {"acceptance":["Widget, chat panel and on-page activity are readable on desktop and phone","Scene and voice tests pass","Matches the new demo design system"],"depends_on":[],"goal":"The copilot call widget redesigned and its page actions easy to follow","id":"WCP-0014","issue_url":"https://github.com/Pukujan-lab/voice-agent-research/issues/65","next_action":"none; delivered in #68 and merged as da521b8; the harness voice path moved to #69","owner":"owner","priority":"P1","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"completed","why":"The owner finds the widget bad and its activity view too small"} -->
 
-- Status: active
+- Status: completed
 - Owner: owner
 - Priority: P1
 - Depends on: none
@@ -18,7 +18,14 @@ The owner finds the widget bad and its activity view too small (#65).
 ## Related records
 
 - Leaf #65; parent none; depends on none.
-- Primary writer / branch: claude-code / set when the worktree is created.
+- Primary writer / branch: claude-code / task/WCP-0014-widget-redesign.
+
+## Delivery
+
+- Delivered in pull request #68, merged as `da521b8` on 2026-11-01 06:46 UTC from pushed head `f9ef518`.
+- Checks on merged `main`: `npm run check` passed (49 engine tests, 8 of 8 scenarios); the layout scene passed at 390×664, 375×560, 360×640 and 1280×800, including the two-row phone bar that used to push "Type instead" outside the screen.
+- Issue #65 closed as completed with the evidence in [the delivery comment](https://github.com/Pukujan-lab/voice-agent-research/issues/65#issuecomment-6554681039).
+- Its "voice tests pass" acceptance transferred to #69: a call runs on LiveKit and needs a microphone that headless Chromium refuses, so the voice scene cannot run and a full offline run stops there.
 
 ## Checkpoint log
 
