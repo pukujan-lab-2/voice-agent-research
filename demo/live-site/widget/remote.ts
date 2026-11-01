@@ -140,12 +140,15 @@ export class RemoteRetriever implements Retriever {
 
 export class RemoteJudge implements Judge {
   private last?: Signed;
+  lastProbs?: Record<string, number>;
   async pick(question: string, passages: Passage[]): Promise<string> {
     try {
-      const id: string = (await post('/api/judge', { question, passages })).id ?? '';
+      const r = await post('/api/judge', { question, passages });
+      const id: string = r.id ?? '';
+      this.lastProbs = r.probs && typeof r.probs === 'object' ? r.probs : undefined;
       this.last = passages.find(p => p.id === id);
       return id;
-    } catch { return ''; }
+    } catch { this.lastProbs = undefined; return ''; }
   }
   async sentences(question: string, sentences: string[]): Promise<number[]> {
     if (!this.last) return [];
