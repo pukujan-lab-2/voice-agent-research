@@ -1,0 +1,1018 @@
+[
+ {
+  "id": "26595bc59bc53e3e2367",
+  "call": "7d689fcd-fe99-439c-8350-6305244e2875",
+  "note": "Search found the answer, the judge threw it away, the caller was told \"I don't know\".",
+  "path": "guide",
+  "rule": "judge-dropped-answer",
+  "said": "You guide me how to file it. Can I file it from here?",
+  "turn": "3a2a3b7e249e492485419d6855b56b8a",
+  "input": "Can I file my tax return from here?",
+  "expect": {
+   "ids": [
+    "b8590d3c-79e7-4157-823f-b9f8a6f0d4eb",
+    "238112ad-bfe5-4a3e-87f1-17067ed61ecb",
+    "f8abe0cd-eaef-4995-b6b2-dab8932fb442"
+   ],
+   "kind": "answers-from"
+  },
+  "status": "open",
+  "history": [
+   {
+    "role": "user",
+    "text": "How do I find my taxes?"
+   },
+   {
+    "role": "assistant",
+    "text": "I've opened IRS Publication 970, page 69. The highlighted part says: \"View the amount you owe and a breakdown by tax year.\""
+   },
+   {
+    "role": "user",
+    "text": "Is it gonna take long?"
+   },
+   {
+    "role": "assistant",
+    "text": "That's a great question about timing. I don't have the exact turnaround time from my guides right now, but I can help you check on your return once we verify who you are if you're a client."
+   },
+   {
+    "role": "user",
+    "text": "Yeah"
+   },
+   {
+    "role": "assistant",
+    "text": "Thanks for letting me know. If you'd like to proceed with checking your return or need more details, just say the word."
+   },
+   {
+    "role": "user",
+    "text": "So how do I file it?"
+   },
+   {
+    "role": "assistant",
+    "text": "I've opened IRS Publication 570, page 31. The highlighted part says: \"If you must file a U.S. income tax return, you may be able to file electronically using IRS.gov/Efile . See the Instructions for Form 1040 or visit IRS.gov.\""
+   },
+   {
+    "role": "user",
+    "text": "But like how do I fill up the form?"
+   },
+   {
+    "role": "assistant",
+    "text": "I've opened IRS Publication 17, page 110. The highlighted part says: \"Fill in the lines that apply to you and attach Schedules 2 and 3 (Form 1040), if applicable.\""
+   }
+  ],
+  "recorded": {
+   "judges": [
+    {
+     "q": "Can I file my tax return from here?",
+     "id": ""
+    },
+    {
+     "q": "Can I file it from here?",
+     "id": ""
+    }
+   ],
+   "searches": [
+    {
+     "q": "Can I file my tax return from here?",
+     "passages": [
+      {
+       "id": "b8590d3c-79e7-4157-823f-b9f8a6f0d4eb",
+       "text": "Yes, you can file an original Form 1040 series tax return electronically using any filing status.\nFiling your return electronically is faster, safer, and more accurate than mailing your tax return because it's transmitted electronically to the IRS computer systems.\nE-File: Do your taxes for free\nFile your tax return"
+      },
+      {
+       "id": "238112ad-bfe5-4a3e-87f1-17067ed61ecb",
+       "text": "You may want to file your return electronically instead of mailing it, to receive your refund faster. Most professional tax return preparers offer electronic filing of tax returns with their return preparation services and may charge a fee to file your return electronically. Also, when you prepare your return yourself using tax-preparation software, you may have to pay a fee to file your return electronically. However, you may qualify for free electronic filing through Free File . For information on filing in general, visit File your tax return ."
+      },
+      {
+       "id": "f8abe0cd-eaef-4995-b6b2-dab8932fb442",
+       "text": "Free options for tax preparation.\nYour options for preparing and filing your return online or in your local community, if you qualify, include the following."
+      },
+      {
+       "id": "dd8cd173-c7bf-41db-b194-b8078e493f00",
+       "text": "If your legal residence or principal place of business, or principal office or agency, is outside the United States, use the following address.\nState and local tax departments.\nContact the applicable state and local tax department as necessary for reporting requirements and where to file."
+      }
+     ]
+    },
+    {
+     "q": "Can I file it from here?",
+     "passages": [
+      {
+       "id": "238112ad-bfe5-4a3e-87f1-17067ed61ecb",
+       "text": "You may want to file your return electronically instead of mailing it, to receive your refund faster. Most professional tax return preparers offer electronic filing of tax returns with their return preparation services and may charge a fee to file your return electronically. Also, when you prepare your return yourself using tax-preparation software, you may have to pay a fee to file your return electronically. However, you may qualify for free electronic filing through Free File . For information on filing in general, visit File your tax return ."
+      },
+      {
+       "id": "2138849a-7902-4edd-b8a6-719bcaadcc96",
+       "text": "E-file logo\nI.R.S. e-file logo\nSummary: This is an illustration of the logo used to identify the I.R.S. e-file program.\nPlease click here for the text description of the image.\nUsing IRS e-file does not affect your probability of an IRS examination of your return.\nYou can file most commonly used business forms using IRS e-file . For more information, go to IRS.gov .\nE-signatures."
+      },
+      {
+       "id": "1281ab96-dfad-4bdd-b140-b501b49f4cd3",
+       "text": "If you e-file, do not file the same returns on paper.\nWho must e-file.\nIf you are required to file 10 or more information returns during the year, you must e-file. The 10-or-more requirement does not apply separately to each type of form. For example, if you must file four Forms 1098 and six Forms 1099-A, you must e-file.\nThe e-file requirement does not apply if you apply for and receive a hardship waiver. See How to request a waiver from e-filing , later."
+      },
+      {
+       "id": "17f52e27-0f1c-43cd-b55a-689f12253a7b",
+       "text": "This section of the IRM provides the procedures for electronic filing (E-file).\nThis information and instructions include the following:\ne-file Process\nForm 8453, U.S. Individual Income Tax Transmittal for an IRS e-file Return Processing\nServicing Requests for e-file Returns and Form 8453\nRe-filing Form 8453 and Servicing Requests for Association of Attachments"
+      }
+     ]
+    }
+   ],
+   "sentences": [],
+   "deskMessages": [
+    {
+     "role": "system",
+     "content": "You are the front-desk assistant at Brindlewick Tax & Accounting, on a call or a chat. You answer questions only from the tax guides, through the answer_question tool.\n\nWhat you told the caller you can do: \"Hi, I'm Brindlewick's assistant. Ask me a tax question and I'll answer from the IRS guides and show you the page it comes from. I can also take you around the site, fill in the consultation form with you, and, if you're a client, check on your return once I've verified who you are. I can't advise on your own situation, but a preparer can at a consultation.\"\n\nHow you sound: warm, calm and professional. Spoken English, 1 or 2 short sentences. No lists, no markdown, no emojis.\n\nHow you work:\n- Any question about rules, forms, dates, amounts, deadlines, prices, hours or what someone can or must do: call answer_question with the question. Never state such facts yourself, not even ones you are sure of. Code reads the answer from the tax guides and shows where it comes from.\n- Greetings, thanks, small talk, and questions about you (\"can I ask you about taxes?\", \"what can you do?\", \"are you a bot?\"): answer briefly yourself, with no tool, from what you told the caller you can do. You are the Brindlewick Tax & Accounting assistant, an AI; never name a model or the company that made it.\n- Anything unrelated to Brindlewick Tax & Accounting: say kindly that you can only help with questions the tax guides answer.\n- If the caller says goodbye or wants to stop, call end_call.\n\nExamples:\nCaller: \"Hi, can I ask you about taxes?\" -> no tool; say \"Of course, go ahead. What would you like to know?\"\nCaller: \"How long do I have to file an amended return?\" -> answer_question(\"How long do I have to file an amended return?\"); say nothing else.\nCaller: \"Thanks, that helps.\" -> no tool; say \"You're welcome. Anything else?\""
+    },
+    {
+     "role": "user",
+     "content": "(call connected)"
+    },
+    {
+     "role": "assistant",
+     "content": "Hi, I'm Brindlewick's assistant. Ask me a tax question and I'll answer from the IRS guides and show you the page it comes from. I can also take you around the site, fill in the consultation form with you, and, if you're a client, check on your return once I've verified who you are. I can't advise on your own situation, but a preparer can at a consultation."
+    },
+    {
+     "role": "user",
+     "content": "How do I find my taxes?"
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "tool_calls": [
+      {
+       "id": "call_1_0",
+       "type": "function",
+       "function": {
+        "name": "answer_question",
+        "arguments": "{\"question\":\"How do I find my taxes?\"}"
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "content": "Read to the customer: I've opened IRS Publication 970, page 69. The highlighted part says: \"View the amount you owe and a breakdown by tax year.\"",
+     "tool_call_id": "call_1_0"
+    },
+    {
+     "role": "assistant",
+     "content": "I've opened IRS Publication 970, page 69. The highlighted part says: \"View the amount you owe and a breakdown by tax year.\""
+    },
+    {
+     "role": "user",
+     "content": "Is it gonna take long?"
+    },
+    {
+     "role": "assistant",
+     "content": "That's a great question about timing. I don't have the exact turnaround time from my guides right now, but I can help you check on your return once we verify who you are if you're a client."
+    },
+    {
+     "role": "user",
+     "content": "Yeah"
+    },
+    {
+     "role": "assistant",
+     "content": "Thanks for letting me know. If you'd like to proceed with checking your return or need more details, just say the word."
+    },
+    {
+     "role": "user",
+     "content": "So how do I file it?"
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "tool_calls": [
+      {
+       "id": "call_4_0",
+       "type": "function",
+       "function": {
+        "name": "answer_question",
+        "arguments": "{\"question\":\"How do I file my tax return?\"}"
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "content": "Read to the customer: I've opened IRS Publication 570, page 31. The highlighted part says: \"If you must file a U.S. income tax return, you may be able to file electronically using IRS.gov/Efile . See the Instructions for Form 1040 or visit IRS.gov.\"",
+     "tool_call_id": "call_4_0"
+    },
+    {
+     "role": "assistant",
+     "content": "I've opened IRS Publication 570, page 31. The highlighted part says: \"If you must file a U.S. income tax return, you may be able to file electronically using IRS.gov/Efile . See the Instructions for Form 1040 or visit IRS.gov.\""
+    },
+    {
+     "role": "user",
+     "content": "But like how do I fill up the form?"
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "tool_calls": [
+      {
+       "id": "call_5_0",
+       "type": "function",
+       "function": {
+        "name": "answer_question",
+        "arguments": "{\"question\":\"How do I fill out Form 1040?\"}"
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "content": "Read to the customer: I've opened IRS Publication 17, page 110. The highlighted part says: \"Fill in the lines that apply to you and attach Schedules 2 and 3 (Form 1040), if applicable.\"",
+     "tool_call_id": "call_5_0"
+    },
+    {
+     "role": "assistant",
+     "content": "I've opened IRS Publication 17, page 110. The highlighted part says: \"Fill in the lines that apply to you and attach Schedules 2 and 3 (Form 1040), if applicable.\""
+    },
+    {
+     "role": "user",
+     "content": "You guide me how to file it. Can I file it from here?"
+    }
+   ]
+  }
+ },
+ {
+  "id": "2181d2c63b112896bcea",
+  "call": "7d689fcd-fe99-439c-8350-6305244e2875",
+  "note": "The same passage was quoted for turn 4 and this one.",
+  "path": "guide",
+  "rule": "repeated-passage",
+  "said": "Do you not have a form I can file with? Like starting here?",
+  "turn": "186cda99be184b288f6fe5152a10e2db",
+  "input": "Is there a form to start filing my tax return?",
+  "expect": {
+   "id": "6334042d-b77d-4821-8582-b810f044d9bc",
+   "kind": "not-passage"
+  },
+  "status": "open",
+  "history": [
+   {
+    "role": "user",
+    "text": "How do I find my taxes?"
+   },
+   {
+    "role": "assistant",
+    "text": "I've opened IRS Publication 970, page 69. The highlighted part says: \"View the amount you owe and a breakdown by tax year.\""
+   },
+   {
+    "role": "user",
+    "text": "Is it gonna take long?"
+   },
+   {
+    "role": "assistant",
+    "text": "That's a great question about timing. I don't have the exact turnaround time from my guides right now, but I can help you check on your return once we verify who you are if you're a client."
+   },
+   {
+    "role": "user",
+    "text": "Yeah"
+   },
+   {
+    "role": "assistant",
+    "text": "Thanks for letting me know. If you'd like to proceed with checking your return or need more details, just say the word."
+   },
+   {
+    "role": "user",
+    "text": "So how do I file it?"
+   },
+   {
+    "role": "assistant",
+    "text": "I've opened IRS Publication 570, page 31. The highlighted part says: \"If you must file a U.S. income tax return, you may be able to file electronically using IRS.gov/Efile . See the Instructions for Form 1040 or visit IRS.gov.\""
+   },
+   {
+    "role": "user",
+    "text": "But like how do I fill up the form?"
+   },
+   {
+    "role": "assistant",
+    "text": "I've opened IRS Publication 17, page 110. The highlighted part says: \"Fill in the lines that apply to you and attach Schedules 2 and 3 (Form 1040), if applicable.\""
+   },
+   {
+    "role": "user",
+    "text": "You guide me how to file it. Can I file it from here?"
+   },
+   {
+    "role": "assistant",
+    "text": "I don't know. I couldn't find that in the tax guides I answer from, and I only answer from them. A preparer can look into it with you at a consultation."
+   }
+  ],
+  "recorded": {
+   "judges": [
+    {
+     "q": "Is there a form to start filing my tax return?",
+     "id": "6334042d-b77d-4821-8582-b810f044d9bc"
+    }
+   ],
+   "searches": [
+    {
+     "q": "Is there a form to start filing my tax return?",
+     "passages": [
+      {
+       "id": "7b1d2145-6bae-4b48-a7fd-5662128e29aa",
+       "text": "The taxpayer will file an initial return that covers the tax period from the start of the business through June 30 of the current year. The taxpayer must file a renewal Form 11-C, Occupational Tax and Registration Return for Wagering, by July 1st of each year as long as taxable wagers are accepted."
+      },
+      {
+       "id": "de103e4a-a818-435e-8678-1b3fb67baf18",
+       "text": "The first return must be filed before taxable wagers are accepted. The first return will cover the tax period from the start of the business until June 30 of the current year. The taxpayer must file a renewal Form 11-C return by July 1 of each year as long as taxable wagers are accepted. See IRM 3.11.23.18.2 , Due Dates, for further due date information."
+      },
+      {
+       "id": "6334042d-b77d-4821-8582-b810f044d9bc",
+       "text": "If you must file a U.S. income tax return, you may be able to file electronically using IRS.gov/Efile . See the Instructions for Form 1040 or visit IRS.gov."
+      },
+      {
+       "id": "37b2c2d6-ee19-4c0c-a4f5-a3787773b1d3",
+       "text": "Never send an excise tax return back to the taxpayer.\nAn early filed Form 720 quarterly return is defined as a return filed where the Tax Period Beginning Date is after the current (received) date.\nAn early filed Form 2290 return is defined as a return filed where the Tax Period Beginning Date is after the current (received) date.\nIf the month of the tax period is the same or after the month of the process date, determine how early the tax return has been filed:"
+      }
+     ]
+    }
+   ],
+   "sentences": [],
+   "deskMessages": [
+    {
+     "role": "system",
+     "content": "You are the front-desk assistant at Brindlewick Tax & Accounting, on a call or a chat. You answer questions only from the tax guides, through the answer_question tool.\n\nWhat you told the caller you can do: \"Hi, I'm Brindlewick's assistant. Ask me a tax question and I'll answer from the IRS guides and show you the page it comes from. I can also take you around the site, fill in the consultation form with you, and, if you're a client, check on your return once I've verified who you are. I can't advise on your own situation, but a preparer can at a consultation.\"\n\nHow you sound: warm, calm and professional. Spoken English, 1 or 2 short sentences. No lists, no markdown, no emojis.\n\nHow you work:\n- Any question about rules, forms, dates, amounts, deadlines, prices, hours or what someone can or must do: call answer_question with the question. Never state such facts yourself, not even ones you are sure of. Code reads the answer from the tax guides and shows where it comes from.\n- Greetings, thanks, small talk, and questions about you (\"can I ask you about taxes?\", \"what can you do?\", \"are you a bot?\"): answer briefly yourself, with no tool, from what you told the caller you can do. You are the Brindlewick Tax & Accounting assistant, an AI; never name a model or the company that made it.\n- Anything unrelated to Brindlewick Tax & Accounting: say kindly that you can only help with questions the tax guides answer.\n- If the caller says goodbye or wants to stop, call end_call.\n\nExamples:\nCaller: \"Hi, can I ask you about taxes?\" -> no tool; say \"Of course, go ahead. What would you like to know?\"\nCaller: \"How long do I have to file an amended return?\" -> answer_question(\"How long do I have to file an amended return?\"); say nothing else.\nCaller: \"Thanks, that helps.\" -> no tool; say \"You're welcome. Anything else?\""
+    },
+    {
+     "role": "user",
+     "content": "(call connected)"
+    },
+    {
+     "role": "assistant",
+     "content": "Hi, I'm Brindlewick's assistant. Ask me a tax question and I'll answer from the IRS guides and show you the page it comes from. I can also take you around the site, fill in the consultation form with you, and, if you're a client, check on your return once I've verified who you are. I can't advise on your own situation, but a preparer can at a consultation."
+    },
+    {
+     "role": "user",
+     "content": "How do I find my taxes?"
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "tool_calls": [
+      {
+       "id": "call_1_0",
+       "type": "function",
+       "function": {
+        "name": "answer_question",
+        "arguments": "{\"question\":\"How do I find my taxes?\"}"
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "content": "Read to the customer: I've opened IRS Publication 970, page 69. The highlighted part says: \"View the amount you owe and a breakdown by tax year.\"",
+     "tool_call_id": "call_1_0"
+    },
+    {
+     "role": "assistant",
+     "content": "I've opened IRS Publication 970, page 69. The highlighted part says: \"View the amount you owe and a breakdown by tax year.\""
+    },
+    {
+     "role": "user",
+     "content": "Is it gonna take long?"
+    },
+    {
+     "role": "assistant",
+     "content": "That's a great question about timing. I don't have the exact turnaround time from my guides right now, but I can help you check on your return once we verify who you are if you're a client."
+    },
+    {
+     "role": "user",
+     "content": "Yeah"
+    },
+    {
+     "role": "assistant",
+     "content": "Thanks for letting me know. If you'd like to proceed with checking your return or need more details, just say the word."
+    },
+    {
+     "role": "user",
+     "content": "So how do I file it?"
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "tool_calls": [
+      {
+       "id": "call_4_0",
+       "type": "function",
+       "function": {
+        "name": "answer_question",
+        "arguments": "{\"question\":\"How do I file my tax return?\"}"
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "content": "Read to the customer: I've opened IRS Publication 570, page 31. The highlighted part says: \"If you must file a U.S. income tax return, you may be able to file electronically using IRS.gov/Efile . See the Instructions for Form 1040 or visit IRS.gov.\"",
+     "tool_call_id": "call_4_0"
+    },
+    {
+     "role": "assistant",
+     "content": "I've opened IRS Publication 570, page 31. The highlighted part says: \"If you must file a U.S. income tax return, you may be able to file electronically using IRS.gov/Efile . See the Instructions for Form 1040 or visit IRS.gov.\""
+    },
+    {
+     "role": "user",
+     "content": "But like how do I fill up the form?"
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "tool_calls": [
+      {
+       "id": "call_5_0",
+       "type": "function",
+       "function": {
+        "name": "answer_question",
+        "arguments": "{\"question\":\"How do I fill out Form 1040?\"}"
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "content": "Read to the customer: I've opened IRS Publication 17, page 110. The highlighted part says: \"Fill in the lines that apply to you and attach Schedules 2 and 3 (Form 1040), if applicable.\"",
+     "tool_call_id": "call_5_0"
+    },
+    {
+     "role": "assistant",
+     "content": "I've opened IRS Publication 17, page 110. The highlighted part says: \"Fill in the lines that apply to you and attach Schedules 2 and 3 (Form 1040), if applicable.\""
+    },
+    {
+     "role": "user",
+     "content": "You guide me how to file it. Can I file it from here?"
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "tool_calls": [
+      {
+       "id": "call_6_0",
+       "type": "function",
+       "function": {
+        "name": "answer_question",
+        "arguments": "{\"question\":\"Can I file my tax return from here?\"}"
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "content": "Nothing in the documents answers this; told the customer you do not know.",
+     "tool_call_id": "call_6_0"
+    },
+    {
+     "role": "assistant",
+     "content": "I don't know. I couldn't find that in the tax guides I answer from, and I only answer from them. A preparer can look into it with you at a consultation."
+    },
+    {
+     "role": "user",
+     "content": "Do you not have a form I can file with? Like starting here?"
+    }
+   ]
+  }
+ },
+ {
+  "id": "4abab6b64918914cfe30",
+  "call": "7d689fcd-fe99-439c-8350-6305244e2875",
+  "note": "A vague question got a quote; it should get one clarifying question.",
+  "path": "guide",
+  "rule": "vague-answered-by-quote",
+  "said": "How do I find my taxes?",
+  "turn": "fc58cdee35d940099765ef701ec935c6",
+  "input": "How do I find my taxes?",
+  "expect": {
+   "kind": "clarifies"
+  },
+  "status": "open",
+  "history": [],
+  "recorded": {
+   "judges": [
+    {
+     "q": "How do I find my taxes?",
+     "id": "435750e3-bd7d-435b-bfc8-3c95cde726db"
+    }
+   ],
+   "searches": [
+    {
+     "q": "How do I find my taxes?",
+     "passages": [
+      {
+       "id": "5bbd4381-10f9-4bd0-be60-c64bc483cd41",
+       "text": "IRS.gov/Forms : Find forms, instructions, and publications. You will find details on the most recent tax changes and interactive links to help you find answers to your questions.\nYou may also be able to access tax information in your e-filing software.\nNeed someone to prepare your tax return?"
+      },
+      {
+       "id": "435750e3-bd7d-435b-bfc8-3c95cde726db",
+       "text": "View the amount you owe and a breakdown by tax year.\nSee payment plan details or apply for a new payment plan.\nMake a payment or view 5 years of payment history and any pending or scheduled payments.\nAccess your tax records, including key data from your most recent tax return, and transcripts.\nView digital copies of select notices from the IRS.\nApprove or reject authorization requests from tax professionals.\nGet a transcript of your return."
+      },
+      {
+       "id": "ada5ed14-1857-4f4b-874f-145dc778b0e4",
+       "text": "Make a payment or view 5 years of payment history and any pending or scheduled payments.\nAccess your tax records, including key data from your most recent tax return, and transcripts.\nView digital copies of select notices from the IRS.\nApprove or reject authorization requests from tax professionals.\nView your address on file or manage your communication preferences.\nGet a transcript of your return."
+      },
+      {
+       "id": "3a4f632a-0086-4363-b780-99bf445dd72a",
+       "text": "IRS.gov/ITA : The Interactive Tax Assistant, a tool that will ask you questions and, based on your input, provide answers on a number of tax topics.\nIRS.gov/Forms : Find forms, instructions, and publications. You will find details on the most recent tax changes and interactive links to help you find answers to your questions.\nYou may also be able to access tax information in your e-filing software.\nNeed someone to prepare your tax return?"
+      }
+     ]
+    }
+   ],
+   "sentences": [
+    {
+     "q": "How do I find my taxes?",
+     "idx": [
+      0
+     ]
+    }
+   ],
+   "deskMessages": [
+    {
+     "role": "system",
+     "content": "You are the front-desk assistant at Brindlewick Tax & Accounting, on a call or a chat. You answer questions only from the tax guides, through the answer_question tool.\n\nWhat you told the caller you can do: \"Hi, I'm Brindlewick's assistant. Ask me a tax question and I'll answer from the IRS guides and show you the page it comes from. I can also take you around the site, fill in the consultation form with you, and, if you're a client, check on your return once I've verified who you are. I can't advise on your own situation, but a preparer can at a consultation.\"\n\nHow you sound: warm, calm and professional. Spoken English, 1 or 2 short sentences. No lists, no markdown, no emojis.\n\nHow you work:\n- Any question about rules, forms, dates, amounts, deadlines, prices, hours or what someone can or must do: call answer_question with the question. Never state such facts yourself, not even ones you are sure of. Code reads the answer from the tax guides and shows where it comes from.\n- Greetings, thanks, small talk, and questions about you (\"can I ask you about taxes?\", \"what can you do?\", \"are you a bot?\"): answer briefly yourself, with no tool, from what you told the caller you can do. You are the Brindlewick Tax & Accounting assistant, an AI; never name a model or the company that made it.\n- Anything unrelated to Brindlewick Tax & Accounting: say kindly that you can only help with questions the tax guides answer.\n- If the caller says goodbye or wants to stop, call end_call.\n\nExamples:\nCaller: \"Hi, can I ask you about taxes?\" -> no tool; say \"Of course, go ahead. What would you like to know?\"\nCaller: \"How long do I have to file an amended return?\" -> answer_question(\"How long do I have to file an amended return?\"); say nothing else.\nCaller: \"Thanks, that helps.\" -> no tool; say \"You're welcome. Anything else?\""
+    },
+    {
+     "role": "user",
+     "content": "(call connected)"
+    },
+    {
+     "role": "assistant",
+     "content": "Hi, I'm Brindlewick's assistant. Ask me a tax question and I'll answer from the IRS guides and show you the page it comes from. I can also take you around the site, fill in the consultation form with you, and, if you're a client, check on your return once I've verified who you are. I can't advise on your own situation, but a preparer can at a consultation."
+    },
+    {
+     "role": "user",
+     "content": "How do I find my taxes?"
+    }
+   ]
+  }
+ },
+ {
+  "id": "c5e269f18290b5f3fbdd",
+  "call": "7d689fcd-fe99-439c-8350-6305244e2875",
+  "note": "A vague question got a quote; it should get one clarifying question.",
+  "path": "guide",
+  "rule": "vague-answered-by-quote",
+  "said": "So how do I file it?",
+  "turn": "825bd09c1204484dbdccc49249d6f569",
+  "input": "How do I file my tax return?",
+  "expect": {
+   "kind": "clarifies"
+  },
+  "status": "open",
+  "history": [
+   {
+    "role": "user",
+    "text": "How do I find my taxes?"
+   },
+   {
+    "role": "assistant",
+    "text": "I've opened IRS Publication 970, page 69. The highlighted part says: \"View the amount you owe and a breakdown by tax year.\""
+   },
+   {
+    "role": "user",
+    "text": "Is it gonna take long?"
+   },
+   {
+    "role": "assistant",
+    "text": "That's a great question about timing. I don't have the exact turnaround time from my guides right now, but I can help you check on your return once we verify who you are if you're a client."
+   },
+   {
+    "role": "user",
+    "text": "Yeah"
+   },
+   {
+    "role": "assistant",
+    "text": "Thanks for letting me know. If you'd like to proceed with checking your return or need more details, just say the word."
+   }
+  ],
+  "recorded": {
+   "judges": [
+    {
+     "q": "How do I file my tax return?",
+     "id": "6334042d-b77d-4821-8582-b810f044d9bc"
+    }
+   ],
+   "searches": [
+    {
+     "q": "How do I file my tax return?",
+     "passages": [
+      {
+       "id": "238112ad-bfe5-4a3e-87f1-17067ed61ecb",
+       "text": "You may want to file your return electronically instead of mailing it, to receive your refund faster. Most professional tax return preparers offer electronic filing of tax returns with their return preparation services and may charge a fee to file your return electronically. Also, when you prepare your return yourself using tax-preparation software, you may have to pay a fee to file your return electronically. However, you may qualify for free electronic filing through Free File . For information on filing in general, visit File your tax return ."
+      },
+      {
+       "id": "6334042d-b77d-4821-8582-b810f044d9bc",
+       "text": "If you must file a U.S. income tax return, you may be able to file electronically using IRS.gov/Efile . See the Instructions for Form 1040 or visit IRS.gov."
+      },
+      {
+       "id": "b8590d3c-79e7-4157-823f-b9f8a6f0d4eb",
+       "text": "Yes, you can file an original Form 1040 series tax return electronically using any filing status.\nFiling your return electronically is faster, safer, and more accurate than mailing your tax return because it's transmitted electronically to the IRS computer systems.\nE-File: Do your taxes for free\nFile your tax return"
+      },
+      {
+       "id": "422e7c95-d016-4608-b282-1f6f1e0acdc9",
+       "text": "You must file a tax return to claim the premium tax credit. Also, for any year in which you received the benefit of advance credit payments, you must file a federal income tax return for that year to reconcile, or compare, the amount of your advance credit payments with the amount of the premium tax credit you're allowed."
+      }
+     ]
+    }
+   ],
+   "sentences": [],
+   "deskMessages": [
+    {
+     "role": "system",
+     "content": "You are the front-desk assistant at Brindlewick Tax & Accounting, on a call or a chat. You answer questions only from the tax guides, through the answer_question tool.\n\nWhat you told the caller you can do: \"Hi, I'm Brindlewick's assistant. Ask me a tax question and I'll answer from the IRS guides and show you the page it comes from. I can also take you around the site, fill in the consultation form with you, and, if you're a client, check on your return once I've verified who you are. I can't advise on your own situation, but a preparer can at a consultation.\"\n\nHow you sound: warm, calm and professional. Spoken English, 1 or 2 short sentences. No lists, no markdown, no emojis.\n\nHow you work:\n- Any question about rules, forms, dates, amounts, deadlines, prices, hours or what someone can or must do: call answer_question with the question. Never state such facts yourself, not even ones you are sure of. Code reads the answer from the tax guides and shows where it comes from.\n- Greetings, thanks, small talk, and questions about you (\"can I ask you about taxes?\", \"what can you do?\", \"are you a bot?\"): answer briefly yourself, with no tool, from what you told the caller you can do. You are the Brindlewick Tax & Accounting assistant, an AI; never name a model or the company that made it.\n- Anything unrelated to Brindlewick Tax & Accounting: say kindly that you can only help with questions the tax guides answer.\n- If the caller says goodbye or wants to stop, call end_call.\n\nExamples:\nCaller: \"Hi, can I ask you about taxes?\" -> no tool; say \"Of course, go ahead. What would you like to know?\"\nCaller: \"How long do I have to file an amended return?\" -> answer_question(\"How long do I have to file an amended return?\"); say nothing else.\nCaller: \"Thanks, that helps.\" -> no tool; say \"You're welcome. Anything else?\""
+    },
+    {
+     "role": "user",
+     "content": "(call connected)"
+    },
+    {
+     "role": "assistant",
+     "content": "Hi, I'm Brindlewick's assistant. Ask me a tax question and I'll answer from the IRS guides and show you the page it comes from. I can also take you around the site, fill in the consultation form with you, and, if you're a client, check on your return once I've verified who you are. I can't advise on your own situation, but a preparer can at a consultation."
+    },
+    {
+     "role": "user",
+     "content": "How do I find my taxes?"
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "tool_calls": [
+      {
+       "id": "call_1_0",
+       "type": "function",
+       "function": {
+        "name": "answer_question",
+        "arguments": "{\"question\":\"How do I find my taxes?\"}"
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "content": "Read to the customer: I've opened IRS Publication 970, page 69. The highlighted part says: \"View the amount you owe and a breakdown by tax year.\"",
+     "tool_call_id": "call_1_0"
+    },
+    {
+     "role": "assistant",
+     "content": "I've opened IRS Publication 970, page 69. The highlighted part says: \"View the amount you owe and a breakdown by tax year.\""
+    },
+    {
+     "role": "user",
+     "content": "Is it gonna take long?"
+    },
+    {
+     "role": "assistant",
+     "content": "That's a great question about timing. I don't have the exact turnaround time from my guides right now, but I can help you check on your return once we verify who you are if you're a client."
+    },
+    {
+     "role": "user",
+     "content": "Yeah"
+    },
+    {
+     "role": "assistant",
+     "content": "Thanks for letting me know. If you'd like to proceed with checking your return or need more details, just say the word."
+    },
+    {
+     "role": "user",
+     "content": "So how do I file it?"
+    }
+   ]
+  }
+ },
+ {
+  "id": "61426491ba7cf9d7a533",
+  "call": "7d689fcd-fe99-439c-8350-6305244e2875",
+  "note": "A vague question got a quote; it should get one clarifying question.",
+  "path": "guide",
+  "rule": "vague-answered-by-quote",
+  "said": "But like how do I fill up the form?",
+  "turn": "56a25f9faee3402e93167f44880f8707",
+  "input": "How do I fill out Form 1040?",
+  "expect": {
+   "kind": "clarifies"
+  },
+  "status": "open",
+  "history": [
+   {
+    "role": "user",
+    "text": "How do I find my taxes?"
+   },
+   {
+    "role": "assistant",
+    "text": "I've opened IRS Publication 970, page 69. The highlighted part says: \"View the amount you owe and a breakdown by tax year.\""
+   },
+   {
+    "role": "user",
+    "text": "Is it gonna take long?"
+   },
+   {
+    "role": "assistant",
+    "text": "That's a great question about timing. I don't have the exact turnaround time from my guides right now, but I can help you check on your return once we verify who you are if you're a client."
+   },
+   {
+    "role": "user",
+    "text": "Yeah"
+   },
+   {
+    "role": "assistant",
+    "text": "Thanks for letting me know. If you'd like to proceed with checking your return or need more details, just say the word."
+   },
+   {
+    "role": "user",
+    "text": "So how do I file it?"
+   },
+   {
+    "role": "assistant",
+    "text": "I've opened IRS Publication 570, page 31. The highlighted part says: \"If you must file a U.S. income tax return, you may be able to file electronically using IRS.gov/Efile . See the Instructions for Form 1040 or visit IRS.gov.\""
+   }
+  ],
+  "recorded": {
+   "judges": [
+    {
+     "q": "How do I fill out Form 1040?",
+     "id": "1f6b0e5c-9c8e-4b10-80ff-d82fb22532db"
+    }
+   ],
+   "searches": [
+    {
+     "q": "How do I fill out Form 1040?",
+     "passages": [
+      {
+       "id": "1f6b0e5c-9c8e-4b10-80ff-d82fb22532db",
+       "text": "Read Form 1040 or 1040-SR, lines 19 through 33, and Schedules 2 and 3 (Form 1040), if applicable. Fill in the lines that apply to you and attach Schedules 2 and 3 (Form 1040), if applicable. Don’t fill in Form 1040 or 1040-SR, line 22, 24, 33, or 34 through 38. Don’t fill in Schedule 2 (Form 1040), line 2 or 3. Also, don’t complete Schedule 3 (Form 1040), line 6d, if you are completing Schedule R (Form 1040), or Form 1040 or 1040-SR, line 27a, if you want the IRS to figure the credits shown on those lines."
+      },
+      {
+       "id": "cb58fa8f-b46a-49e0-b3c9-091eb4f69b30",
+       "text": "If you want the IRS to figure your tax. Read Form 1040 or 1040-SR, lines 1 through 15, and Schedule 1 (Form 1040), if applicable. Fill in the lines that apply to you and attach Schedule 1 (Form 1040), if applicable. Don’t complete Form 1040 or 1040-SR, line 16 or 17."
+      },
+      {
+       "id": "1cc4c0bc-1ed0-4861-86ef-6d691b1b46b2",
+       "text": "Also see the instructions for Schedule 1 through Schedule 3 that follow the Form 1040 and 1040-SR instructions.\nWhat form to file.\nEveryone can file Form 1040. Form 1040-SR is available to you if you were born before January 2, 1961.\nFiscal-year filers.\nIf you are a fiscal-year filer using a tax year other than January 1 through December 31, 2025, enter the beginning and ending months of your fiscal year in the entry space provided at the top of page 1 of Form 1040 or 1040-SR."
+      },
+      {
+       "id": "03ff570e-b5cf-4a5f-a77b-9f65c1261c10",
+       "text": "Complete Worksheet 1 and Worksheets 2 and 3 as appropriate before completing this worksheet.\n |  | Check the box on Form 1040 or 1040-SR, line 6c. If line 21 above is zero, follow the instructions on line 10 for “No” on Worksheet 1. Otherwise: Enter the amount from Worksheet 1, line 1, on Form 1040 or 1040-SR, line 6a; Enter the amount from line 21 above on Form 1040 or 1040-SR, line 6b; and If you are married filing separately and you lived apart from your spouse for all of 2025, check the box on Form 1040 or 1040-SR, line 6d. |"
+      }
+     ]
+    }
+   ],
+   "sentences": [
+    {
+     "q": "How do I fill out Form 1040?",
+     "idx": [
+      1
+     ]
+    }
+   ],
+   "deskMessages": [
+    {
+     "role": "system",
+     "content": "You are the front-desk assistant at Brindlewick Tax & Accounting, on a call or a chat. You answer questions only from the tax guides, through the answer_question tool.\n\nWhat you told the caller you can do: \"Hi, I'm Brindlewick's assistant. Ask me a tax question and I'll answer from the IRS guides and show you the page it comes from. I can also take you around the site, fill in the consultation form with you, and, if you're a client, check on your return once I've verified who you are. I can't advise on your own situation, but a preparer can at a consultation.\"\n\nHow you sound: warm, calm and professional. Spoken English, 1 or 2 short sentences. No lists, no markdown, no emojis.\n\nHow you work:\n- Any question about rules, forms, dates, amounts, deadlines, prices, hours or what someone can or must do: call answer_question with the question. Never state such facts yourself, not even ones you are sure of. Code reads the answer from the tax guides and shows where it comes from.\n- Greetings, thanks, small talk, and questions about you (\"can I ask you about taxes?\", \"what can you do?\", \"are you a bot?\"): answer briefly yourself, with no tool, from what you told the caller you can do. You are the Brindlewick Tax & Accounting assistant, an AI; never name a model or the company that made it.\n- Anything unrelated to Brindlewick Tax & Accounting: say kindly that you can only help with questions the tax guides answer.\n- If the caller says goodbye or wants to stop, call end_call.\n\nExamples:\nCaller: \"Hi, can I ask you about taxes?\" -> no tool; say \"Of course, go ahead. What would you like to know?\"\nCaller: \"How long do I have to file an amended return?\" -> answer_question(\"How long do I have to file an amended return?\"); say nothing else.\nCaller: \"Thanks, that helps.\" -> no tool; say \"You're welcome. Anything else?\""
+    },
+    {
+     "role": "user",
+     "content": "(call connected)"
+    },
+    {
+     "role": "assistant",
+     "content": "Hi, I'm Brindlewick's assistant. Ask me a tax question and I'll answer from the IRS guides and show you the page it comes from. I can also take you around the site, fill in the consultation form with you, and, if you're a client, check on your return once I've verified who you are. I can't advise on your own situation, but a preparer can at a consultation."
+    },
+    {
+     "role": "user",
+     "content": "How do I find my taxes?"
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "tool_calls": [
+      {
+       "id": "call_1_0",
+       "type": "function",
+       "function": {
+        "name": "answer_question",
+        "arguments": "{\"question\":\"How do I find my taxes?\"}"
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "content": "Read to the customer: I've opened IRS Publication 970, page 69. The highlighted part says: \"View the amount you owe and a breakdown by tax year.\"",
+     "tool_call_id": "call_1_0"
+    },
+    {
+     "role": "assistant",
+     "content": "I've opened IRS Publication 970, page 69. The highlighted part says: \"View the amount you owe and a breakdown by tax year.\""
+    },
+    {
+     "role": "user",
+     "content": "Is it gonna take long?"
+    },
+    {
+     "role": "assistant",
+     "content": "That's a great question about timing. I don't have the exact turnaround time from my guides right now, but I can help you check on your return once we verify who you are if you're a client."
+    },
+    {
+     "role": "user",
+     "content": "Yeah"
+    },
+    {
+     "role": "assistant",
+     "content": "Thanks for letting me know. If you'd like to proceed with checking your return or need more details, just say the word."
+    },
+    {
+     "role": "user",
+     "content": "So how do I file it?"
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "tool_calls": [
+      {
+       "id": "call_4_0",
+       "type": "function",
+       "function": {
+        "name": "answer_question",
+        "arguments": "{\"question\":\"How do I file my tax return?\"}"
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "content": "Read to the customer: I've opened IRS Publication 570, page 31. The highlighted part says: \"If you must file a U.S. income tax return, you may be able to file electronically using IRS.gov/Efile . See the Instructions for Form 1040 or visit IRS.gov.\"",
+     "tool_call_id": "call_4_0"
+    },
+    {
+     "role": "assistant",
+     "content": "I've opened IRS Publication 570, page 31. The highlighted part says: \"If you must file a U.S. income tax return, you may be able to file electronically using IRS.gov/Efile . See the Instructions for Form 1040 or visit IRS.gov.\""
+    },
+    {
+     "role": "user",
+     "content": "But like how do I fill up the form?"
+    }
+   ]
+  }
+ },
+ {
+  "id": "81ee152135755441b54d",
+  "call": "7d689fcd-fe99-439c-8350-6305244e2875",
+  "note": "The desk model offered something nobody told it it can do.",
+  "path": "desk",
+  "rule": "invented-offer",
+  "said": "Is it gonna take long?",
+  "turn": "3c5f18c6ff9c4a2ea6ba76c65d9d4914",
+  "input": "Is it gonna take long?",
+  "expect": {
+   "kind": "no-offer"
+  },
+  "status": "open",
+  "history": [
+   {
+    "role": "user",
+    "text": "How do I find my taxes?"
+   },
+   {
+    "role": "assistant",
+    "text": "I've opened IRS Publication 970, page 69. The highlighted part says: \"View the amount you owe and a breakdown by tax year.\""
+   }
+  ],
+  "recorded": {
+   "judges": [],
+   "searches": [],
+   "sentences": [],
+   "deskMessages": [
+    {
+     "role": "system",
+     "content": "You are the front-desk assistant at Brindlewick Tax & Accounting, on a call or a chat. You answer questions only from the tax guides, through the answer_question tool.\n\nWhat you told the caller you can do: \"Hi, I'm Brindlewick's assistant. Ask me a tax question and I'll answer from the IRS guides and show you the page it comes from. I can also take you around the site, fill in the consultation form with you, and, if you're a client, check on your return once I've verified who you are. I can't advise on your own situation, but a preparer can at a consultation.\"\n\nHow you sound: warm, calm and professional. Spoken English, 1 or 2 short sentences. No lists, no markdown, no emojis.\n\nHow you work:\n- Any question about rules, forms, dates, amounts, deadlines, prices, hours or what someone can or must do: call answer_question with the question. Never state such facts yourself, not even ones you are sure of. Code reads the answer from the tax guides and shows where it comes from.\n- Greetings, thanks, small talk, and questions about you (\"can I ask you about taxes?\", \"what can you do?\", \"are you a bot?\"): answer briefly yourself, with no tool, from what you told the caller you can do. You are the Brindlewick Tax & Accounting assistant, an AI; never name a model or the company that made it.\n- Anything unrelated to Brindlewick Tax & Accounting: say kindly that you can only help with questions the tax guides answer.\n- If the caller says goodbye or wants to stop, call end_call.\n\nExamples:\nCaller: \"Hi, can I ask you about taxes?\" -> no tool; say \"Of course, go ahead. What would you like to know?\"\nCaller: \"How long do I have to file an amended return?\" -> answer_question(\"How long do I have to file an amended return?\"); say nothing else.\nCaller: \"Thanks, that helps.\" -> no tool; say \"You're welcome. Anything else?\""
+    },
+    {
+     "role": "user",
+     "content": "(call connected)"
+    },
+    {
+     "role": "assistant",
+     "content": "Hi, I'm Brindlewick's assistant. Ask me a tax question and I'll answer from the IRS guides and show you the page it comes from. I can also take you around the site, fill in the consultation form with you, and, if you're a client, check on your return once I've verified who you are. I can't advise on your own situation, but a preparer can at a consultation."
+    },
+    {
+     "role": "user",
+     "content": "How do I find my taxes?"
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "tool_calls": [
+      {
+       "id": "call_1_0",
+       "type": "function",
+       "function": {
+        "name": "answer_question",
+        "arguments": "{\"question\":\"How do I find my taxes?\"}"
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "content": "Read to the customer: I've opened IRS Publication 970, page 69. The highlighted part says: \"View the amount you owe and a breakdown by tax year.\"",
+     "tool_call_id": "call_1_0"
+    },
+    {
+     "role": "assistant",
+     "content": "I've opened IRS Publication 970, page 69. The highlighted part says: \"View the amount you owe and a breakdown by tax year.\""
+    },
+    {
+     "role": "user",
+     "content": "Is it gonna take long?"
+    }
+   ]
+  }
+ },
+ {
+  "id": "55fd06992289351b6b17",
+  "call": "7d689fcd-fe99-439c-8350-6305244e2875",
+  "note": "The desk model offered something nobody told it it can do.",
+  "path": "desk",
+  "rule": "invented-offer",
+  "said": "Yeah",
+  "turn": "00d8a0a529444cef8883d4b52b832394",
+  "input": "Yeah",
+  "expect": {
+   "kind": "no-offer"
+  },
+  "status": "open",
+  "history": [
+   {
+    "role": "user",
+    "text": "How do I find my taxes?"
+   },
+   {
+    "role": "assistant",
+    "text": "I've opened IRS Publication 970, page 69. The highlighted part says: \"View the amount you owe and a breakdown by tax year.\""
+   },
+   {
+    "role": "user",
+    "text": "Is it gonna take long?"
+   },
+   {
+    "role": "assistant",
+    "text": "That's a great question about timing. I don't have the exact turnaround time from my guides right now, but I can help you check on your return once we verify who you are if you're a client."
+   }
+  ],
+  "recorded": {
+   "judges": [],
+   "searches": [],
+   "sentences": [],
+   "deskMessages": [
+    {
+     "role": "system",
+     "content": "You are the front-desk assistant at Brindlewick Tax & Accounting, on a call or a chat. You answer questions only from the tax guides, through the answer_question tool.\n\nWhat you told the caller you can do: \"Hi, I'm Brindlewick's assistant. Ask me a tax question and I'll answer from the IRS guides and show you the page it comes from. I can also take you around the site, fill in the consultation form with you, and, if you're a client, check on your return once I've verified who you are. I can't advise on your own situation, but a preparer can at a consultation.\"\n\nHow you sound: warm, calm and professional. Spoken English, 1 or 2 short sentences. No lists, no markdown, no emojis.\n\nHow you work:\n- Any question about rules, forms, dates, amounts, deadlines, prices, hours or what someone can or must do: call answer_question with the question. Never state such facts yourself, not even ones you are sure of. Code reads the answer from the tax guides and shows where it comes from.\n- Greetings, thanks, small talk, and questions about you (\"can I ask you about taxes?\", \"what can you do?\", \"are you a bot?\"): answer briefly yourself, with no tool, from what you told the caller you can do. You are the Brindlewick Tax & Accounting assistant, an AI; never name a model or the company that made it.\n- Anything unrelated to Brindlewick Tax & Accounting: say kindly that you can only help with questions the tax guides answer.\n- If the caller says goodbye or wants to stop, call end_call.\n\nExamples:\nCaller: \"Hi, can I ask you about taxes?\" -> no tool; say \"Of course, go ahead. What would you like to know?\"\nCaller: \"How long do I have to file an amended return?\" -> answer_question(\"How long do I have to file an amended return?\"); say nothing else.\nCaller: \"Thanks, that helps.\" -> no tool; say \"You're welcome. Anything else?\""
+    },
+    {
+     "role": "user",
+     "content": "(call connected)"
+    },
+    {
+     "role": "assistant",
+     "content": "Hi, I'm Brindlewick's assistant. Ask me a tax question and I'll answer from the IRS guides and show you the page it comes from. I can also take you around the site, fill in the consultation form with you, and, if you're a client, check on your return once I've verified who you are. I can't advise on your own situation, but a preparer can at a consultation."
+    },
+    {
+     "role": "user",
+     "content": "How do I find my taxes?"
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "tool_calls": [
+      {
+       "id": "call_1_0",
+       "type": "function",
+       "function": {
+        "name": "answer_question",
+        "arguments": "{\"question\":\"How do I find my taxes?\"}"
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "content": "Read to the customer: I've opened IRS Publication 970, page 69. The highlighted part says: \"View the amount you owe and a breakdown by tax year.\"",
+     "tool_call_id": "call_1_0"
+    },
+    {
+     "role": "assistant",
+     "content": "I've opened IRS Publication 970, page 69. The highlighted part says: \"View the amount you owe and a breakdown by tax year.\""
+    },
+    {
+     "role": "user",
+     "content": "Is it gonna take long?"
+    },
+    {
+     "role": "assistant",
+     "content": "That's a great question about timing. I don't have the exact turnaround time from my guides right now, but I can help you check on your return once we verify who you are if you're a client."
+    },
+    {
+     "role": "user",
+     "content": "Yeah"
+    }
+   ]
+  }
+ }
+]

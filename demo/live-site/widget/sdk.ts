@@ -19,6 +19,7 @@
 //   copilot.subscribe(fn) / copilot.getSnapshot()   the state to draw (works with React's useSyncExternalStore)
 import { Desk, type ChatModel } from '../../../copilot-engine/src/desk.ts';
 import { Guide, type Manual, NO_ANSWER } from '../../../copilot-engine/src/guide.ts';
+import { Dialogue, type Offer } from '../../../copilot-engine/src/dialogue.ts';
 import { flowFromPage, readInPage, type PageForm } from '../../../copilot-engine/src/page.ts';
 import type { Flow, Model } from '../../../copilot-engine/src/types.ts';
 import { forDisplay, forSpeech } from '../../../copilot-engine/src/guard.ts';
@@ -40,7 +41,7 @@ export type Config = {
   manual?: { label: string; title: string; doc?: string; steps: Manual['steps']; unknown?: string };
   // A question desk over a document library (no steps to walk through): every answer is quoted from the library with
   // its source linked; a question about the visitor's own situation is never answered, it is offered a consultation.
-  desk?: { greeting: string; advice: string; book?: { text: string; href: string } };
+  desk?: { greeting: string; advice: string; book?: { text: string; href: string }; offers?: Offer[] };
   note?: string;   // one short clause said once per call, inside the greeting ("this is a demo site, so no real details please")
   pages?: { path: string; title: string; also?: string[]; form?: boolean }[]; // the site's pages, for "take me to pricing"
   guidePage?: string; // the site's page for one guide: `${guidePage}/${doc}` (?page=N for a PDF, #anchor for an article)
@@ -651,7 +652,11 @@ function takeAnswered() { const a = answered; answered = null; return a; }
 async function answerFor(q: string): Promise<string | null> {
   if (!lookup) return null;
   if (cfg?.desk) {
+    // The model chose to look this up; code asks back first when the question is too vague to quote an answer to.
+    const ask = snap.mode === 'ask' ? talk().clarify(q) : null;
+    if (ask) return ask;
     const r = await searched(q);
+    if (r.asked) return r.reply; // asked which of two meanings: nothing was quoted
     if (!lookup.last) return null;
     answered = { links: r.links, source: r.source };
     return r.reply;
@@ -665,6 +670,9 @@ async function answerFor(q: string): Promise<string | null> {
 
 // The question desk of a page with no form (the tax site's /tax): LFM3 talks, and every fact is quoted by answerFor.
 let asker: Desk | null = null;
+// The conversation around the answers (vague questions asked back, "yeah", the follow-up offer): one per call.
+let talking: Dialogue | null = null;
+function talk(): Dialogue { return (talking ??= new Dialogue({ offers: cfg?.desk?.offers, book: cfg?.desk?.book })); }
 function askDesk(): Desk {
   if (!asker) {
     asker = new Desk({ id: 'ask', business: cfg!.business, scope: (cfg!.manual?.title ?? 'documents').toLowerCase(), intro: cfg!.desk!.greeting, doneMessage: '', fields: [] },
@@ -674,19 +682,30 @@ function askDesk(): Desk {
   return asker;
 }
 
-async function libraryReply(text: string): Promise<{ reply: string; links: Message['links']; source?: Source }> {
+async function libraryReply(text: string): Promise<{ reply: string; links: Message['links']; source?: Source; asked?: boolean }> {
   const reply = await lookup!.lookup(text);
   const p = lookup!.last;
   if (!p?.cite) return { reply, links: [] };
   const links = [{ text: p.cite.title, href: p.cite.url }];
+  // A short question that two different passages answer about equally well can mean two things: ask which, quote nothing yet.
+  const split = cfg?.desk && snap.mode === 'ask' && lookup!.lastSplit ? talk().splitAsk(text, lookup!.lastSplit) : null;
+  if (split) { lookup!.seen.delete(p.id); return { reply: split, links: [], asked: true }; }
   const src = sourceOf(p.cite, lookup!.lastQuote, p.page);
   if (!src) return { reply, links };
   // The site shows the source next to the answer: open it, find the quoted words, highlight them, then say so.
   const found = await openSource(src);
   const quote = reply.slice(reply.indexOf('says: ') + 6);
   if (found === null) return { reply, links, source: src }; // this page has no viewer
+  const where = src.page ? `page ${src.page}` : sectionOf(p.cite.title);
+  // On the question desk the answer is worded the way a person would say it, with one follow-up; elsewhere it stays as it was.
+  if (cfg?.desk && snap.mode === 'ask') {
+    const d = talk();
+    const repeated = lookup!.lastRepeat;
+    if (!repeated) d.note(text, src.title, quote);
+    return { reply: d.phrase({ src: src.title, where, quote, found: !!found, repeated, question: text }), links, source: snap.source ?? src };
+  }
   return {
-    reply: found ? `I've opened ${src.title}${src.page ? `, page ${src.page}` : sectionOf(p.cite.title) ? `, ${sectionOf(p.cite.title)}` : ''}. The highlighted part says: ${quote}`
+    reply: found ? `I've opened ${src.title}${where ? `, ${where}` : ''}. The highlighted part says: ${quote}`
       : `I've opened ${src.title}, but I couldn't find the exact line on that page. ${reply}`,
     links, source: snap.source ?? src,
   };
@@ -995,7 +1014,17 @@ async function send(text: string, voice?: Record<string, unknown>): Promise<stri
       why = BOOK.test(text) ? 'asked to book: offered the booking form, by code' : 'advice about their own situation: offered a person, by code';
       if (!BOOK.test(text)) happened('handed to a person');
     }
-    else if (snap.mode === 'ask') { reply = await askDesk().turn(text); kind = 'ask'; why = 'question desk (model with tools)'; }
+    else if (snap.mode === 'ask') {
+      // Short answers ("yeah", "no thanks"), the answer to a question we asked back, and "is it gonna take long?" are code's.
+      const said = talk().before(text);
+      if (said) {
+        if (said.go) go(said.go);
+        reply = said.ask ? (await answerFor(said.ask)) ?? (manual?.unknown ?? NO_ANSWER) : said.reply ?? '';
+        if (said.ask) { const looked = takeAnswered(); if (looked) { links = looked.links; source = looked.source; } }
+        askDesk().note(text, reply);
+        kind = 'ask'; why = said.ask ? 'asked back, then looked up the visitor\'s answer, by code' : 'a short answer or follow-up, by code';
+      } else { reply = await askDesk().turn(text); kind = 'ask'; why = 'question desk (model with tools)'; }
+    }
     else if (snap.mode === 'guide') { reply = await guide!.turn(text); kind = 'guide'; why = 'manual walk-through'; }
     else if (!desk) { startForm(); why = 'the form was still loading'; }
     else if (formDone()) { reply = `I've handed the form back to you. Please check it and press ${form!.submit} yourself.`; why = 'the form is done'; }
@@ -1047,7 +1076,7 @@ function end() {
   stopVoice();
   noted = false;
   verifier = null; verifyBackend = null; // a new call starts verification over (the server still counts failures per visitor)
-  asker = null; // and a new conversation
+  asker = null; talking = null; // and a new conversation
   set({ account: null });
   set({ open: false, voice: false, heard: '', status: 'idle', startedAt: 0, wait: null, spokenLanguage: '', languages: allLanguages() });
   document.querySelectorAll('[data-copilot-active]').forEach(e => e.removeAttribute('data-copilot-active'));
@@ -1103,7 +1132,7 @@ function detach() {
   closeSource();
   observer?.disconnect(); observer = null; clearTimeout(stepTimer);
   document.querySelectorAll('[data-copilot-active]').forEach(e => e.removeAttribute('data-copilot-active'));
-  desk = null; asker = null; flow = null; form = null; firstEl = null; parts = 0; guide = null;
+  desk = null; asker = null; talking = null; flow = null; form = null; firstEl = null; parts = 0; guide = null;
 }
 
 function unmount(now = false) {

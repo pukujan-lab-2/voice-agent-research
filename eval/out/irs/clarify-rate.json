@@ -1,0 +1,50 @@
+{
+ "when": "2026-11-01T18:10:23.354Z",
+ "vague": {
+  "n": 100,
+  "asked": 35,
+  "askedOnce": 34,
+  "quoted": 46,
+  "unknown": 18,
+  "examples": [
+   "\"can i get disaster tax relief?\" -> Can you tell me a bit more? For example which form, which year, or what you're trying to do.",
+   "\"what about the credits from that activity?\" -> Can you tell me a bit more? For example which form, which year, or what you're trying to do.",
+   "\"what's my number?\" -> Which one do you mean? Give me the tax topic, like home office, retirement or a particular form, and I'll look it up.",
+   "\"what are the security rules?\" -> Can you tell me a bit more? For example which form, which year, or what you're trying to do.",
+   "\"what are the rules for rehab walls?\" -> Can you tell me a bit more? For example which form, which year, or what you're trying to do.",
+   "\"what does the error message mean?\" -> Can you tell me a bit more? For example which form, which year, or what you're trying to do.",
+   "\"what records do I need?\" -> Can you tell me a bit more? For example which form, which year, or what you're trying to do.",
+   "\"is my partnership an investment partnership?\" -> Can you tell me a bit more? For example which form, which year, or what you're trying to do."
+  ]
+ },
+ "casual": {
+  "n": 100,
+  "asked": 1,
+  "askedOnce": 1,
+  "quoted": 84,
+  "unknown": 15,
+  "examples": [
+   "\"uh what does hr connect indicator actually mean?\" -> That could mean two things. Are you asking about IRM 1.5.3.1.6: IRM 1.5.3.1.6 Terms/Definitions HR Connect…, or IRM 1.5.3.9: IRM 1.5.3.9 HR Connect Indicator The HR Connect…?"
+  ]
+ },
+ "chain": {
+  "n": 100,
+  "asked": 3,
+  "askedOnce": 3,
+  "quoted": 90,
+  "unknown": 7,
+  "examples": [
+   "\"who makes up the system staff?\" -> Can you tell me a bit more? For example which form, which year, or what you're trying to do.",
+   "\"what counts as an investment partnership\" -> Can you tell me a bit more? For example which form, which year, or what you're trying to do.",
+   "\"who do these procedures apply to\" -> Can you tell me a bit more? For example which form, which year, or what you're trying to do."
+  ]
+ },
+ "unanswerable": {
+  "n": 100,
+  "asked": 0,
+  "askedOnce": 0,
+  "quoted": 3,
+  "unknown": 96,
+  "examples": []
+ }
+}

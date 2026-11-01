@@ -113,13 +113,17 @@ export function createApi(env: ApiEnv, opts: { offlinePassages?: Record<string, 
   const audioDeskModel = offline || !env.LFM3_AUDIO_URL ? null : lfm3AudioChat(env.LFM3_AUDIO_URL);
   const overlap = new OverlapJudge();
   // When Jev is overloaded or down, the word-overlap judge stands in, so a covered question isn't answered "I don't know".
+  // choose: the same pick with what Jev said (its probabilities, the rule that kept or dropped the pick, or the error),
+  // for the judge span in the trace. A failed Jev call is an error there, never a quiet "none".
+  const choose = async (q: string, ps: Passage[]): Promise<{ id: string; rule: string; probs: Record<string, number>; error: string; fallback: boolean }> => {
+    if (!jev) return { id: await overlap.pick(q, ps), rule: 'overlap', probs: {}, error: '', fallback: false };
+    const r = await jev.choose(q, ps);
+    if (!r.error) return { ...r, fallback: false };
+    log(`judge: ${r.error}, using word overlap`);
+    return { ...r, id: await overlap.pick(q, ps), fallback: true };
+  };
   const judge: Judge = !jev ? overlap : {
-    async pick(q, ps) {
-      const id = await jev.pick(q, ps);
-      if (!jev.lastError) return id;
-      log(`judge: ${jev.lastError}, using word overlap`);
-      return overlap.pick(q, ps);
-    },
+    async pick(q, ps) { return (await choose(q, ps)).id; },
     async sentences(q, ss) {
       const idx = await jev.sentences(q, ss);
       if (!jev.lastError) return idx;
@@ -393,8 +397,10 @@ export function createApi(env: ApiEnv, opts: { offlinePassages?: Record<string, 
     }
     if (path === '/api/judge') {
       const ps = (await Promise.all((Array.isArray(b.passages) ? b.passages.slice(0, 6) : []).map(genuine))).filter(Boolean) as Passage[];
-      if (!ps.length || (!offline && !jevAllowed())) return json({ id: '' });
-      return json({ id: await judge.pick(clip(b.question, 300), ps) });
+      if (!ps.length) return json({ id: '', rule: 'skipped', probs: {} });
+      if (!offline && !jevAllowed()) return json({ id: '', rule: 'skipped', probs: {}, error: 'jev cap reached', fallback: false });
+      const r = await choose(clip(b.question, 300), ps);
+      return json({ id: r.id, rule: r.rule, probs: r.probs, ...(r.error ? { error: r.error, fallback: r.fallback } : {}) });
     }
     if (path === '/api/sentences') {
       const p = await genuine(b.passage);
@@ -473,6 +479,12 @@ export function createApi(env: ApiEnv, opts: { offlinePassages?: Record<string, 
       'http.status_code': r.status,
     };
     if (path === '/api/desk') { attributes['llm.model_name'] = clip(o.model, 120); attributes['llm.tools'] = (b.tools ?? []).length; }
+    if (path === '/api/judge') {
+      attributes['judge.rule'] = clip(o.rule, 20);
+      attributes['judge.probabilities'] = JSON.stringify(o.probs ?? {});
+      attributes['judge.picked'] = clip(o.id, 80);
+      if (o.error) { attributes['judge.error'] = clip(o.error, 80); attributes['judge.fallback'] = o.fallback ? 'word overlap' : 'none'; }
+    }
     if (path === '/api/search') (o.passages ?? []).slice(0, 6).forEach((p: any, i: number) => {
       attributes[`retrieval.documents.${i}.document.id`] = clip(p.id, 200);
       attributes[`retrieval.documents.${i}.document.content`] = clip(p.text, 1000);
