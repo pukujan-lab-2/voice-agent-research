@@ -90,6 +90,52 @@ Blocked/uncertain:
 Next:
 - Merge, dispatch the nightly workflow once to post the baseline on #97, then file and build the fix for the dropped-answer case
 
+### 2026-11-01 23:26:14 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["package.json, tasks/TASK-WCP-0023-replay-cases.md, replay-live.yml, eval/README.md, eval/post-replay.ts"],"completed":["The replay gate branch now contains main after the move to pukujan-lab-2; package.json keeps both the replay step and the ingest tests, the standing issue is #22"],"decisions":["no new decisions"],"evidence":["npm run check passes on the merged tree (31 python tests, 8/8 scenarios, replay gate ok)"],"next_action":"Merge #23, then rebase-merge #37 and #39 the same way","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0024","timestamp":"2026-11-01T23:26:14Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"e34e8e2f4ae43729089c2d4f97bec7d4e1d52171d0647178bdaaeb82512afea3","request_id":"53f02bb9d8214e2aac0a2832c94ae92f","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0024"} -->
+
+Completed:
+- The replay gate branch now contains main after the move to pukujan-lab-2; package.json keeps both the replay step and the ingest tests, the standing issue is #22
+
+Evidence:
+- npm run check passes on the merged tree (31 python tests, 8/8 scenarios, replay gate ok)
+
+Decisions:
+- no new decisions
+
+Changed:
+- package.json, tasks/TASK-WCP-0023-replay-cases.md, replay-live.yml, eval/README.md, eval/post-replay.ts
+
+Blocked/uncertain:
+- none
+
+Next:
+- Merge #23, then rebase-merge #37 and #39 the same way
+
+### 2026-11-01 23:26:49 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["package.json, tasks/TASK-WCP-0023-replay-cases.md, replay-live.yml, eval/README.md, eval/post-replay.ts"],"completed":["The replay gate branch now contains main after the move to pukujan-lab-2; package.json keeps both the replay step and the ingest tests, the standing issue is #22"],"decisions":["no new decisions"],"evidence":["npm run check passes on the merged tree (python tests, 8/8 scenarios, replay gate ok)"],"next_action":"Merge #23, then #37 and #39","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0024","timestamp":"2026-11-01T23:26:49Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"e70ed8a9f40ce94d9eb395e811644517181a4aa40bb3974afdf9b7cb2fe5cdd8","request_id":"3b9cea67d21842648def437dd520ba9f","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0024"} -->
+
+Completed:
+- The replay gate branch now contains main after the move to pukujan-lab-2; package.json keeps both the replay step and the ingest tests, the standing issue is #22
+
+Evidence:
+- npm run check passes on the merged tree (python tests, 8/8 scenarios, replay gate ok)
+
+Decisions:
+- no new decisions
+
+Changed:
+- package.json, tasks/TASK-WCP-0023-replay-cases.md, replay-live.yml, eval/README.md, eval/post-replay.ts
+
+Blocked/uncertain:
+- none
+
+Next:
+- Merge #23, then #37 and #39
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
