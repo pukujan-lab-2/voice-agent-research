@@ -135,6 +135,29 @@ Blocked/uncertain:
 Next:
 - Merge PR #55 after #54
 
+### 2026-11-01 23:23:50 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["tasks/, copilot-engine/package.json"],"completed":["Merged the moved repository's main (which now holds the first two PRs' content) into this branch so it merges cleanly"],"decisions":["none"],"evidence":["npm run check passes after the merge: 92 engine tests, 16 eval tests, 31 Python tests, scenarios"],"next_action":"Merge PR #55 after #54","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0073","timestamp":"2026-11-01T23:23:50Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"aac6ab38df26554813d1020bb882eb2a1f9da4290a4b8711778a6f2dbeb43ec0","request_id":"da8eb1db3fe74a2481dd5c328587d599","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0073"} -->
+
+Completed:
+- Merged the moved repository's main (which now holds the first two PRs' content) into this branch so it merges cleanly
+
+Evidence:
+- npm run check passes after the merge: 92 engine tests, 16 eval tests, 31 Python tests, scenarios
+
+Decisions:
+- none
+
+Changed:
+- tasks/, copilot-engine/package.json
+
+Blocked/uncertain:
+- none
+
+Next:
+- Merge PR #55 after #54
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
