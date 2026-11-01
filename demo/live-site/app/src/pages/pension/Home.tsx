@@ -1,5 +1,6 @@
 import { Landmark, FileText, LifeBuoy, ArrowRight, ShieldCheck } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
+import { SiteHeroArt } from "@/components/site/SiteHeroArt";
 
 const searchPages = [
   { title: "Home", path: "/pension", keywords: "pension, fund, Saltmere" },
@@ -19,11 +20,14 @@ export default function PensionHome() {
     <SiteLayout site="pension" logoMark={<Landmark size={18} />} logoText="Saltmere Pension Fund" navLinks={navLinks} searchPages={searchPages} footerNote="Saltmere Pension Fund. Helping members plan for tomorrow." large>
       <section className="site-hero">
         <div className="site-hero-inner">
-          <h1>Your pension, your future</h1>
-          <p>Saltmere Pension Fund has been looking after members since 1974. Manage your forms, check your guide, and get help.</p>
-          <div style={{ marginTop: "1.5rem" }}>
-            <a href="/pension/forms" className="site-btn">View forms <ArrowRight size={16} /></a>
+          <div className="site-hero-copy">
+            <h1>Your pension, your future</h1>
+            <p>Saltmere Pension Fund has been looking after members since 1974. Manage your forms, check your guide, and get help.</p>
+            <div style={{ marginTop: "1.5rem" }}>
+              <a href="/pension/forms" className="site-btn">View forms <ArrowRight size={16} /></a>
+            </div>
           </div>
+          <SiteHeroArt />
         </div>
       </section>
 

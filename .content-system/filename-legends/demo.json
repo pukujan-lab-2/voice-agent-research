@@ -1,0 +1,9 @@
+{
+  "feature": "Demo illustration",
+  "glossary": {
+    "Conversation": "A visitor talking with the assistant"
+  },
+  "paths": [
+    "demo/live-site/app/public/Conversation.png"
+  ]
+}

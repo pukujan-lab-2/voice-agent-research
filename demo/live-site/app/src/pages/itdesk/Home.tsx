@@ -1,5 +1,6 @@
 import { MonitorSmartphone, Server, Wifi, Printer, KeyRound, ArrowRight } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
+import { SiteHeroArt } from "@/components/site/SiteHeroArt";
 
 const searchPages = [
   { title: "Home", path: "/itdesk", keywords: "status, articles, help desk" },
@@ -24,8 +25,11 @@ export default function ItdeskHome() {
     <SiteLayout site="itdesk" logoMark={<MonitorSmartphone size={18} />} logoText="Cobblefin IT Desk" navLinks={navLinks} searchPages={searchPages} footerNote="Internal IT help desk for Cobblefin staff.">
       <section className="site-hero">
         <div className="site-hero-inner">
-          <h1>IT Help Desk</h1>
-          <p>Service status, knowledge base, and support tickets for Cobblefin staff.</p>
+          <div className="site-hero-copy">
+            <h1>IT Help Desk</h1>
+            <p>Service status, knowledge base, and support tickets for Cobblefin staff.</p>
+          </div>
+          <SiteHeroArt />
         </div>
       </section>
       <div className="site-container-wide">

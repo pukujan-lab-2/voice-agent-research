@@ -1,5 +1,6 @@
 import { Wrench, ArrowRight, BookOpen, LifeBuoy } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
+import { SiteHeroArt } from "@/components/site/SiteHeroArt";
 
 const searchPages = [
   { title: "Home", path: "/appliance", keywords: "HDW-500, dishwasher, support" },
@@ -20,8 +21,11 @@ export default function ApplianceHome() {
     <SiteLayout site="appliance" logoMark={<Wrench size={18} />} logoText="Kettlewisp Appliances" navLinks={navLinks} searchPages={searchPages} footerNote="HDW-500 dishwasher support hub.">
       <section className="site-hero">
         <div className="site-hero-inner">
-          <h1>HDW-500 support hub</h1>
-          <p>Manuals, error codes, and service requests for your Kettlewisp dishwasher.</p>
+          <div className="site-hero-copy">
+            <h1>HDW-500 support hub</h1>
+            <p>Manuals, error codes, and service requests for your Kettlewisp dishwasher.</p>
+          </div>
+          <SiteHeroArt />
         </div>
       </section>
       <div className="site-container-wide">

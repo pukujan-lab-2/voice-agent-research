@@ -1,0 +1,443 @@
+/*
+ * One design system for the demo pages.
+ *
+ * The product page ("/") speaks in a modern grotesque, because it is selling software.
+ * The fictional businesses speak in a serif, because they are businesses a visitor would
+ * trust with a form. Both share the same warm paper, ink, clay accent, pill buttons,
+ * card language and focus ring, so the six sites read as one product.
+ *
+ * This file loads after globals.css and carries that system; the per-site accent tokens
+ * ([data-site]) stay where they are.
+ */
+
+:root {
+  --paper: #f7f3ec;
+  --paper-deep: #efe7da;
+  --surface: #fffdf8;
+  --ink: #24241f;
+  --ink-soft: #5f5e55;
+  --clay: #a8492d;
+  --clay-deep: #8d3a22;
+  --clay-soft: #f0e0d4;
+  --line: #ded7cd;
+  --card-radius: 1.15rem;
+  --shadow-card: 0 1px 2px rgb(36 36 31 / 0.04), 0 18px 40px -32px rgb(36 36 31 / 0.45);
+  --shadow-lift: 0 2px 4px rgb(36 36 31 / 0.05), 0 24px 48px -28px rgb(36 36 31 / 0.35);
+  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
+  --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------------------------------------------------------------- product page */
+
+.mkt-nav {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem max(1.5rem, calc((100vw - 72rem) / 2 + 1.5rem));
+  color: var(--ink);
+  background: color-mix(in srgb, var(--paper) 88%, transparent);
+  backdrop-filter: blur(14px) saturate(1.1);
+  box-shadow: 0 1px 0 var(--line);
+}
+
+.mkt-nav a {
+  color: var(--ink);
+  text-decoration: none;
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.mkt-nav a:hover { color: var(--clay); }
+
+.mkt-brand {
+  font-size: 1.0625rem !important;
+  letter-spacing: -0.03em;
+}
+
+.mkt-hero {
+  padding: 0 1.5rem 4.5rem;
+  background: var(--paper);
+}
+
+/* the warm wash replaces the old violet glow */
+.mkt-hero::before {
+  display: block;
+  background:
+    radial-gradient(58% 62% at 14% 0%, var(--clay-soft) 0%, transparent 62%),
+    radial-gradient(46% 54% at 92% 6%, #e9e3d4 0%, transparent 60%);
+  opacity: 0.85;
+}
+
+.mkt-hero-inner {
+  padding: 3.5rem 1rem 3rem;
+}
+
+.mkt-badge {
+  color: var(--clay-deep);
+  background: var(--clay-soft);
+  border: 0;
+  font-size: 0.8125rem;
+  letter-spacing: 0.01em;
+}
+
+.mkt-hero h1 {
+  max-width: 22ch;
+  margin: 0 auto 1.25rem;
+  font-size: clamp(2.6rem, 7vw, 5rem);
+  font-weight: 650;
+  line-height: 1.02;
+  letter-spacing: -0.055em;
+  text-wrap: balance;
+  color: var(--ink);
+}
+
+.mkt-hero h1 .accent {
+  color: var(--clay);
+  background: none;
+  -webkit-text-fill-color: currentColor;
+}
+
+.mkt-hero .sub {
+  max-width: 40rem;
+  font-size: clamp(1rem, 1.9vw, 1.1875rem);
+  line-height: 1.6;
+  color: var(--ink-soft);
+}
+
+.mkt-btn-primary,
+.mkt-btn-secondary {
+  border-radius: 999px;
+  padding: 0.9rem 1.5rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  transition: transform 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.mkt-btn-primary {
+  background: var(--ink);
+  color: var(--paper);
+  box-shadow: 0 10px 24px -16px rgb(36 36 31 / 0.9);
+}
+
+.mkt-btn-primary:hover {
+  background: #17170f;
+  transform: translateY(-1px);
+  filter: none;
+}
+
+.mkt-btn-secondary {
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid #b9b1a4;
+}
+
+.mkt-btn-secondary:hover {
+  background: var(--paper-deep);
+  border-color: var(--ink);
+}
+
+.mkt-illustration {
+  max-width: 72rem;
+  margin: 1.5rem auto 0;
+  min-height: clamp(16rem, 38vw, 32rem);
+  border-radius: 1.5rem;
+  background: var(--clay-soft) url("/Conversation.png") center 44% / cover;
+  box-shadow: var(--shadow-card);
+}
+
+.mkt-section {
+  max-width: 72rem;
+  padding: 5rem 1.5rem;
+}
+
+.mkt-section-title {
+  font-size: clamp(1.9rem, 4vw, 3.25rem);
+  font-weight: 650;
+  letter-spacing: -0.045em;
+  line-height: 1.05;
+  color: var(--ink);
+}
+
+.mkt-section-sub {
+  color: var(--ink-soft);
+  font-size: 1.0625rem;
+  line-height: 1.6;
+}
+
+.mkt-safe-card,
+.mkt-demo-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--card-radius);
+  padding: 1.6rem;
+  box-shadow: var(--shadow-card);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.mkt-safe-card .icon-wrap {
+  background: var(--clay-soft);
+  color: var(--clay-deep);
+  border-radius: 0.75rem;
+}
+
+.mkt-safe-card h3,
+.mkt-demo-card h3,
+.mkt-step h3 {
+  color: var(--ink);
+}
+
+.mkt-safe-card p,
+.mkt-demo-card p,
+.mkt-step p {
+  color: var(--ink-soft);
+}
+
+.mkt-demo-card:hover {
+  transform: translateY(-3px);
+  border-color: #c9a08c;
+  box-shadow: var(--shadow-lift);
+}
+
+.mkt-demo-card .demo-link {
+  color: var(--clay);
+  font-weight: 600;
+}
+
+.mkt-step-num {
+  background: var(--clay-soft);
+  color: var(--clay-deep);
+  font-weight: 700;
+}
+
+.mkt-video-caption {
+  color: var(--ink-soft);
+  font-size: 0.875rem;
+}
+
+.mkt-video-tag {
+  background: var(--clay-soft);
+  color: var(--clay-deep);
+  border: 0;
+}
+
+.mkt-footer {
+  background: #23261f;
+  color: #e6e1d6;
+}
+
+.mkt-footer a { color: #f0e0d4; }
+
+/* ---------------------------------------------------------------- demo sites */
+
+.site-wrap {
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.site-wrap h1,
+.site-wrap h2,
+.site-wrap h3 {
+  font-family: var(--serif);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: hsl(var(--site-text));
+}
+
+.site-wrap h1 { letter-spacing: -0.03em; }
+
+.site-header {
+  box-shadow: 0 1px 0 rgb(0 0 0 / 0.08);
+}
+
+/* Hero: copy on the left, one illustration on the right, both on the same baseline. */
+.site-hero {
+  position: relative;
+  overflow: hidden;
+  border-bottom: 1px solid var(--line);
+  background: var(--paper);
+}
+
+.site-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(62% 74% at 6% 0%, hsl(var(--site-accent-soft) / 0.75) 0%, transparent 64%),
+    radial-gradient(48% 58% at 94% 8%, var(--clay-soft) 0%, transparent 62%);
+  pointer-events: none;
+}
+
+.site-hero-inner {
+  position: relative;
+  display: grid;
+  gap: 2.5rem;
+  align-items: center;
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 3.5rem 1.5rem 4rem;
+  text-align: left;
+}
+
+.site-hero h1 {
+  max-width: 16ch;
+  margin: 0 0 1.15rem;
+  font-size: clamp(2.4rem, 5.4vw, 4.1rem);
+  font-weight: 600;
+  line-height: 1.04;
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+}
+
+.site-hero p {
+  max-width: 34rem;
+  margin: 0;
+  font-size: clamp(1.0625rem, 1.5vw, 1.1875rem);
+  line-height: 1.65;
+  color: hsl(var(--site-muted));
+}
+
+.site-hero-art {
+  display: flex;
+  justify-content: center;
+}
+
+.site-hero-art svg {
+  width: 100%;
+  max-width: 23rem;
+  height: auto;
+}
+
+@media (min-width: 900px) {
+  .site-hero-inner {
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+    padding: 4.5rem 1.5rem 5rem;
+  }
+}
+
+.site-container-wide {
+  padding: 2.75rem 1.5rem 3.5rem;
+}
+
+.site-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--card-radius);
+  box-shadow: var(--shadow-card);
+}
+
+.site-card-grid .site-card {
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.site-card-grid .site-card:hover {
+  transform: translateY(-3px);
+  border-color: hsl(var(--site-accent) / 0.35);
+  box-shadow: var(--shadow-lift);
+}
+
+.site-card h2,
+.site-card h3 {
+  letter-spacing: -0.015em;
+}
+
+.site-btn {
+  border-radius: 999px;
+  min-height: 46px;
+  padding: 0.7rem 1.35rem;
+  font-weight: 600;
+  transition: transform 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.site-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 24px -18px rgb(36 36 31 / 0.8);
+}
+
+.site-btn-outline {
+  background: var(--surface);
+  border-color: hsl(var(--site-accent) / 0.55);
+}
+
+.site-footer {
+  background: hsl(var(--site-header-bg));
+  color: hsl(var(--site-bg) / 0.82);
+}
+
+/* the "Leave" link sits beside its icon, not under it, when the header gets tight */
+.site-guest-badge a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+/* the tax firm, its practice app and its client portal keep their own type but take the card language */
+.tax-root,
+.pt-root,
+.bw-root {
+  --tax-sans: var(--sans);
+  --pt-sans: var(--sans);
+  --bw-sans: var(--sans);
+}
+
+.tax-card,
+.tax-form-card,
+.pt-card,
+.bw-card {
+  border-radius: var(--card-radius);
+  box-shadow: var(--shadow-card);
+}
+
+/* ---------------------------------------------------------------- keyboard focus */
+
+:where(.mkt-nav, .site-wrap, .tax-root, .pt-root, .bw-root) :focus-visible {
+  outline: 3px solid var(--clay);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* ---------------------------------------------------------------- phone */
+
+@media (max-width: 899px) {
+  .site-hero-art {
+    order: 2;
+    max-width: 16rem;
+    margin: 0 auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .mkt-nav { padding: 0.9rem 1.25rem; }
+  .mkt-nav a:last-child { font-size: 0.75rem; }
+  .mkt-hero { padding-inline: 1rem; }
+  .mkt-hero-inner { padding: 2.5rem 0; }
+  .mkt-hero h1 br { display: none; }
+  .mkt-illustration { min-height: 17rem; background-position: 45% center; }
+  .mkt-section { padding: 3.5rem 1.25rem; }
+
+  .site-hero-inner { padding: 2.5rem 1.25rem 3rem; gap: 2rem; }
+  .site-hero h1 { max-width: 100%; font-size: clamp(2.1rem, 8.6vw, 2.9rem); }
+  .site-hero-art { max-width: 13rem; }
+  .site-container-wide { padding: 2rem 1.25rem 2.75rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

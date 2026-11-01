@@ -1,5 +1,6 @@
 import { Heart, Clock, Stethoscope, Syringe, Baby, ArrowRight } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
+import { SiteHeroArt } from "@/components/site/SiteHeroArt";
 
 const searchPages = [
   { title: "Home", path: "/clinic", keywords: "opening hours, services" },
@@ -26,11 +27,14 @@ export default function ClinicHome() {
     <SiteLayout site="clinic" logoMark={<Heart size={18} />} logoText="Tumbleberry Children's Clinic" navLinks={navLinks} searchPages={searchPages} footerNote="Caring for families since 2018. Mon to Fri 8am to 6pm.">
       <section className="site-hero">
         <div className="site-hero-inner">
-          <h1>Gentle care for every child</h1>
-          <p>Paediatric clinic in the heart of Tumbleberry. Book a visit online in under two minutes.</p>
-          <div style={{ marginTop: "1.5rem" }}>
-            <a href="/clinic/book" className="site-btn">Book a visit <ArrowRight size={16} /></a>
+          <div className="site-hero-copy">
+            <h1>Gentle care for every child</h1>
+            <p>Paediatric clinic in the heart of Tumbleberry. Book a visit online in under two minutes.</p>
+            <div style={{ marginTop: "1.5rem" }}>
+              <a href="/clinic/book" className="site-btn">Book a visit <ArrowRight size={16} /></a>
+            </div>
           </div>
+          <SiteHeroArt />
         </div>
       </section>
 

@@ -154,15 +154,15 @@ function ConceptVideo() {
 
 export default function Index() {
   return (
-    <div style={{ minHeight: "100vh", background: "hsl(0 0% 99%)" }}>
+    <div style={{ minHeight: "100vh", background: "var(--paper)" }}>
+      <nav className="mkt-nav"><a href="/" className="mkt-brand">◉ &nbsp;Website Copilot</a><a href="#demos">Explore the demos ↗</a></nav>
       <section className="mkt-hero">
         <div className="mkt-hero-inner">
           <div className="mkt-badge">
             <Phone size={14} /> Website Copilot
           </div>
           <h1>
-            A voice assistant that fills in
-            <br />
+            A voice assistant that fills in{" "}
             <span className="accent">your website's forms.</span>
           </h1>
           <p className="sub">
@@ -179,6 +179,7 @@ export default function Index() {
             </a>
           </div>
         </div>
+      <div className="mkt-illustration" role="img" aria-label="A visitor talking with a friendly assistant at her laptop" />
       </section>
 
       <section className="mkt-section" id="video">
@@ -203,7 +204,7 @@ export default function Index() {
       <section
         className="mkt-section"
         style={{
-          background: "hsl(252 60% 97%)",
+          background: "var(--paper-deep)",
           borderRadius: "1.5rem",
           margin: "2rem auto",
           maxWidth: "1000px",

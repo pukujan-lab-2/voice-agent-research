@@ -6,6 +6,12 @@
       "path": "PROJECT.md",
       "role": "source catalog",
       "usage": "Product definition and recorded rules"
+    },
+    {
+      "path": "demo/live-site/app/public/Conversation.png",
+      "role": "home page illustration",
+      "usage": "Illustrates a visitor talking to a voice assistant",
+      "source": "Generated for the demo redesign on 2026-11-01"
     }
   ]
 }

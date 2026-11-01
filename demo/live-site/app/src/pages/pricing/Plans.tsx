@@ -1,5 +1,6 @@
 import { Globe, Check, ArrowRight } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
+import { SiteHeroArt } from "@/components/site/SiteHeroArt";
 
 const searchPages = [
   { title: "Plans and pricing", path: "/pricing", keywords: "Starter, Growth, Scale, pricing, plans" },
@@ -24,8 +25,11 @@ export default function PricingPlans() {
     <SiteLayout site="pricing" logoMark={<Globe size={18} />} logoText="Larchmoss Studio" navLinks={navLinks} searchPages={searchPages} footerNote="Small web design studio.">
       <section className="site-hero">
         <div className="site-hero-inner">
-          <h1>Plans and pricing</h1>
-          <p>Simple, transparent pricing for small business websites.</p>
+          <div className="site-hero-copy">
+            <h1>Plans and pricing</h1>
+            <p>Simple, transparent pricing for small business websites.</p>
+          </div>
+          <SiteHeroArt />
         </div>
       </section>
       <div className="site-container-wide">
