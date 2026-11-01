@@ -10,6 +10,9 @@
 //
 // Needs the voice stack running (livekit-server --dev, speech/server.py, speech/agent.py); server.ts starts what it can.
 // Run: node --no-warnings tests/voice-call.ts
+// Against a deployed site instead of a local one: SITE_URL=https://copilot.design-bakery.com node --no-warnings tests/voice-call.ts
+// (the site's own voice agent answers; the Mac needs only `say` and Chrome for Testing). With DEPLOY_SHA set, the result
+// is also recorded in Phoenix as an eval span on that deploy (POST /api/score, call id deploy-<sha>).
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -29,9 +32,10 @@ function clip(text: string): string {
   return fs.readFileSync(f).toString('base64');
 }
 
-const srv = await start({ port: 0 });
+const siteUrl = process.env.SITE_URL?.replace(/\/$/, '');
+const srv = siteUrl ? { url: siteUrl, close: async () => {} } : await start({ port: 0 });
 // The agent worker loads its models first (the turn detector takes up to about 30 s on a busy laptop), then registers.
-for (let i = 0; i < 120 && !(await fetch('http://127.0.0.1:8081/').then(() => true, () => false)); i++) await new Promise(r => setTimeout(r, 1000));
+for (let i = 0; !siteUrl && i < 120 && !(await fetch('http://127.0.0.1:8081/').then(() => true, () => false)); i++) await new Promise(r => setTimeout(r, 1000));
 const cache = `${process.env.HOME}/Library/Caches/ms-playwright`;
 const c = fs.readdirSync(cache).filter(d => /^chromium-\d+$/.test(d)).sort().at(-1);
 const browser = await chromium.launch({
@@ -177,4 +181,9 @@ await browser.close();
 await srv.close();
 fs.rmSync(tmp, { recursive: true, force: true });
 console.log(`\nvoice call: ${pass}/${pass + fail}`);
+if (process.env.DEPLOY_SHA) {
+  const r = await fetch(`${srv.url}/api/score`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({
+    call: `deploy-${process.env.DEPLOY_SHA.slice(0, 12)}`, name: 'deploy.voice-call', score: pass / (pass + fail), label: fail ? 'fail' : 'pass', explanation: `voice call test on ${srv.url}: ${pass}/${pass + fail}` }) }).catch(() => null);
+  console.log(`recorded on the deploy in Phoenix: ${r?.ok ? 'yes' : 'no'}`);
+}
 process.exit(fail ? 1 : 0);

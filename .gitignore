@@ -6,6 +6,8 @@ node_modules/
 # deploy/vps/autodeploy.sh remembers a commit that failed to deploy here
 .deploy-failed
 
+# deploy/pro/update.sh starts the voice check after a deploy when this file exists
+deploy/.voice-check
 # Python
 __pycache__/
 .pytest_cache/

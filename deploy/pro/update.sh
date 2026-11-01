@@ -19,3 +19,7 @@ if [ ! -x "$SPEECH/.venv/bin/python" ] || [ "$OLD_REQS" != "$(cat "$SPEECH/requi
 fi
 launchctl kickstart -k "gui/$(id -u)/com.pukujan.copilot-speech"
 echo "$(date -u +%FT%TZ) speech server on production ${SHA:0:12}"
+# Opt-in: place a real test call against the public site once the VPS has deployed, and record it in Phoenix.
+if [ -f "$REPO_DIR/deploy/.voice-check" ]; then
+  nohup "$REPO_DIR/deploy/pro/voice-check.sh" "$SHA" >> "$HOME/Library/Logs/copilot/voice-check.log" 2>&1 &
+fi
