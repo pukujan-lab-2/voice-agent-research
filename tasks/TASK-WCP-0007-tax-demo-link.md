@@ -1,6 +1,6 @@
 # TASK-WCP-0007 — Tax demo link
 
-<!-- continuity:task {"acceptance":["The Try it live section has a Brindlewick Tax & Accounting card linking to /tax","The section text counts six companies","npm run check passes"],"depends_on":[],"goal":"The demo home page links the Brindlewick tax site","id":"WCP-0007","issue_url":"https://github.com/Pukujan-lab/voice-agent-research/issues/44","next_action":"Open the pull request for #44 and let auto-merge wait for gates","owner":"owner","priority":"P2","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"active","why":"Visitors couldn't find the tax demo from the home page"} -->
+<!-- continuity:task {"acceptance":["The Try it live section has a Brindlewick Tax & Accounting card linking to /tax","The section text counts six companies","npm run check passes"],"depends_on":[],"goal":"The demo home page links the Brindlewick tax site","id":"WCP-0007","next_action":"Open the pull request for #44 and let auto-merge wait for gates","owner":"owner","priority":"P2","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"active","why":"Visitors couldn't find the tax demo from the home page"} -->
 
 - Status: active
 - Owner: owner

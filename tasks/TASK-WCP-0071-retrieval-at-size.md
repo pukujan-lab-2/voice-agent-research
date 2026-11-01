@@ -1,6 +1,6 @@
 # TASK-WCP-0071 — Retrieval At Size
 
-<!-- continuity:task {"acceptance":["A filter never returns a passage outside it (tests)","recall@5/10, MRR and latency reported at each size for the synthetic site and the IRS library","What is slow is filed in the Octo repo with measurements"],"depends_on":["WCP-0070"],"goal":"Search narrows by section, page type and language and holds up at 200,000 passages, with measured figures","id":"WCP-0071","issue_url":"https://github.com/Pukujan-lab/voice-agent-research/issues/109","next_action":"Start the leaf on its task branch","owner":"owner","priority":"P2","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"active","why":"Search has no filters and nobody has measured it beyond 133,000 passages (#109)"} -->
+<!-- continuity:task {"acceptance":["A filter never returns a passage outside it (tests)","recall@5/10, MRR and latency reported at each size for the synthetic site and the IRS library","What is slow is filed in the Octo repo with measurements"],"depends_on":["WCP-0070"],"goal":"Search narrows by section, page type and language and holds up at 200,000 passages, with measured figures","id":"WCP-0071","issue_url":"https://github.com/pukujan-lab-2/voice-agent-research/issues/33","next_action":"Start the leaf on its task branch","owner":"owner","priority":"P2","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"active","why":"Search has no filters and nobody has measured it beyond 133,000 passages (#33)"} -->
 
 - Status: active
 - Owner: owner
@@ -13,7 +13,7 @@ Search narrows by section, page type and language and holds up at 200,000 passag
 
 ## Why
 
-Search has no filters and nobody has measured it beyond 133,000 passages (#109)
+Search has no filters and nobody has measured it beyond 133,000 passages (#33)
 
 ## Allowed files
 
@@ -49,7 +49,7 @@ Starting revision, material inputs/configuration, runtime, exact command or prom
 
 ## Related records
 
-- Leaf #109; parent #107; depends on WCP-0070.
+- Leaf #33; parent #31; depends on WCP-0070.
 - Primary writer claude-code / `task/WCP-0071-*`; source issue open as of 2026-11-01.
 - PR/CI evidence: pending.
 

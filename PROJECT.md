@@ -56,7 +56,7 @@ A visitor opens the copilot on a site and talks to it. The copilot can:
 | Grounded answers on the IRS library | 100% of cited quotes real; vague questions are not clarified yet (0/100) |
 | Caller verification | 24/24 scenarios, no impostor verified, no leaks |
 | Voice | Uses browser speech today, which breaks the in-house rule. Being rebuilt on LiveKit Agents |
-| Hosting | https://copilot.design-bakery.com, deployed when `production` moves (decision 0015, `deploy/`) |
+| Hosting | https://copilot.design-bakery.com, every merge to `main` that passes CI goes live (decision 0016, `deploy/`) |
 | Phone calls | Planned (LiveKit SIP) |
 | Multi-language | Voice: English on the default stack; English, Spanish, French, Italian, Portuguese, Hindi and Chinese on the `multilingual` stack (decision 0012); English on the one-model `lfm3-audio` stack (decision 0013). Text chat passes the visitor's words through |
 

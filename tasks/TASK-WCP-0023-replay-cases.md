@@ -1,6 +1,6 @@
 # TASK-WCP-0023 — Replay Cases
 
-<!-- continuity:task {"acceptance":["A case stores history, input and a code-checkable expectation in an Octo table","The five seed cases from session 7d689fcd are stored and fail on the current answer path where the owner saw the bad answer","`eval/replay.ts` prints pass or fail per case","`npm run check` passes"],"depends_on":["WCP-0022"],"goal":"Turn flagged turns into replay cases stored in Octo","id":"WCP-0023","issue_url":"https://github.com/Pukujan-lab/voice-agent-research/issues/90","next_action":"Define the case format and expectations","owner":"owner","priority":"P2","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"active","why":"A flagged turn can't be re-run, so a fix can't be proven (#90)"} -->
+<!-- continuity:task {"acceptance":["A case stores history, input and a code-checkable expectation in an Octo table","The five seed cases from session 7d689fcd are stored and fail on the current answer path where the owner saw the bad answer","`eval/replay.ts` prints pass or fail per case","`npm run check` passes"],"depends_on":["WCP-0022"],"goal":"Turn flagged turns into replay cases stored in Octo","id":"WCP-0023","next_action":"Define the case format and expectations","owner":"owner","priority":"P2","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"active","why":"A flagged turn can't be re-run, so a fix can't be proven (#90)"} -->
 
 - Status: active
 - Owner: owner
