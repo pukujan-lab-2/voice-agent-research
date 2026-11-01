@@ -2,7 +2,11 @@
 
 <!-- continuity:project {"id":"website-copilot","protocol_version":"0.1.0-draft","schema":"project-continuity.project.v1","title":"Website Copilot"} -->
 
-An AI agent that any business can install on any website with one line, and that its visitors can talk to like a live agent: by voice or text, in their own language, and later by phone. We run it for them as a service (agent as a service).
+A lab for smart, scalable AI copilot agents that make websites and many everyday tasks easy, accessible and smart. The lab builds each part of an agent as a module with versions (voice stacks, reply and decision models, and later vision and video), tests every version, and lets the owner, a business or a visitor pick and choose. Voice is a first-class feature, not an add-on.
+
+**The main goal: no one has to explore a website again.** A visitor shouldn't have to hunt through menus or click buttons. A voice call inside the website does everything for them: it finds things, answers questions, fills forms and takes the steps they ask for, within the confirmation rules below.
+
+This repo is the main lab and builder: other apps, websites and customers adopt what it builds. The first product is the website copilot: an agent any business installs on its website with one line, that its visitors talk to like a live agent, by voice or text, in their own language, and later by phone. We run it for them as a service (agent as a service).
 
 This file says what the project is and what is already decided. Decisions are recorded in [docs/decisions/](docs/decisions/); open work and its acceptance criteria live in GitHub issues. Chat logs and agent memory are not the record.
 
@@ -42,6 +46,7 @@ A visitor opens the copilot on a site and talks to it. The copilot can:
 5. **Evals are fully automated.** No human spot-check step. Exact code checks are preferred over judge-model scores.
 6. **Octo is the one store.** No local or static fallback copies.
 7. **Demo sites are original.** Popular sites can be references, never copies of a real brand.
+8. **Every module is swappable.** No model or module is hard-wired. Each one is a named option with versions that the owner, a business (from its allowed list and default) or a visitor picks per task, as [decision 0012](docs/decisions/0012-swappable-voice-stacks.md) does for voice. Decision models are #74; vision, video and audio understanding is #73.
 
 ## Status (2026-10-31)
 
