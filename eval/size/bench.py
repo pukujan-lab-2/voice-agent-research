@@ -189,7 +189,7 @@ def run_size(n: int, octo_db: Path, n_queries: int, small: int, seed: int) -> di
 def arm_experiment(conn: psycopg.Connection, big: list[synth.Passage], rng: random.Random) -> dict:
     """Where a whole-business filtered search spends its time. The function builds the `allowed` set (every chunk under the
     prefix), then runs a vector arm over it and a lexical arm restricted to it. Each part is timed on its own, as Octo writes
-    it, and the vector arm again on the HNSW index with iterative scans (the fix proposed in octo-database#391)."""
+    it, and the vector arm again on the HNSW index with iterative scans (the fix proposed in octo-database#38)."""
     p = rng.choice(big)
     q = synth.question(p, rng)
     vec = synth.vector_literal(synth.embed(q))
