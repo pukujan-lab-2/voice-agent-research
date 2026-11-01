@@ -61,6 +61,29 @@ Starting revision, material inputs/configuration, runtime, exact command or prom
 
 No checkpoints yet.
 
+### 2026-11-01 19:05:43 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["eval/hugesite.ts, eval/lib/hugesite.ts, docs/retrieval-limits.md, docs/decisions/0018-*.md, PROJECT.md"],"completed":["One command checks the huge-site layer end to end, and its measured limits and the decision behind it are written down"],"decisions":["decision 0018: search for prose, declared lookups for records"],"evidence":["npm run check passes; node eval/hugesite.ts passes at 3,000 and 20,000 passages (94 callers) with 4 negative controls; docs/retrieval-limits.md has the figures"],"next_action":"Open the PR for #112; post the before-and-after table on #107 once the PRs merge","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0074","timestamp":"2026-11-01T19:05:43Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"bd4c8f0010185fb3a519a7ad352754ce9855493c34e29c4d2dc768cb5dde0cf6","request_id":"3bc69e3976c64e3db81bc922c6588a59","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0074"} -->
+
+Completed:
+- One command checks the huge-site layer end to end, and its measured limits and the decision behind it are written down
+
+Evidence:
+- npm run check passes; node eval/hugesite.ts passes at 3,000 and 20,000 passages (94 callers) with 4 negative controls; docs/retrieval-limits.md has the figures
+
+Decisions:
+- decision 0018: search for prose, declared lookups for records
+
+Changed:
+- eval/hugesite.ts, eval/lib/hugesite.ts, docs/retrieval-limits.md, docs/decisions/0018-*.md, PROJECT.md
+
+Blocked/uncertain:
+- none
+
+Next:
+- Open the PR for #112; post the before-and-after table on #107 once the PRs merge
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
