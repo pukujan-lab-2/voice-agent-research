@@ -1,0 +1,1004 @@
+// Desk (v2): an LLM-led front-desk conversation over a code-owned form runtime (the Pipecat Flows idea in TS).
+// The model talks and picks actions through tools; code owns the form. Code normalises and validates every value,
+// writes the read-back (names spelled, numbers grouped), fills a field only after a confirmed read-back, never
+// submits, only knows real fields and options, and answers side questions only from the business's own passages.
+// If the model fails or times out, that turn runs on the v1 rules (the same guard functions the Copilot uses).
+import type { Field, Flow, Hooks } from './types.ts';
+import { formatSerial, parseName, spokenToEmail, spokenToPhone, spokenToSerial, stripFiller, validEmail, validSerial, yesNo } from './guard.ts';
+import { shortQuote, type Passage } from './guide.ts';
+import { customerKey, newSessionId, SESSION_TTL_MS, type CustomerRecord, type SessionSnapshot, type Store } from './memory.ts';
+
+// ---------- model client (OpenAI-compatible chat completions with tools) ----------
+export type ToolCall = { name: string; args: Record<string, unknown> };
+export type ChatMsg = { role: 'system' | 'user' | 'assistant' | 'tool'; content: string | null; tool_calls?: unknown[]; tool_call_id?: string };
+export type ChatResult = { content: string; calls: ToolCall[]; ms: number; model: string };
+export interface ChatModel { name: string; chat(messages: ChatMsg[], tools: unknown[], opts?: { maxTokens?: number; temperature?: number; json?: boolean }): Promise<ChatResult> }
+
+export class OpenAIChat implements ChatModel {
+  name: string;
+  waitedMs = 0; // time spent waiting out rate limits (a test harness subtracts it from latency)
+  private o: { url: string; key: string; model: string; stream: boolean; nothink: boolean; timeoutMs: number; patient: boolean };
+  // patient: in tests, wait out 429 rate-limit windows (up to ~10 min) instead of failing the turn.
+  constructor(o: { url?: string; key?: string; model?: string; stream?: boolean; nothink?: boolean; timeoutMs?: number; patient?: boolean } = {}) {
+    this.o = {
+      url: (o.url ?? process.env.DESK_URL ?? '').replace(/\/$/, ''), key: o.key ?? process.env.DESK_KEY ?? '',
+      model: o.model ?? process.env.DESK_MODEL ?? '', stream: o.stream ?? process.env.DESK_STREAM === '1',
+      nothink: o.nothink ?? process.env.DESK_THINK !== '1', timeoutMs: o.timeoutMs ?? 15000, patient: o.patient ?? false,
+    };
+    if (!this.o.url) throw new Error('DESK_URL is not set');
+    this.name = this.o.model || 'desk-model';
+  }
+
+  async chat(messages: ChatMsg[], tools: unknown[], opts: { maxTokens?: number; temperature?: number; json?: boolean } = {}): Promise<ChatResult> {
+    const t0 = Date.now();
+    const body: Record<string, unknown> = { model: this.o.model, messages, max_tokens: opts.maxTokens ?? 220, temperature: opts.temperature ?? 0.3 };
+    if (tools.length) { body.tools = tools; body.tool_choice = 'auto'; }
+    if (this.o.nothink) body.chat_template_kwargs = { enable_thinking: false };
+    if (this.o.stream) body.stream = true;
+    let lastErr = '';
+    let t1 = t0;
+    for (let attempt = 0; attempt < (this.o.patient ? 40 : 3); attempt++) {
+      try {
+        t1 = Date.now();
+        const r = await fetch(`${this.o.url}/chat/completions`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json', ...(this.o.key ? { Authorization: `Bearer ${this.o.key}` } : {}) },
+          body: JSON.stringify(body), signal: AbortSignal.timeout(this.o.timeoutMs),
+        });
+        const txt = await r.text();
+        if (!r.ok) {
+          lastErr = `${r.status} ${txt.slice(0, 120)}`;
+          if ((r.status === 429 || r.status >= 500) && !/context size|context length|exceeds the context/i.test(txt)) {
+            // Only rate limits are waited out patiently; a server error gets three tries.
+            if ((!this.o.patient || r.status !== 429) && attempt >= 2) break;
+            if (process.env.DESK_DEBUG) console.error(`[${this.o.model}] ${lastErr.slice(0, 160)}`);
+            const wait = this.o.patient && r.status === 429 ? 15000 : 1500 * (attempt + 1);
+            this.waitedMs += wait; await new Promise(res => setTimeout(res, wait)); continue;
+          }
+          throw new Error(lastErr);
+        }
+        let content = '', calls: ToolCall[] = [], model = this.o.model;
+        if (this.o.stream) {
+          const acc: Record<number, { name: string; args: string }> = {};
+          for (const line of txt.split('\n')) {
+            if (!line.startsWith('data:') || line.includes('[DONE]')) continue;
+            try { const j = JSON.parse(line.slice(5)); model = j.model ?? model; const d = j.choices?.[0]?.delta ?? {}; content += d.content ?? '';
+              for (const c of d.tool_calls ?? []) { acc[c.index ?? 0] ??= { name: '', args: '' }; acc[c.index ?? 0].name += c.function?.name ?? ''; acc[c.index ?? 0].args += c.function?.arguments ?? ''; } } catch { /* skip */ }
+          }
+          calls = Object.values(acc).map(c => ({ name: c.name, args: parseArgs(c.args) }));
+        } else {
+          const j = JSON.parse(txt);
+          model = j.model ?? model;
+          const m = j.choices?.[0]?.message ?? {};
+          content = m.content ?? '';
+          calls = (m.tool_calls ?? []).map((c: { function: { name: string; arguments: string } }) => ({ name: c.function?.name, args: parseArgs(c.function?.arguments) }));
+        }
+        if (!calls.length) { const t = textToolCalls(content); if (t.calls.length) { calls = t.calls; content = t.rest; } }
+        return { content: content.replace(/<think>[\s\S]*?<\/think>/g, '').trim(), calls, ms: Date.now() - t1, model };
+      } catch (e) {
+        lastErr = (e as Error).message;
+        if ((e as Error).name === 'TimeoutError') break;
+      }
+    }
+    throw new Error(`chat failed: ${lastErr}`);
+  }
+}
+
+function parseArgs(a: unknown): Record<string, unknown> {
+  if (a && typeof a === 'object') return a as Record<string, unknown>;
+  try { return JSON.parse(String(a || '{}')); } catch { return {}; }
+}
+
+// Small models sometimes write tool calls as text: JSON {"name":..,"arguments":..} or python style propose_value(field="x", value="y").
+const TOOL_NAMES = ['propose_value', 'confirm_pending', 'reject_pending', 'go_to_field', 'answer_question', 'end_call'];
+export function textToolCalls(content: string): { calls: ToolCall[]; rest: string } {
+  const calls: ToolCall[] = [];
+  let rest = content.replace(/<\|?tool_call(_start)?\|?>|<\|?tool_call(_end)?\|?>|<\/?tool_call>/g, ' ');
+  rest = rest.replace(/\{[^{}]*"name"\s*:\s*"(\w+)"[^{}]*"(?:arguments|parameters)"\s*:\s*(\{[^{}]*\})[^{}]*\}/g, (_m, n: string, a: string) => {
+    if (TOOL_NAMES.includes(n)) { calls.push({ name: n, args: parseArgs(a) }); return ' '; } return _m;
+  });
+  rest = rest.replace(new RegExp(`\\[?\\b(${TOOL_NAMES.join('|')})\\(([^()]*)\\)\\]?`, 'g'), (_m, n: string, a: string) => {
+    const args: Record<string, unknown> = {};
+    for (const m of a.matchAll(/(\w+)\s*=\s*("([^"]*)"|'([^']*)')/g)) args[m[1]] = m[3] ?? m[4];
+    calls.push({ name: n, args }); return ' ';
+  });
+  return { calls, rest: rest.replace(/\s+/g, ' ').trim() };
+}
+
+// ---------- values: normalise, validate, read back ----------
+const NUM: Record<string, string> = { zero: '0', oh: '0', o: '0', one: '1', two: '2', to: '2', too: '2', three: '3', four: '4', for: '4', five: '5', six: '6', seven: '7', eight: '8', ate: '8', nine: '9' };
+const LETTERS: Record<string, string> = {
+  ay: 'a', bee: 'b', be: 'b', cee: 'c', see: 'c', sea: 'c', dee: 'd', ee: 'e', ef: 'f', eff: 'f', gee: 'g', aitch: 'h', jay: 'j', kay: 'k',
+  el: 'l', ell: 'l', em: 'm', en: 'n', oh: 'o', pee: 'p', cue: 'q', queue: 'q', ar: 'r', are: 'r', ess: 's', es: 's', tee: 't', tea: 't',
+  you: 'u', vee: 'v', ex: 'x', why: 'y', zee: 'z', zed: 'z',
+  alpha: 'a', alfa: 'a', bravo: 'b', charlie: 'c', delta: 'd', echo: 'e', foxtrot: 'f', golf: 'g', hotel: 'h', india: 'i', juliet: 'j', juliett: 'j',
+  kilo: 'k', lima: 'l', mike: 'm', november: 'n', oscar: 'o', papa: 'p', quebec: 'q', romeo: 'r', sierra: 's', tango: 't', uniform: 'u',
+  victor: 'v', whiskey: 'w', xray: 'x', yankee: 'y', zulu: 'z',
+};
+const letterOf = (tok: string): string => {
+  const w = tok.toLowerCase();
+  if (/^[a-z]$/.test(w)) return w;
+  if (w === 'doubleu' || w === 'doubleyou') return 'w';
+  return LETTERS[w] ?? '';
+};
+
+// Joins spelled-out runs ("P O O J A", "pee oh oh jay ay", "P-O-O-J-A", "P double O J A") into words.
+export function joinSpelled(text: string): string {
+  const t = text.replace(/\bdouble[\s-]+(u|you)\b/gi, 'doubleu').replace(/\b([A-Za-z])(?:-(?=[A-Za-z]\b))/g, '$1 ');
+  const toks = t.split(/[\s,]+/).filter(Boolean);
+  const out: string[] = [];
+  for (let i = 0; i < toks.length;) {
+    let j = i, word = '';
+    while (j < toks.length) {
+      const tk = toks[j].replace(/[.]/g, '');
+      if (/^(double|triple)$/i.test(tk) && j + 1 < toks.length && letterOf(toks[j + 1].replace(/[.]/g, ''))) { word += letterOf(toks[j + 1].replace(/[.]/g, '')).repeat(/double/i.test(tk) ? 2 : 3); j += 2; continue; }
+      const l = letterOf(tk);
+      if (!l) break;
+      word += l; j++;
+    }
+    if (j - i >= 3 || (j - i >= 2 && toks.slice(i, j).every(x => /^[A-Za-z]\.?$/.test(x)))) { out.push(word); i = j; } else { out.push(toks[i]); i++; }
+  }
+  return out.join(' ');
+}
+
+const lev = (a: string, b: string): number => {
+  const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
+  for (let j = 1; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+  return d[a.length][b.length];
+};
+const titleWord = (w: string): string => w.split(/([-'])/).map(p => /^[a-z]/i.test(p) ? p[0].toUpperCase() + p.slice(1).toLowerCase() : p).join('').replace(/^(Mc)([a-z])/, (_m, a: string, b: string) => a + b.toUpperCase());
+
+export function normalizeName(raw: string): { value?: string; problem?: string } {
+  let t = raw.trim().replace(/[’]/g, "'").replace(/[.!?;:"]+/g, ' ');
+  const parsed = parseName(t);
+  if (parsed) t = parsed;
+  t = joinSpelled(t);
+  let words = t.split(/\s+/).filter(Boolean).filter(w => !/^(and|the|is|my|name|its|it's|um|uh)$/i.test(w));
+  if (words.some(w => /\d/.test(w))) return { problem: 'That has numbers in it, so it may not be a name.' };
+  if (words.length && words.every(w => /^(yes|yeah|yep|yup|no|nope|ok(ay)?|sure|that'?s|thats|that|is|it|right|correct|fine|good|great|perfect|thanks?|thank|you|please|exactly|absolutely)$/i.test(w))) return { problem: "Sorry, I didn't catch a name there. What's the full name?" };
+  words = words.map(w => w.replace(/[^A-Za-z'\-]/g, '')).filter(Boolean);
+  // Speech-recognition doubling: "Pooja Pooja Bajracharya", "Pooja Bajracharya Pooja Bajracharya",
+  // "Pooja Bajracharya PUJANBAJRACHARYA" (the whole name again, joined): keep one copy.
+  words = words.filter((w, i) => i === 0 || w.toLowerCase() !== words[i - 1].toLowerCase());
+  for (let n = Math.floor(words.length / 2); n >= 1; n--) {
+    const a = words.slice(0, n).join(' ').toLowerCase(), b = words.slice(n, 2 * n).join(' ').toLowerCase();
+    if (words.length === 2 * n && a === b) { words = words.slice(0, n); break; }
+  }
+  if (words.length >= 3) {
+    const last = words[words.length - 1].toLowerCase(), joined = words.slice(0, -1).join('').toLowerCase();
+    if (last.length >= 6 && lev(last, joined) <= Math.max(2, Math.round(joined.length * 0.35))) words = words.slice(0, -1);
+  }
+  if (!words.length) return { problem: "I didn't catch the name." };
+  if (words.length > 5) return { problem: 'That sounded like more than one name.' };
+  if (words.length < 2) return { problem: 'Could I have the full name, first and last?' };
+  return { value: words.map(titleWord).join(' ') };
+}
+
+export function normalizePhone(raw: string): { value?: string; problem?: string } {
+  let d = spokenToPhone(raw).replace(/\D/g, '') || raw.replace(/\D/g, '');
+  if (d.length === 11 && d.startsWith('1')) d = d.slice(1);
+  if (d.length !== 10) return { problem: `I got ${d.length} digit${d.length === 1 ? '' : 's'}, and a phone number here has 10.` };
+  return { value: `${d.slice(0, 3)}-${d.slice(3, 6)}-${d.slice(6)}` };
+}
+
+export function normalizeEmail(raw: string): { value?: string; problem?: string } {
+  let t = raw.trim().toLowerCase();
+  const spoken = spokenToEmail(t);
+  if (spoken) t = spoken;
+  t = t.replace(/\s*\bat\b\s*/g, '@').replace(/\s*\bdot\b\s*/g, '.').replace(/\s+/g, '').replace(/\.+$/, '');
+  if (!validEmail(t)) return { problem: "I didn't get a complete email address. Could you say it like name at example dot com?" };
+  return { value: t };
+}
+
+export function normalizeSerial(raw: string, example = '1334-592C-LSD3'): { value?: string; problem?: string } {
+  const s = spokenToSerial(raw);
+  if (validSerial(s)) return { value: s };
+  // Chatty speech adds stray letters ("a little", "I", "see"): try each sentence alone, and the part after "it's".
+  const found = new Set<string>();
+  for (const sent of raw.split(/[.!?;]+\s|\bthat'?s\b/i)) {
+    for (const c of [sent, sent.split(/\b(?:it'?s|it is|here goes|number is)\b[:,]?/i).pop() ?? '']) { const v = spokenToSerial(c); if (validSerial(v)) found.add(v); }
+  }
+  if (found.size === 1) return { value: [...found][0] };
+  if (!s) return { problem: `I didn't catch the serial number. It has 12 characters, like ${example}.` };
+  return { problem: `I got ${groupChars(s)}, that's ${s.length} character${s.length === 1 ? '' : 's'}, but the serial number has 12, in three groups of four like ${example}.` };
+}
+
+export function matchOption(f: Field, raw: string): string {
+  const t = raw.trim().toLowerCase();
+  const opts = f.options ?? [];
+  const exact = opts.find(o => o.toLowerCase() === t);
+  if (exact) return exact;
+  const hits = opts.filter(o => [o, ...(f.synonyms?.[o] ?? [])].some(w => new RegExp(`(^|[^a-z])${w.toLowerCase().replace(/[.*+?^$()|[\]\\{}]/g, '\\$&')}s?($|[^a-z])`).test(t)));
+  return hits.length === 1 ? hits[0] : '';
+}
+
+export function normalize(f: Field, raw: string): { value?: string; problem?: string } {
+  const v = String(raw ?? '').trim();
+  if (!v) return { problem: 'I did not catch that.' };
+  switch (f.kind) {
+    case 'name': return normalizeName(v);
+    case 'phone': return normalizePhone(v);
+    case 'email': return normalizeEmail(v);
+    case 'serial': return normalizeSerial(v, f.hint?.match(/\b[0-9A-Z]{4}-[0-9A-Z]{4}-[0-9A-Z]{4}\b/)?.[0]);
+    case 'choice': { const o = matchOption(f, v); return o ? { value: o } : { problem: `For the ${f.label} I can put ${orList(f.options ?? [])}.` }; }
+    default: {
+      const s = stripFiller(v).replace(/\s+/g, ' ');
+      return s.length < 2 ? { problem: 'I did not catch that.' } : s.length > 300 ? { value: s.slice(0, 300) } : { value: s };
+    }
+  }
+}
+
+const orList = (a: string[]) => a.length <= 1 ? a.join('') : `${a.slice(0, -1).join(', ')} or ${a[a.length - 1]}`;
+const spellWord = (w: string) => w.replace(/[^A-Za-z]/g, '').toUpperCase().split('').join('-');
+const groupChars = (s: string) => (s.match(/.{1,4}/g) ?? []).map(g => g.split('').join(' ')).join(', ');
+const COMMON_DOMAINS = /^(gmail|yahoo|hotmail|outlook|icloud|aol|proton|protonmail|live|msn|comcast)\.(com|net|me)$/;
+
+// The exact words the customer hears before a value is kept.
+// `n` varies the wording so it does not sound canned.
+// brisk: the customer asked to hurry, so the read-back is just the value (still spelled) and "right?".
+export function readback(f: Field, v: string, n = 0, brisk = false): string {
+  const pick = (a: string[]) => a[n % a.length];
+  if (brisk) return briskReadback(f, v);
+  switch (f.kind) {
+    case 'name': { const sp = v.split(/\s+/).map(spellWord).join(', '); return pick([`I have ${v}, that's ${sp}. Did I get that right?`, `Let me spell that back: ${v}, ${sp}. Is that right?`, `So that's ${v}, spelled ${sp}. Is that correct?`]); }
+    case 'phone': { const d = v.replace(/\D/g, ''); const g = [d.slice(0, 3), d.slice(3, 6), d.slice(6)].map(x => x.split('').join(' ')).join(', '); return pick([`I have ${g}. Is that right?`, `Let me read that back: ${g}. Is that correct?`]); }
+    case 'email': {
+      const [local, dom] = v.split('@');
+      const sayLocal = local.split(/([._-])/).map(p => p === '.' ? 'dot' : p === '_' ? 'underscore' : p === '-' ? 'dash' : /^\d+$/.test(p) ? p.split('').join(' ') : spellWord(p)).join(' ');
+      const sayDom = COMMON_DOMAINS.test(dom) ? dom.replace(/\./g, ' dot ') : dom.split('.').map((p, i, a) => i === a.length - 1 && /^(com|net|org|edu|gov|io|co|us|uk)$/.test(p) ? p : spellWord(p)).join(' dot ');
+      return pick([`I have ${v}, that's ${sayLocal}, at ${sayDom}. Is that right?`, `Let me read that back: ${v}, ${sayLocal}, at ${sayDom}. Is that correct?`]);
+    }
+    case 'serial': return pick([`I have ${formatSerial(v)}, that's ${groupChars(v)}. Is that right?`, `Let me read that back in groups: ${formatSerial(v)}, ${groupChars(v)}. Is that correct?`]);
+    case 'choice': return pick([`So that's ${v} for the ${f.label}, is that right?`, `Okay, ${v} for the ${f.label}. Did I get that right?`, `${v} for the ${f.label}, is that correct?`]);
+    default: return pick([`I'll put down "${v}" for the ${f.label}. Is that right?`, `So for the ${f.label}: "${v}". Is that right?`]);
+  }
+}
+
+function briskReadback(f: Field, v: string): string {
+  switch (f.kind) {
+    case 'name': return `${v}, ${v.split(/\s+/).map(spellWord).join(', ')}, right?`;
+    case 'phone': { const d = v.replace(/\D/g, ''); return `${[d.slice(0, 3), d.slice(3, 6), d.slice(6)].map(x => x.split('').join(' ')).join(', ')}, right?`; }
+    case 'email': { const r = readback(f, v); const m = r.match(/that's (.*)\. Is that right\?$/); return `${v}, ${m ? m[1] : ''}, right?`.replace(', , ', ', '); }
+    case 'serial': return `${formatSerial(v)}, ${groupChars(v)}, right?`;
+    case 'choice': return `${v} for the ${f.label}, right?`;
+    default: return `"${v}", right?`;
+  }
+}
+
+// Several short choices said together are read back together: "So that's Wednesday and Afternoon. Is that right?"
+export function groupReadback(items: string[], n = 0, brisk = false): string {
+  const list = items.length <= 2 ? items.join(' and ') : `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
+  return brisk ? `${list}, right?` : [`So that's ${list}. Is that right?`, `Okay, ${list}. Did I get that right?`][n % 2];
+}
+
+// ---------- yes / no ----------
+const YES_START = /^\s*(?:oh\s+|um+\s+|uh+\s+|well\s+)?(yes|yeah|yea|yep|yup|ya|aye|correct|that'?s (?:right|correct|it|perfect)|right|exactly|perfect|sounds good|uh[- ]?huh|mm[- ]?hmm|you got it|got it|spot on|affirmative|sure|absolutely|definitely|yes please|that is (?:right|correct)|all good|looks good|good)\b/i;
+const KEEP = /\b(leave it|keep it|as it is|as is|that'?s (still )?(the )?(same|correct|right|fine)|it'?s (the )?same|no change|don'?t change)\b/i;
+const HURRY = /\b(speed (this|it|things) up|hurry|quick(er|ly)?|faster|in a rush|short on time|move (this )?along)\b/i;
+const SMALL_TALK = /\b(how are you|how'?s (your|the) day|how is your day|how'?s it going|hope you'?re (doing )?well|nice weather|the weather|crazy (day|morning|week)|long day|busy (day|morning)|running around|hectic|sorry,? (i'?m|it'?s been)|happy (friday|monday))\b/i;
+const ACKS = ['Perfect, thank you.', 'Great.', 'Lovely, thanks.', 'Got it, thank you.'];
+function smallTalkReply(said: string): string {
+  if (/how are you|how'?s (your|the) day|how is your day|how'?s it going/i.test(said)) return "I'm doing well, thanks for asking!";
+  if (/weather/i.test(said)) return 'It really is something today!';
+  if (/crazy|long day|busy|running around|hectic|sorry/i.test(said)) return "No worries at all, we'll get this sorted quickly.";
+  return 'Thanks, you too!';
+}
+// The next question, with a light varied lead-in so it does not sound like a script.
+function transition(q: string, n: number): string {
+  const lead = ['', 'Next, ', 'And ', ''][n % 4];
+  return lead ? lead + q.charAt(0).toLowerCase() + q.slice(1) : q;
+}
+const FORGET = /\b(forget (me|my (details|info\w*|data|number|email))|delete (my|all my) (details|info\w*|data|record|number)|don'?t (remember|keep|store|save) (me|my \w+)|remove my (details|info\w*|data))\b/i;
+const RETURNING = /\b((been|come|came|brought \w+|booked|visited|called|seen)\b[^.?!]{0,30}\bbefore|already in (your|the) system|been (a )?(patients?|customers?) (here|there|with you|for)|returning (customer|patient)|last time (i|we)|you (should |might )?(already )?have (my|our|her|his|their) (details|info\w*))\b/i;
+const SUBMIT_LINE = "Everything is filled in on the form on your screen. Have a look, and when it's right, press Submit. I won't send it for you.";
+const id = (s: string) => s.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64);
+// Reading back a value kept from an earlier call: same detail as any read-back, and still needs a yes.
+function reuseReadback(f: Field, v: string): string {
+  if (f.kind === 'phone') { const d = v.replace(/\D/g, ''); return `Is ${[d.slice(0, 3), d.slice(3, 6), d.slice(6)].map(x => x.split('').join(' ')).join(', ')} still the best number?`; }
+  const r = readback(f, v, 0); // "I have X, that's ... . Did I get that right?" / "... Is that right?"
+  return `From last time, ${r.replace(/^I have /, `I have the ${f.label} as `).replace(/\s*(Did I get that right|Is that right|Is that correct)\?$/, '')} Is that still right?`;
+}
+const META_Q = /\b(move on|moving|next|speed|hurry|quick|faster|keep going|go on|what else|anything else|done|continue|finish|wrap (this |it )?up|get on with|be done)\b/i;
+const NOT_YES = /\b(no|nope|nah|not|wrong|incorrect|wait|hold on|hang on|change|fix|actually|but|except|unless|if|however|though|instead|rather|mistake|misspel\w*|maybe|not sure|i guess|hmm+|almost|close|nearly|twice|typo|missing|forgot|spell(ed|t)?|sorry)\b/i;
+
+// A clear yes to a read-back: starts with a yes, and nothing hedges it or changes it ("yes but change the time" is not a yes).
+export function clearYes(said: string): boolean {
+  const t = said.replace(/[’]/g, "'").replace(/\b(mm[- ]?hmm|uh[- ]?huh)\b/gi, 'yes')
+    .replace(/\bsorry (about|for) (all )?(that|this|the (trouble|confusion|wait|hassle))\b/gi, '').trim();
+  if (!t || NOT_YES.test(t)) return false;
+  let first = t.split(/(?<=[.!])\s+/)[0];
+  // "yep, that's right, can we move on?" is a yes; "sure, how much is it?" answers nothing.
+  if (/\?/.test(first)) { const m = first.match(/^(.*?),\s*([^,]*\?)\s*$/); if (!m || !META_Q.test(m[2])) return false; first = m[1]; }
+  return YES_START.test(first) || yesNo(first) === 'yes';
+}
+export function clearNo(said: string): boolean {
+  return /^\s*(no|nope|nah|not quite|not really|that'?s (not|wrong)|wrong|incorrect)\b/i.test(said) || yesNo(said) === 'no';
+}
+
+// ---------- docs ----------
+export type Docs = (question: string) => Promise<Passage | null>;
+const STOP = new Set('a an the is are do does did i my me you your yours to of in on for and or it this that can how what where which when why should will with be at by from we our us there their have has any much many long get about tell know please would could if so'.split(' '));
+const docWords = (s: string) => (s.toLowerCase().match(/[a-z0-9]+/g) ?? []).filter(w => !STOP.has(w)).map(w => w.replace(/(ing|es|s)$/, ''));
+// Keyword search, then (if a model is given) the model picks the passage that answers, or none. Never writes an answer.
+export function docsFrom(passages: Passage[], judge?: ChatModel): Docs {
+  return async (question: string) => {
+    const q = new Set(docWords(question));
+    const ranked = passages.map(p => ({ p, s: new Set(docWords(p.text).filter(w => q.has(w))).size })).filter(x => x.s > 0).sort((a, b) => b.s - a.s).slice(0, 3);
+    if (!ranked.length) return null;
+    if (!judge) return ranked[0].s >= 1 ? ranked[0].p : null;
+    // One yes/no question per passage, asked in parallel: small models (LFM3-1.7B) answer this reliably, while
+    // "reply with the passage number" makes them say 0 and then name the right one.
+    try {
+      const yes = await Promise.all(ranked.map(async x => {
+        const r = await judge.chat([
+          { role: 'system', content: 'Answer only yes or no.' },
+          { role: 'user', content: `Passage: ${x.p.text}\n\nDoes this passage contain the answer to the question "${question}"? Answer yes or no.` },
+        ], [], { maxTokens: 2, temperature: 0 });
+        return /^\s*yes/i.test(r.content);
+      }));
+      const i = yes.indexOf(true);
+      return i >= 0 ? ranked[i].p : null;
+    } catch { return ranked[0].s >= 2 ? ranked[0].p : null; }
+  };
+}
+
+// ---------- the desk ----------
+export type DeskEvent = { turn: number; type: string; field?: string; value?: string; detail?: string; by?: 'model' | 'net' | 'rules' };
+export type Fill = { turn: number; field: string; value: string; readback: string; yes: string };
+export type TurnLog = { turn: number; said: string; reply: string; ms: number; model: string; calls: string[]; fallback?: string };
+type Pending = { field: string; value: string; text: string; group?: { field: string; value: string }[]; reuse?: boolean };
+
+// A real question sentence anywhere in the turn (not a meta one like "can we move on?").
+const ASKED_Q = /\b(what|where|which|how|why|when|can i|do i|do you|does|is there|is it|are there|should i|will it)\b(?![^.?!]*\b(move on|speed|hurry|hear me|still there|get that|got that)\b)[^.?!]*\?/i;
+const QUESTION = /\?\s*$|^\s*(what|where|which|how|why|when|can you|could you|do you|does|is there|are you|will|would you)\b/i;
+const CLAIMS = /\b(submit\w*|i'?ve (added|put|entered|noted|recorded|saved|filled|updated|changed)|i have (added|put|entered|noted|recorded|saved|filled|updated|changed)|(is|are|been) (saved|recorded|filled|updated|noted|entered|confirmed)|all set|booked|scheduled|you'?re set)\b/i;
+const BYE = /\b(bye|goodbye|that'?s all|have to go|gotta go|hang up|stop|cancel|never ?mind)\b/i;
+
+export class Desk {
+  flow: Flow;
+  values: Record<string, string> = {};
+  pending: Pending | null = null;
+  queue: { field: string; value: string; reuse?: boolean }[] = [];
+  current: string;
+  returnTo: string[] = [];
+  brisk = false; // the customer asked to hurry: shorter read-backs
+  histTurns = Number(process.env.DESK_HISTORY_TURNS) || 6; // past user turns the model sees (cut on a context error)
+  done = false;
+  complete = false;
+  log: { who: 'user' | 'agent'; text: string }[] = [];
+  events: DeskEvent[] = [];
+  fills: Fill[] = [];
+  turns: TurnLog[] = [];
+  submitted = 0; // stays 0: there is no submit path. Kept so tests can assert it.
+  private chatModel?: ChatModel;
+  private heavy?: ChatModel;
+  private docs?: Docs;
+  private hooks: Partial<Hooks>;
+  private n = 0;
+  private lastUser = '';
+  private hist: ChatMsg[] = []; // the conversation as the model sees it, with every action shown as a tool call
+  private acts: { name: string; args: Record<string, unknown>; result: string }[] = [];
+  private maxModel = 220;
+  private toolsSpec: unknown[];
+  private system: string;
+
+  // Memory (both optional): `sessions` keeps a snapshot for call resume; `customers` keeps opt-in returning-customer
+  // details. Any Store works (memory.ts has a Map and a JSON file store; an Octo store can implement the same).
+  sessionId?: string;
+  private sessions?: Store;
+  private customers?: Store;
+  private mem = { asked: false, awaiting: false, lookedUp: false, forget: false, returning: false };
+  private notes: string[] = []; // things code must say this turn (from inside confirm)
+
+  constructor(flow: Flow, opts: { model?: ChatModel; heavy?: ChatModel; docs?: Docs; hooks?: Partial<Hooks>; route?: (said: string, d: Desk) => boolean; sessions?: Store; customers?: Store } = {}) {
+    this.flow = flow;
+    this.sessions = opts.sessions;
+    this.customers = opts.customers;
+    this.chatModel = opts.model;
+    // Hybrid (a hosted model for hard turns) is off unless DESK_HYBRID=1: the default path is the local model only.
+    this.heavy = process.env.DESK_HYBRID === '1' ? opts.heavy : undefined;
+    this.docs = opts.docs;
+    this.hooks = opts.hooks ?? {};
+    if (opts.route) this.route = opts.route;
+    this.current = flow.fields[0].name;
+    this.toolsSpec = this.tools();
+    this.system = this.systemPrompt();
+  }
+
+  field(name: string): Field | undefined {
+    const n = String(name ?? '').trim().toLowerCase();
+    return this.flow.fields.find(f => f.name.toLowerCase() === n) ?? this.flow.fields.find(f => f.label.toLowerCase() === n || (f.aliases ?? []).includes(n));
+  }
+
+  start(): string {
+    const f = this.field(this.current)!;
+    const say = `${this.flow.intro} ${f.question}`;
+    this.log.push({ who: 'agent', text: say });
+    return say;
+  }
+
+  async turn(said: string): Promise<string> {
+    this.n++;
+    this.lastUser = said;
+    if (HURRY.test(said)) this.brisk = true;
+    this.log.push({ who: 'user', text: said });
+    const memReply = await this.memoryTurn(said);
+    if (memReply !== null) {
+      this.log.push({ who: 'agent', text: memReply });
+      this.remember(said, memReply);
+      this.turns.push({ turn: this.n, said, reply: memReply, ms: 0, model: 'code', calls: [] });
+      await this.save();
+      return memReply;
+    }
+    const waited = () => [this.chatModel, this.heavy].reduce((a, m) => a + ((m as { waitedMs?: number } | undefined)?.waitedMs ?? 0), 0);
+    const t0 = Date.now() - waited();
+    this.acts = [];
+    let reply = '', modelName = 'rules', calls: string[] = [], fallback: string | undefined;
+    const useHeavy = !!this.heavy && this.route(said, this);
+    const first = useHeavy ? this.heavy : this.chatModel;
+    try {
+      if (!first) throw new Error('no model');
+      let r: ChatResult;
+      try { r = await first.chat(this.messages(said), this.toolsSpec); }
+      catch (e) {
+        // A small local model with a short context: keep less history from now on and try again at once.
+        if (!/context/i.test((e as Error).message) || this.histTurns <= 1) throw e;
+        this.histTurns = Math.max(1, this.histTurns - 3);
+        r = await first.chat(this.messages(said), this.toolsSpec);
+      }
+      modelName = r.model;
+      // Escalate a turn the small model got wrong (a value code rejects, or nothing done when something was said).
+      if (this.heavy && first !== this.heavy && this.needsEscalation(r, said)) {
+        try { r = await this.heavy.chat(this.messages(said), this.toolsSpec); modelName = `${modelName}>${r.model}`; } catch { /* keep the small model's answer */ }
+      }
+      // No tool call on a turn where the customer said something substantive: remind the model once.
+      if (!r.calls.length && this.nudgeWorthy(said)) {
+        try {
+          const m = this.messages(said);
+          m[m.length - 1] = { role: 'user', content: `${m[m.length - 1].content}\n[Reminder: if the customer gave or corrected ANY field value, call propose_value now (one call per value); if they said yes to the read-back, call confirm_pending; if they asked about the business, call answer_question.]` };
+          const r2 = await (useHeavy || !this.heavy ? first : this.heavy).chat(m, this.toolsSpec);
+          if (r2.calls.length) { r = r2; modelName = `${modelName}+nudge`; }
+        } catch { /* keep the first answer */ }
+      }
+      calls = r.calls.map(c => `${c.name}(${JSON.stringify(c.args)})`);
+      reply = await this.apply(r.content, r.calls, 'model');
+    } catch (e) {
+      fallback = (e as Error).message.slice(0, 120);
+      reply = await this.rulesTurn(said);
+    }
+    reply = reply.replace(/\s+/g, ' ').trim();
+    this.log.push({ who: 'agent', text: reply });
+    this.remember(said, reply);
+    this.turns.push({ turn: this.n, said, reply, ms: Date.now() - waited() - t0, model: modelName, calls, fallback });
+    await this.save();
+    return reply;
+  }
+
+  // ----- memory: call resume -----
+  // Saves the call under an opaque random id (30 minute TTL). Called after every turn when a session store is set.
+  async save(): Promise<string | undefined> {
+    if (!this.sessions) return undefined;
+    this.sessionId ??= newSessionId();
+    const snap: SessionSnapshot = { v: 1, flow: this.flow.id, savedAt: Date.now(), values: { ...this.values }, pending: this.pending ? { ...this.pending } : null, queue: [...this.queue], current: this.current, returnTo: [...this.returnTo], log: this.log.slice(-12) };
+    try { await this.sessions.set(`sess:${id(this.sessionId)}`, snap, SESSION_TTL_MS); } catch { /* a failed save never breaks the call */ }
+    return this.sessionId;
+  }
+
+  // Picks a dropped call back up. Unknown or expired ids start fresh. A read-back that was waiting is asked again,
+  // never filled: it still needs a yes on this call.
+  async restore(sessionId: string): Promise<string> {
+    let snap: SessionSnapshot | undefined;
+    try { snap = this.sessions ? (await this.sessions.get(`sess:${id(sessionId)}`)) as SessionSnapshot | undefined : undefined; } catch { snap = undefined; }
+    if (!snap || snap.v !== 1 || snap.flow !== this.flow.id) { this.events.push({ turn: this.n, type: 'resume_fresh' }); return this.start(); }
+    this.sessionId = sessionId;
+    for (const [k, v] of Object.entries(snap.values)) if (this.field(k)) this.values[k] = v;
+    this.pending = snap.pending && this.field(snap.pending.field) ? snap.pending : null;
+    this.queue = snap.queue.filter(q => this.field(q.field));
+    this.current = this.field(snap.current) ? snap.current : (this.flow.fields.find(f => this.values[f.name] === undefined) ?? this.flow.fields[0]).name;
+    this.returnTo = snap.returnTo.filter(r => this.field(r));
+    this.log = [...snap.log];
+    this.hist = snap.log.map(m => ({ role: m.who === 'user' ? 'user' : 'assistant', content: m.text }) as ChatMsg);
+    const had = this.flow.fields.filter(f => this.values[f.name] !== undefined).map(f => f.label);
+    let say = had.length ? `Welcome back. We already have the ${had.length === 1 ? had[0] : `${had.slice(0, -1).join(', ')} and ${had[had.length - 1]}`}.` : "Welcome back, let's pick up where we left off.";
+    if (this.pending) say += ` Before we got cut off I was checking this: ${this.pending.text}`;
+    else if (this.allFilled()) say += ` ${this.finishLine()}`;
+    else say += ` Next is the ${this.field(this.current)!.label}. ${this.field(this.current)!.question}`;
+    this.log.push({ who: 'agent', text: say });
+    this.hist.push({ role: 'assistant', content: say });
+    this.events.push({ turn: this.n, type: 'resumed', detail: had.join(',') });
+    return say;
+  }
+
+  // ----- memory: returning customers (opt-in) -----
+  private rememberable(f: Field): boolean {
+    if (f.kind === 'serial' || f.kind === 'text' || f.kind === 'choice') return false; // never serials, symptoms, visit reasons
+    return (f as Field & { remember?: boolean }).remember ?? (f.kind === 'name' || f.kind === 'phone' || f.kind === 'email');
+  }
+  private contactKeys(): string[] {
+    return this.flow.fields.filter(f => (f.kind === 'phone' || f.kind === 'email') && this.values[f.name]).map(f => customerKey(f.kind as 'phone' | 'email', this.values[f.name]));
+  }
+  private async forgetCustomer(): Promise<void> {
+    // Delete under every contact the record holds, not only the ones given on this call.
+    const keys = new Set(this.contactKeys());
+    for (const k of [...keys]) {
+      const rec = (await this.customers!.get(k).catch(() => undefined)) as CustomerRecord | undefined;
+      for (const f of this.flow.fields) if ((f.kind === 'phone' || f.kind === 'email') && rec?.values[f.name]) keys.add(customerKey(f.kind, rec.values[f.name]));
+    }
+    for (const k of keys) await this.customers!.delete(k);
+    this.queue = this.queue.filter(q => !q.reuse);
+    if (this.pending?.reuse) this.pending = null;
+    this.mem.forget = false; this.mem.asked = true; // and do not offer to remember at the end
+    this.events.push({ turn: this.n, type: 'forgot' });
+  }
+  // A confirmed phone or email: look the customer up once and offer what we kept, each value read back for a yes.
+  private async onContact(f: Field): Promise<void> {
+    if (!this.customers || (f.kind !== 'phone' && f.kind !== 'email')) return;
+    if (this.mem.forget) { await this.forgetCustomer(); this.notes.push("Done, I've deleted the details I had saved for you."); return; }
+    if (this.mem.lookedUp) return;
+    this.mem.lookedUp = true;
+    let rec: CustomerRecord | undefined;
+    try { rec = (await this.customers.get(customerKey(f.kind, this.values[f.name]))) as CustomerRecord | undefined; } catch { rec = undefined; }
+    if (!rec || rec.v !== 1) return;
+    const offers = this.flow.fields.filter(g => rec!.values[g.name] && this.rememberable(g) && this.values[g.name] === undefined && this.pending?.field !== g.name && !this.queue.some(q => q.field === g.name));
+    if (!offers.length) return;
+    this.mem.returning = true;
+    for (const g of offers) this.queue.push({ field: g.name, value: rec.values[g.name], reuse: true });
+    this.notes.push('Welcome back! I have a few details from last time; let me check them with you.');
+    this.events.push({ turn: this.n, type: 'returning', detail: offers.map(g => g.name).join(',') });
+  }
+  private async storeCustomer(): Promise<void> {
+    const values: Record<string, string> = {};
+    for (const f of this.flow.fields) if (this.rememberable(f) && this.values[f.name]) values[f.name] = this.values[f.name];
+    const rec: CustomerRecord = { v: 1, flow: this.flow.id, savedAt: Date.now(), values };
+    for (const k of this.contactKeys()) await this.customers!.set(k, rec, 365 * 24 * 3600 * 1000);
+    this.events.push({ turn: this.n, type: 'stored', detail: Object.keys(values).join(',') });
+  }
+  // Memory turns handled by code alone: "forget me", and the answer to "want me to remember your details?".
+  private async memoryTurn(said: string): Promise<string | null> {
+    if (FORGET.test(said)) {
+      if (!this.customers) return `I don't keep any of your details after the call, so there's nothing to forget. ${this.resumeLine()}`;
+      if (this.contactKeys().length) { await this.forgetCustomer(); return `Done, I've deleted the details I had saved for you. ${this.allFilled() ? this.finishLine() : this.resumeLine()}`; }
+      this.mem.forget = true;
+      const pf = this.flow.fields.find(f => f.kind === 'phone') ?? this.flow.fields.find(f => f.kind === 'email');
+      if (pf) { this.goTo(pf); return `Of course. What's the ${pf.label} you used with us? I'll delete what I have under it.`; }
+    }
+    if (this.mem.awaiting) {
+      this.mem.awaiting = false;
+      if (clearYes(said)) { await this.storeCustomer(); return `Done, I'll remember them for next time. ${SUBMIT_LINE}`; }
+      if (clearNo(said) && said.trim().split(/\s+/).length <= 8) return `No problem, I won't keep them. ${SUBMIT_LINE}`;
+      // Anything else is not a yes: nothing is stored, and the turn goes on as usual.
+    }
+    if (this.customers && !this.mem.lookedUp && RETURNING.test(said)) {
+      const pf = this.flow.fields.find(f => f.kind === 'phone' && this.values[f.name] === undefined);
+      if (pf && this.current !== pf.name && !this.pending && !/\d{3}/.test(said)) { this.goTo(pf); return `Welcome back! What's the ${pf.label} you used last time? I'll find your details.`; }
+    }
+    return null;
+  }
+  private resumeLine(): string {
+    return this.pending ? this.pending.text : this.field(this.current)!.question;
+  }
+
+  // Hybrid routing: questions, corrections, long or messy turns go straight to the bigger model.
+  route(said: string, _d: Desk): boolean {
+    const words = said.trim().split(/\s+/).length;
+    return QUESTION.test(said) || words > 22 || /\b(wrong|fix|twice|change|actually|go back|instead|mistake|typo|spell|back to|earlier|previous)\b/i.test(said) || this.field(this.current)?.kind === 'serial';
+  }
+
+  private nudgeWorthy(said: string): boolean {
+    const t = stripFiller(said);
+    if (!t || t.split(/\s+/).length < 2 && !/\d/.test(t)) return false;
+    if (this.pending && (clearYes(said) || clearNo(said))) return true;
+    if (/\d{3,}|@|\bat\b.*\bdot\b/i.test(t)) return true;
+    if (this.flow.fields.some(f => f.kind === 'choice' && matchOption(f, t))) return true;
+    if (this.flow.fields.some(f => f.kind === 'name') && /\b(name|it'?s|i'?m|this is|called|spelled|[A-Z][a-z]+ [A-Z][a-z]+)\b/.test(said)) return true;
+    return !QUESTION.test(said) && t.split(/\s+/).length >= 3;
+  }
+
+  private needsEscalation(r: ChatResult, said: string): boolean {
+    if (!r.calls.length) return !!stripFiller(said) && !QUESTION.test(said) && said.split(/\s+/).length > 1 && !clearYes(said);
+    for (const c of r.calls) {
+      if (c.name === 'propose_value') {
+        const f = this.field(String(c.args.field)); if (!f) return true;
+        const nv = normalize(f, String(c.args.value ?? '')); if (!nv.value || !this.grounded(f, nv.value)) return true;
+      }
+      if (c.name === 'confirm_pending' && !clearYes(said)) return true;
+      if (!TOOL_NAMES.includes(c.name)) return true;
+    }
+    return false;
+  }
+
+  // ----- prompts -----
+  private systemPrompt(): string {
+    const fields = this.flow.fields.map(f => `- ${f.name}: ${f.label} (${f.kind}${f.options ? `; one of: ${f.options.join(' | ')}` : ''})${f.hint ? `. ${f.hint}` : ''}`).join('\n');
+    return `You are the front-desk receptionist at ${this.flow.business}, on a voice call. You fill in the online form for the customer while you talk. You cannot see or press the Submit button; the customer presses it at the end.
+
+How you sound: warm, calm and professional, like an experienced receptionist. Spoken English, 1 or 2 short sentences. No lists, no markdown, no emojis. A little small talk is fine, then gently steer back. Ask for one thing at a time.
+
+Form fields, in order:
+${fields}
+
+How you work. The form changes ONLY through your tools:
+- The customer gives a value for any field (even out of order, or several at once): call propose_value for each, with the value cleaned up (no "my name is", digits for numbers, lower-case email). Code reads it back to them word for word, spelling names and grouping numbers. Do not read values back yourself and never say anything is saved.
+- They clearly say yes to the read-back: call confirm_pending. They say no and give the right value: call propose_value with it. They say no without a value: call reject_pending.
+- They want to change an earlier answer: call propose_value for that field when the new value is clear (fix what they point out, e.g. "you wrote my name twice" means keep one copy), otherwise call go_to_field.
+- Speech recognition garbles things: split or joined words, a name repeated, letters as words ("ess" = S, "oh" = O or zero, "double five" = 55). Clean these up. If they spell letter by letter, use exactly those letters.
+- A vague answer ("sometime next week, mornings are better"): propose what is clear, then ask one short question to pin down the rest.
+- Any question about ${this.flow.business} (hours, prices, address, policies, what to bring...): call answer_question. Never state such facts yourself. Anything unrelated: say kindly that you can only help with this form.
+- If the customer says goodbye or wants to stop, call end_call.
+- Never make up values. Never claim the form is submitted or booked.
+
+Examples of how you reply (your words stay short; code adds read-backs and the next question):
+Customer: "Hi, it's for my son, Leo Park." -> propose_value(field, "Leo Park"); say "Hi there, thanks for calling!"
+Customer: "Yep, that's right." -> confirm_pending; say "Perfect, thank you."
+Customer: "How's your day going?" -> no tool; say "It's going well, thanks for asking!"
+Customer: "Sorry, it's been a crazy morning." -> no tool; say "No worries at all, we'll get this done quickly."
+Customer: "Do you take walk-ins?" -> answer_question("Do you take walk-ins?"); say nothing else.`;
+  }
+
+  private stateNote(): string {
+    const lines = this.flow.fields.map(f => {
+      const v = this.values[f.name];
+      const g = this.pending?.group?.find(x => x.field === f.name);
+      const tag = this.pending?.field === f.name ? ` (waiting for yes/no on: "${this.pending.value}")` : g ? ` (waiting for yes/no on: "${g.value}")` : '';
+      return `${f.name}: ${v !== undefined ? `"${v}"` : 'empty'}${tag}${f.name === this.current && !this.pending ? '  <- asking now' : ''}`;
+    });
+    const back = this.returnTo.length ? `\nAfter this, return to: ${this.returnTo[this.returnTo.length - 1]}` : '';
+    return `[Form state, not said by the customer]\n${lines.join('\n')}${back}`;
+  }
+
+  // Past turns keep their tool calls (including the ones code made for the model), so the model sees how the form is
+  // worked and does not learn to type read-backs as plain text.
+  private messages(said: string): ChatMsg[] {
+    let h = this.hist;
+    const starts = h.map((m, i) => (m.role === 'user' ? i : -1)).filter(i => i >= 0);
+    if (starts.length > this.histTurns) h = h.slice(starts[starts.length - this.histTurns]);
+    const opening: ChatMsg[] = h === this.hist ? [{ role: 'user', content: '(call connected)' }, { role: 'assistant', content: this.log[0]?.text ?? '' }] : [];
+    return [{ role: 'system', content: this.system }, ...opening, ...h, { role: 'user', content: `${said}\n\n${this.stateNote()}` }];
+  }
+
+  private remember(said: string, reply: string) {
+    this.hist.push({ role: 'user', content: said });
+    if (this.acts.length) {
+      const ids = this.acts.map((_, i) => `call_${this.n}_${i}`);
+      this.hist.push({ role: 'assistant', content: '', tool_calls: this.acts.map((a, i) => ({ id: ids[i], type: 'function', function: { name: a.name, arguments: JSON.stringify(a.args) } })) });
+      this.acts.forEach((a, i) => this.hist.push({ role: 'tool', tool_call_id: ids[i], content: a.result }));
+    }
+    this.hist.push({ role: 'assistant', content: reply });
+  }
+
+  private tools(): unknown[] {
+    const names = this.flow.fields.map(f => f.name);
+    const fn = (name: string, description: string, properties: Record<string, unknown> = {}, required: string[] = []) =>
+      ({ type: 'function', function: { name, description, parameters: { type: 'object', properties, required } } });
+    return [
+      fn('propose_value', 'Propose a value for a form field. Code reads it back to the customer; it is only filled after they say yes.',
+        { field: { type: 'string', enum: names }, value: { type: 'string', description: 'The cleaned-up value' } }, ['field', 'value']),
+      fn('confirm_pending', 'The customer clearly said yes to the read-back: fill the field.'),
+      fn('reject_pending', 'The customer said the read-back is wrong and gave no new value.'),
+      fn('go_to_field', 'Go back (or forward) to a field the customer wants to change; the form returns to where it was afterwards.', { field: { type: 'string', enum: names } }, ['field']),
+      fn('answer_question', `Look up the answer to a question about ${this.flow.business} in its own documents.`, { question: { type: 'string' } }, ['question']),
+      fn('end_call', 'The customer says goodbye or wants to stop.', { reason: { type: 'string' } }),
+    ];
+  }
+
+  // ----- grounding: values must come from what the customer said -----
+  private userText(): string { return this.log.filter(m => m.who === 'user').slice(-8).map(m => m.text).join(' \n '); }
+  grounded(f: Field, v: string): boolean {
+    const said = this.userText();
+    if (f.kind === 'choice') return true; // only real options can get here; the read-back catches a wrong pick
+    if (f.kind === 'name' || f.kind === 'email') {
+      const letters = (s: string) => s.toLowerCase().replace(/[^a-z]/g, '');
+      const pool = letters(joinSpelled(said)) + '|' + letters(said);
+      const parts = f.kind === 'email' ? v.split('@')[0].split(/[._\-\d]+/) : v.split(/[\s\-']+/);
+      return parts.filter(p => p.length).every(p => pool.includes(letters(p)));
+    }
+    if (f.kind === 'phone') {
+      const digits = said.toLowerCase().replace(/\b(double|triple)\s+(\w+)/g, (_m, n: string, d: string) => Array(n === 'double' ? 2 : 3).fill(d).join(' '))
+        .split(/[^a-z0-9]+/).map(w => /^\d+$/.test(w) ? w : NUM[w] ?? '').join('');
+      return digits.includes(v.replace(/\D/g, '')) || digits.includes(v.replace(/\D/g, '').slice(-7));
+    }
+    if (f.kind === 'serial') {
+      const pool = this.log.filter(m => m.who === 'user').slice(-8).map(m => spokenToSerial(m.text)).join('|') + '|' + said.toUpperCase().replace(/[^A-Z0-9]/g, '');
+      return pool.includes(v);
+    }
+    const w = docWords(v), have = new Set(docWords(said));
+    return w.length === 0 || w.filter(x => have.has(x)).length / w.length >= 0.5;
+  }
+
+  // ----- applying the model's tool calls -----
+  private async apply(content: string, calls: ToolCall[], by: 'model' | 'rules'): Promise<string> {
+    const tails: string[] = [];
+    let confirmedNow = false, proposedNow = false, answered = false, acted = false, questionTail = false, keptNow = false;
+    const said = this.lastUser;
+    const stale = !!this.pending; // a read-back asked on an earlier turn
+    const ev = (e: Omit<DeskEvent, 'turn'>) => this.events.push({ turn: this.n, by, ...e });
+    const rec = (c: ToolCall, result: string) => this.acts.push({ name: c.name, args: c.args ?? {}, result });
+    // A clear yes to the read-back just asked fills it first, whatever the model called: small models often
+    // re-propose the same value instead of confirming, which would loop the read-back forever.
+    if (this.pending && this.lastAgentAskedReadback() && clearYes(said)) {
+      const viaModel = calls.some(c => c.name === 'confirm_pending');
+      if (await this.confirm(viaModel ? by : 'net')) { confirmedNow = true; acted = true; rec({ name: 'confirm_pending', args: {} }, this.confirmNote()); }
+      calls = calls.filter(c => c.name !== 'confirm_pending');
+    }
+    for (const c of calls) {
+      const a = c.args ?? {};
+      if (c.name === 'propose_value') {
+        const f = this.field(String(a.field ?? ''));
+        if (!f) { ev({ type: 'bad_field', detail: String(a.field) }); rec(c, 'Error: no such field.'); continue; }
+        let nv = normalize(f, String(a.value ?? ''));
+        // The model miscopied what was said (two letters swapped, a stray digit): if the rules read a valid value
+        // straight from the customer's words, use that one instead.
+        if (f.kind !== 'text' && f.kind !== 'choice' && (!nv.value || !this.grounded(f, nv.value))) {
+          const rv = this.ruleParse(f, said);
+          if (rv && rv !== nv.value && this.grounded(f, rv)) { ev({ type: 'rule_value', field: f.name, value: rv, detail: String(a.value ?? '') }); nv = { value: rv }; }
+        }
+        if (!nv.value && (f.kind === 'serial' || f.kind === 'phone') && !/\d|\b(zero|oh|one|two|three|four|five|six|seven|eight|nine)\b/i.test(said)) { ev({ type: 'ungrounded', field: f.name, value: String(a.value ?? '') }); rec(c, 'Not used: the customer did not say that.'); continue; }
+        if (!nv.value) { ev({ type: 'problem', field: f.name, detail: nv.problem }); rec(c, `Not valid: ${nv.problem}`); tails.push(`${nv.problem} ${/\?$/.test(nv.problem ?? '') ? '' : f.kind === 'name' ? 'Could you spell it for me?' : f.kind === 'serial' ? 'Could you read it again, in groups of four?' : f.question}`); questionTail = true; acted = true; continue; }
+        const value = nv.value; // non-empty from here; a const keeps that narrowing inside the callbacks below
+        if (!this.grounded(f, nv.value)) {
+          ev({ type: 'ungrounded', field: f.name, value: nv.value }); rec(c, 'Not used: the customer did not say that. Ask them to say or spell it.');
+          tails.push(f.kind === 'name' || f.kind === 'email' ? `Sorry, could you spell the ${f.label} for me, letter by letter?` : `Sorry, could you say the ${f.label} once more?`);
+          questionTail = true; acted = true; continue;
+        }
+        acted = true;
+        if (this.values[f.name] === nv.value && this.pending?.field !== f.name) {
+          ev({ type: 'already', field: f.name, value: nv.value });
+          // The customer went back and gave the same value again: keep it and move on, never ask for it again.
+          if (f.name === this.current && !keptNow) { keptNow = true; this.moveOn(); tails.push(`Okay, I'll keep the ${f.label} as it is.`); }
+          rec(c, `Already filled with that value; kept. ${this.allFilled() ? 'All fields are filled.' : `Next: ${this.current}.`}`); continue;
+        }
+        const check = await this.hooks.check?.(f, nv.value);
+        if (check) { ev({ type: 'page_refused', field: f.name, detail: String(check) }); tails.push(`${check} ${f.question}`); questionTail = true; continue; }
+        // A fix to one item of a read-back: re-read it with the new value.
+        if (this.pending && (this.pending.field === f.name || this.pending.group?.some(g => g.field === f.name))) {
+          const p = this.pending;
+          if (p.field === f.name) this.setPending(f, nv.value, p.group);
+          else this.setPending(this.field(p.field)!, p.value, p.group!.map(g => g.field === f.name ? { field: f.name, value } : g));
+          proposedNow = true;
+          ev({ type: 'propose', field: f.name, value: nv.value }); rec(c, `Read back to the customer: "${this.pending!.text}" Waiting for yes or no.`);
+          continue;
+        }
+        if (this.pending && this.pending.field !== f.name && stale && !clearYes(said)) {
+          ev({ type: 'dropped', field: this.pending.field, value: this.pending.value });
+          this.pending = null;
+        }
+        if (this.pending && this.pending.field !== f.name) {
+          if (!this.queue.some(q => q.field === f.name)) this.queue.push({ field: f.name, value: nv.value });
+          else this.queue = this.queue.map(q => q.field === f.name ? { field: f.name, value } : q);
+          ev({ type: 'queued', field: f.name, value: nv.value }); rec(c, 'Queued: read back after the current one.');
+          continue;
+        }
+        this.setPending(f, nv.value);
+        proposedNow = true;
+        ev({ type: 'propose', field: f.name, value: nv.value }); rec(c, `Read back to the customer: "${this.pending!.text}" Waiting for yes or no.`);
+      } else if (c.name === 'confirm_pending') {
+        if (!this.pending) { ev({ type: 'confirm_nothing' }); rec(c, 'Nothing is waiting for confirmation.'); continue; }
+        if (!clearYes(said) || !this.lastAgentAskedReadback()) { ev({ type: 'confirm_refused', field: this.pending.field, detail: said }); rec(c, 'Refused: the customer did not clearly say yes.'); continue; }
+        acted = true;
+        if (await this.confirm(by)) { confirmedNow = true; rec(c, this.confirmNote()); }
+      } else if (c.name === 'reject_pending') {
+        if (!this.pending) continue;
+        acted = true;
+        const f = this.field(this.pending.field)!;
+        ev({ type: 'reject', field: f.name, value: this.pending.value }); rec(c, 'Cleared. Ask for it again.');
+        this.pending = null;
+        this.current = f.name;
+        tails.push(f.kind === 'name' || f.kind === 'email' ? `Sorry about that. Could you spell it for me, letter by letter?` : f.kind === 'serial' ? 'Sorry about that. Could you read it again, slowly, in groups of four?' : `Sorry about that. ${f.question}`);
+        questionTail = true;
+      } else if (c.name === 'go_to_field') {
+        const f = this.field(String(a.field ?? ''));
+        if (!f) { ev({ type: 'bad_field', detail: String(a.field) }); continue; }
+        acted = true;
+        if (this.pending && (this.pending.field === f.name || this.pending.group?.some(g => g.field === f.name))) {
+          ev({ type: 'goto_pending', field: f.name }); rec(c, `Still waiting for yes or no on ${f.name}.`);
+          tails.push(this.pending.text); questionTail = true; continue;
+        }
+        this.goTo(f);
+        ev({ type: 'goto', field: f.name }); rec(c, `Now on ${f.name}.`);
+        const v = this.values[f.name];
+        tails.push(v !== undefined ? `Sure. I have the ${f.label} as ${v}. What should it be?` : `Sure. ${f.question}`);
+        questionTail = true;
+      } else if (c.name === 'answer_question') {
+        acted = true; answered = true;
+        let q = String(a.question ?? said);
+        let p = this.docs ? await this.docs(q) : null;
+        // The model's rewording can lose the point; try the customer's own question too.
+        const own = said.match(ASKED_Q)?.[0] ?? said;
+        if (!p && this.docs && own !== q) { p = await this.docs(own); if (p) q = own; }
+        ev({ type: 'answer', detail: p ? p.id : 'none' }); rec(c, p ? `Passage read to the customer: ${p.text}` : 'No passage answers this; told the customer you do not know.');
+        tails.push(p ? shortQuote(p.text, q, 140) : "I'm sorry, I don't have that information.");
+      } else if (c.name === 'end_call') {
+        if (this.allFilled() || BYE.test(said)) {
+          acted = true; this.done = true; ev({ type: 'end' });
+          return this.allFilled() ? this.finishLine() : "No problem. I haven't sent anything; the form stays as it is. Thanks for calling, goodbye.";
+        }
+        ev({ type: 'end_refused' });
+      } else ev({ type: 'bad_tool', detail: c.name });
+    }
+
+    // A question the model did not look up: look it up; answer only if the business's passages answer it.
+    // A question asked in the same breath as an answer ("my name's Sarah. What does E24 mean?") is answered too,
+    // before the read-back.
+    const askedQ = said.match(ASKED_Q)?.[0];
+    if (!answered && this.docs && (askedQ || (!proposedNow && !confirmedNow && QUESTION.test(said))) && !calls.some(c => c.name === 'go_to_field' || c.name === 'end_call')) {
+      const p = await this.docs(askedQ && (proposedNow || confirmedNow) ? askedQ : said);
+      if (p) { answered = true; acted = true; ev({ type: 'answer', detail: p.id, by: 'net' } as DeskEvent); rec({ name: 'answer_question', args: { question: said } }, `Passage read to the customer: ${p.text}`); tails.push(shortQuote(p.text, said, 140)); }
+    }
+    // Code nets for weak models: a clear yes to the read-back just asked is a yes; a clear no is a no.
+    if (!acted && this.pending && this.lastAgentAskedReadback()) {
+      if (clearYes(said)) { if (await this.confirm('net')) { confirmedNow = true; rec({ name: 'confirm_pending', args: {} }, this.confirmNote()); } }
+      else if (clearNo(said) && said.trim().split(/\s+/).length <= 4) {
+        const f = this.field(this.pending.field)!; ev({ type: 'reject', field: f.name, value: this.pending.value, by: 'net' } as DeskEvent); rec({ name: 'reject_pending', args: {} }, 'Cleared. Ask for it again.'); this.pending = null; this.current = f.name;
+        tails.push(f.kind === 'name' || f.kind === 'email' ? 'Sorry about that. Could you spell it for me, letter by letter?' : `Sorry about that. ${f.question}`); questionTail = true;
+      }
+    } else if (!acted && !this.pending && !QUESTION.test(said)) {
+      const f = this.field(this.current)!;
+      const v = f.kind === 'text' ? '' : this.ruleParse(f, said);
+      if (v && this.grounded(f, v)) { this.setPending(f, v); proposedNow = true; ev({ type: 'propose', field: f.name, value: v, by: 'net' } as DeskEvent); rec({ name: 'propose_value', args: { field: f.name, value: v } }, `Read back to the customer: "${this.pending!.text}" Waiting for yes or no.`); }
+    }
+
+    // Back on a field that is already filled, and the customer wants it kept: move on.
+    if (!acted && !keptNow && !this.pending && this.values[this.current] !== undefined && (clearYes(said) || KEEP.test(said))) {
+      const f = this.field(this.current)!; keptNow = true; this.moveOn();
+      ev({ type: 'kept', field: f.name, by: 'net' } as DeskEvent); rec({ name: 'keep_value', args: { field: f.name } }, `Kept ${f.name}. ${this.allFilled() ? 'All fields are filled.' : `Next: ${this.current}.`}`);
+      tails.push(`Okay, I'll keep the ${f.label} as it is.`);
+    }
+    // Short choices given together are read back together, so one yes covers them.
+    if (proposedNow && this.pending && this.field(this.pending.field)!.kind === 'choice' && this.queue.some(q => this.field(q.field)!.kind === 'choice')) {
+      const extra = this.queue.filter(q => this.field(q.field)!.kind === 'choice' && this.values[q.field] !== q.value);
+      const p = this.pending;
+      this.setPending(this.field(p.field)!, p.value, [...(p.group ?? []), ...extra]);
+      const last = this.acts[this.acts.length - 1];
+      if (last) last.result += ` (Now read back together: "${this.pending.text}")`;
+    }
+    if (this.notes.length) { tails.unshift(...this.notes); this.notes = []; }
+    // What the reply must end with, written by code.
+    if (this.pending && (proposedNow || confirmedNow)) { tails.push(this.pending.text); questionTail = true; }
+    else if ((confirmedNow || keptNow) && this.allFilled()) { tails.push(this.finishLine()); this.complete = true; questionTail = true; }
+    else if (confirmedNow || keptNow) { tails.push(transition(this.field(this.current)!.question, this.n)); questionTail = true; }
+    else if (answered && !questionTail) { tails.push(this.pending ? `Now, back to that read-back: ${this.pending.text}` : `Now, ${lowerFirst(this.field(this.current)!.question)}`); questionTail = true; }
+
+    let text = this.cleanModelText(content, tails.length > 0, confirmedNow);
+    // Warmth that does not depend on the model: a short reply to small talk, a varied thank-you after a yes.
+    if (!text && SMALL_TALK.test(said)) text = smallTalkReply(said);
+    if (!text && confirmedNow) text = ACKS[this.n % ACKS.length];    if (!tails.length) {
+      if (this.pending) { tails.push(this.pending.text); questionTail = true; }
+      else if (!this.pending && this.allFilled() && !this.done) { tails.push(this.finishLine()); this.complete = true; }
+      else if (!/\?/.test(text)) tails.push(this.field(this.current)!.question);
+    }
+    if (questionTail) text = text.split(/(?<=[.!?])\s+/).filter(s => !/\?$/.test(s)).join(' ');
+    return [text, ...tails].filter(Boolean).join(' ');
+  }
+
+  private confirmNote(): string {
+    const last = this.fills[this.fills.length - 1];
+    return `Filled ${last.field} = "${last.value}". ${this.pending ? `Now reading back ${this.pending.field}.` : this.allFilled() ? 'All fields are filled.' : `Next: ${this.current}.`}`;
+  }
+
+  private finishLine(): string {
+    if (this.customers && !this.mem.asked && this.contactKeys().length) {
+      this.mem.asked = true; this.mem.awaiting = true;
+      return this.mem.returning ? "That's everything I need. Shall I update the details I keep for you, for next time?" : "That's everything I need. Would you like me to remember your name and contact details for next time?";
+    }
+    return "That's everything I need, it's all filled in on the form on your screen. Have a look, and when it's right, press Submit. I won't send it for you.";
+  }
+
+  private lastAgentAskedReadback(): boolean {
+    const a = [...this.log].reverse().find(m => m.who === 'agent');
+    return !!a && !!this.pending && /\?\s*$/.test(a.text) && a.text.includes(this.pending.text);
+  }
+
+  private setPending(f: Field, v: string, group: { field: string; value: string }[] = []) {
+    const g = group.filter(x => x.field !== f.name);
+    this.pending = { field: f.name, value: v, group: g, text: g.length ? groupReadback([v, ...g.map(x => x.value)], this.n, this.brisk) : readback(f, v, this.n, this.brisk) };
+    this.queue = this.queue.filter(q => q.field !== f.name && !g.some(x => x.field === q.field));
+  }
+
+  private goTo(f: Field) {
+    if (this.pending && this.pending.field !== f.name) this.pending = null;
+    if (f.name !== this.current && this.values[this.current] === undefined && !this.returnTo.includes(this.current)) this.returnTo.push(this.current);
+    this.current = f.name;
+  }
+
+  private async confirm(by: 'model' | 'net' | 'rules'): Promise<boolean> {
+    const p = this.pending!;
+    const f = this.field(p.field)!;
+    const no = await this.hooks.fill?.(f, p.value);
+    if (no) { this.events.push({ turn: this.n, type: 'page_refused', field: f.name, detail: String(no), by }); this.pending = null; return false; }
+    for (const it of [{ field: p.field, value: p.value }, ...(p.group ?? [])]) {
+      const itf = this.field(it.field)!;
+      if (it.field !== p.field) { const no2 = await this.hooks.fill?.(itf, it.value); if (no2) { this.events.push({ turn: this.n, type: 'page_refused', field: itf.name, detail: String(no2), by }); continue; } }
+      this.values[it.field] = it.value;
+      this.fills.push({ turn: this.n, field: it.field, value: it.value, readback: p.text, yes: this.lastUser });
+      this.events.push({ turn: this.n, type: 'confirm', field: it.field, value: it.value, by });
+    }
+    this.pending = null;
+    for (const it of [{ field: p.field }, ...(p.group ?? [])]) await this.onContact(this.field(it.field)!);
+    // Next: a value already given and queued, else where the customer came from, else the first empty field.
+    while (this.queue.length) {
+      const q = this.queue.shift()!; const qf = this.field(q.field)!;
+      if (this.values[q.field] !== q.value) {
+        this.setPending(qf, q.value); this.current = q.field;
+        if (q.reuse) { this.pending!.text = reuseReadback(qf, q.value); this.pending!.reuse = true; }
+        return true;
+      }
+    }
+    this.moveOn();
+    return true;
+  }
+
+  // Where the customer came from, else the first empty field.
+  private moveOn() {
+    while (this.returnTo.length) { const r = this.returnTo.pop()!; if (this.values[r] === undefined) { this.current = r; return; } }
+    const next = this.flow.fields.find(x => this.values[x.name] === undefined);
+    if (next) this.current = next.name;
+  }
+
+  allFilled(): boolean { return this.flow.fields.every(f => this.values[f.name] !== undefined); }
+
+  // Model text is kept only where it is safe: no claims of saving or submitting, no numbers nobody said, no read-backs
+  // of its own, and short.
+  private cleanModelText(content: string, haveTail: boolean, confirmedNow: boolean): string {
+    let t = (content ?? '').replace(/[*_#`>]+/g, '').replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, '').replace(/\s+/g, ' ').trim();
+    if (!t) return '';
+    const known = new Set((this.userText() + ' ' + Object.values(this.values).join(' ')).match(/\d+/g) ?? []);
+    let sents = t.split(/(?<=[.!?])\s+/).filter(s => s.trim());
+    sents = sents.filter(s => !(CLAIMS.test(s) && !(confirmedNow && !/submit/i.test(s))));
+    // Internal talk ("I need to fill preferredtime", "let me fill in visit type next") is not for the caller.
+    sents = sents.filter(s => !/\b(fill(ing)?|field|tool|pending|propos\w*|confirm_\w+|\w+_\w+)\b/i.test(s));
+    sents = sents.filter(s => (s.match(/\d+/g) ?? []).every(d => known.has(d)));
+    sents = sents.filter(s => !/\b[A-Za-z]-[A-Za-z]-[A-Za-z]\b|^(so )?i have\b|^i'?ll put\b|, is that right\?$/i.test(s));
+    if (haveTail) {
+      const vals = [this.pending?.value, ...this.queue.map(q => q.value)].filter(Boolean).map(v => v!.toLowerCase());
+      sents = sents.filter(s => !vals.some(v => s.toLowerCase().includes(v.split(/[\s@]/)[0])) && !/\b(spell|is that (right|correct)|did i get)\b/i.test(s));
+      sents = sents.filter(s => !/\?$/.test(s)).slice(0, 1).filter(s => s.length <= 110);
+    } else sents = sents.slice(0, 2);
+    let out = sents.join(' ');
+    if (out.length > this.maxModel) out = out.slice(0, this.maxModel).replace(/\s+\S*$/, '') + '.';
+    return out;
+  }
+
+  // ----- v1-style rules: used for a turn when the model fails, and by the code nets -----
+  private ruleParse(f: Field, said: string): string {
+    switch (f.kind) {
+      case 'name': { const n = parseName(joinSpelled(said)); return n ? normalizeName(n).value ?? '' : ''; }
+      case 'phone': return normalizePhone(said).value ?? '';
+      case 'email': return normalizeEmail(said).value ?? '';
+      case 'serial': return normalizeSerial(said).value ?? '';
+      case 'choice': return matchOption(f, said);
+      default: return normalize(f, said).value ?? '';
+    }
+  }
+
+  private async rulesTurn(said: string): Promise<string> {
+    this.events.push({ turn: this.n, type: 'fallback', by: 'rules' });
+    if (this.pending) {
+      if (clearYes(said)) return this.apply('', [{ name: 'confirm_pending', args: {} }], 'rules');
+      const f = this.field(this.pending.field)!;
+      const v = this.ruleParse(f, said);
+      if (v && v !== this.pending.value) return this.apply('', [{ name: 'propose_value', args: { field: f.name, value: v } }], 'rules');
+      if (clearNo(said)) return this.apply('', [{ name: 'reject_pending', args: {} }], 'rules');
+      return `Sorry, ${lowerFirst(this.pending.text)}`;
+    }
+    if (QUESTION.test(said) && this.docs) return this.apply('', [{ name: 'answer_question', args: { question: said } }], 'rules');
+    const f = this.field(this.current)!;
+    const v = this.ruleParse(f, said);
+    if (v) return this.apply('', [{ name: 'propose_value', args: { field: f.name, value: v } }], 'rules');
+    return `Sorry, I didn't quite catch that. ${f.question}`;
+  }
+}
+
+const lowerFirst = (s: string) => s ? s[0].toLowerCase() + s.slice(1) : s;
+
+// Builds a model from env-style config (DESK_URL, DESK_KEY, DESK_MODEL, DESK_STREAM).
+// Default agent model: local LFM3-1.7B served by llama.cpp (OpenAI-compatible) at DESK_URL.
+export const DEFAULT_DESK_URL = 'http://127.0.0.1:11438/v1';
+export function modelFromEnv(prefix = 'DESK', env: Record<string, string | undefined> = process.env): OpenAIChat | undefined {
+  const url = env[`${prefix}_URL`] ?? (prefix === 'DESK' ? DEFAULT_DESK_URL : undefined);
+  if (!url) return undefined;
+  return new OpenAIChat({ url, key: env[`${prefix}_KEY`] ?? '', model: env[`${prefix}_MODEL`] ?? (prefix === 'DESK' ? 'lfm3' : ''), stream: env[`${prefix}_STREAM`] === '1', timeoutMs: +(env[`${prefix}_TIMEOUT_MS`] ?? 15000) });
+}
+// The hosted model for the optional hybrid (DESK_HYBRID=1, DESK_HEAVY_URL / _KEY / _MODEL).
+export function heavyFromEnv(env: Record<string, string | undefined> = process.env): OpenAIChat | undefined {
+  return env.DESK_HYBRID === '1' ? modelFromEnv('DESK_HEAVY', env) : undefined;
+}
