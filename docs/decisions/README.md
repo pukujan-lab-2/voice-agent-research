@@ -18,4 +18,5 @@ One file per decision. A decision changes only through a new file that replaces 
 | 0012 | [Voice calls run on swappable voice stacks](0012-swappable-voice-stacks.md) | 2026-11-01 |
 | 0013 | [The lfm3-audio stack is one model, listed in English only](0013-lfm3-audio-stack.md) | 2026-11-01 |
 | 0014 | [Voice models are swapped: only the stack in use is resident](0014-voice-models-are-swapped.md) | 2026-11-01 |
-| 0015 | [The production branch deploys the lab](0015-production-branch-deploys.md) | 2026-11-01 |
+| 0015 | [The production branch deploys the lab](0015-production-branch-deploys.md) (replaced by 0016) | 2026-11-01 |
+| 0016 | [A merge to main goes live when CI passes](0016-merges-go-live.md) | 2026-11-01 |
