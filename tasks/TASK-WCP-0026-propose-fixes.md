@@ -103,6 +103,52 @@ Blocked/uncertain:
 Next:
 - Merge #39
 
+### 2026-11-01 23:36:22 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["eval/README.md"],"completed":["Merged the newest main into this branch"],"decisions":["no new decisions"],"evidence":["npm run check passes on the merged tree"],"next_action":"Merge #39","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0026","timestamp":"2026-11-01T23:36:22Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"6c7e9998ca5df773588ac86de4bf17b963323dd6f93e773189b539b6c3b1e8b3","request_id":"d4e723460384449dbeba1ac9dfbfbe2b","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0026"} -->
+
+Completed:
+- Merged the newest main into this branch
+
+Evidence:
+- npm run check passes on the merged tree
+
+Decisions:
+- no new decisions
+
+Changed:
+- eval/README.md
+
+Blocked/uncertain:
+- none
+
+Next:
+- Merge #39
+
+### 2026-11-01 23:37:06 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["eval/README.md"],"completed":["Merged the newest main into this branch"],"decisions":["no new decisions"],"evidence":["typecheck and eval tests pass on the merged tree; the full check passed one merge earlier"],"next_action":"Merge #39","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0026","timestamp":"2026-11-01T23:37:06Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"61d1564d6d95adf4392d9d87cc9f122c7e45de9fb4f571749d73758578c2f15c","request_id":"33e0061a08384a928d002c9e13f1e666","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0026"} -->
+
+Completed:
+- Merged the newest main into this branch
+
+Evidence:
+- typecheck and eval tests pass on the merged tree; the full check passed one merge earlier
+
+Decisions:
+- no new decisions
+
+Changed:
+- eval/README.md
+
+Blocked/uncertain:
+- none
+
+Next:
+- Merge #39
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
