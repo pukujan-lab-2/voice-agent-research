@@ -84,6 +84,29 @@ Blocked/uncertain:
 Next:
 - Open the PR for #112; post the before-and-after table on #107 once the PRs merge
 
+### 2026-11-01 23:19:17 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["docs/retrieval-limits.md, docs/decisions/0018, PROJECT.md"],"completed":["The huge-site evals branch sits on the moved repository's main with the limits doc and decision pointing at the moved issues"],"decisions":["none"],"evidence":["npm run check passes on the stack after merging the moved repository's main; issue links point at pukujan-lab-2"],"next_action":"Merge PR #56 after #55, then post the table on #31","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0074","timestamp":"2026-11-01T23:19:17Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"7bc0910d033db1b30dd963822691f74b1d9452346c2674786b8f38315ca22cb2","request_id":"c256b2bf9d9744009d93605807f4405a","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0074"} -->
+
+Completed:
+- The huge-site evals branch sits on the moved repository's main with the limits doc and decision pointing at the moved issues
+
+Evidence:
+- npm run check passes on the stack after merging the moved repository's main; issue links point at pukujan-lab-2
+
+Decisions:
+- none
+
+Changed:
+- docs/retrieval-limits.md, docs/decisions/0018, PROJECT.md
+
+Blocked/uncertain:
+- none
+
+Next:
+- Merge PR #56 after #55, then post the table on #31
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
