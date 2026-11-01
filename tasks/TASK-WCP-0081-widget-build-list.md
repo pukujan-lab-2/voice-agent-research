@@ -56,6 +56,29 @@ Starting revision, material inputs/configuration, runtime, exact command or prom
 
 No checkpoints yet.
 
+### 2026-11-01 23:41:32 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["demo/live-site/build.ts, demo/live-site/tests/build-list.test.ts, demo/live-site/tests/live-replay.ts"],"completed":["The live widget did not load because three engine files were missing from the browser bundle list; added them and a test that follows the imports."],"decisions":["no new decisions"],"evidence":["npm run check passed; a local build resolves every import in dist/copilot."],"next_action":"Merge, then replay the first owner call on the live site.","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0081","timestamp":"2026-11-01T23:41:32Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"2aa2ae4f649d0165e7400f14a1ee66c3c7b94edc64c66168b25759231a091d5f","request_id":"f30dcd3a2ec6462491938eb6856c185c","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0081"} -->
+
+Completed:
+- The live widget did not load because three engine files were missing from the browser bundle list; added them and a test that follows the imports.
+
+Evidence:
+- npm run check passed; a local build resolves every import in dist/copilot.
+
+Decisions:
+- no new decisions
+
+Changed:
+- demo/live-site/build.ts, demo/live-site/tests/build-list.test.ts, demo/live-site/tests/live-replay.ts
+
+Blocked/uncertain:
+- none
+
+Next:
+- Merge, then replay the first owner call on the live site.
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
