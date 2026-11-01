@@ -93,6 +93,29 @@ Blocked/uncertain:
 Next:
 - Merge, then replay both owner calls on the live site and post the dialogues.
 
+### 2026-11-01 23:57:23 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["copilot-engine/src/desk.ts, copilot-engine/tests/desk.test.ts, demo/live-site/speech/agent.py (merge)"],"completed":["A live replay of the owner's first call showed the desk model refusing a question without looking it up; the library is now asked when the model refuses, and main is merged in."],"decisions":["no new decisions"],"evidence":["npm run check passed (131 engine tests, 41 eval and live-site tests, 15 python tests, 8 scenarios)."],"next_action":"Merge, then replay both owner calls on the live site and post the dialogues.","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0075","timestamp":"2026-11-01T23:57:23Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"1f3a1205dbb5bc26319190b53e421c172a7accd48627b1d5f273ce2ac9bda12a","request_id":"5639ac49ff62470cbd7bb99cee18d962","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0075"} -->
+
+Completed:
+- A live replay of the owner's first call showed the desk model refusing a question without looking it up; the library is now asked when the model refuses, and main is merged in.
+
+Evidence:
+- npm run check passed (131 engine tests, 41 eval and live-site tests, 15 python tests, 8 scenarios).
+
+Decisions:
+- no new decisions
+
+Changed:
+- copilot-engine/src/desk.ts, copilot-engine/tests/desk.test.ts, demo/live-site/speech/agent.py (merge)
+
+Blocked/uncertain:
+- none
+
+Next:
+- Merge, then replay both owner calls on the live site and post the dialogues.
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
