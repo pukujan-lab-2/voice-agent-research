@@ -57,6 +57,29 @@ Starting revision, material inputs/configuration, runtime, exact command or prom
 
 No checkpoints yet.
 
+### 2026-11-01 18:08:02 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["eval/propose.ts, eval/lib/patterns.ts, eval/tests/patterns.test.ts, eval/README.md, task record"],"completed":["A routine now turns the week's flagged turns into one GitHub issue per failure pattern, with the evidence, and a daily scheduled task runs mining, cases and the filing"],"decisions":["The routine lists open issues and matches titles instead of searching; it runs as a Claude desktop scheduled task on this Mac, which needs the app open, because the Octo key lives here"],"evidence":["Dry run listed 8 patterns from the live flags; a real run opened #115 for invented-offer; the duplicate check was found broken twice (search lag, then GitHub's issue list answering empty) so #116 and #117 were duplicates, closed, and the routine now stops when the list is empty but the repository has open issues; npm run check passes"],"next_action":"Merge; once GitHub's issue list answers again, run propose.ts a second time to confirm it files nothing new","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0026","timestamp":"2026-11-01T18:08:02Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"6a3306b0299cd8c8df85fdbef697b64a80e4a84b6b44961501850a14d36b4754","request_id":"539dcfc733a34c4da61dd2f3ec21e0d1","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0026"} -->
+
+Completed:
+- A routine now turns the week's flagged turns into one GitHub issue per failure pattern, with the evidence, and a daily scheduled task runs mining, cases and the filing
+
+Evidence:
+- Dry run listed 8 patterns from the live flags; a real run opened #115 for invented-offer; the duplicate check was found broken twice (search lag, then GitHub's issue list answering empty) so #116 and #117 were duplicates, closed, and the routine now stops when the list is empty but the repository has open issues; npm run check passes
+
+Decisions:
+- The routine lists open issues and matches titles instead of searching; it runs as a Claude desktop scheduled task on this Mac, which needs the app open, because the Octo key lives here
+
+Changed:
+- eval/propose.ts, eval/lib/patterns.ts, eval/tests/patterns.test.ts, eval/README.md, task record
+
+Blocked/uncertain:
+- none
+
+Next:
+- Merge; once GitHub's issue list answers again, run propose.ts a second time to confirm it files nothing new
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
