@@ -212,7 +212,7 @@ export const EMPTY_SNAPSHOT: CopilotSnapshot = {
 };
 
 /** Every demo site lets visitors try each voice stack; the fast English one is the default (decision 0012). */
-const VOICE: CopilotConfig["voice"] = { stacks: ["english-fast", "multilingual"], default: "english-fast" };
+const VOICE: CopilotConfig["voice"] = { stacks: ["english-fast", "parakeet-kokoro", "whisper-pocket", "multilingual"], default: "english-fast" };
 
 /** Copilot configs for each form page. */
 export const COPILOT_CONFIGS: Record<string, CopilotConfig> = {

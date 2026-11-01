@@ -101,7 +101,7 @@ const FRENCH = /\b(bonjour|vous|votre|rendez-vous|je|pour|merci|quel|nom|le|la|d
 await page.goto(`${srv.url}/clinic/book?guest=1`);
 await page.waitForFunction(() => (window as any).copilot?.getSnapshot().voiceStacks?.length > 0, null, { timeout: 30_000 });
 let s = await snap();
-check('the picker offers both stacks and their languages', s.voiceStacks.length === 2 && s.languages.some((l: any) => l.code === 'es') && s.stack === 'english-fast',
+check('the picker offers the stacks and their languages', s.voiceStacks.length === 4 && s.languages.some((l: any) => l.code === 'es') && s.stack === 'english-fast',
   JSON.stringify({ stacks: s.voiceStacks.map((x: any) => x.id), stack: s.stack, languages: s.languages.map((l: any) => l.code) }));
 let t = await page.evaluate(() => performance.now());
 await page.click('[data-testid="call-start"]');
@@ -109,6 +109,16 @@ await waitStatus('listening', await waitStatus('speaking', t));
 let r = await caller('Hi, I would like to book a visit for my daughter.', 'Samantha');
 check('an English call is heard as English on english-fast (Parakeet)', heardAs(r.log).at(-1) === 'en' && r.said.some(x => x.startsWith('bot:')), `${heardAs(r.log)} | ${r.said.join(' | ')}`);
 console.log(`      ${r.said.join(' | ').slice(0, 160)}; first audio ${r.firstAudio} ms`);
+// Changing from the English-only listener to Spanish must reconnect without losing the conversation.
+const beforeSwitch = (await snap()).messages.length;
+t = await page.evaluate(() => performance.now());
+await page.selectOption('[data-testid="call-language"]', 'es');
+const reconnected = await waitStatus('speaking', t, 180_000);
+await waitStatus('listening', reconnected, 180_000);
+s = await snap();
+check('switching an English call to Spanish reconnects on the multilingual stack and keeps the conversation',
+  reconnected > 0 && s.voice && s.stack === 'multilingual' && s.language === 'es' && s.messages.length >= beforeSwitch,
+  JSON.stringify({ stack: s.stack, language: s.language, voice: s.voice, messages: s.messages.length, beforeSwitch }));
 await page.click('[data-testid="call-end"]');
 
 // 2. Spanish, picked by the call button: the call moves to the multilingual stack, hears Spanish, answers in Spanish.
@@ -142,6 +152,20 @@ check('and the reply is spoken in French', FRENCH.test(frReply) && r.firstAudio 
 console.log(`      heard ${r.said.find(x => x.startsWith('user:'))}; said "${frReply.slice(0, 140)}"; first audio ${r.firstAudio} ms`);
 
 await page.click('[data-testid="call-end"]').catch(() => page.evaluate(() => (window as any).copilot.end()));
+// 4. Both newly supported combinations must answer a recorded English call.
+for (const stack of ['parakeet-kokoro', 'whisper-pocket']) {
+  await page.reload();
+  await page.waitForFunction(() => (window as any).copilot?.getSnapshot().voiceStacks?.length === 4, null, { timeout: 30_000 });
+  await page.selectOption('[data-testid="call-stack"]', stack);
+  t = await page.evaluate(() => performance.now());
+  await page.click('[data-testid="call-start"]');
+  const greetingStart = await waitStatus('speaking', t, 180_000);
+  await waitStatus('listening', greetingStart, 180_000);
+  r = await caller('I would like to book a visit for my daughter.', 'Samantha');
+  s = await snap();
+  check(`${stack} hears English and speaks a reply`, s.stack === stack && heardAs(r.log).at(-1) === 'en' && spokenLines(r.log).length > 0 && r.firstAudio > 0, `${s.stack} | ${r.said.join(' | ')}`);
+  await page.click('[data-testid="call-end"]');
+}
 await browser.close();
 await srv.close();
 fs.rmSync(tmp, { recursive: true, force: true });

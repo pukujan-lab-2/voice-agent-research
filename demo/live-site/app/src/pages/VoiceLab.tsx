@@ -4,6 +4,15 @@ import { CopilotWidget } from "@/components/copilot/CopilotWidget";
 import { useCopilot, useCopilotMount } from "@/hooks/useCopilot";
 import { COPILOT_CONFIGS } from "@/lib/copilot";
 
+const MODELS: Record<string, { listener: string; speaker: string }> = {
+  "english-fast": { listener: "parakeet", speaker: "pocket" },
+  "parakeet-kokoro": { listener: "parakeet", speaker: "kokoro" },
+  "whisper-pocket": { listener: "whisper", speaker: "pocket" },
+  multilingual: { listener: "whisper", speaker: "kokoro" },
+};
+const OTHER_LISTENERS = ["Parakeet v3", "Whisper large-v3", "faster-whisper large-v3", "Distil-Whisper", "Canary", "Voxtral", "Kyutai STT", "Granite Speech"];
+const OTHER_VOICES = ["Chatterbox", "VibeVoice", "Kyutai TTS", "Dia", "CSM", "NeuTTS", "MeloTTS", "Orpheus", "IndexTTS", "OmniVoice", "F5-TTS", "XTTS", "Fish Speech"];
+
 export default function VoiceLab() {
   useCopilotMount(COPILOT_CONFIGS.clinic);
   const { snapshot } = useCopilot();
@@ -14,16 +23,18 @@ export default function VoiceLab() {
       <h1 className="mt-3 text-4xl font-semibold tracking-tight">Choose a voice and try a call</h1>
       <p className="mt-4 max-w-2xl text-slate-600">Pick a voice stack and language, then use the call panel to try the sample form. The models run on the configured voice backend.</p>
       <Card className="mt-8"><CardHeader><CardTitle>Models in each available setup</CardTitle></CardHeader><CardContent>
-        <p className="mb-4 text-sm text-slate-600">Each setup is a tested combination. Choosing a listening or speaking model selects its matching setup; arbitrary combinations are not connected yet.</p>
+        <p className="mb-4 text-sm text-slate-600">Combine either connected listening model with either connected voice. All four pairs have passed recorded call checks.</p>
         <div className="grid gap-4 sm:grid-cols-2">
-          <label>Listening model<select className="mt-2 block w-full rounded-md border bg-white p-3" value={snapshot.stack ?? ""} disabled={snapshot.open || !snapshot.voiceStacks?.length} onChange={e => window.copilot?.setStack?.(e.target.value)}>
-            {(snapshot.voiceStacks ?? []).map(s => <option key={s.id} value={s.id}>{s.id === "english-fast" ? "Parakeet TDT v2" : "Whisper large-v3-turbo"}</option>)}
+          <label>Listening model<select className="mt-2 block w-full rounded-md border bg-white p-3" value={MODELS[snapshot.stack ?? ""]?.listener ?? "parakeet"} disabled={snapshot.open || !snapshot.voiceStacks?.length} onChange={e => { const match = (snapshot.voiceStacks ?? []).find(s => MODELS[s.id]?.listener === e.target.value && MODELS[s.id]?.speaker === MODELS[snapshot.stack ?? ""]?.speaker); if (match) window.copilot?.setStack?.(match.id); }}>
+            <option value="parakeet">Parakeet TDT v2</option><option value="whisper">Whisper large-v3-turbo</option>
+            <optgroup label="Not connected yet">{OTHER_LISTENERS.map(name => <option key={name} disabled>{name}</option>)}</optgroup>
           </select></label>
-          <label>Speaking model<select className="mt-2 block w-full rounded-md border bg-white p-3" value={snapshot.stack ?? ""} disabled={snapshot.open || !snapshot.voiceStacks?.length} onChange={e => window.copilot?.setStack?.(e.target.value)}>
-            {(snapshot.voiceStacks ?? []).map(s => <option key={s.id} value={s.id}>{s.id === "english-fast" ? "Pocket TTS" : "Kokoro-82M"}</option>)}
+          <label>Speaking model<select className="mt-2 block w-full rounded-md border bg-white p-3" value={MODELS[snapshot.stack ?? ""]?.speaker ?? "pocket"} disabled={snapshot.open || !snapshot.voiceStacks?.length} onChange={e => { const match = (snapshot.voiceStacks ?? []).find(s => MODELS[s.id]?.speaker === e.target.value && MODELS[s.id]?.listener === MODELS[snapshot.stack ?? ""]?.listener); if (match) window.copilot?.setStack?.(match.id); }}>
+            <option value="pocket">Pocket TTS</option><option value="kokoro">Kokoro-82M</option>
+            <optgroup label="Not connected yet">{OTHER_VOICES.map(name => <option key={name} disabled>{name}</option>)}</optgroup>
           </select></label>
         </div>
-        <p className="mt-4 text-sm">Response model: LFM3-1.7B on the configured server. Turn detection: {snapshot.stack === "multilingual" ? "LiveKit multilingual" : "LiveKit English"}.</p>
+        <p className="mt-4 text-sm">Response model: LFM3-1.7B on the configured server. Turn detection: {MODELS[snapshot.stack ?? ""]?.listener === "whisper" ? "LiveKit multilingual" : "LiveKit English"}.</p>
       </CardContent></Card>
       <div className="mt-8 grid gap-4 md:grid-cols-2">
         {(snapshot.voiceStacks ?? []).map(stack => (

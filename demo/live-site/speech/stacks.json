@@ -3,14 +3,28 @@
   "default": "english-fast",
   "stacks": {
     "english-fast": {
-      "label": "English, fastest",
+      "label": "Parakeet + Pocket TTS",
       "listens": "parakeet-tdt-0.6b-v2",
       "turns": "english",
       "speaks": "pocket-tts",
       "languages": ["en"]
     },
+    "parakeet-kokoro": {
+      "label": "Parakeet + Kokoro",
+      "listens": "parakeet-tdt-0.6b-v2",
+      "turns": "english",
+      "speaks": "kokoro",
+      "languages": ["en"]
+    },
+    "whisper-pocket": {
+      "label": "Whisper + Pocket TTS",
+      "listens": "whisper-large-v3-turbo",
+      "turns": "multilingual",
+      "speaks": "pocket-tts",
+      "languages": ["en"]
+    },
     "multilingual": {
-      "label": "Many languages",
+      "label": "Whisper + Kokoro (multilingual)",
       "listens": "whisper-large-v3-turbo",
       "turns": "multilingual",
       "speaks": "kokoro",

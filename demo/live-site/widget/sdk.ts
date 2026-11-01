@@ -146,7 +146,8 @@ let lastSearchMs: number | undefined;
 
 // Until the agent picks up, the caller hears a soft ringback made here (two short tones every 3 s, no audio file, no
 // browser speech). With no agent after AGENT_WAIT_MS, the call carries on as text instead of sitting on "Connecting…".
-const AGENT_WAIT_MS = 20_000;
+// A cold local worker can take over 20 seconds to register while loading speech models.
+const AGENT_WAIT_MS = 45_000;
 let ring: { ctx: AudioContext; timer: ReturnType<typeof setInterval> } | null = null;
 let agentTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -383,7 +384,12 @@ function setLanguage(code: string) {
   // A different listener/voice needs a new room. Keep this call's engine, draft, transcript and timer.
   if (reconnect) {
     // Let an in-flight language-request RPC return before replacing its room.
-    setTimeout(() => { if (snap.open && snap.voice) { stopVoice(); void startVoice(); } }, 1000);
+    const seq = voiceSeq;
+    setTimeout(() => {
+      if (seq === voiceSeq && snap.open && snap.voice && snap.stack === stack && snap.language === language) {
+        stopVoice(); void startVoice();
+      }
+    }, 1000);
     return;
   }
   void room?.localParticipant.setAttributes({ 'copilot.language': language }).catch(e => report('voice', `language: ${(e as Error).message}`));
