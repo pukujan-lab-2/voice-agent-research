@@ -54,7 +54,7 @@ A visitor opens the copilot on a site and talks to it. The copilot can:
 |---|---|
 | Form filling with read-back (engine) | Works; tested offline and with LFM3 |
 | Grounded answers on the IRS library | 100% of cited quotes real; vague questions are not clarified yet (0/100) |
-| Huge sites (search for prose, declared lookups for records) | Built and tested offline, not wired into the live site yet (waits for per-business config, #103): site ingestion pipeline (`ingest/`), section, page-type and language filters, a capped `search_site` tool, read-only record lookups with risk scores and caller verification, and automated evals. Measured limits (passages, latency per size, tool calls per turn) are in [docs/retrieval-limits.md](docs/retrieval-limits.md); decision [0018](docs/decisions/0018-huge-sites-search-prose-declared-lookups-records.md) |
+| Huge sites (search for prose, declared lookups for records) | Built and tested offline, not wired into the live site yet (waits for per-business config, #28): site ingestion pipeline (`ingest/`), section, page-type and language filters, a capped `search_site` tool, read-only record lookups with risk scores and caller verification, and automated evals. Measured limits (passages, latency per size, tool calls per turn) are in [docs/retrieval-limits.md](docs/retrieval-limits.md); decision [0018](docs/decisions/0018-huge-sites-search-prose-declared-lookups-records.md) |
 | Caller verification | 24/24 scenarios, no impostor verified, no leaks |
 | Voice | Uses browser speech today, which breaks the in-house rule. Being rebuilt on LiveKit Agents |
 | Hosting | https://copilot.design-bakery.com, every merge to `main` that passes CI goes live (decision 0016, `deploy/`) |

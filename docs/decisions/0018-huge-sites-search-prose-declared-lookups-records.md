@@ -19,10 +19,10 @@ What this settles:
 
 ## Why
 
-The owner asked how the copilot gets something to work with on huge sites: RAG, a database, or tool calls for both (#107). Prose and records need different handling: prose is long and fuzzy, so the copilot searches it and quotes; a record is exact, so it is looked up by key and read from declared fields. Making both tool calls keeps the model's job small (decision 0001's open models) and keeps code in charge of state and safety (0011).
+The owner asked how the copilot gets something to work with on huge sites: RAG, a database, or tool calls for both (#31). Prose and records need different handling: prose is long and fuzzy, so the copilot searches it and quotes; a record is exact, so it is looked up by key and read from declared fields. Making both tool calls keeps the model's job small (decision 0001's open models) and keeps code in charge of state and safety (0011).
 
 ## Consequences
 
 - Limits measured for passages, latency per size and calls per turn are in [../retrieval-limits.md](../retrieval-limits.md).
-- Wiring the retriever, `search_site` and the lookups into the live site per business waits for the per-business config (#103); until then a host builds them in code.
+- Wiring the retriever, `search_site` and the lookups into the live site per business waits for the per-business config (#28); until then a host builds them in code.
 - Declared lookups are equality matches on one table, read only. Joins, ranges, free-text search over records and writes need a new decision.
