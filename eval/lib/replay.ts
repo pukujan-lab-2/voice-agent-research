@@ -2,9 +2,11 @@
 //   recorded: the library path (copilot-engine's Guide) on the search, judge and sentence results the live system
 //             returned, so it needs no keys and gives the same answer every time. It tests our code around the models.
 //   live:     the same Guide on a real Octo search and the real judge (needs keys).
-//   site:     the desk path, by sending a case's recorded messages to a running site's /api/desk.
+//   site:     a running site: the library path through its search, judge and sentence routes, and the desk path by
+//             sending a case's recorded messages to its /api/desk. Needs no keys.
 import fs from 'node:fs';
 import { Guide, type Judge, type Retriever } from '../../copilot-engine/src/guide.ts';
+import { siteLibrary } from './site.ts';
 import { check, type Verdict } from './expect.ts';
 import type { Case } from './cases.ts';
 
@@ -13,15 +15,19 @@ const book = { id: 'irs', title: 'the tax guides', business: 'Brindlewick Tax & 
 
 export type Result = { case: Case; verdict: Verdict | null; reply: string; skipped?: string };
 
-export async function runGuide(c: Case, live?: (q: string) => Promise<{ reply: string; citedId?: string; quoted: boolean }>): Promise<Result> {
+export async function runGuide(c: Case, live?: (q: string) => Promise<{ reply: string; citedId?: string; quoted: boolean }>, site?: string): Promise<Result> {
   if (live) { const a = await live(c.input); return { case: c, reply: a.reply, verdict: check(c.expect, { reply: a.reply, cited: a.citedId, quoted: a.quoted }) }; }
-  const retriever: Retriever = { async search(q) { return c.recorded.searches.find(s => s.q === q)?.passages ?? []; } };
-  const judge: Judge = {
-    async pick(q) { return c.recorded.judges.find(j => j.q === q)?.id ?? ''; },
-    async sentences(q) { return c.recorded.sentences.find(s => s.q === q)?.idx ?? []; },
+  const recorded: { retriever: Retriever; judge: Judge } = {
+    retriever: { async search(q) { return c.recorded.searches.find(s => s.q === q)?.passages ?? []; } },
+    judge: {
+      async pick(q) { return c.recorded.judges.find(j => j.q === q)?.id ?? ''; },
+      async sentences(q) { return c.recorded.sentences.find(s => s.q === q)?.idx ?? []; },
+    },
   };
+  const { retriever, judge } = site ? siteLibrary(site) : recorded;
   const g = new Guide(book, retriever, judge);
-  const reply = await g.lookup(c.input);
+  let reply: string;
+  try { reply = await g.lookup(c.input); } catch (e) { return { case: c, reply: '', verdict: null, skipped: (e as Error).message }; }
   return { case: c, reply, verdict: check(c.expect, { reply, cited: g.last?.id, quoted: !!g.last }) };
 }
 

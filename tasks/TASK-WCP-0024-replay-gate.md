@@ -19,6 +19,14 @@ CI never runs an answer (#91)
 
 - `.github/workflows/ci.yml`
 - `.github/workflows/replay-live.yml`
+- `eval/post-replay.ts`
+- `eval/lib/standing.ts`
+- `eval/lib/site.ts`
+- `eval/cases/snapshot.json`
+- `eval/tests/*.test.ts`
+- `eval/README.md`
+- `package.json`
+- `tasks/TASK-WCP-0023-replay-cases.md`
 - `eval/replay.ts`
 - `eval/lib/*.ts`
 - `eval/fixtures/*`
@@ -36,9 +44,9 @@ A pull request that brings a flagged answer back is blocked, and answer quality 
 
 ## Acceptance criteria
 
-- [ ] CI replays the cases offline with recorded search results and fails the PR on a regression
+- [x] CI replays the cases offline with recorded search results and fails the PR on a regression
 - [ ] A reverted fix makes that check fail
-- [ ] The live set runs nightly and on every `production` move and posts to a standing issue
+- [ ] The live set runs nightly (the production-move run is #92: it must wait for the deploy) and posts to the standing issue #97
 - [ ] An issue opens when a rule's failure count rises
 
 ## Evidence and sources
@@ -52,7 +60,7 @@ Starting revision, material inputs/configuration, runtime, exact command or prom
 ## Related records
 
 - Leaf #91; parent #88; depends on WCP-0023 (#90); related #17, #12, #13, #15.
-- Primary writer / branch: claude-code / `task/WCP-0024-*` (not started); source issue open as of 2026-11-01.
+- Primary writer / branch: claude-code / `task/WCP-0024-replay-gate`; source issue open as of 2026-11-01.
 - Related PR/CI evidence and push receipt: none yet.
 
 ## Checkpoint log

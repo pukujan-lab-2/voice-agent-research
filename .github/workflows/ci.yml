@@ -45,6 +45,8 @@ jobs:
         run: npm test
       - name: Engine scenarios (rule model, offline)
         run: npm --prefix copilot-engine run scenarios
+      - name: Replay the guarded cases (recorded real turns; fails when a fixed answer comes back)
+        run: npm run replay
       - uses: astral-sh/setup-uv@v6
       - name: Lint Python (Ruff)
         run: uvx ruff@0.14.0 check .

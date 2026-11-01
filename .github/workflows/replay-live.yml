@@ -1,0 +1,47 @@
+name: Live replay
+
+# Replays every stored case against the public site (its own search, judge and desk model, so this needs no keys),
+# posts the counts on the standing issue and opens an issue when a rule's failure count rises. Runs every night.
+# A run after each deploy is a separate workflow (after-deploy.yml): it has to wait for Komodo to finish first.
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: replay-live
+  cancel-in-progress: false
+
+jobs:
+  replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SITE: https://copilot.design-bakery.com
+      STANDING_ISSUE: "97"
+      GH_REPO: ${{ github.repository }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            copilot-engine/package-lock.json
+      - run: npm ci
+      - run: npm ci --ignore-scripts
+        working-directory: copilot-engine
+      - name: Replay against the live site
+        run: node eval/replay.ts --snapshot --site "$SITE" --json "$RUNNER_TEMP/replay.json"
+      - name: Post the result
+        if: always() && hashFiles(format('{0}/replay.json', runner.temp)) != ''
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: node eval/post-replay.ts "$RUNNER_TEMP/replay.json"
