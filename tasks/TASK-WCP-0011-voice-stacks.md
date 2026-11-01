@@ -46,3 +46,26 @@ Blocked/uncertain:
 
 Next:
 - Finish the end-to-end Spanish and French turns (tests/voice-languages.ts), then arm auto-merge.
+
+### 2026-11-01 04:21:26 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["demo/live-site/speech/agent.py, demo/live-site/speech/server.py, demo/live-site/widget/sdk.ts, demo/live-site/tests/voice-languages.ts"],"completed":["Merged main (call recording, #62) into the voice-stacks branch; the call record now names the stack, its listener, voice, turn detector and the language the recogniser heard. Whisper gets 60 s per turn."],"decisions":["no new decisions"],"evidence":["npm run check passed after the merge (tests, tsc, knip, ruff, 8/8 scenarios)"],"next_action":"Rerun tests/voice-languages.ts for the Spanish and French live turns, then arm auto-merge on #61.","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0011","timestamp":"2026-11-01T04:21:26Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"2c90c663878892f2189ccb655d6c2dc47f9b7c6ef3bffbe9634a676fe029a152","request_id":"eeca67ee600a478abe75ff4fe356da58","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0011"} -->
+
+Completed:
+- Merged main (call recording, #62) into the voice-stacks branch; the call record now names the stack, its listener, voice, turn detector and the language the recogniser heard. Whisper gets 60 s per turn.
+
+Evidence:
+- npm run check passed after the merge (tests, tsc, knip, ruff, 8/8 scenarios)
+
+Decisions:
+- no new decisions
+
+Changed:
+- demo/live-site/speech/agent.py, demo/live-site/speech/server.py, demo/live-site/widget/sdk.ts, demo/live-site/tests/voice-languages.ts
+
+Blocked/uncertain:
+- none
+
+Next:
+- Rerun tests/voice-languages.ts for the Spanish and French live turns, then arm auto-merge on #61.
