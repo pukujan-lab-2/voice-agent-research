@@ -2366,3 +2366,11 @@
 {"ts":"2026-11-01T08:15:14.310Z","engine":"0.1.0","model":"rules","scenario":"5b wait at the card submits nothing and offers changes","pass":true,"detail":""}
 {"ts":"2026-11-01T08:15:14.311Z","engine":"0.1.0","model":"rules","scenario":"5c a change request at the card re-asks only that field","pass":true,"detail":""}
 {"ts":"2026-11-01T08:15:14.311Z","engine":"0.1.0","model":"rules","scenario":"6 every answer needs a yes; going back two questions returns to the open one","pass":true,"detail":""}
+{"ts":"2026-11-01T08:28:12.003Z","engine":"0.1.0","model":"rules","scenario":"1 serial read-back, mishear, correction","pass":true,"detail":""}
+{"ts":"2026-11-01T08:28:12.007Z","engine":"0.1.0","model":"rules","scenario":"2 off-scope is declined, then the task resumes","pass":true,"detail":""}
+{"ts":"2026-11-01T08:28:12.008Z","engine":"0.1.0","model":"rules","scenario":"3 changing an earlier answer changes only that field","pass":true,"detail":""}
+{"ts":"2026-11-01T08:28:12.010Z","engine":"0.1.0","model":"rules","scenario":"4 a yes before the confirm card submits nothing","pass":true,"detail":""}
+{"ts":"2026-11-01T08:28:12.012Z","engine":"0.1.0","model":"rules","scenario":"5 silence, maybe and wait never submit; a clear yes does","pass":true,"detail":""}
+{"ts":"2026-11-01T08:28:12.013Z","engine":"0.1.0","model":"rules","scenario":"5b wait at the card submits nothing and offers changes","pass":true,"detail":""}
+{"ts":"2026-11-01T08:28:12.015Z","engine":"0.1.0","model":"rules","scenario":"5c a change request at the card re-asks only that field","pass":true,"detail":""}
+{"ts":"2026-11-01T08:28:12.016Z","engine":"0.1.0","model":"rules","scenario":"6 every answer needs a yes; going back two questions returns to the open one","pass":true,"detail":""}

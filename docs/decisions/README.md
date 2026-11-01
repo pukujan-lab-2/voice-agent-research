@@ -17,3 +17,4 @@ One file per decision. A decision changes only through a new file that replaces 
 | 0011 | [The model leads; a risk score sets how it confirms](0011-model-leads-risk-sets-confirmation.md) | 2026-11-01 |
 | 0012 | [Voice calls run on swappable voice stacks](0012-swappable-voice-stacks.md) | 2026-11-01 |
 | 0013 | [The lfm3-audio stack is one model, listed in English only](0013-lfm3-audio-stack.md) | 2026-11-01 |
+| 0014 | [Voice models are swapped: only the stack in use is resident](0014-voice-models-are-swapped.md) | 2026-11-01 |

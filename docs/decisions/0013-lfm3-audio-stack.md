@@ -1,10 +1,10 @@
 # 0013. The lfm3-audio stack is one model, listed in English only
 
-**Status:** Accepted · **Date:** 2026-11-01 · **Refines:** [0012](0012-swappable-voice-stacks.md)
+**Status:** Accepted · **Date:** 2026-11-01 · **Refines:** [0012](0012-swappable-voice-stacks.md) · **Refined by:** [0014](0014-voice-models-are-swapped.md)
 
 ## Decision
 
-The `lfm3-audio` voice stack runs LFM3-Audio-2B as the listener, the voice and the model behind the desk's tool calls, on llama.cpp's server with the 4-bit `Q4_K_M` file. It starts on the first call that picks the stack, so a day on another stack never holds it in the M1's 8 GB. Turns end on voice activity alone, because the model has no turn detector of its own.
+The `lfm3-audio` voice stack runs LFM3-Audio-2B as the listener, the voice and the model behind the desk's tool calls, on llama.cpp's server with the 4-bit `Q4_K_M` file. It starts on the first call that picks the stack and ends when a different stack is picked (decision 0014), so a day on another stack never holds it in the M1's 8 GB. Turns end on voice activity alone, because the model has no turn detector of its own.
 
 Three things in it are mine, not the owner's, and the owner can reverse any of them:
 
@@ -22,7 +22,7 @@ The owner chose LFM3-Audio end to end (2026-10-31 and 2026-11-01, #71), and then
 
 ## Consequences
 
-- Memory is tight: with the owner's demo running, the call test (the model server, a second LiveKit server and the agent) took the Mac's swap to 7.2 of 8.2 GB, and the agent logged its voice-activity check running slower than real time. A fair call on this stack wants the other stacks' models unloaded.
+- Memory is tight: with the owner's demo running, the call test (the model server, a second LiveKit server and the agent) took the Mac's swap to 7.2 of 8.2 GB, and the agent logged its voice-activity check running slower than real time. Decision 0014 now unloads the other stacks' models when this one is picked.
 - Non-speech audio that gets past the voice-activity check can come back as "Thank you." (seen twice on 2 s of noise), which the desk would take as a turn.
 - On a turn where the model makes no call, its commentary can reach the reply ("Customer said …"), as it did once in the test. The desk's text rules did not catch it.
 - The owner decides whether a stack with LFM3-Audio's hearing and voice and the LFM3 text model deciding should exist, so the six languages work. It is a different stack from "LFM3-Audio end to end", so it is not built.

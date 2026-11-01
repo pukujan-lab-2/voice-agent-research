@@ -4,23 +4,28 @@
               file  ->  {"text", "language", "ms"}; lang is the caller's pick, left out to let the recogniser tell
   POST /tts   {"text", "stack", "lang"}  ->  streamed 16-bit PCM at X-Sample-Rate Hz, first sound as soon as it is made
   POST /log   one JSON line per call turn (the widget's timings), appended to speech/turns.jsonl
-  GET  /health
+  POST /load?stack=        swap a stack's models in (and the others' out) ahead of its first request
+  GET  /health             which stack is resident and what it loaded
 
 STT is NVIDIA Parakeet TDT 0.6B v2 (CC-BY-4.0, sherpa-onnx int8; docs/decisions/0002): about 0.4-1 s for a sentence
 on an M1, against 3-4 s for faster-whisper small.en, which pads every clip to 30 s. TTS is Kyutai's Pocket TTS (CPU, streams its first audio in about 0.2-0.5 s);
 Kokoro-82M is used instead when Pocket TTS can't load and speech/models/kokoro/ holds its files.
 
 Those two are the english-fast voice stack. The multilingual stack (speech/stacks.json, docs/decisions/0012) listens with
-Whisper large-v3-turbo on Apple's GPU (mlx-whisper) and speaks with Kokoro in the caller's language. Its models load on
-the first call that uses them, so an English-only day doesn't hold them in this machine's 8 GB.
+Whisper large-v3-turbo on Apple's GPU (mlx-whisper) and speaks with Kokoro in the caller's language.
 
 The lfm3-audio stack is one model for all of it: LFM3-Audio-2B on llama.cpp's server (speech/models/lfm3-audio/) hears the
 caller's turn (/stt), speaks the reply (/tts) and, for the page's desk, answers the tool calls (api.ts reaches the same
-process at LFM3_AUDIO_URL). It starts on the first call that picks the stack.
+process at LFM3_AUDIO_URL).
+
+Models are swapped, not run all at once (docs/decisions/0014): only the stack in use is resident. The default stack is
+loaded at start (--stack, or SPEECH_PRELOAD; 'none' loads nothing) so its first call is fast. A request that names another
+stack unloads the models that stack does not use and loads its own, once nothing is still running on the old ones; models
+two stacks share stay. Stacks.use() is the one place that happens.
 
 Run: speech/.venv/bin/python speech/server.py [--port 8799]   (server.ts starts it when it isn't running)
 """
-import argparse, atexit, base64, io, json, os, re, subprocess, sys, threading, time, urllib.error, urllib.request
+import argparse, atexit, base64, contextlib, ctypes, gc, io, json, os, re, subprocess, sys, threading, time, urllib.error, urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import numpy as np
@@ -50,6 +55,13 @@ class Stt:
             tokens=d + 'tokens.txt', model_type='nemo_transducer', num_threads=4)
         self.lock = threading.Lock()
         self.confidence: float | None = None
+        # The first real utterance of each length is slow until the model has seen it, so warm up on a few lengths of quiet noise.
+        rng = np.random.default_rng(0)
+        for secs in (0.8, 1.5, 2.5, 4.0):
+            self((rng.standard_normal(int(16000 * secs)) * 0.01).astype('float32'), 16000)
+
+    def close(self) -> None:
+        self.rec = None
 
     def __call__(self, audio: np.ndarray, sr: int, lang: str | None = None) -> tuple[str, str]:
         # A last word that ends right at the clip's edge can be dropped, so pad both ends with a little silence.
@@ -75,6 +87,17 @@ class WhisperStt:
         with self.lock:
             self.mw.transcribe(np.zeros(16000, 'float32'), path_or_hf_repo=WHISPER, language='en')
 
+    def close(self) -> None:
+        # mlx_whisper keeps the loaded model on a class, and MLX keeps freed GPU buffers cached: drop both. (The package's
+        # `transcribe` is the function, which hides the module of that name, so the module comes from sys.modules.)
+        holder = getattr(sys.modules.get('mlx_whisper.transcribe'), 'ModelHolder', None)
+        if holder is not None:
+            holder.model, holder.model_path = None, None
+        gc.collect()
+        with contextlib.suppress(Exception):
+            import mlx.core as mx
+            (getattr(mx, 'clear_cache', None) or mx.metal.clear_cache)()
+
     def __call__(self, audio: np.ndarray, sr: int, lang: str | None = None) -> tuple[str, str]:
         if sr != 16000:
             audio = np.interp(np.arange(0, len(audio), sr / 16000), np.arange(len(audio)), audio).astype('float32')
@@ -92,6 +115,9 @@ class PocketTts:
         self.rate = self.model.sample_rate
         self.lock = threading.Lock()
 
+    def close(self) -> None:
+        self.model, self.voice = None, None
+
     def stream(self, text: str, stop: threading.Event, lang: str = 'en'):
         with self.lock:
             for chunk in self.model.generate_audio_stream(self.voice, text, stop=stop):
@@ -106,6 +132,9 @@ class KokoroTts:
         self.voice = voice if voice in self.k.get_voices() else 'af_heart'
         self.rate = 24000
         self.lock = threading.Lock()
+
+    def close(self) -> None:
+        self.k = None
 
     def stream(self, text: str, stop: threading.Event, lang: str = 'en'):
         # The caller's language picks Kokoro's pronunciation and a voice made for it (speech/stacks.json).
@@ -133,6 +162,10 @@ class Cached:
         self.tts, self.rate, self.size = tts, tts.rate, size
         self.made: dict[str, list] = {}
         self.lock = threading.Lock()
+
+    def close(self) -> None:
+        self.made.clear()
+        self.tts.close()
 
     def stream(self, text: str, stop: threading.Event, lang: str = 'en'):
         key = f"{lang} {' '.join(text.split())}"
@@ -189,6 +222,17 @@ class Lfm3Audio:
         atexit.register(self.proc.terminate)
         return f'http://127.0.0.1:{LFM3_AUDIO_PORT}'
 
+    def close(self) -> None:
+        # The model lives in the llama.cpp process: ending it gives its 1.5 GB back. A server we did not start is left running.
+        if self.proc and self.proc.poll() is None:
+            atexit.unregister(self.proc.terminate)
+            self.proc.terminate()
+            try:
+                self.proc.wait(20)
+            except subprocess.TimeoutExpired:
+                self.proc.kill()
+                self.proc.wait()
+
     def _post(self, path: str, body: dict, timeout: float = 60):
         req = urllib.request.Request(self.url + path, data=json.dumps(body).encode(), headers={'content-type': 'application/json'})
         return urllib.request.urlopen(req, timeout=timeout)
@@ -228,6 +272,9 @@ class _Lfm3Voice:
     def __init__(self, model: Lfm3Audio):
         self.model, self.rate = model, model.rate
 
+    def close(self) -> None:
+        pass  # the model's own close ends the server
+
     def stream(self, text: str, stop: threading.Event, lang: str = 'en'):
         yield from self.model.stream(text, stop, lang)
 
@@ -243,30 +290,83 @@ def load_tts(voice: str):
 
 
 class Stacks:
-    """Each voice stack's listener and voice. english-fast's are loaded at start; the others on their first call."""
+    """The voice stacks' models, swapped and not kept all at once (docs/decisions/0014): only the models of the stack in
+    use are resident. A request names its stack in use(); when that is not the resident stack, the models it does not use
+    are unloaded and its own loaded, once nothing is still running on the old ones. Models two stacks share stay."""
 
-    def __init__(self, stt: Stt, tts):
-        self.made = {'parakeet-tdt-0.6b-v2': stt, 'pocket-tts': tts}
-        if not isinstance(tts.tts, PocketTts):
-            self.made['kokoro'] = tts
-        self.lock = threading.Lock()
+    def __init__(self, voice: str = 'alba'):
+        self.voice_name = voice
+        self.made: dict[str, object] = {}  # the resident models, by the names stacks.json gives them
+        self.active: str | None = None
+        self.busy: dict[str, int] = {}     # requests running on each stack
+        self.cond = threading.Condition()
+        self.last_swap: dict = {}
+
+    def _build(self, name: str):
+        if name == 'parakeet-tdt-0.6b-v2':
+            return Stt()
+        if name == 'pocket-tts':
+            tts = Cached(load_tts(self.voice_name))
+            for line in COMMON:  # lines said again and again start at once, from the first call
+                for _ in tts.stream(line, threading.Event()):
+                    pass
+            return tts
+        if name == 'kokoro':
+            return Cached(KokoroTts('af_heart'))
+        if name.startswith('whisper'):
+            return WhisperStt()
+        if name == 'lfm3-audio':
+            return Lfm3Audio()
+        raise KeyError(name)
+
+    def _swap(self, stack: str) -> None:
+        parts = STACKS['stacks'][stack]
+        need = [n for n in dict.fromkeys((parts['listens'], parts['speaks']))]
+        t = time.time()
+        gone = [n for n in self.made if n not in need]
+        for n in gone:
+            model = self.made.pop(n)
+            with contextlib.suppress(Exception):
+                model.close()  # type: ignore[attr-defined]
+            del model
+        if gone:
+            gc.collect()
+            with contextlib.suppress(Exception):  # hand the freed pages back to macOS now, not when it next needs them
+                ctypes.CDLL(None).malloc_zone_pressure_relief(0, 0)
+        freed = time.time() - t
+        added = []
+        for n in need:
+            if n not in self.made:
+                t1 = time.time()
+                self.made[n] = self._build(n)
+                added.append(n)
+                log(f'{n} ready in {time.time() - t1:.1f} s')
+        self.last_swap = {'from': self.active, 'to': stack, 'unloaded': gone, 'loaded': added, 'unload_ms': round(freed * 1000), 'total_ms': round((time.time() - t) * 1000)}
+        log(f"stack {self.active} -> {stack}: unloaded {gone or 'nothing'}, loaded {added or 'nothing'} in {time.time() - t:.1f} s")
+        self.active = stack
+
+    @contextlib.contextmanager
+    def use(self, stack: str):
+        """Hold a stack's models for one request; loads them first, swapping out another stack's, if they are not resident."""
+        stack = stack if stack in STACKS['stacks'] else STACKS['default']
+        with self.cond:
+            while any(n for s, n in self.busy.items() if s != stack and n):
+                self.cond.wait()  # a request on the old stack is still using its models
+            if self.active != stack or any(n not in self.made for n in (STACKS['stacks'][stack]['listens'], STACKS['stacks'][stack]['speaks'])):
+                self._swap(stack)
+            self.busy[stack] = self.busy.get(stack, 0) + 1
+        try:
+            yield stack
+        finally:
+            with self.cond:
+                self.busy[stack] -= 1
+                self.cond.notify_all()
 
     def part(self, stack: str, kind: str):
-        name = STACKS['stacks'].get(stack, STACKS['stacks'][STACKS['default']])[kind]
-        with self.lock:
-            if name not in self.made:
-                t = time.time()
-                self.made[name] = (Lfm3Audio() if name == 'lfm3-audio' else WhisperStt() if name.startswith('whisper')
-                                   else Cached(KokoroTts('af_heart')))
-                log(f'{name} ready in {time.time() - t:.1f} s')
-            # lfm3-audio is one model: the listener is the model itself, the voice is its cached /tts.
-            return self.made[name].voice if name == 'lfm3-audio' and kind == 'speaks' else self.made[name]
-
-    def listener(self, stack: str):
-        return self.part(stack, 'listens')
-
-    def voice(self, stack: str):
-        return self.part(stack, 'speaks')
+        """The stack's listener or voice. Call inside use(stack)."""
+        name = STACKS['stacks'][stack][kind]
+        # lfm3-audio is one model: the listener is the model itself, the voice is its cached /tts.
+        return self.made[name].voice if name == 'lfm3-audio' and kind == 'speaks' else self.made[name]
 
 
 def read_audio(body: bytes, ctype: str, sr_param: str | None):
@@ -299,9 +399,10 @@ def handler(stacks: Stacks, turns_path: str):
 
         def do_GET(self):
             if self.path == '/health':
-                tts = stacks.made['pocket-tts']
-                return self.json(200, {'ok': True, 'stt': 'parakeet-tdt-0.6b-v2', 'tts': type(tts.tts).__name__, 'rate': tts.rate,
-                                       'loaded': sorted(stacks.made), 'rates': {'kokoro': 24000, 'pocket-tts': tts.rate, 'lfm3-audio': 24000}})
+                parts = STACKS['stacks'][stacks.active or STACKS['default']]
+                return self.json(200, {'ok': True, 'stt': parts['listens'], 'tts': parts['speaks'], 'rate': 24000, 'active': stacks.active,
+                                       'loaded': sorted(stacks.made), 'last_swap': stacks.last_swap,
+                                       'rates': {'kokoro': 24000, 'pocket-tts': 24000, 'lfm3-audio': 24000}})
             self.json(404, {'error': 'not found'})
 
         def do_POST(self):
@@ -316,11 +417,20 @@ def handler(stacks: Stacks, turns_path: str):
                 lang = q.get('lang') or None
                 if len(audio) < sr * 0.15:
                     return self.json(200, {'text': '', 'language': lang or '', 'ms': 0})
-                listener = stacks.listener(q.get("stack", ""))
-                text, heard = listener(audio, sr, lang)
+                with stacks.use(q.get('stack', '')) as stack:
+                    listener = stacks.part(stack, 'listens')
+                    t = time.time()  # the turn's time, not the wait for a swap
+                    text, heard = listener(audio, sr, lang)
+                    confidence = listener.confidence
                 ms = round((time.time() - t) * 1000)
                 log(f'stt {ms} ms, {len(audio) / sr:.1f} s audio, {heard}:', text[:80])
-                return self.json(200, {'text': text, 'language': heard, 'ms': ms, 'seconds': round(len(audio) / sr, 2), 'confidence': listener.confidence})
+                return self.json(200, {'text': text, 'language': heard, 'ms': ms, 'seconds': round(len(audio) / sr, 2), 'confidence': confidence})
+            if path == '/load':
+                # Swap a stack's models in (and the others' out) ahead of its first request: the agent asks before it greets.
+                t = time.time()
+                with stacks.use(q.get('stack', '')) as stack:
+                    pass
+                return self.json(200, {'ok': True, 'stack': stack, 'loaded': sorted(stacks.made), 'ms': round((time.time() - t) * 1000), 'swap': stacks.last_swap})
             if path == '/tts':
                 try:
                     b = json.loads(self.body() or b'{}')
@@ -328,33 +438,34 @@ def handler(stacks: Stacks, turns_path: str):
                 except ValueError:
                     return self.json(400, {'error': 'bad json'})
                 lang = str(b.get('lang') or 'en').split('-')[0]
-                tts = stacks.voice(str(b.get('stack') or ''))
                 if not text:
                     return self.json(400, {'error': 'no text'})
-                t = time.time()
-                stop = threading.Event()
-                self.send_response(200)
-                self.send_header('content-type', 'audio/L16')
-                self.send_header('x-sample-rate', str(tts.rate))
-                self.send_header('transfer-encoding', 'chunked')
-                self.send_header('cache-control', 'no-store')
-                self.end_headers()
-                first, samples = None, 0
-                try:
-                    for chunk in tts.stream(text, stop, lang):
-                        pcm = (np.clip(chunk, -1, 1) * 32767).astype('<i2').tobytes()
-                        if first is None:
-                            first = round((time.time() - t) * 1000)
-                        samples += len(chunk)
-                        self.wfile.write(f'{len(pcm):x}\r\n'.encode() + pcm + b'\r\n')
-                        self.wfile.flush()
-                    self.wfile.write(b'0\r\n\r\n')
-                except (BrokenPipeError, ConnectionResetError):
-                    # The caller talked over it: the widget dropped the stream, so stop making audio.
-                    stop.set()
-                    log('tts stopped by the caller')
-                    self.close_connection = True
-                log(f'tts first {first} ms, total {round((time.time() - t) * 1000)} ms, {samples / tts.rate:.1f} s audio:', text[:60])
+                with stacks.use(str(b.get('stack') or '')) as stack:  # held until the last chunk is sent, so a swap waits for it
+                    tts = stacks.part(stack, 'speaks')
+                    t = time.time()
+                    stop = threading.Event()
+                    self.send_response(200)
+                    self.send_header('content-type', 'audio/L16')
+                    self.send_header('x-sample-rate', str(tts.rate))
+                    self.send_header('transfer-encoding', 'chunked')
+                    self.send_header('cache-control', 'no-store')
+                    self.end_headers()
+                    first, samples = None, 0
+                    try:
+                        for chunk in tts.stream(text, stop, lang):
+                            pcm = (np.clip(chunk, -1, 1) * 32767).astype('<i2').tobytes()
+                            if first is None:
+                                first = round((time.time() - t) * 1000)
+                            samples += len(chunk)
+                            self.wfile.write(f'{len(pcm):x}\r\n'.encode() + pcm + b'\r\n')
+                            self.wfile.flush()
+                        self.wfile.write(b'0\r\n\r\n')
+                    except (BrokenPipeError, ConnectionResetError):
+                        # The caller talked over it: the widget dropped the stream, so stop making audio.
+                        stop.set()
+                        log('tts stopped by the caller')
+                        self.close_connection = True
+                    log(f'tts first {first} ms, total {round((time.time() - t) * 1000)} ms, {samples / tts.rate:.1f} s audio:', text[:60])
                 return
             if path == '/log':
                 line = self.body().decode('utf-8', 'replace').strip()
@@ -373,23 +484,16 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--port', type=int, default=int(os.environ.get('SPEECH_PORT', 8799)))
     ap.add_argument('--voice', default=os.environ.get('SPEECH_VOICE', 'alba'))
+    ap.add_argument('--stack', default=os.environ.get('SPEECH_PRELOAD', STACKS['default']),
+                    help="the stack loaded at start so its first call is fast; 'none' loads nothing until a call picks a stack")
     a = ap.parse_args()
-    t = time.time()
-    stt = Stt()
-    log(f'stt ready in {time.time() - t:.1f} s')
-    t = time.time()
-    tts = load_tts(a.voice)
-    # Warm both up so the first caller doesn't pay for it.
-    # The first real utterance of each length is slow until the model has seen it, so warm up on a few lengths of quiet noise.
-    rng = np.random.default_rng(0)
-    for secs in (0.8, 1.5, 2.5, 4.0):
-        stt((rng.standard_normal(int(16000 * secs)) * 0.01).astype('float32'), 16000)
-    tts = Cached(tts)
-    for line in COMMON:
-        for _ in tts.stream(line, threading.Event()):
+    stacks = Stacks(a.voice)
+    if a.stack != 'none':
+        t = time.time()
+        with stacks.use(a.stack):
             pass
-    log(f'tts ready in {time.time() - t:.1f} s ({type(tts.tts).__name__}, {tts.rate} Hz)')
-    srv = ThreadingHTTPServer(('127.0.0.1', a.port), handler(Stacks(stt, tts), os.path.join(HERE, 'turns.jsonl')))
+        log(f'{stacks.active} ready in {time.time() - t:.1f} s')
+    srv = ThreadingHTTPServer(('127.0.0.1', a.port), handler(stacks, os.path.join(HERE, 'turns.jsonl')))
     log(f'speech on http://127.0.0.1:{a.port}')
     srv.serve_forever()
 

@@ -75,17 +75,15 @@ class LocalSTT(stt.STT):
 
     async def warm(self) -> None:
         # Parakeet is slow on its first turn after a while idle; Whisper is warmed when it loads, and a second call on
-        # it would only queue behind the caller's first turn. LFM3-Audio is started by the first request that names it,
-        # so the call asks for it before the greeting (which would otherwise wait for it past the voice's 10 s).
-        if not self._voice.parts['listens'].startswith(('parakeet', 'lfm3-audio')):
+        # it would only queue behind the caller's first turn.
+        if not self._voice.parts['listens'].startswith('parakeet'):
             return
         import numpy as np
         noise = (np.random.default_rng().standard_normal(16000 * 2) * 0.01).astype(np.float32).tobytes()
         try:
-            async with self._http.post(f'{SPEECH}/stt', params={'sr': 16000, 'stack': self._voice.stack, 'lang': 'en'}, data=noise, headers={'content-type': 'application/octet-stream'},
-                                       timeout=aiohttp.ClientTimeout(total=300)) as r:
+            async with self._http.post(f'{SPEECH}/stt', params={'sr': 16000, 'stack': self._voice.stack, 'lang': 'en'}, data=noise, headers={'content-type': 'application/octet-stream'}) as r:
                 await r.read()
-        except (aiohttp.ClientError, asyncio.TimeoutError):
+        except aiohttp.ClientError:
             pass
 
     def _timeout(self, conn_options: APIConnectOptions) -> float:
@@ -218,6 +216,19 @@ def prewarm(proc: JobProcess):
 server.setup_fnc = prewarm
 
 
+async def load_stack(http: aiohttp.ClientSession, stack: str) -> None:
+    """Models are swapped, not run all at once (docs/decisions/0014): the speech server unloads the stack in use before this
+    one's load, which can take a few seconds to a minute, so a call waits for it here and not in the middle of its greeting."""
+    t = time.perf_counter()
+    try:
+        async with http.post(f'{SPEECH}/load', params={'stack': stack}, timeout=aiohttp.ClientTimeout(total=300)) as r:
+            r.raise_for_status()
+            swap = (await r.json()).get('swap') or {}
+        print('stack', stack, 'ready in', round(time.perf_counter() - t, 1), 's', 'swap:', swap.get('unloaded') or '-', '->', swap.get('loaded') or '-', flush=True)
+    except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+        print('stack load failed, the first request will try again:', e, flush=True)
+
+
 def voice_parts(http: aiohttp.ClientSession, voice: Voice, rates: dict) -> tuple[LocalSTT, LocalTTS, object]:
     """The stack's listener, voice and turn detector. lfm3-audio is one model that hears and speaks (speech/server.py runs it
     on llama.cpp), so it has no turn detector of its own: the Silero VAD ends a turn after a short silence. The engine's
@@ -241,8 +252,7 @@ async def entrypoint(ctx: JobContext):
     tel = CallTelemetry(ctx.room.name, {'stack': voice.stack, 'stt': f'{stt_.provider}:{stt_.model}', 'tts': f'{tts_.provider}:{tts_.model}',
                                         'turn_detector': 'silero-vad' if turns == 'vad' else f"livekit-{voice.parts['turns']}", 'vad': 'silero', 'language': voice.picked or 'heard'})
     agent = Copilot(ctx.room, caller.identity, stt_, tts_, tel, voice)
-    if voice.parts['listens'] == 'lfm3-audio':
-        await stt_.warm()  # the model loads once, before the greeting asks the voice for audio
+    await load_stack(http, voice.stack)  # this stack's models in and the last stack's out, before the greeting asks the voice for audio
     session = AgentSession(
         vad=ctx.proc.userdata['vad'], stt=stt_, tts=tts_,
         turn_handling={

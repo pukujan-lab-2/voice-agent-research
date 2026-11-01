@@ -33,7 +33,13 @@ The owner can pick LFM3-Audio for a call, like any other stack, and the reposito
 - Out of scope: other stacks, model comparisons beyond the one tool-calling test, the staff insights page (#17), machine routing.
 - Dependencies/uncertainty: weights of about 1.4 GB need the owner's approval before download. If a call cannot run on this Mac, the findings, test results and limits are merged and posted on #71 with the next action.
 
+## Revised scope (2026-11-01, after the first merge, #77)
+
+The owner asked, after PR #77 merged, that voice models be swapped and not run all at once ("i hope we dont run them all at once pls use them with swap set them up with swap", relayed to #71; #71 was reopened). This task now also covers: the speech server keeps only the resident stack's models and swaps on demand, the agent asks for the swap before it greets, a swap test on this Mac, and decision 0014. Allowed files gain `demo/live-site/speech/agent.py` and `server.py` (already listed) and `docs/decisions/0014-*`.
+
 ## Acceptance criteria
+
+- [x] Swap (added 2026-11-01): a call that picks a different stack unloads the models the new stack does not use and loads its own; a swap test on this Mac shows the resident set and memory after each step; decision 0014 records it.
 
 - [x] `lfm3-audio` is in `speech/stacks.json`, pickable by owner, visitor and business default, and shown in `/voice-lab`, with only the languages a call test shows.
 - [x] The LiveKit adapter lets LFM3-Audio hear the caller and speak the reply, and fills still pass the decision 0011 code lock.
@@ -118,6 +124,29 @@ Decisions:
 
 Changed:
 - docs/03-lfm3-omni-voice.md, docs/decisions/{0012,0013,README}.md, PROJECT.md, tasks/TASK-WCP-0016-lfm3-audio-stack.md, demo/live-site/tests/voice-tools.ts, copilot-engine/ledger.jsonl
+
+Blocked/uncertain:
+- none
+
+Next:
+- Wait for the required checks on the pull request, confirm the merge and that issue 71 closed, then remove the worktree with continuity worktree remove WCP-0016
+
+### 2026-11-01 08:28:18 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":["none"],"changed":["demo/live-site/speech/{server.py,agent.py}, docs/decisions/{0012,0013,0014,README}.md, docs/03-lfm3-omni-voice.md, tasks/TASK-WCP-0016-lfm3-audio-stack.md, copilot-engine/ledger.jsonl"],"completed":["Voice models ran all at once on an 8 GB Mac that was already swapping, against the owner's direction to swap them. The speech server now keeps only the stack in use resident, the agent asks for the swap before it greets, and decision 0014 records how it works and what it cost."],"decisions":["0014: only the stack in use is resident; the agent asks for the swap before it greets; the default stack is loaded at start; a swap waits for requests still running; nothing unloads when a call ends"],"evidence":["Swap test on this Mac, one pass through english-fast, lfm3-audio, english-fast, multilingual, lfm3-audio: the resident set was exactly one stack's models after every step; the server's footprint went 1.78 GB, 0.31 GB, 1.77 GB, 3.20 GB, 1.11 GB; Whisper's graphics memory fell from 1,546 MB to 3 MB once unloaded through its module; a swap asked during an 18 s reply waited for it and the reply arrived complete. One real LiveKit call started with english-fast resident and swapped to lfm3-audio in 3.3 s before its greeting. npm run check passed (50 engine tests, 8 of 8 scenarios, ruff, tsc)."],"next_action":"Wait for the required checks on the pull request, confirm the merge and that issue 71 closed, then remove the worktree with continuity worktree remove WCP-0016","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0016","timestamp":"2026-11-01T08:28:18Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"bdaaf3c51b53ac0ed31ca1a020a06c0b204bbfc209a7e527abf19ef3ef366588","request_id":"cb95e11c815a4b35ba4c2f35d94721d9","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0016"} -->
+
+Completed:
+- Voice models ran all at once on an 8 GB Mac that was already swapping, against the owner's direction to swap them. The speech server now keeps only the stack in use resident, the agent asks for the swap before it greets, and decision 0014 records how it works and what it cost.
+
+Evidence:
+- Swap test on this Mac, one pass through english-fast, lfm3-audio, english-fast, multilingual, lfm3-audio: the resident set was exactly one stack's models after every step; the server's footprint went 1.78 GB, 0.31 GB, 1.77 GB, 3.20 GB, 1.11 GB; Whisper's graphics memory fell from 1,546 MB to 3 MB once unloaded through its module; a swap asked during an 18 s reply waited for it and the reply arrived complete. One real LiveKit call started with english-fast resident and swapped to lfm3-audio in 3.3 s before its greeting. npm run check passed (50 engine tests, 8 of 8 scenarios, ruff, tsc).
+
+Decisions:
+- 0014: only the stack in use is resident; the agent asks for the swap before it greets; the default stack is loaded at start; a swap waits for requests still running; nothing unloads when a call ends
+
+Changed:
+- demo/live-site/speech/{server.py,agent.py}, docs/decisions/{0012,0013,0014,README}.md, docs/03-lfm3-omni-voice.md, tasks/TASK-WCP-0016-lfm3-audio-stack.md, copilot-engine/ledger.jsonl
 
 Blocked/uncertain:
 - none
