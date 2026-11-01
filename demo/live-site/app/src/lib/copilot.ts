@@ -80,6 +80,8 @@ export interface CopilotDesk {
   greeting: string;
   advice: string;
   book?: { text: string; href: string };
+  /** Forms the copilot offers to start when an answer is about doing something: `when` is a regular expression (source) tested on the lookup question. */
+  offers?: { when: string; href: string; label: string; say: string }[];
 }
 
 export interface CopilotConfig {
@@ -372,6 +374,18 @@ function TAX_BASE(): CopilotConfig {
       advice:
         "That depends on your own situation, so it's one for a Brindlewick preparer: they'll go through it with you at a consultation. I only answer general questions from the tax guides.",
       book: { text: "Book a consultation", href: "/tax/book" },
+      offers: [
+        { when: "(payment plan|installment|pay over time|cant pay|can't pay|unable to pay|how (do|can) (i|we) pay (what|my|the))", href: "/tax/payment-plan", label: "the payment plan request",
+          say: "I can open the payment plan request and fill it in with you. Want me to?" },
+        { when: "(notice|letter) from the irs|irs (notice|letter)|(got|received|have) a (notice|letter)", href: "/tax/notice", label: "the notice form",
+          say: "I can open the form for sending us your notice and fill it in with you. Want me to?" },
+        { when: "(amend|amended return|prior.?year|old return|late return|back taxes|haven.?t filed|copy of my return)", href: "/tax/prior-year", label: "the prior-year return request",
+          say: "I can open the prior-year return request and fill it in with you. Want me to?" },
+        { when: "(change|update).*(my )?address|i (moved|have moved)", href: "/tax/address-change", label: "the change of address form",
+          say: "I can open the change of address form and fill it in with you. Want me to?" },
+        { when: "how (do|can|should|to)\\b.*\\b(file|fill|prepare|e-?file|start)\\b|can (i|we)\\b.*\\b(file|e-?file|prepare)\\b|(file|fill out|prepare|start) (my|a|the|our)\\b.*(return|taxes|1040)", href: "/tax/start", label: "the new-client form",
+          say: "I can't file it for you on this page, but I can open the new-client form and go through it with you, so a preparer takes it from there. Want me to?" },
+      ],
     },
     verify: {
       handoff: "A Brindlewick team member can help you with that: book a consultation, or call the office at 555-0100 on weekdays.",
