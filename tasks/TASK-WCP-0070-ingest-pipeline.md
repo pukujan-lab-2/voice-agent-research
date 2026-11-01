@@ -86,6 +86,29 @@ Blocked/uncertain:
 Next:
 - Open the PR for #108, then add the section, page-type and language filters (#109)
 
+### 2026-11-01 23:17:38 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["tasks/TASK-WCP-0070-ingest-pipeline.md (merge of main and issue links)"],"completed":["The ingestion branch now sits on the moved repository's main with its issue links pointing at pukujan-lab-2 (#32), and the full check still passes"],"decisions":["none"],"evidence":["npm run check passes after merging the new main (31 Python tests, 92 engine tests, scenarios)"],"next_action":"Merge PR #52 when CI passes, then #53 to #56 in order","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0070","timestamp":"2026-11-01T23:17:38Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"4efaa041231c05ff05d7948253798626ae0ceca611cd1ea1891ec657f12ba4e7","request_id":"1013ad31f1da409c876d686c49011140","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0070"} -->
+
+Completed:
+- The ingestion branch now sits on the moved repository's main with its issue links pointing at pukujan-lab-2 (#32), and the full check still passes
+
+Evidence:
+- npm run check passes after merging the new main (31 Python tests, 92 engine tests, scenarios)
+
+Decisions:
+- none
+
+Changed:
+- tasks/TASK-WCP-0070-ingest-pipeline.md (merge of main and issue links)
+
+Blocked/uncertain:
+- none
+
+Next:
+- Merge PR #52 when CI passes, then #53 to #56 in order
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
