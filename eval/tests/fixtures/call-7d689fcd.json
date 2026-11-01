@@ -1,0 +1,826 @@
+[
+ {
+  "name": "call",
+  "context": {
+   "trace_id": "7ec858b6f72fe58836bb657ecce78e1a",
+   "span_id": "685472c54da836e5"
+  },
+  "parent_id": null,
+  "start_time": "2026-11-01T17:10:08.404000+00:00",
+  "end_time": "2026-11-01T17:12:51.136000+00:00",
+  "status_code": "UNSET",
+  "attributes": {
+   "call.id": "7d689fcd-fe99-439c-8350-6305244e2875",
+   "call.end": "2026-11-01T17:12:51.136Z",
+   "call.ended": "caller hung up",
+   "call.pages": "/tax",
+   "call.start": "2026-11-01T17:10:08.404Z",
+   "call.turns": 7,
+   "call.channel": "voice",
+   "call.outcome": "finished",
+   "call.business": "Brindlewick Tax & Accounting",
+   "call.failures": 0,
+   "call.happened": "",
+   "call.language.picked": "en",
+   "call.first_page": "/tax",
+   "voice.stt": "local:parakeet-tdt-0.6b-v2",
+   "voice.tts": "local:pocket-tts",
+   "voice.vad": "silero",
+   "voice.stack": "english-fast",
+   "voice.language": "en",
+   "voice.turn_detector": "livekit-english",
+   "output.value": "finished",
+   "session.id": "7d689fcd-fe99-439c-8350-6305244e2875"
+  }
+ },
+ {
+  "name": "voice.call",
+  "context": {
+   "trace_id": "e9511b2f2f3dfae16bc03a476848fb8b",
+   "span_id": "05f8bb0aea623d9e"
+  },
+  "parent_id": null,
+  "start_time": "2026-11-01T17:10:12.666864+00:00",
+  "end_time": "2026-11-01T17:13:11.870434+00:00",
+  "status_code": "UNSET",
+  "attributes": {
+   "call.id": "7d689fcd-fe99-439c-8350-6305244e2875",
+   "voice.stt": "local:parakeet-tdt-0.6b-v2",
+   "voice.tts": "local:pocket-tts",
+   "voice.vad": "silero",
+   "voice.stack": "english-fast",
+   "voice.turns": 5,
+   "voice.closed": "participant_disconnected",
+   "voice.failures": 0,
+   "voice.language": "en",
+   "voice.barge_ins": 0,
+   "voice.turn_detector": "livekit-english",
+   "output.value": "participant_disconnected",
+   "livekit.room": "call-9e173848",
+   "session.id": "7d689fcd-fe99-439c-8350-6305244e2875"
+  }
+ },
+ {
+  "name": "turn",
+  "context": {
+   "trace_id": "7a280ba5451ad8050cd93e67e7398d5d",
+   "span_id": "95728cca3da6ca2d"
+  },
+  "parent_id": null,
+  "start_time": "2026-11-01T17:10:28.887000+00:00",
+  "end_time": "2026-11-01T17:10:50.152000+00:00",
+  "status_code": "UNSET",
+  "attributes": {
+   "llm.model_name": "lfm3",
+   "call.id": "7d689fcd-fe99-439c-8350-6305244e2875",
+   "desk.ms": 21256,
+   "desk.flow": "ask",
+   "desk.calls": "answer_question({\"question\":\"How do I find my taxes?\"})",
+   "desk.prompt_version": "desk-0fb41946",
+   "mode": "ask",
+   "page": "/tax",
+   "turn.n": 1,
+   "turn.id": "fc58cdee35d940099765ef701ec935c6",
+   "turn.why": "question desk (model with tools); quoted from the library",
+   "turn.channel": "voice",
+   "turn.decision": "ask",
+   "turn.decide_ms": 21265,
+   "turn.corrections": 0,
+   "turn.lock_blocks": 0,
+   "guide.href": "https://www.irs.gov/publications/p970#en_US_2025_publink1000178735",
+   "guide.quote": "View the amount you owe and a breakdown by tax year.",
+   "guide.title": "IRS Publication 970",
+   "input.value": "How do I find my taxes?",
+   "voice.turn": "fc58cdee35d940099765ef701ec935c6",
+   "voice.stt_ms": 717,
+   "voice.language": "en",
+   "voice.confidence": 0.87,
+   "output.value": "I've opened IRS Publication 970, page 69. The highlighted part says: \"View the amount you owe and a breakdown by tax year.\"",
+   "session.id": "7d689fcd-fe99-439c-8350-6305244e2875"
+  }
+ },
+ {
+  "name": "search",
+  "context": {
+   "trace_id": "c8cc1b0d637e8b0c6f687d89a5a2d153",
+   "span_id": "63f707ab2da2d1f7"
+  },
+  "parent_id": null,
+  "start_time": "2026-11-01T17:10:31.946000+00:00",
+  "end_time": "2026-11-01T17:10:48.335000+00:00",
+  "status_code": "UNSET",
+  "attributes": {
+   "http.status_code": 200,
+   "input.value": "How do I find my taxes?",
+   "session.id": "7d689fcd-fe99-439c-8350-6305244e2875",
+   "retrieval.documents.0.document.id": "5bbd4381-10f9-4bd0-be60-c64bc483cd41",
+   "retrieval.documents.0.document.content": "IRS.gov/Forms : Find forms, instructions, and publications. You will find details on the most recent tax changes and interactive links to help you find answers to your questions.\nYou may also be able to access tax information in your e-filing software.\nNeed someone to prepare your tax return?",
+   "retrieval.documents.1.document.id": "435750e3-bd7d-435b-bfc8-3c95cde726db",
+   "retrieval.documents.1.document.content": "View the amount you owe and a breakdown by tax year.\nSee payment plan details or apply for a new payment plan.\nMake a payment or view 5 years of payment history and any pending or scheduled payments.\nAccess your tax records, including key data from your most recent tax return, and transcripts.\nView digital copies of select notices from the IRS.\nApprove or reject authorization requests from tax pro",
+   "retrieval.documents.2.document.id": "ada5ed14-1857-4f4b-874f-145dc778b0e4",
+   "retrieval.documents.2.document.content": "Make a payment or view 5 years of payment history and any pending or scheduled payments.\nAccess your tax records, including key data from your most recent tax return, and transcripts.\nView digital copies of select notices from the IRS.\nApprove or reject authorization requests from tax professionals.\nView your address on file or manage your communication preferences.\nGet a transcript of your return",
+   "retrieval.documents.3.document.id": "3a4f632a-0086-4363-b780-99bf445dd72a",
+   "retrieval.documents.3.document.content": "IRS.gov/ITA : The Interactive Tax Assistant, a tool that will ask you questions and, based on your input, provide answers on a number of tax topics.\nIRS.gov/Forms : Find forms, instructions, and publications. You will find details on the most recent tax changes and interactive links to help you find answers to your questions.\nYou may also be able to access tax information in your e-filing software"
+  }
+ },
+ {
+  "name": "voice.turn",
+  "context": {
+   "trace_id": "58d524d8f7e5fb3493c2023d93bd3898",
+   "span_id": "6f09845c447874de"
+  },
+  "parent_id": null,
+  "start_time": "2026-11-01T17:10:46.362740+00:00",
+  "end_time": "2026-11-01T17:11:05.302552+00:00",
+  "status_code": "UNSET",
+  "attributes": {
+   "call.id": "7d689fcd-fe99-439c-8350-6305244e2875",
+   "turn.n": 1,
+   "turn.id": "00d8a0a529444cef8883d4b52b832394",
+   "input.value": "Yeah.",
+   "voice.stt": "local:parakeet-tdt-0.6b-v2",
+   "voice.tts": "local:pocket-tts",
+   "voice.vad": "silero",
+   "voice.kind": "ask",
+   "voice.turn": "00d8a0a529444cef8883d4b52b832394",
+   "voice.stack": "english-fast",
+   "voice.stt_ms": 296,
+   "voice.language": "en",
+   "voice.total_ms": 18940,
+   "voice.barge_ins": 0,
+   "voice.decide_ms": 6863,
+   "voice.filler_ms": 4154,
+   "voice.tts_first_ms": 189,
+   "voice.turn_detector": "livekit-english",
+   "voice.end_of_turn_ms": 11592,
+   "output.value": "Thanks for letting me know. If you'd like to proceed with checking your return or need more details, just say the word.",
+   "livekit.room": "call-9e173848",
+   "session.id": "7d689fcd-fe99-439c-8350-6305244e2875"
+  }
+ },
+ {
+  "name": "judge",
+  "context": {
+   "trace_id": "df2eac4ed6692bf086a4831f381302d1",
+   "span_id": "091f2f87f17de8bb"
+  },
+  "parent_id": null,
+  "start_time": "2026-11-01T17:10:48.385000+00:00",
+  "end_time": "2026-11-01T17:10:48.614000+00:00",
+  "status_code": "UNSET",
+  "attributes": {
+   "http.status_code": 200,
+   "input.value": "How do I find my taxes?",
+   "output.value": "{\"id\":\"435750e3-bd7d-435b-bfc8-3c95cde726db\"}",
+   "session.id": "7d689fcd-fe99-439c-8350-6305244e2875"
+  }
+ },
+ {
+  "name": "guide.quote",
+  "context": {
+   "trace_id": "7a280ba5451ad8050cd93e67e7398d5d",
+   "span_id": "f6de3d472e4fd1b6"
+  },
+  "parent_id": "95728cca3da6ca2d",
+  "start_time": "2026-11-01T17:10:50.152000+00:00",
+  "end_time": "2026-11-01T17:10:50.152000+00:00",
+  "status_code": "UNSET",
+  "attributes": {
+   "input.value": "How do I find my taxes?",
+   "output.value": "View the amount you owe and a breakdown by tax year.",
+   "session.id": "7d689fcd-fe99-439c-8350-6305244e2875",
+   "retrieval.documents.0.document.id": "https://www.irs.gov/publications/p970#en_US_2025_publink1000178735",
+   "retrieval.documents.0.document.content": "View the amount you owe and a breakdown by tax year."
+  }
+ },
+ {
+  "name": "turn",
+  "context": {
+   "trace_id": "d5a0bf3aecc0549277f9d69db202ee52",
+   "span_id": "38d301f5703ea046"
+  },
+  "parent_id": null,
+  "start_time": "2026-11-01T17:10:50.246000+00:00",
+  "end_time": "2026-11-01T17:10:58.153000+00:00",
+  "status_code": "UNSET",
+  "attributes": {
+   "llm.model_name": "lfm3",
+   "call.id": "7d689fcd-fe99-439c-8350-6305244e2875",
+   "desk.ms": 7902,
+   "desk.flow": "ask",
+   "desk.calls": "",
+   "desk.prompt_version": "desk-0fb41946",
+   "mode": "ask",
+   "page": "/tax",
+   "turn.n": 2,
+   "turn.id": "3c5f18c6ff9c4a2ea6ba76c65d9d4914",
+   "turn.why": "question desk (model with tools)",
+   "turn.channel": "voice",
+   "turn.decision": "ask",
+   "turn.decide_ms": 7907,
+   "turn.corrections": 0,
+   "turn.lock_blocks": 0,
+   "input.value": "Is it gonna take long?",
+   "voice.turn": "3c5f18c6ff9c4a2ea6ba76c65d9d4914",
+   "voice.stt_ms": 296,
+   "voice.language": "en",
+   "output.value": "That's a great question about timing. I don't have the exact turnaround time from my guides right now, but I can help you check on your return once we verify who you are if you're a client.",
+   "session.id": "7d689fcd-fe99-439c-8350-6305244e2875"
+  }
+ },
+ {
+  "name": "turn",
+  "context": {
+   "trace_id": "a9f61051a5bc2515a498c35138dfbc73",
+   "span_id": "6ec7501fc5a9b934"
+  },
+  "parent_id": null,
+  "start_time": "2026-11-01T17:10:58.206000+00:00",
+  "end_time": "2026-11-01T17:11:05.019000+00:00",
+  "status_code": "UNSET",
+  "attributes": {
+   "llm.model_name": "lfm3",
+   "call.id": "7d689fcd-fe99-439c-8350-6305244e2875",
+   "desk.ms": 6812,
+   "desk.flow": "ask",
+   "desk.calls": "",
+   "desk.prompt_version": "desk-0fb41946",
+   "mode": "ask",
+   "page": "/tax",
+   "turn.n": 3,
+   "turn.id": "00d8a0a529444cef8883d4b52b832394",
+   "turn.why": "question desk (model with tools)",
+   "turn.channel": "voice",
+   "turn.decision": "ask",
+   "turn.decide_ms": 6813,
+   "turn.corrections": 0,
+   "turn.lock_blocks": 0,
+   "input.value": "Yeah",
+   "voice.turn": "00d8a0a529444cef8883d4b52b832394",
+   "voice.stt_ms": 296,
+   "voice.language": "en",
+   "output.value": "Thanks for letting me know. If you'd like to proceed with checking your return or need more details, just say the word.",
+   "session.id": "7d689fcd-fe99-439c-8350-6305244e2875"
+  }
+ },
+ {
+  "name": "voice.turn",
+  "context": {
+   "trace_id": "c98564ef38eabc6293c92f5c8626d318",
+   "span_id": "110ff204b66c3c0e"
+  },
+  "parent_id": null,
+  "start_time": "2026-11-01T17:11:13.958739+00:00",
+  "end_time": "2026-11-01T17:11:21.611167+00:00",
+  "status_code": "UNSET",
+  "attributes": {
+   "call.id": "7d689fcd-fe99-439c-8350-6305244e2875",
+   "turn.n": 2,
+   "turn.id": "825bd09c1204484dbdccc49249d6f569",
+   "input.value": "So how do I file it?",
+   "voice.stt": "local:parakeet-tdt-0.6b-v2",
+   "voice.tts": "local:pocket-tts",
+   "voice.vad": "silero",
+   "voice.kind": "ask",
+   "voice.turn": "825bd09c1204484dbdccc49249d6f569",
+   "voice.stack": "english-fast",
+   "voice.stt_ms": 468,
+   "voice.language": "en",
+   "voice.total_ms": 7652,
+   "voice.barge_ins": 0,
+   "voice.decide_ms": 6560,
+   "voice.filler_ms": 4968,
+   "voice.search_ms": 2490,
+   "voice.confidence": 0.926,
+   "voice.tts_first_ms": 235,
+   "voice.turn_detector": "livekit-english",
+   "voice.end_of_turn_ms": 389,
+   "output.value": "I've opened IRS Publication 570, page 31. The highlighted part says: \"If you must file a U.S. income tax return, you may be able to file electronically using IRS.gov/Efile . See the Instructions for Form 1040 or visit IRS.gov.\"",
+   "livekit.room": "call-9e173848",
+   "session.id": "7d689fcd-fe99-439c-8350-6305244e2875"
+  }
+ },
+ {
+  "name": "turn",
+  "context": {
+   "trace_id": "cf443cd11f6128013d1aa9da564628e8",
+   "span_id": "772d3552d0bf594a"
+  },
+  "parent_id": null,
+  "start_time": "2026-11-01T17:11:14.838000+00:00",
+  "end_time": "2026-11-01T17:11:21.265000+00:00",
+  "status_code": "UNSET",
+  "attributes": {
+   "llm.model_name": "lfm3",
+   "call.id": "7d689fcd-fe99-439c-8350-6305244e2875",
+   "desk.ms": 6422,
+   "desk.flow": "ask",
+   "desk.calls": "answer_question({\"question\":\"How do I file my tax return?\"})",
+   "desk.prompt_version": "desk-0fb41946",
+   "mode": "ask",
+   "page": "/tax",
+   "turn.n": 4,
+   "turn.id": "825bd09c1204484dbdccc49249d6f569",
+   "turn.why": "question desk (model with tools); quoted from the library",
+   "turn.channel": "voice",
+   "turn.decision": "ask",
+   "turn.decide_ms": 6427,
+   "turn.corrections": 0,
+   "turn.lock_blocks": 0,
+   "guide.href": "https://www.irs.gov/publications/p570#id386",
+   "guide.quote": "If you must file a U.S. income tax return, you may be able to file electronically using IRS.gov/Efile . … See the Instructions for Form 1040 or visit IRS.gov.",
+   "guide.title": "IRS Publication 570",
+   "input.value": "So how do I file it?",
+   "voice.turn": "825bd09c1204484dbdccc49249d6f569",
+   "voice.stt_ms": 468,
+   "voice.language": "en",
+   "voice.confidence": 0.926,
+   "output.value": "I've opened IRS Publication 570, page 31. The highlighted part says: \"If you must file a U.S. income tax return, you may be able to file electronically using IRS.gov/Efile . See the Instructions for Form 1040 or visit IRS.gov.\"",
+   "session.id": "7d689fcd-fe99-439c-8350-6305244e2875"
+  }
+ },
+ {
+  "name": "search",
+  "context": {
+   "trace_id": "b359f636f186b97be8e4615415712e18",
+   "span_id": "571ad497ff3c79b7"
+  },
+  "parent_id": null,
+  "start_time": "2026-11-01T17:11:18.872000+00:00",
+  "end_time": "2026-11-01T17:11:19.951000+00:00",
+  "status_code": "UNSET",
+  "attributes": {
+   "http.status_code": 200,
+   "input.value": "How do I file my tax return?",
+   "session.id": "7d689fcd-fe99-439c-8350-6305244e2875",
+   "retrieval.documents.0.document.id": "238112ad-bfe5-4a3e-87f1-17067ed61ecb",
+   "retrieval.documents.0.document.content": "You may want to file your return electronically instead of mailing it, to receive your refund faster. Most professional tax return preparers offer electronic filing of tax returns with their return preparation services and may charge a fee to file your return electronically. Also, when you prepare your return yourself using tax-preparation software, you may have to pay a fee to file your return el",
+   "retrieval.documents.1.document.id": "6334042d-b77d-4821-8582-b810f044d9bc",
+   "retrieval.documents.1.document.content": "If you must file a U.S. income tax return, you may be able to file electronically using IRS.gov/Efile . See the Instructions for Form 1040 or visit IRS.gov.",
+   "retrieval.documents.2.document.id": "b8590d3c-79e7-4157-823f-b9f8a6f0d4eb",
+   "retrieval.documents.2.document.content": "Yes, you can file an original Form 1040 series tax return electronically using any filing status.\nFiling your return electronically is faster, safer, and more accurate than mailing your tax return because it's transmitted electronically to the IRS computer systems.\nE-File: Do your taxes for free\nFile your tax return",
+   "retrieval.documents.3.document.id": "422e7c95-d016-4608-b282-1f6f1e0acdc9",
+   "retrieval.documents.3.document.content": "You must file a tax return to claim the premium tax credit. Also, for any year in which you received the benefit of advance credit payments, you must file a federal income tax return for that year to reconcile, or compare, the amount of your advance credit payments with the amount of the premium tax credit you're allowed."
+  }
+ },
+ {
+  "name": "judge",
+  "context": {
+   "trace_id": "4c7fab4d777e850bdcf19dcf02ea0552",
+   "span_id": "545fc153bed48fff"
+  },
+  "parent_id": null,
+  "start_time": "2026-11-01T17:11:20.003000+00:00",
+  "end_time": "2026-11-01T17:11:20.209000+00:00",
+  "status_code": "UNSET",
+  "attributes": {
+   "http.status_code": 200,
+   "input.value": "How do I file my tax return?",
+   "output.value": "{\"id\":\"6334042d-b77d-4821-8582-b810f044d9bc\"}",
+   "session.id": "7d689fcd-fe99-439c-8350-6305244e2875"
+  }
+ },
+ {
+  "name": "guide.quote",
+  "context": {
+   "trace_id": "cf443cd11f6128013d1aa9da564628e8",
+   "span_id": "8f2ae40ba475d98d"
+  },
+  "parent_id": "772d3552d0bf594a",
+  "start_time": "2026-11-01T17:11:21.265000+00:00",
+  "end_time": "2026-11-01T17:11:21.265000+00:00",
+  "status_code": "UNSET",
+  "attributes": {
+   "input.value": "So how do I file it?",
+   "output.value": "If you must file a U.S. income tax return, you may be able to file electronically using IRS.gov/Efile .\nSee the Instructions for Form 1040 or visit IRS.gov.",
+   "session.id": "7d689fcd-fe99-439c-8350-6305244e2875",
+   "retrieval.documents.0.document.id": "https://www.irs.gov/publications/p570#id386",
+   "retrieval.documents.0.document.content": "If you must file a U.S. income tax return, you may be able to file electronically using IRS.gov/Efile . … See the Instructions for Form 1040 or visit IRS.gov."
+  }
+ },
+ {
+  "name": "voice.turn",
+  "context": {
+   "trace_id": "7dc5ac714f6af50e3c009992ad375aa3",
+   "span_id": "63b63ed0bb5d40fb"
+  },
+  "parent_id": null,
+  "start_time": "2026-11-01T17:11:42.158680+00:00",
+  "end_time": "2026-11-01T17:11:49.358263+00:00",
+  "status_code": "UNSET",
+  "attributes": {
+   "call.id": "7d689fcd-fe99-439c-8350-6305244e2875",
+   "turn.n": 3,
+   "turn.id": "56a25f9faee3402e93167f44880f8707",
+   "input.value": "But like how do I fill up the form?",
+   "voice.stt": "local:parakeet-tdt-0.6b-v2",
+   "voice.tts": "local:pocket-tts",
+   "voice.vad": "silero",
+   "voice.kind": "ask",
+   "voice.turn": "56a25f9faee3402e93167f44880f8707",
+   "voice.stack": "english-fast",
+   "voice.stt_ms": 621,
+   "voice.language": "en",
+   "voice.total_ms": 7200,
+   "voice.barge_ins": 0,
+   "voice.decide_ms": 6008,
+   "voice.filler_ms": 3380,
+   "voice.search_ms": 3705,
+   "voice.confidence": 0.969,
+   "voice.tts_first_ms": 167,
+   "voice.turn_detector": "livekit-english",
+   "voice.end_of_turn_ms": 404,
+   "output.value": "I've opened IRS Publication 17, page 110. The highlighted part says: \"Fill in the lines that apply to you and attach Schedules 2 and 3 (Form 1040), if applicable.\"",
+   "livekit.room": "call-9e173848",
+   "session.id": "7d689fcd-fe99-439c-8350-6305244e2875"
+  }
+ },
+ {
+  "name": "turn",
+  "context": {
+   "trace_id": "61dd44689d733c1951af655a265badd5",
+   "span_id": "a5d69aa5f04123d1"
+  },
+  "parent_id": null,
+  "start_time": "2026-11-01T17:11:43.151000+00:00",
+  "end_time": "2026-11-01T17:11:49.085000+00:00",
+  "status_code": "UNSET",
+  "attributes": {
+   "llm.model_name": "lfm3",
+   "call.id": "7d689fcd-fe99-439c-8350-6305244e2875",
+   "desk.ms": 5929,
+   "desk.flow": "ask",
+   "desk.calls": "answer_question({\"question\":\"How do I fill out Form 1040?\"})",
+   "desk.prompt_version": "desk-0fb41946",
+   "mode": "ask",
+   "page": "/tax",
+   "turn.n": 5,
+   "turn.id": "56a25f9faee3402e93167f44880f8707",
+   "turn.why": "question desk (model with tools); quoted from the library",
+   "turn.channel": "voice",
+   "turn.decision": "ask",
+   "turn.decide_ms": 5934,
+   "turn.corrections": 0,
+   "turn.lock_blocks": 0,
+   "guide.href": "https://www.irs.gov/publications/p17#en_US_2025_publink1000174236",
+   "guide.quote": "Fill in the lines that apply to you and attach Schedules 2 and 3 (Form 1040), if applicable.",
+   "guide.title": "IRS Publication 17",
+   "input.value": "But like how do I fill up the form?",
+   "voice.turn": "56a25f9faee3402e93167f44880f8707",
+   "voice.stt_ms": 621,
+   "voice.language": "en",
+   "voice.confidence": 0.969,
+   "output.value": "I've opened IRS Publication 17, page 110. The highlighted part says: \"Fill in the lines that apply to you and attach Schedules 2 and 3 (Form 1040), if applicable.\"",
+   "session.id": "7d689fcd-fe99-439c-8350-6305244e2875"
+  }
+ },
+ {
+  "name": "search",
+  "context": {
+   "trace_id": "7428221ded6f3b5e9d610a083259cc84",
+   "span_id": "4c852969360c5e8d"
+  },
+  "parent_id": null,
+  "start_time": "2026-11-01T17:11:45.474000+00:00",
+  "end_time": "2026-11-01T17:11:47.252000+00:00",
+  "status_code": "UNSET",
+  "attributes": {
+   "http.status_code": 200,
+   "input.value": "How do I fill out Form 1040?",
+   "session.id": "7d689fcd-fe99-439c-8350-6305244e2875",
+   "retrieval.documents.0.document.id": "1f6b0e5c-9c8e-4b10-80ff-d82fb22532db",
+   "retrieval.documents.0.document.content": "Read Form 1040 or 1040-SR, lines 19 through 33, and Schedules 2 and 3 (Form 1040), if applicable. Fill in the lines that apply to you and attach Schedules 2 and 3 (Form 1040), if applicable. Don’t fill in Form 1040 or 1040-SR, line 22, 24, 33, or 34 through 38. Don’t fill in Schedule 2 (Form 1040), line 2 or 3. Also, don’t complete Schedule 3 (Form 1040), line 6d, if you are completing Schedule R ",
+   "retrieval.documents.1.document.id": "cb58fa8f-b46a-49e0-b3c9-091eb4f69b30",
+   "retrieval.documents.1.document.content": "If you want the IRS to figure your tax. Read Form 1040 or 1040-SR, lines 1 through 15, and Schedule 1 (Form 1040), if applicable. Fill in the lines that apply to you and attach Schedule 1 (Form 1040), if applicable. Don’t complete Form 1040 or 1040-SR, line 16 or 17.",
+   "retrieval.documents.2.document.id": "1cc4c0bc-1ed0-4861-86ef-6d691b1b46b2",
+   "retrieval.documents.2.document.content": "Also see the instructions for Schedule 1 through Schedule 3 that follow the Form 1040 and 1040-SR instructions.\nWhat form to file.\nEveryone can file Form 1040. Form 1040-SR is available to you if you were born before January 2, 1961.\nFiscal-year filers.\nIf you are a fiscal-year filer using a tax year other than January 1 through December 31, 2025, enter the beginning and ending months of your fisc",
+   "retrieval.documents.3.document.id": "03ff570e-b5cf-4a5f-a77b-9f65c1261c10",
+   "retrieval.documents.3.document.content": "Complete Worksheet 1 and Worksheets 2 and 3 as appropriate before completing this worksheet.\n |  | Check the box on Form 1040 or 1040-SR, line 6c. If line 21 above is zero, follow the instructions on line 10 for “No” on Worksheet 1. Otherwise: Enter the amount from Worksheet 1, line 1, on Form 1040 or 1040-SR, line 6a; Enter the amount from line 21 above on Form 1040 or 1040-SR, line 6b; and If yo"
+  }
+ },
+ {
+  "name": "judge",
+  "context": {
+   "trace_id": "5dcf19e18c84740464b7036b40c7df51",
+   "span_id": "7e75f5a2d3644b3e"
+  },
+  "parent_id": null,
+  "start_time": "2026-11-01T17:11:47.302000+00:00",
+  "end_time": "2026-11-01T17:11:47.475000+00:00",
+  "status_code": "UNSET",
+  "attributes": {
+   "http.status_code": 200,
+   "input.value": "How do I fill out Form 1040?",
+   "output.value": "{\"id\":\"1f6b0e5c-9c8e-4b10-80ff-d82fb22532db\"}",
+   "session.id": "7d689fcd-fe99-439c-8350-6305244e2875"
+  }
+ },
+ {
+  "name": "guide.quote",
+  "context": {
+   "trace_id": "61dd44689d733c1951af655a265badd5",
+   "span_id": "5b61f8c4ab06b00d"
+  },
+  "parent_id": "a5d69aa5f04123d1",
+  "start_time": "2026-11-01T17:11:49.085000+00:00",
+  "end_time": "2026-11-01T17:11:49.085000+00:00",
+  "status_code": "UNSET",
+  "attributes": {
+   "input.value": "But like how do I fill up the form?",
+   "output.value": "Fill in the lines that apply to you and attach Schedules 2 and 3 (Form 1040), if applicable.",
+   "session.id": "7d689fcd-fe99-439c-8350-6305244e2875",
+   "retrieval.documents.0.document.id": "https://www.irs.gov/publications/p17#en_US_2025_publink1000174236",
+   "retrieval.documents.0.document.content": "Fill in the lines that apply to you and attach Schedules 2 and 3 (Form 1040), if applicable."
+  }
+ },
+ {
+  "name": "voice.turn",
+  "context": {
+   "trace_id": "fd6b77c4551723e9bd2cd55bbd856f8c",
+   "span_id": "d2d1235472f04a45"
+  },
+  "parent_id": null,
+  "start_time": "2026-11-01T17:12:05.015941+00:00",
+  "end_time": "2026-11-01T17:12:12.104183+00:00",
+  "status_code": "UNSET",
+  "attributes": {
+   "call.id": "7d689fcd-fe99-439c-8350-6305244e2875",
+   "turn.n": 4,
+   "turn.id": "3a2a3b7e249e492485419d6855b56b8a",
+   "input.value": "You guide me how to file it. Can I file it from here?",
+   "voice.stt": "local:parakeet-tdt-0.6b-v2",
+   "voice.tts": "local:pocket-tts",
+   "voice.vad": "silero",
+   "voice.kind": "ask",
+   "voice.turn": "3a2a3b7e249e492485419d6855b56b8a",
+   "voice.stack": "english-fast",
+   "voice.stt_ms": 648,
+   "voice.language": "en",
+   "voice.total_ms": 7088,
+   "voice.barge_ins": 0,
+   "voice.decide_ms": 4648,
+   "voice.filler_ms": 3450,
+   "voice.search_ms": 850,
+   "voice.confidence": 0.945,
+   "voice.tts_first_ms": 134,
+   "voice.turn_detector": "livekit-english",
+   "voice.end_of_turn_ms": 1658,
+   "output.value": "I don't know. I couldn't find that in the tax guides I answer from, and I only answer from them. A preparer can look into it with you at a consultation.",
+   "livekit.room": "call-9e173848",
+   "session.id": "7d689fcd-fe99-439c-8350-6305244e2875"
+  }
+ },
+ {
+  "name": "turn",
+  "context": {
+   "trace_id": "4780349de01071d45d29bdf5ba38b60e",
+   "span_id": "44e23b6b4de652ba"
+  },
+  "parent_id": null,
+  "start_time": "2026-11-01T17:12:06.009000+00:00",
+  "end_time": "2026-11-01T17:12:10.582000+00:00",
+  "status_code": "UNSET",
+  "attributes": {
+   "llm.model_name": "lfm3",
+   "call.id": "7d689fcd-fe99-439c-8350-6305244e2875",
+   "desk.ms": 4568,
+   "desk.flow": "ask",
+   "desk.calls": "answer_question({\"question\":\"Can I file my tax return from here?\"})",
+   "desk.prompt_version": "desk-0fb41946",
+   "mode": "ask",
+   "page": "/tax",
+   "turn.n": 6,
+   "turn.id": "3a2a3b7e249e492485419d6855b56b8a",
+   "turn.why": "question desk (model with tools)",
+   "turn.channel": "voice",
+   "turn.decision": "ask",
+   "turn.decide_ms": 4573,
+   "turn.corrections": 0,
+   "turn.lock_blocks": 0,
+   "input.value": "You guide me how to file it. Can I file it from here?",
+   "voice.turn": "3a2a3b7e249e492485419d6855b56b8a",
+   "voice.stt_ms": 648,
+   "voice.language": "en",
+   "voice.confidence": 0.945,
+   "output.value": "I don't know. I couldn't find that in the tax guides I answer from, and I only answer from them. A preparer can look into it with you at a consultation.",
+   "session.id": "7d689fcd-fe99-439c-8350-6305244e2875"
+  }
+ },
+ {
+  "name": "search",
+  "context": {
+   "trace_id": "58d5e3314332a9f104fb623e1dab6ab4",
+   "span_id": "23322cd4e3255677"
+  },
+  "parent_id": null,
+  "start_time": "2026-11-01T17:12:08.412000+00:00",
+  "end_time": "2026-11-01T17:12:09.539000+00:00",
+  "status_code": "UNSET",
+  "attributes": {
+   "http.status_code": 200,
+   "input.value": "Can I file my tax return from here?",
+   "session.id": "7d689fcd-fe99-439c-8350-6305244e2875",
+   "retrieval.documents.0.document.id": "b8590d3c-79e7-4157-823f-b9f8a6f0d4eb",
+   "retrieval.documents.0.document.content": "Yes, you can file an original Form 1040 series tax return electronically using any filing status.\nFiling your return electronically is faster, safer, and more accurate than mailing your tax return because it's transmitted electronically to the IRS computer systems.\nE-File: Do your taxes for free\nFile your tax return",
+   "retrieval.documents.1.document.id": "238112ad-bfe5-4a3e-87f1-17067ed61ecb",
+   "retrieval.documents.1.document.content": "You may want to file your return electronically instead of mailing it, to receive your refund faster. Most professional tax return preparers offer electronic filing of tax returns with their return preparation services and may charge a fee to file your return electronically. Also, when you prepare your return yourself using tax-preparation software, you may have to pay a fee to file your return el",
+   "retrieval.documents.2.document.id": "f8abe0cd-eaef-4995-b6b2-dab8932fb442",
+   "retrieval.documents.2.document.content": "Free options for tax preparation.\nYour options for preparing and filing your return online or in your local community, if you qualify, include the following.",
+   "retrieval.documents.3.document.id": "dd8cd173-c7bf-41db-b194-b8078e493f00",
+   "retrieval.documents.3.document.content": "If your legal residence or principal place of business, or principal office or agency, is outside the United States, use the following address.\nState and local tax departments.\nContact the applicable state and local tax department as necessary for reporting requirements and where to file."
+  }
+ },
+ {
+  "name": "judge",
+  "context": {
+   "trace_id": "424d4bfab4a30f34678cbb228a586ab2",
+   "span_id": "d394c7956c805145"
+  },
+  "parent_id": null,
+  "start_time": "2026-11-01T17:12:09.590000+00:00",
+  "end_time": "2026-11-01T17:12:09.775000+00:00",
+  "status_code": "UNSET",
+  "attributes": {
+   "http.status_code": 200,
+   "input.value": "Can I file my tax return from here?",
+   "output.value": "{\"id\":\"\"}",
+   "session.id": "7d689fcd-fe99-439c-8350-6305244e2875"
+  }
+ },
+ {
+  "name": "search",
+  "context": {
+   "trace_id": "02e0315c35f19345d9ca2ddddaf1006d",
+   "span_id": "3944cfa995fcdc4d"
+  },
+  "parent_id": null,
+  "start_time": "2026-11-01T17:12:09.824000+00:00",
+  "end_time": "2026-11-01T17:12:10.419000+00:00",
+  "status_code": "UNSET",
+  "attributes": {
+   "http.status_code": 200,
+   "input.value": "Can I file it from here?",
+   "session.id": "7d689fcd-fe99-439c-8350-6305244e2875",
+   "retrieval.documents.0.document.id": "238112ad-bfe5-4a3e-87f1-17067ed61ecb",
+   "retrieval.documents.0.document.content": "You may want to file your return electronically instead of mailing it, to receive your refund faster. Most professional tax return preparers offer electronic filing of tax returns with their return preparation services and may charge a fee to file your return electronically. Also, when you prepare your return yourself using tax-preparation software, you may have to pay a fee to file your return el",
+   "retrieval.documents.1.document.id": "2138849a-7902-4edd-b8a6-719bcaadcc96",
+   "retrieval.documents.1.document.content": "E-file logo\nI.R.S. e-file logo\nSummary: This is an illustration of the logo used to identify the I.R.S. e-file program.\nPlease click here for the text description of the image.\nUsing IRS e-file does not affect your probability of an IRS examination of your return.\nYou can file most commonly used business forms using IRS e-file . For more information, go to IRS.gov .\nE-signatures.",
+   "retrieval.documents.2.document.id": "1281ab96-dfad-4bdd-b140-b501b49f4cd3",
+   "retrieval.documents.2.document.content": "If you e-file, do not file the same returns on paper.\nWho must e-file.\nIf you are required to file 10 or more information returns during the year, you must e-file. The 10-or-more requirement does not apply separately to each type of form. For example, if you must file four Forms 1098 and six Forms 1099-A, you must e-file.\nThe e-file requirement does not apply if you apply for and receive a hardshi",
+   "retrieval.documents.3.document.id": "17f52e27-0f1c-43cd-b55a-689f12253a7b",
+   "retrieval.documents.3.document.content": "This section of the IRM provides the procedures for electronic filing (E-file).\nThis information and instructions include the following:\ne-file Process\nForm 8453, U.S. Individual Income Tax Transmittal for an IRS e-file Return Processing\nServicing Requests for e-file Returns and Form 8453\nRe-filing Form 8453 and Servicing Requests for Association of Attachments"
+  }
+ },
+ {
+  "name": "judge",
+  "context": {
+   "trace_id": "0be04e285c6260dda520e1e55403ad5a",
+   "span_id": "26f1164b3932738a"
+  },
+  "parent_id": null,
+  "start_time": "2026-11-01T17:12:10.505000+00:00",
+  "end_time": "2026-11-01T17:12:10.627000+00:00",
+  "status_code": "UNSET",
+  "attributes": {
+   "http.status_code": 200,
+   "input.value": "Can I file it from here?",
+   "output.value": "{\"id\":\"\"}",
+   "session.id": "7d689fcd-fe99-439c-8350-6305244e2875"
+  }
+ },
+ {
+  "name": "voice.turn",
+  "context": {
+   "trace_id": "c07a19c934bb12b2f0f5364e99c6213e",
+   "span_id": "74eb3a2837fd40f6"
+  },
+  "parent_id": null,
+  "start_time": "2026-11-01T17:12:26.812867+00:00",
+  "end_time": "2026-11-01T17:12:32.471461+00:00",
+  "status_code": "UNSET",
+  "attributes": {
+   "call.id": "7d689fcd-fe99-439c-8350-6305244e2875",
+   "turn.n": 5,
+   "turn.id": "186cda99be184b288f6fe5152a10e2db",
+   "input.value": "Do you not have a form I can file with? Like starting here?",
+   "voice.stt": "local:parakeet-tdt-0.6b-v2",
+   "voice.tts": "local:pocket-tts",
+   "voice.vad": "silero",
+   "voice.kind": "ask",
+   "voice.turn": "186cda99be184b288f6fe5152a10e2db",
+   "voice.stack": "english-fast",
+   "voice.stt_ms": 845,
+   "voice.language": "en",
+   "voice.total_ms": 5659,
+   "voice.barge_ins": 0,
+   "voice.decide_ms": 4314,
+   "voice.filler_ms": 3498,
+   "voice.search_ms": 2100,
+   "voice.confidence": 0.927,
+   "voice.tts_first_ms": 92,
+   "voice.turn_detector": "livekit-english",
+   "voice.end_of_turn_ms": 408,
+   "output.value": "I've opened IRS Publication 570, page 31. The highlighted part says: \"If you must file a U.S. income tax return, you may be able to file electronically using IRS.gov/Efile . See the Instructions for Form 1040 or visit IRS.gov.\"",
+   "livekit.room": "call-9e173848",
+   "session.id": "7d689fcd-fe99-439c-8350-6305244e2875"
+  }
+ },
+ {
+  "name": "turn",
+  "context": {
+   "trace_id": "56d0fd1fbdd01ca6d16d2874ec43b901",
+   "span_id": "61567d24b8501a11"
+  },
+  "parent_id": null,
+  "start_time": "2026-11-01T17:12:28.011000+00:00",
+  "end_time": "2026-11-01T17:12:32.276000+00:00",
+  "status_code": "UNSET",
+  "attributes": {
+   "llm.model_name": "lfm3",
+   "call.id": "7d689fcd-fe99-439c-8350-6305244e2875",
+   "desk.ms": 4263,
+   "desk.flow": "ask",
+   "desk.calls": "answer_question({\"question\":\"Is there a form to start filing my tax return?\"})",
+   "desk.prompt_version": "desk-0fb41946",
+   "mode": "ask",
+   "page": "/tax",
+   "turn.n": 7,
+   "turn.id": "186cda99be184b288f6fe5152a10e2db",
+   "turn.why": "question desk (model with tools); quoted from the library",
+   "turn.channel": "voice",
+   "turn.decision": "ask",
+   "turn.decide_ms": 4265,
+   "turn.corrections": 0,
+   "turn.lock_blocks": 0,
+   "guide.href": "https://www.irs.gov/publications/p570#id386",
+   "guide.quote": "If you must file a U.S. income tax return, you may be able to file electronically using IRS.gov/Efile . … See the Instructions for Form 1040 or visit IRS.gov.",
+   "guide.title": "IRS Publication 570",
+   "input.value": "Do you not have a form I can file with? Like starting here?",
+   "voice.turn": "186cda99be184b288f6fe5152a10e2db",
+   "voice.stt_ms": 845,
+   "voice.language": "en",
+   "voice.confidence": 0.927,
+   "output.value": "I've opened IRS Publication 570, page 31. The highlighted part says: \"If you must file a U.S. income tax return, you may be able to file electronically using IRS.gov/Efile . See the Instructions for Form 1040 or visit IRS.gov.\"",
+   "session.id": "7d689fcd-fe99-439c-8350-6305244e2875"
+  }
+ },
+ {
+  "name": "search",
+  "context": {
+   "trace_id": "ac2af5d696f5cc079018a955b5991366",
+   "span_id": "7e7a778839371ecc"
+  },
+  "parent_id": null,
+  "start_time": "2026-11-01T17:12:30.267000+00:00",
+  "end_time": "2026-11-01T17:12:31.693000+00:00",
+  "status_code": "UNSET",
+  "attributes": {
+   "http.status_code": 200,
+   "input.value": "Is there a form to start filing my tax return?",
+   "session.id": "7d689fcd-fe99-439c-8350-6305244e2875",
+   "retrieval.documents.0.document.id": "7b1d2145-6bae-4b48-a7fd-5662128e29aa",
+   "retrieval.documents.0.document.content": "The taxpayer will file an initial return that covers the tax period from the start of the business through June 30 of the current year. The taxpayer must file a renewal Form 11-C, Occupational Tax and Registration Return for Wagering, by July 1st of each year as long as taxable wagers are accepted.",
+   "retrieval.documents.1.document.id": "de103e4a-a818-435e-8678-1b3fb67baf18",
+   "retrieval.documents.1.document.content": "The first return must be filed before taxable wagers are accepted. The first return will cover the tax period from the start of the business until June 30 of the current year. The taxpayer must file a renewal Form 11-C return by July 1 of each year as long as taxable wagers are accepted. See IRM 3.11.23.18.2 , Due Dates, for further due date information.",
+   "retrieval.documents.2.document.id": "6334042d-b77d-4821-8582-b810f044d9bc",
+   "retrieval.documents.2.document.content": "If you must file a U.S. income tax return, you may be able to file electronically using IRS.gov/Efile . See the Instructions for Form 1040 or visit IRS.gov.",
+   "retrieval.documents.3.document.id": "37b2c2d6-ee19-4c0c-a4f5-a3787773b1d3",
+   "retrieval.documents.3.document.content": "Never send an excise tax return back to the taxpayer.\nAn early filed Form 720 quarterly return is defined as a return filed where the Tax Period Beginning Date is after the current (received) date.\nAn early filed Form 2290 return is defined as a return filed where the Tax Period Beginning Date is after the current (received) date.\nIf the month of the tax period is the same or after the month of th"
+  }
+ },
+ {
+  "name": "judge",
+  "context": {
+   "trace_id": "31a468e178fea9f407e6149d86aa6ff3",
+   "span_id": "f26045afb33f27e9"
+  },
+  "parent_id": null,
+  "start_time": "2026-11-01T17:12:31.740000+00:00",
+  "end_time": "2026-11-01T17:12:31.929000+00:00",
+  "status_code": "UNSET",
+  "attributes": {
+   "http.status_code": 200,
+   "input.value": "Is there a form to start filing my tax return?",
+   "output.value": "{\"id\":\"6334042d-b77d-4821-8582-b810f044d9bc\"}",
+   "session.id": "7d689fcd-fe99-439c-8350-6305244e2875"
+  }
+ },
+ {
+  "name": "guide.quote",
+  "context": {
+   "trace_id": "56d0fd1fbdd01ca6d16d2874ec43b901",
+   "span_id": "5dcd57e35700b38f"
+  },
+  "parent_id": "61567d24b8501a11",
+  "start_time": "2026-11-01T17:12:32.276000+00:00",
+  "end_time": "2026-11-01T17:12:32.276000+00:00",
+  "status_code": "UNSET",
+  "attributes": {
+   "input.value": "Do you not have a form I can file with? Like starting here?",
+   "output.value": "If you must file a U.S. income tax return, you may be able to file electronically using IRS.gov/Efile .\nSee the Instructions for Form 1040 or visit IRS.gov.",
+   "session.id": "7d689fcd-fe99-439c-8350-6305244e2875",
+   "retrieval.documents.0.document.id": "https://www.irs.gov/publications/p570#id386",
+   "retrieval.documents.0.document.content": "If you must file a U.S. income tax return, you may be able to file electronically using IRS.gov/Efile . … See the Instructions for Form 1040 or visit IRS.gov."
+  }
+ }
+]

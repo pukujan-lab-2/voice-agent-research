@@ -11,7 +11,7 @@
     "lint:py": "uvx ruff@0.14.0 check .",
     "typecheck": "tsc -p tsconfig.json",
     "orphans": "knip",
-    "test": "npm --prefix copilot-engine test",
+    "test": "npm --prefix copilot-engine test && node --test eval/tests/*.test.ts",
     "scenarios": "npm --prefix copilot-engine run scenarios",
     "check": "npm run lint && npm run lint:py && npm run typecheck && npm run orphans && npm test && npm run scenarios"
   },
