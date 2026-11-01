@@ -1,6 +1,6 @@
 # 0006. Which model does what
 
-**Status:** Accepted · **Date:** 2026-10-31
+**Status:** Replaced by [0009](0009-lfm3-writes-replies.md) · **Date:** 2026-10-31
 
 ## Decision
 

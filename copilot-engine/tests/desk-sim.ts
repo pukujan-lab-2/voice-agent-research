@@ -1,5 +1,5 @@
 // Desk (v2) simulator: an LLM plays the customer, the desk plays the receptionist, code scores every conversation.
-// Usage: node tests/desk-sim.ts --agent qwen-flash [--heavy qwen-27b] --customer qwen-27b --judge nemotron \
+// Usage: node tests/desk-sim.ts --agent lfm --customer qwen-27b --judge nemotron \
 //          --n 20 --seed 1 --conc 3 --flows brookside,halvorsen --tag run1
 // Models come from env files in $DESK_ENV_DIR (never printed): qwen.env / glm.env (ABA_GATEWAY_URL, ABA_API_KEY),
 // or.env (openrouter_free_only), lfm.env (local llama.cpp through an SSH tunnel).

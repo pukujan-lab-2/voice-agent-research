@@ -9,6 +9,7 @@ One file per decision. A decision changes only through a new file that replaces 
 | 0003 | [The model makes one small decision; code acts](0003-one-small-decision-per-turn.md) | 2026-10-30 |
 | 0004 | [Octo is the one store](0004-octo-single-store.md) | 2026-10-30 |
 | 0005 | [Evals are fully automated](0005-automated-evals.md) | 2026-10-31 |
-| 0006 | [Which model does what](0006-model-routing.md) | 2026-10-31 |
+| 0006 | [Which model does what](0006-model-routing.md) (replaced by 0009) | 2026-10-31 |
 | 0007 | [Not hosted yet](0007-not-hosted-yet.md) | 2026-10-31 |
 | 0008 | [Repository checks, CI and ACS](0008-repo-checks-and-ci.md) | 2026-10-31 |
+| 0009 | [LFM3 writes replies](0009-lfm3-writes-replies.md) | 2026-11-01 |

@@ -75,8 +75,8 @@ public posting, secrets, deleting data. Everything else gets built and reported.
 5. [ ] Voice: Pipecat, Whisper speech-to-text, engine, text-to-speech (ElevenLabs for demos). Say "let me check
        the manual" while retrieval runs (1-2 s is fine).
 6. [ ] Widget: one script tag, per-site config, multi-tenant from the start, usage caps.
-7. [ ] Model bake-off on the holdout set: other small open models, LFM3 8-bit, `typesafe/jev-router` (needs an
-       OpenRouter key in `~/Documents/projects/.env`; must report the model used, support an allowlist).
+7. [x] Model choice settled without a further bake-off: LFM3 writes replies and makes the form decision, Jev 1.14
+       makes the yes/no and passage picks (decision 0009, #39). No more model comparison runs.
 8. [ ] Re-cut the demo video with real screen recordings of the working copilot.
 9. [ ] Self-hosted tier for regulated clients; pricing; first pilot.
 
@@ -164,7 +164,7 @@ Run the same scenarios on each candidate (cascade with 2-3 open text models; LFM
 and as speech-to-speech). Log pass rate, latency per turn and cost per conversation in the ledger. Keep
 the cheapest that passes the read-back and never-submit-without-yes scenarios.
 
-**Decision (user, 2026-10-30): the product model is `typesafe/jev-router` on OpenRouter (paid), used for everything.** Other candidates are no longer compared. The checks below still run once a key exists.
+**Decision (owner, 2026-11-01): LFM3 writes replies and makes the per-turn form decision, and Jev 1.14 makes the yes/no and passage-pick decisions** (`docs/decisions/0009-lfm3-writes-replies.md`, #39). It replaces the 2026-10-30 choice of `typesafe/jev-router` for everything and the 2026-10-31 choice of Qwen-Flash for replies. No other candidates are compared.
 
 **Jev 1.14 (the decisions model) works on OpenRouter (tested 2026-10-30):** `POST https://openrouter.ai/api/alpha/decisions`
 with `{"model":"typesafe/jev-1.14","state":{...},"questions":{"name":{"type":"choice","criteria":{id:desc},"instructions":"..."}}}`.

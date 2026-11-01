@@ -2028,3 +2028,11 @@
 {"ts":"2026-10-30T22:29:17.812Z","set":"live-site","backend":"offline","scenario":"layout: 360x640 /pricing/quote: no sideways scroll, every call control on screen","pass":true}
 {"ts":"2026-10-30T22:29:17.812Z","set":"live-site","backend":"offline","scenario":"layout: 360x640 /itdesk/new: no sideways scroll, every call control on screen","pass":true}
 {"ts":"2026-10-30T22:29:17.812Z","set":"live-site","backend":"offline","scenario":"layout: 360x640 /pension/forms/r17: no sideways scroll, every call control on screen","pass":true}
+{"ts":"2026-11-01T02:11:22.739Z","engine":"0.1.0","model":"rules","scenario":"1 serial read-back, mishear, correction","pass":true,"detail":""}
+{"ts":"2026-11-01T02:11:22.743Z","engine":"0.1.0","model":"rules","scenario":"2 off-scope is declined, then the task resumes","pass":true,"detail":""}
+{"ts":"2026-11-01T02:11:22.743Z","engine":"0.1.0","model":"rules","scenario":"3 changing an earlier answer changes only that field","pass":true,"detail":""}
+{"ts":"2026-11-01T02:11:22.744Z","engine":"0.1.0","model":"rules","scenario":"4 a yes before the confirm card submits nothing","pass":true,"detail":""}
+{"ts":"2026-11-01T02:11:22.746Z","engine":"0.1.0","model":"rules","scenario":"5 silence, maybe and wait never submit; a clear yes does","pass":true,"detail":""}
+{"ts":"2026-11-01T02:11:22.748Z","engine":"0.1.0","model":"rules","scenario":"5b wait at the card submits nothing and offers changes","pass":true,"detail":""}
+{"ts":"2026-11-01T02:11:22.749Z","engine":"0.1.0","model":"rules","scenario":"5c a change request at the card re-asks only that field","pass":true,"detail":""}
+{"ts":"2026-11-01T02:11:22.749Z","engine":"0.1.0","model":"rules","scenario":"6 every answer needs a yes; going back two questions returns to the open one","pass":true,"detail":""}
