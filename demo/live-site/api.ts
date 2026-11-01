@@ -6,7 +6,8 @@
 //   POST /api/judge       Jev picks which signed passage answers the question (or none)
 //   POST /api/log         an error from the widget in a visitor's browser, written to the server log
 //   POST /api/sentences   Jev picks the answering sentences of a signed passage
-//   POST /api/trace      timings the widget measured (speech to text, voice, turn, call end), sent on to Phoenix
+//   POST /api/trace      what the widget recorded (the call, each turn with its tool calls, confirmations, failures), to Phoenix
+//   POST /api/score      an automated eval's score for a call or one of its turns (docs/decisions/0005), to Phoenix
 //   POST /api/warm        wakes the local LFM (it sleeps when idle) while the call's greeting plays; never calls Jev
 //   POST /api/verify      caller verification: the caller's confirmed name, date of birth, last four and zip are compared
 //                         here with the fictional client list in Octo; the answer is only match / no_match / need_more /
@@ -17,7 +18,7 @@
 // Nothing here decides what the copilot does; it only answers those questions. Requests are size- and rate-limited, and
 // Jev calls have a daily cap, so the open demo can't be used as a free model relay.
 import { createPractice } from './practice-api.ts';
-import type { ExportTrace, SpanSpec } from './tracing.ts';
+import type { EvalScore, ExportTrace, SpanKind, SpanSpec } from './tracing.ts';
 import { OpenAIChat, type ChatMsg } from '../../copilot-engine/src/desk.ts';
 import { JevJudge, KeywordRetriever, OctoRetriever, OverlapJudge, type Judge, type Passage, type Retriever } from '../../copilot-engine/src/guide.ts';
 import { JevGate, LlamaModel, RuleModel } from '../../copilot-engine/src/models.ts';
@@ -84,7 +85,7 @@ function deskTools(raw: unknown): unknown[] | null {
 
 const WARM_FIELD: Field = { name: 'warm', label: 'warm-up', question: 'Say hello.', kind: 'text' };
 
-export function createApi(env: ApiEnv, opts: { offlinePassages?: Record<string, LibraryPassage[]>; matchNames?: NameMatcher; trace?: ExportTrace } = {}) {
+export function createApi(env: ApiEnv, opts: { offlinePassages?: Record<string, LibraryPassage[]>; matchNames?: NameMatcher; trace?: ExportTrace; score?: (s: EvalScore) => Promise<'annotation' | 'span'> } = {}) {
   const offline = env.OFFLINE === '1';
   if (!offline && !(env.OPENROUTER_JEV_KEY && env.OCTO_KEY && env.OCTO_WORKSPACE)) throw new Error('missing OPENROUTER_JEV_KEY, OCTO_KEY or OCTO_WORKSPACE (or set OFFLINE=1)');
   const jevUrl = env.JEV_URL || JEV_URL;
@@ -368,16 +369,35 @@ export function createApi(env: ApiEnv, opts: { offlinePassages?: Record<string, 
       return json({ ok: true, model: 'lfm' });
     }
     if (path === '/api/trace') {
-      // Spans the widget timed itself; times must be within the last 10 minutes.
+      // Spans the widget recorded, in full (#17: nothing is masked); times must be within the last hour, as a long call
+      // is sent when it ends. Each span may carry one level of children (a turn's tool calls, confirmations, failures).
       const now = Date.now();
-      for (const sp of Array.isArray(b.spans) ? b.spans.slice(0, 10) : []) {
+      const spec = (sp: any, kids: boolean): SpanSpec | null => {
         const start = Number(sp?.start), end = Number(sp?.end);
-        if (!(start > now - 600_000 && end >= start && end <= now + 60_000)) continue;
-        const attributes: Record<string, string | number> = { 'input.value': clip(sp.input, 2000), 'output.value': clip(sp.output, 2000) };
-        for (const [k, v] of Object.entries(sp.attrs ?? {}).slice(0, 10)) if (typeof v === 'string' || typeof v === 'number') attributes[clip(k, 40)] = typeof v === 'string' ? clip(v, 300) : v;
-        opts.trace?.({ name: clip(sp.name, 40) || 'widget', kind: 'CHAIN', start, end, error: !!sp.error, attributes }, session);
-      }
+        if (!(start > now - 3_600_000 && end >= start && end <= now + 60_000)) return null;
+        const attributes: Record<string, string | number | boolean> = {};
+        if (sp.input) attributes['input.value'] = clip(sp.input, 8000);
+        if (sp.output) attributes['output.value'] = clip(sp.output, 8000);
+        for (const [k, v] of Object.entries(sp.attrs ?? {}).slice(0, 80)) {
+          if (typeof v === 'string') attributes[clip(k, 60)] = clip(v, 4000);
+          else if (typeof v === 'number' && Number.isFinite(v)) attributes[clip(k, 60)] = v;
+          else if (typeof v === 'boolean') attributes[clip(k, 60)] = v;
+        }
+        const kind: SpanKind = (['CHAIN', 'LLM', 'TOOL', 'RETRIEVER'] as const).find(k => k === sp.kind) ?? 'CHAIN';
+        const children = kids && Array.isArray(sp.children) ? sp.children.slice(0, 40).map((c: unknown) => spec(c, false)).filter(Boolean) as SpanSpec[] : [];
+        return { name: clip(sp.name, 60) || 'widget', kind, start, end, error: !!sp.error, attributes, children };
+      };
+      for (const sp of Array.isArray(b.spans) ? b.spans.slice(0, 10) : []) { const s = spec(sp, true); if (s) opts.trace?.(s, session); }
       return json({ ok: true });
+    }
+    if (path === '/api/score') {
+      // { call, turn?, name, score?, label?, explanation? }: the eval's result lands in the call's Phoenix session.
+      const call = clip(b.call, 64), name = clip(b.name, 60);
+      if (!/^[\w-]{8,64}$/.test(call) || !name) return json({ error: 'call and name are required' }, 400);
+      if (!opts.score) return json({ error: 'tracing is off' }, 503);
+      const as = await opts.score({ call, name, turn: clip(b.turn, 64) || undefined, score: Number.isFinite(b.score) ? Number(b.score) : undefined,
+        label: clip(b.label, 120) || undefined, explanation: clip(b.explanation, 4000) || undefined });
+      return json({ ok: true, as });
     }
     if (path === '/api/log') {
       // Errors the widget hit in a visitor's browser (speech, page errors), so real failures show up in the journal.
@@ -402,10 +422,12 @@ export function createApi(env: ApiEnv, opts: { offlinePassages?: Record<string, 
     let o: any = {};
     try { o = JSON.parse(out); } catch { /* not json */ }
     const attributes: Record<string, string | number> = {
-      'input.value': path === '/api/understand' ? `${clip(b.field?.label, 120)}: ${clip(b.said, 500)}` : clip(b.query ?? b.question, 500),
-      'output.value': out.slice(0, 2000),
+      'input.value': path === '/api/understand' ? `${clip(b.field?.label, 120)}: ${clip(b.said, 500)}`
+        : path === '/api/desk' ? JSON.stringify(b.messages ?? []).slice(-16_000) : clip(b.query ?? b.question, 500),
+      'output.value': out.slice(0, 8000),
       'http.status_code': r.status,
     };
+    if (path === '/api/desk') { attributes['llm.model_name'] = clip(o.model, 120); attributes['llm.tools'] = (b.tools ?? []).length; }
     if (path === '/api/search') (o.passages ?? []).slice(0, 6).forEach((p: any, i: number) => {
       attributes[`retrieval.documents.${i}.document.id`] = clip(p.id, 200);
       attributes[`retrieval.documents.${i}.document.content`] = clip(p.text, 1000);
@@ -441,8 +463,8 @@ export function createApi(env: ApiEnv, opts: { offlinePassages?: Record<string, 
           snippet: p.text.length > 280 ? `${p.text.slice(0, 277).replace(/\s+\S*$/, '')}…` : p.text })) });
       }
       if (req.method !== 'POST') return json({ error: 'POST only' }, 405);
-      // The warm-up is free (no Jev, one at a time), so it does not use up the visitor's answers; so is /api/trace.
-      if (path !== '/api/warm' && path !== '/api/trace' && limited(ip || req.headers.get('cf-connecting-ip') || 'local')) { log(`${path} 429 rate limit`); return json({ error: 'slow down' }, 429); }
+      // The warm-up is free (no Jev, one at a time), so it does not use up the visitor's answers; so are /api/trace and /api/score.
+      if (path !== '/api/warm' && path !== '/api/trace' && path !== '/api/score' && limited(ip || req.headers.get('cf-connecting-ip') || 'local')) { log(`${path} 429 rate limit`); return json({ error: 'slow down' }, 429); }
       const raw = await req.text();
       if (raw.length > (path === '/api/desk' ? 64_000 : 32_000)) { log(`${path} 413`); return json({ error: 'too large' }, 413); }
       let b: any;
@@ -453,7 +475,7 @@ export function createApi(env: ApiEnv, opts: { offlinePassages?: Record<string, 
       try {
         const r = await route(path, b, ip || req.headers.get('cf-connecting-ip') || 'local', session);
         if (r.status >= 400) log(`${path} ${r.status}`);
-        if (opts.trace && ['/api/understand', '/api/search', '/api/judge', '/api/sentences'].includes(path)) void traceCall(path, b, r.clone(), started, session).catch(() => {});
+        if (opts.trace && ['/api/understand', '/api/desk', '/api/search', '/api/judge', '/api/sentences'].includes(path)) void traceCall(path, b, r.clone(), started, session).catch(() => {});
         return r;
       } catch (e) {
         log(`${path} failed: ${(e as Error).stack ?? e}`);

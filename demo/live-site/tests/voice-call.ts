@@ -4,7 +4,9 @@
 //
 // Checks: the microphone is asked for before any audio; the spoken intro is one short line (under 4 s); "can you hear
 // me" and its variants get a quick reply and never search; a real question is answered from the library; talking over
-// the voice stops it (barge-in); and each turn's timings, from the end of the caller's speech to the first audio.
+// the voice stops it (barge-in); each turn's first audio after the end of the caller's speech; and the call record the
+// page sends to Phoenix (#17): every turn with what was heard and its timings, and the call with its outcome. The agent's
+// own spans (end-of-turn wait, first audio, barge-ins) go straight to Octo from speech/telemetry.py.
 //
 // Needs the voice stack running (livekit-server --dev, speech/server.py, speech/agent.py); server.ts starts what it can.
 // Run: node --no-warnings tests/voice-call.ts
@@ -15,8 +17,6 @@ import path from 'node:path';
 import { chromium } from 'playwright-core';
 import { start } from '../server.ts';
 
-const here = path.dirname(new URL(import.meta.url).pathname);
-const turnsFile = path.join(here, '../speech/turns.jsonl');
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'voice-call-'));
 let pass = 0, fail = 0;
 function check(name: string, ok: boolean, detail = '') {
@@ -42,6 +42,9 @@ const page = await browser.newPage();
 page.on('pageerror', e => console.log('PAGEERR', e.message));
 const searches: number[] = [];
 page.on('request', r => { if (r.url().includes('/api/search')) searches.push(Date.now()); });
+// What the page records for Phoenix (POST /api/trace), span by span.
+const spans: { name: string; output?: string; attrs: Record<string, unknown> }[] = [];
+page.on('request', r => { if (r.url().includes('/api/trace')) spans.push(...(JSON.parse(r.postData() ?? '{}').spans ?? [])); });
 
 // The microphone: an audio graph the test plays clips into. Every status change is recorded with its time.
 await page.addInitScript(() => {
@@ -100,7 +103,6 @@ async function caller(text: string, noise = 0) {
   return { said, firstAudio: spoke < 0 ? -1 : Math.round(spoke - end), searched: searches.length - s0, t0, end };
 }
 
-const turnsBefore = fs.existsSync(turnsFile) ? fs.readFileSync(turnsFile, 'utf8').split('\n').filter(Boolean).length : 0;
 await page.goto(`${srv.url}/tax?guest=1`);
 await page.waitForFunction(() => (window as any).copilot?.getSnapshot().mounted);
 const tap = await now();
@@ -116,11 +118,13 @@ check('the spoken intro is one short line, under 4 s', introSpeak > 0 && introDo
 console.log(`      tap -> intro audio ${Math.round(introSpeak - tap)} ms, intro ${Math.round(introMs)} ms; on screen: ${(await lastBot()).slice(0, 90)}…`);
 
 // 2. Small talk: answered at once, never searched.
+const smallMs: number[] = [];
 for (const [text, noise] of [['Can you hear me?', 0], ['Hello? Are you there?', 0.02], ['Can you hear me now?', 0]] as const) {
   const r = await caller(text, noise);
   const reply = r.said.filter(s => s.startsWith('bot:')).join(' ');
   check(`"${text}"${noise ? ' (with noise)' : ''} gets a quick reply and no search`, /Yes, I can hear you|I'm here/.test(reply) && r.searched === 0 && r.firstAudio > 0,
     `${r.said.join(' | ')} | searched ${r.searched} | first audio ${r.firstAudio} ms`);
+  smallMs.push(r.firstAudio);
   console.log(`      heard ${r.said.find(s => s.startsWith('user:')) ?? '(nothing)'}; first audio ${r.firstAudio} ms after the caller stopped`);
 }
 
@@ -155,15 +159,20 @@ if ((await status()) === 'speaking') {
   console.log(`      voice stopped ${Math.round(stopped - bargeStart)} ms after the caller started talking`);
 } else check('the answer was still being spoken when the caller talked over it', false, `status ${await status()}`);
 
-// 4. Each turn's timings, as the agent logged them.
+// 4. The call record: every turn with what was heard, the agent's turn id and speech-to-text time, and the decision.
 await page.waitForTimeout(3000);
-const rows = fs.existsSync(turnsFile) ? fs.readFileSync(turnsFile, 'utf8').split('\n').filter(Boolean).slice(turnsBefore).map(l => JSON.parse(l)) : [];
-check('every turn logs STT, decision and TTS timings', rows.length >= 3 && rows.every(r => 'stt_ms' in r && 'decide_ms' in r && 'tts_first_ms' in r), JSON.stringify(rows));
-for (const r of rows) console.log(`      ${String(r.kind).padEnd(10)} end-of-turn ${r.end_of_turn_ms} ms · stt ${r.stt_ms} · decide ${r.decide_ms}${r.search_ms != null ? ` (search ${r.search_ms})` : ''} · tts first ${r.tts_first_ms} · voice after ${r.total_ms} ms${r.filler_ms != null ? ` (filler after ${r.filler_ms})` : ''}`);
-const small = rows.filter(r => r.kind === 'small-talk');
-check('small talk: under about 1.5 s from end of speech to first audio', small.length > 0 && small.every(r => r.total_ms < 1600), small.map(r => r.total_ms).join(', '));
+const turns = spans.filter(sp => sp.name === 'turn');
+check('every turn is recorded with what was heard, the decision and its timings', turns.length >= 4
+  && turns.every(t => t.attrs['voice.turn'] && 'voice.stt_ms' in t.attrs && 'turn.decide_ms' in t.attrs && t.attrs['turn.decision']), JSON.stringify(turns.map(t => t.attrs)));
+for (const t of turns) console.log(`      ${String(t.attrs['turn.decision']).padEnd(10)} stt ${t.attrs['voice.stt_ms']} ms · confidence ${t.attrs['voice.confidence'] ?? 'n/a'} · decide ${t.attrs['turn.decide_ms']} ms`);
+check('small talk: under about 1.5 s from end of speech to first audio', smallMs.length > 0 && smallMs.every(ms => ms > 0 && ms < 1600), smallMs.join(', '));
 
 await page.click('[data-testid="call-end"]').catch(() => page.evaluate(() => (window as any).copilot.end()));
+await page.waitForTimeout(1000);
+const call = spans.find(sp => sp.name === 'call');
+check('the call is recorded once it ends, with its voice stack and outcome', !!call && call.attrs['call.channel'] === 'voice' && !!call.attrs['voice.stt'] && !!call.attrs['call.outcome'],
+  JSON.stringify(call?.attrs));
+console.log(`      call ${call?.attrs['call.id']}: ${call?.attrs['call.outcome']}, ${call?.attrs['call.turns']} turns`);
 await browser.close();
 await srv.close();
 fs.rmSync(tmp, { recursive: true, force: true });

@@ -25,7 +25,8 @@ import { forDisplay, forSpeech } from '../../../copilot-engine/src/guard.ts';
 import { Verifier, WANTS_VERIFY, type ReturnCard } from '../../../copilot-engine/src/verify.ts';
 import { DomFiller } from './dom-filler.ts';
 import { API_BASE } from './config.ts';
-import { newCall, RemoteDeskModel, RemoteJudge, setReplyLanguage, toReplyLanguage, RemoteModel, RemoteRetriever, RemoteVerify, report, traceSpan, warmUp } from './remote.ts';
+import { callId, newCall, RemoteDeskModel, RemoteJudge, RemoteModel, RemoteRetriever, RemoteVerify, report, setReplyLanguage, toReplyLanguage, warmUp } from './remote.ts';
+import { beginCall, endCall, failure, happened, logTurn, markDesk, notePage, noteVoice, type DeskMark } from './calllog.ts';
 
 export type Config = {
   business: string;
@@ -192,7 +193,7 @@ function sayNow(text: string) {
 }
 function sayIt(text: string) {
   const agent = agentIdentity();
-  if (room && agent) void room.localParticipant.performRpc({ destinationIdentity: agent, method: 'agent.say', payload: JSON.stringify({ text }) }).catch(e => report('voice', `agent.say: ${(e as Error).message}`));
+  if (room && agent) void room.localParticipant.performRpc({ destinationIdentity: agent, method: 'agent.say', payload: JSON.stringify({ text }) }).catch(e => { report('voice', `agent.say: ${(e as Error).message}`); failure('rpc', `agent.say: ${(e as Error).message}`, { method: 'agent.say', text }); });
 }
 // A library search can take several seconds: on a call, the caller hears that it is looking rather than silence.
 async function searched(text: string) {
@@ -285,26 +286,30 @@ async function startVoice() {
   }
   const rm = new lk.Room({ adaptiveStream: false, dynacast: false });
   room = rm;
-  rm.registerRpcMethod('copilot.greet', async () => {
+  // The agent says which speech models it runs; the call id it gets back puts its own spans in this call's session.
+  rm.registerRpcMethod('copilot.greet', async data => {
+    noteVoice(JSON.parse(data.payload || '{}'));
     collect = [];
     if (!snap.messages.length) setMode(snap.mode);
     else { introSaid = false; spoken([...snap.messages].reverse().find(m => m.who === 'bot')?.text ?? ''); }
     let say = collect.join(' '); collect = null;
     // No language picked on a stack that speaks several: the agent asks, and goes by what it hears meanwhile.
     if (!snap.language && snap.languages.length > 1) { say += ` ${LANGUAGE_ASK}`; add('bot', LANGUAGE_ASK, false); }
-    return JSON.stringify({ say: await toReplyLanguage(say) });
+    return JSON.stringify({ say: await toReplyLanguage(say), call: callId });
   });
   rm.registerRpcMethod('copilot.turn', async data => {
-    const p = JSON.parse(data.payload || '{}');
-    const text = String(p.text ?? '');
-    heardLanguage(String(p.language ?? ''), String(p.heard ?? ''));
+    // text: what the agent heard; language: the reply's, heard: what the recogniser heard; the rest (turn id, speech
+    // model, its confidence, timings so far) goes on the turn's span.
+    const { text: said, language, heard, ...voice } = JSON.parse(data.payload || '{}');
+    const text = String(said ?? '');
+    heardLanguage(String(language ?? ''), String(heard ?? ''));
     collect = []; lastSearchMs = undefined;
     const t0 = performance.now();
     const asked = askedLanguage(text);
-    const kind = asked ? 'language' : await send(text);
+    const kind = asked ? 'language' : await send(text, { ...voice, language: heard || language });
     if (asked) { setLanguage(asked.code); collect.push(await toReplyLanguage(`Sure, let's talk in ${asked.name}. What can I help with?`)); }
     const say = await toReplyLanguage(collect.join(' ')); collect = null;
-    return JSON.stringify({ say, kind, decideMs: Math.round(performance.now() - t0), searchMs: lastSearchMs });
+    return JSON.stringify({ say, kind, decideMs: Math.round(performance.now() - t0), searchMs: lastSearchMs, call: callId });
   });
   rm.on(lk.RoomEvent.TrackSubscribed, track => {
     if (track.kind !== lk.Track.Kind.Audio) return;
@@ -326,6 +331,7 @@ async function startVoice() {
     agentTimer = setTimeout(() => {
       if (room !== rm || agentIdentity()) return;
       report('voice', `no agent after ${AGENT_WAIT_MS} ms`);
+      failure('no-agent', `no agent after ${AGENT_WAIT_MS} ms`, { wait_ms: AGENT_WAIT_MS }, 'agent never answered');
       toText("The voice line isn't answering right now, so let's carry on by typing. Your answers go in the box below.");
     }, AGENT_WAIT_MS);
     await rm.connect(grant.url, grant.token);
@@ -400,6 +406,7 @@ function stopVoice() {
 }
 
 function toText(msg?: string) {
+  if (msg) failure('voice-fallback', msg, {}, 'fell back to text');
   stopVoice();
   set({ voice: false, textInput: true, status: 'text', heard: '' });
   if (msg) add('bot', msg);
@@ -934,7 +941,7 @@ async function navReply(text: string): Promise<string | null> {
 // Spoken questions come without a question mark, so a question word at the start counts too.
 const isQuestion = (t: string) => /\?\s*$/.test(t) || /^\s*(what|where|which|how|why|when|who|can i|could i|should i|do i|does|is there|is it|are there|will)\b/i.test(t);
 
-async function send(text: string): Promise<string> {
+async function send(text: string, voice?: Record<string, unknown>): Promise<string> {
   // Dictation adds a full stop ("SPF-204118."), which a page's own format check would refuse. A "?" stays: it marks a question.
   text = String(text ?? '').trim().replace(/[.!,;:]+$/, '').trim();
   if (!cfg || snap.busy || !text) return '';
@@ -948,7 +955,10 @@ async function send(text: string): Promise<string> {
   let links: Message['links'] = [];
   let source: Source | undefined;
 
-  let kind = 'form';
+  let kind = 'form', why = '', error: string | undefined;
+  // The desks' state before this turn, so the call log can tell what this turn did (tool calls, confirmations, corrections).
+  const marks = new Map<Desk, DeskMark>();
+  for (const d of [desk, asker]) if (d) marks.set(d, markDesk(d)!);
   try {
     // "Can you hear me?", "hello?", "wait", "thanks": answered at once, never searched (not while a secret is asked).
     const small = verifier?.secretOpen() ? null : smallTalk(text);
@@ -956,38 +966,45 @@ async function send(text: string): Promise<string> {
     const nav = ver === null ? await navReply(text) : null;
     const routed = small === null && ver === null && nav === null && cfg.desk && (snap.mode === 'ask' || isQuestion(text) || ADVICE.test(text)) ? deskRoute(text) : null;
     takeAnswered();
-    if (small !== null) { reply = small; kind = 'small-talk'; } else if (ver !== null) {
-      reply = ver; kind = 'verify';
+    if (small !== null) { reply = small; kind = 'small-talk'; why = 'every part was small talk, answered by code'; } else if (ver !== null) {
+      reply = ver; kind = 'verify'; why = `caller verification (${verifier?.state ?? 'done'})`;
+      if (cfg.verify && reply.includes(cfg.verify.handoff)) happened('handed to a person');
       if (verifier?.state === 'verified' && verifyBackend?.call && !location.pathname.startsWith('/tax/portal')) links = [{ text: 'Open your client portal', href: '/tax/portal' }];
-    } else if (nav !== null) { reply = nav; kind = 'nav'; } else if (routed) { ({ reply, links } = routed); kind = 'ask'; }
-    else if (snap.mode === 'ask') { reply = await askDesk().turn(text); kind = 'ask'; }
-    else if (snap.mode === 'guide') reply = await guide!.turn(text);
-    else if (!desk) startForm();
-    else if (formDone()) reply = `I've handed the form back to you. Please check it and press ${form!.submit} yourself.`;
+    } else if (nav !== null) { reply = nav; kind = 'nav'; why = 'a page change or the source viewer, by code'; } else if (routed) {
+      ({ reply, links } = routed); kind = 'ask';
+      why = BOOK.test(text) ? 'asked to book: offered the booking form, by code' : 'advice about their own situation: offered a person, by code';
+      if (!BOOK.test(text)) happened('handed to a person');
+    }
+    else if (snap.mode === 'ask') { reply = await askDesk().turn(text); kind = 'ask'; why = 'question desk (model with tools)'; }
+    else if (snap.mode === 'guide') { reply = await guide!.turn(text); kind = 'guide'; why = 'manual walk-through'; }
+    else if (!desk) { startForm(); why = 'the form was still loading'; }
+    else if (formDone()) { reply = `I've handed the form back to you. Please check it and press ${form!.submit} yourself.`; why = 'the form is done'; }
     else {
       // The desk fills the form, and answers a side question from the library or manual (or says it doesn't know).
       closeSource();
       // After two misses on a serial, email or phone, a caller is offered the keyboard (the call panel's button).
       flow!.typeOffer = snap.voice ? 'You can also type it with Keyboard.' : '';
-      const before = desk.fills.length;
       reply = await desk.turn(text);
-      // Each fill goes to Phoenix with its risk, the read-back and the yes, so evals can check every fill from 56 up
-      // had its yes (decision 0011). The value itself stays out: the read-back carries it, masked like any turn.
-      for (const f of desk.fills.slice(before)) traceSpan('confirm', turnAt, f.yes, f.readback, { field: f.field, risk: f.risk ?? 0, asked: f.yes ? 'yes' : 'in passing', page: location.pathname });
+      why = 'form desk (model with tools; code owns the form)';
+      if (formDone() && bookPaths.some(h => location.pathname.startsWith(h))) happened('booked');
       // A multi-step form: when this step's answers are all in, the copilot may press the step's Next button
       // (data-copilot-next, a type="button" that only moves on; never the form's submit). The next step then starts.
       const next = formDone() ? stepNext() : null;
       if (next) { reply = ''; next.click(); }
     }
     const looked = takeAnswered();
-    if (looked) { links = looked.links; source = looked.source; kind = 'ask'; }
+    if (looked) { links = looked.links; source = looked.source; kind = 'ask'; why = `${why}; quoted from the library`; }
   } catch (e) {
     reply = "Sorry, something went wrong on my side. Nothing was sent. Please try again.";
     console.error(e);
-    report('send', `${(e as Error).message} @ ${((e as Error).stack ?? '').split('\n')[1]?.trim() ?? ''}`);
+    error = `${(e as Error).message} @ ${((e as Error).stack ?? '').split('\n')[1]?.trim() ?? ''}`;
+    report('send', error);
+    failure('turn', error, {}, 'error');
   }
   set({ busy: false, status: snap.voice ? snap.status : 'text' });
-  traceSpan('turn', turnAt, text, reply, { mode: snap.mode, page: location.pathname }, !reply);
+  const ran = [desk, asker].find(d => d && d.turns.length > (marks.get(d)?.turns ?? 0));
+  logTurn({ id: String(voice?.turn ?? crypto.randomUUID()), start: turnAt, heard: text, reply, kind, why, mode: snap.mode, voice, error,
+    desk: ran ? marks.get(ran) ?? { desk: ran, turns: 0, events: 0, fills: 0, pending: null, values: {} } : null, quoted: source && { title: source.title, href: source.href, quote: source.quote } });
   if (reply) add('bot', reply, true, links, source);
   highlight();
   return kind;
@@ -997,7 +1014,7 @@ function start({ voice = false }: { voice?: boolean } = {}) {
   if (!cfg) return;
   const v = voice && canHear();
   muted = false;
-  if (!snap.open) newCall();
+  if (!snap.open) { newCall(); beginCall(callId, cfg.business, v ? 'voice' : 'text'); }
   set({ open: true, voice: v, textInput: !v, status: v ? 'waiting' : 'text', startedAt: snap.open ? snap.startedAt : Date.now() });
   warm();
   // A voice call asks for the microphone first; the greeting comes once the agent has joined (copilot.greet).
@@ -1006,7 +1023,7 @@ function start({ voice = false }: { voice?: boolean } = {}) {
 }
 
 function end() {
-  if (snap.startedAt) traceSpan('call', snap.startedAt, '', '', { outcome: 'ended by caller', turns: snap.messages.filter(m => m.who === 'user').length, page: location.pathname });
+  endCall('ended', formOn());
   stopVoice();
   noted = false;
   verifier = null; verifyBackend = null; // a new call starts verification over (the server still counts failures per visitor)
@@ -1028,12 +1045,16 @@ function toggleMic() {
 // A page change mid-call (the site's router unmounts one page and mounts the next) keeps the call: the old page's
 // form is saved as a draft, and the new page's config takes over the same conversation.
 let carried = false;
+// The booking pages the sites link to: a form finished there makes the call's outcome "booked".
+const bookPaths: string[] = [];
 let leaving: ReturnType<typeof setTimeout> | undefined;
 function mount(c: Config) {
   carried = !!leaving && snap.open;
   clearTimeout(leaving); leaving = undefined;
   if (carried) detach(); else unmount(true);
   cfg = c;
+  if (c.desk?.book && !bookPaths.includes(c.desk.book.href)) bookPaths.push(c.desk.book.href);
+  if (carried) notePage(location.pathname);
   manual = c.manual ? { id: c.manual.label, title: c.manual.title, business: c.business, steps: c.manual.steps, passages: [], unknown: c.manual.unknown } : null;
   lookup = manual ? new Guide(manual, new RemoteRetriever(manual.id), new RemoteJudge()) : null;
   // A desk page with a form fills the form (questions are still answered); a desk page without one only answers.
@@ -1067,11 +1088,15 @@ function unmount(now = false) {
     return;
   }
   clearTimeout(leaving); leaving = undefined;
+  endCall('left', formOn());
   end();
   detach();
   cfg = null; manual = null; lookup = null; muted = false;
   set(blank());
 }
+
+// Closing the tab or leaving the site mid-call: the call is recorded as left (abandoned).
+addEventListener('pagehide', () => { if (snap.open) endCall('left', formOn()); });
 
 const api = {
   mount, unmount: () => unmount(), start, end, toggleMic, setMode, showSource, closeSource, setLanguage, setStack,

@@ -79,6 +79,8 @@ const SPEECH = process.env.SPEECH_URL || 'http://127.0.0.1:8799';
 const LIVEKIT = { url: process.env.LIVEKIT_URL || 'ws://127.0.0.1:7880', key: process.env.LIVEKIT_API_KEY || 'devkey', secret: process.env.LIVEKIT_API_SECRET || 'secret' };
 const up = (url: string) => fetch(url).then(r => r.ok, () => false);
 let voiceStarting: Promise<void> | null = null;
+// Octo's settings for the agent's own spans (speech/telemetry.py): the same Phoenix project as tracing.ts. Set by start().
+let agentTrace: Record<string, string> = {};
 function voiceUp(): Promise<void> {
   voiceStarting ??= (async () => {
     const py = path.join(here, 'speech/.venv/bin/python');
@@ -89,7 +91,7 @@ function voiceUp(): Promise<void> {
     if (!process.env.SPEECH_URL && !(await up(`${SPEECH}/health`))) bg(py, [path.join(here, 'speech/server.py')]);
     if (!process.env.LIVEKIT_URL && !(await up(LIVEKIT.url.replace(/^ws/, 'http')))) bg('livekit-server', ['--dev', '--bind', '127.0.0.1']);
     const agents = await new Promise<string>(r => execFile('pgrep', ['-f', 'speech/agent.py'], (_e, out) => r(String(out).trim())));
-    if (!agents) bg(py, [path.join(here, 'speech/agent.py'), 'start'], { LIVEKIT_URL: LIVEKIT.url, LIVEKIT_API_KEY: LIVEKIT.key, LIVEKIT_API_SECRET: LIVEKIT.secret });
+    if (!agents) bg(py, [path.join(here, 'speech/agent.py'), 'start'], { LIVEKIT_URL: LIVEKIT.url, LIVEKIT_API_KEY: LIVEKIT.key, LIVEKIT_API_SECRET: LIVEKIT.secret, ...agentTrace });
   })().finally(() => { voiceStarting = null; });
   return voiceStarting;
 }
@@ -144,8 +146,11 @@ function visitor(req: http.IncomingMessage): string {
 export async function start(opts: { port?: number; host?: string; offline?: boolean } = {}) {
   const env = loadEnv();
   if (opts.offline) env.OFFLINE = '1';
-  const api = createApi(env, { offlinePassages: offlinePassages(), matchNames: nameMatcher(), trace: opts.offline ? undefined : createTracer(env) });
+  const tracing = opts.offline ? undefined : createTracer(env);
+  const api = createApi(env, { offlinePassages: offlinePassages(), matchNames: nameMatcher(), trace: tracing?.trace, score: tracing?.score });
   const dist = path.join(here, 'dist');
+  agentTrace = Object.fromEntries(Object.entries({ OCTO_KEY: env.OCTO_KEY, OCTO_WORKSPACE: env.OCTO_WORKSPACE, OCTO_BASE: env.OCTO_BASE,
+    OCTO_TRACES: opts.offline ? 'off' : env.OCTO_TRACES }).filter((e): e is [string, string] => !!e[1]));
   void voiceUp();
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url ?? '/', 'http://local');
@@ -195,7 +200,7 @@ export async function start(opts: { port?: number; host?: string; offline?: bool
   });
   await new Promise<void>(r => server.listen(opts.port ?? 0, opts.host ?? '127.0.0.1', r));
   const url = `http://${opts.host ?? '127.0.0.1'}:${(server.address() as { port: number }).port}`;
-  return { url, mode: api.mode, close: () => new Promise<void>(r => { server.closeAllConnections(); server.close(() => r()); }) };
+  return { url, mode: api.mode, close: () => new Promise<void>(r => { server.closeAllConnections(); server.close(() => r()); }).then(() => tracing?.flush()) };
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

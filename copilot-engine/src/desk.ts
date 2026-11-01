@@ -428,10 +428,16 @@ export class Desk {
   private n = 0;
   private lastUser = '';
   private hist: ChatMsg[] = []; // the conversation as the model sees it, with every action shown as a tool call
-  private acts: { name: string; args: Record<string, unknown>; result: string }[] = [];
+  acts: { name: string; args: Record<string, unknown>; result: string }[] = []; // this turn's tool calls and what code answered (read by the call log)
   private maxModel = 220;
   private toolsSpec: unknown[];
   private system: string;
+  // The prompt version the traces record: a short hash of the system prompt and the tools, so a change to either shows.
+  get promptVersion(): string {
+    let h = 0x811c9dc5;
+    for (const ch of this.system + JSON.stringify(this.toolsSpec)) h = Math.imul(h ^ ch.charCodeAt(0), 0x01000193);
+    return `desk-${(h >>> 0).toString(16).padStart(8, '0')}`;
+  }
 
   // Memory (both optional): `sessions` keeps a snapshot for call resume; `customers` keeps opt-in returning-customer
   // details. Any Store works (memory.ts has a Map and a JSON file store; an Octo store can implement the same).

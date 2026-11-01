@@ -42,6 +42,7 @@ class Stt:
             encoder=d + 'encoder.int8.onnx', decoder=d + 'decoder.int8.onnx', joiner=d + 'joiner.int8.onnx',
             tokens=d + 'tokens.txt', model_type='nemo_transducer', num_threads=4)
         self.lock = threading.Lock()
+        self.confidence: float | None = None
 
     def __call__(self, audio: np.ndarray, sr: int, lang: str | None = None) -> tuple[str, str]:
         # A last word that ends right at the clip's edge can be dropped, so pad both ends with a little silence.
@@ -50,6 +51,9 @@ class Stt:
             s = self.rec.create_stream()
             s.accept_waveform(sr, audio)
             self.rec.decode_stream(s)
+            # The model's confidence for the turn: its mean token probability (0 to 1), recorded with the turn (#17).
+            lp = list(s.result.ys_log_probs or [])
+            self.confidence = round(float(np.exp(np.mean(lp))), 3) if lp else None
             return s.result.text.strip(), 'en'  # Parakeet v2 hears English only
 
 
@@ -60,6 +64,7 @@ class WhisperStt:
         import mlx_whisper
         self.mw = mlx_whisper
         self.lock = threading.Lock()
+        self.confidence: float | None = None  # Whisper gives none per turn
         with self.lock:
             self.mw.transcribe(np.zeros(16000, 'float32'), path_or_hf_repo=WHISPER, language='en')
 
@@ -220,10 +225,11 @@ def handler(stacks: Stacks, turns_path: str):
                 lang = q.get('lang') or None
                 if len(audio) < sr * 0.15:
                     return self.json(200, {'text': '', 'language': lang or '', 'ms': 0})
-                text, heard = stacks.listener(q.get("stack", ""))(audio, sr, lang)
+                listener = stacks.listener(q.get("stack", ""))
+                text, heard = listener(audio, sr, lang)
                 ms = round((time.time() - t) * 1000)
                 log(f'stt {ms} ms, {len(audio) / sr:.1f} s audio, {heard}:', text[:80])
-                return self.json(200, {'text': text, 'language': heard, 'ms': ms, 'seconds': round(len(audio) / sr, 2)})
+                return self.json(200, {'text': text, 'language': heard, 'ms': ms, 'seconds': round(len(audio) / sr, 2), 'confidence': listener.confidence})
             if path == '/tts':
                 try:
                     b = json.loads(self.body() or b'{}')
