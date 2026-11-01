@@ -63,6 +63,29 @@ Starting revision, material inputs/configuration, runtime, exact command or prom
 
 No checkpoints yet.
 
+### 2026-11-01 18:52:46 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["copilot-engine/src/search-site.ts, desk.ts, guide.ts, tests/search-site.test.ts"],"completed":["The model can look through a site with a capped, fixed-size search_site tool before it answers, and replies are still quotes from a cited passage"],"decisions":["answer_question takes the section and page type a search showed; the live site is not wired until per-business config (#103)"],"evidence":["npm run check passes; 15 new tests: 4 results of 400 characters, 3 searches and 3 trips per turn, dropped filters, quote-only unchanged"],"next_action":"Open the PR for #110","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0072","timestamp":"2026-11-01T18:52:46Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"d61b7c0164126d53629f314a6457ad6b02523d135f76be48b5e0af37faded141","request_id":"f0a502a92b6042068c79d89ea4b58a80","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0072"} -->
+
+Completed:
+- The model can look through a site with a capped, fixed-size search_site tool before it answers, and replies are still quotes from a cited passage
+
+Evidence:
+- npm run check passes; 15 new tests: 4 results of 400 characters, 3 searches and 3 trips per turn, dropped filters, quote-only unchanged
+
+Decisions:
+- answer_question takes the section and page type a search showed; the live site is not wired until per-business config (#103)
+
+Changed:
+- copilot-engine/src/search-site.ts, desk.ts, guide.ts, tests/search-site.test.ts
+
+Blocked/uncertain:
+- none
+
+Next:
+- Open the PR for #110
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
