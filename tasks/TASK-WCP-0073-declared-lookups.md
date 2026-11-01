@@ -89,6 +89,29 @@ Blocked/uncertain:
 Next:
 - Open the PR for #111, then build the huge-site evals (#112)
 
+### 2026-11-01 23:19:14 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["tasks/TASK-WCP-0073-declared-lookups.md, docs/lookups.md"],"completed":["The declared-lookups branch sits on the moved repository's main"],"decisions":["none"],"evidence":["npm run check passes on the stack after merging the moved repository's main; issue links point at pukujan-lab-2"],"next_action":"Merge PR #55 after #54","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0073","timestamp":"2026-11-01T23:19:14Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"bb9bccb664f80b8f2b78567064c40905f60060b6490da4bb6ec3d49b52d72830","request_id":"d8823c29e3e3401bb17622546503437c","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0073"} -->
+
+Completed:
+- The declared-lookups branch sits on the moved repository's main
+
+Evidence:
+- npm run check passes on the stack after merging the moved repository's main; issue links point at pukujan-lab-2
+
+Decisions:
+- none
+
+Changed:
+- tasks/TASK-WCP-0073-declared-lookups.md, docs/lookups.md
+
+Blocked/uncertain:
+- none
+
+Next:
+- Merge PR #55 after #54
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
