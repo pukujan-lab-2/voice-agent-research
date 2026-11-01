@@ -62,6 +62,29 @@ Starting revision, material inputs/configuration, runtime, exact command or prom
 
 No checkpoints yet.
 
+### 2026-11-01 19:04:43 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["copilot-engine/src/site-search.ts, guide.ts, eval/size/, eval/out/synthetic-*, eval/out/irs-live"],"completed":["A search can be narrowed to a section, page type and language, and retrieval is measured at 10,000, 50,000 and 200,000 passages and on the live IRS library"],"decisions":["metadata lives in the title prefix and a workspace table until Octo has a metadata filter"],"evidence":["recall@10 0.997 to 1.0 on the synthetic site at every size; 200,000 passages: 0.24 s unfiltered, 2.1 s whole-business prefix; IRS live 1.5 s p50, recall@10 0.838; slow part filed on octo-database#391 and #459"],"next_action":"Open the PR for #109","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0071","timestamp":"2026-11-01T19:04:43Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"9fe2962c47705da8472d29ddfd05edc36e5c5e3a71506fc6148605e976fcfdc6","request_id":"c4fec9268dee499c8a69ed4a11be753b","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0071"} -->
+
+Completed:
+- A search can be narrowed to a section, page type and language, and retrieval is measured at 10,000, 50,000 and 200,000 passages and on the live IRS library
+
+Evidence:
+- recall@10 0.997 to 1.0 on the synthetic site at every size; 200,000 passages: 0.24 s unfiltered, 2.1 s whole-business prefix; IRS live 1.5 s p50, recall@10 0.838; slow part filed on octo-database#391 and #459
+
+Decisions:
+- metadata lives in the title prefix and a workspace table until Octo has a metadata filter
+
+Changed:
+- copilot-engine/src/site-search.ts, guide.ts, eval/size/, eval/out/synthetic-*, eval/out/irs-live
+
+Blocked/uncertain:
+- none
+
+Next:
+- Open the PR for #109
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
