@@ -99,3 +99,26 @@ Blocked/uncertain:
 
 Next:
 - Add a voice path to the scene harness that can drive a LiveKit call, so the three phone voice checks and the voice scene can run.
+
+### 2026-11-01 06:58:32 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["checkpoints/CURRENT.md, tasks/TASK-WCP-0013-demo-sites-redesign.md, tasks/TASK-WCP-0014-widget-redesign.md, copilot-engine/ledger.jsonl"],"completed":["The owner found the demo plain and the call panel too small; both redesigns are now merged and the two issues that asked for them are closed with their evidence, so no task stays active after its merge."],"decisions":["no new decisions"],"evidence":["Merged main da521b8 passes npm run check (lint, Python lint, typecheck, orphan check, 49 engine tests, 8 of 8 engine scenarios) and npm run build including the copilot contract check; the layout scene passes at 390x664, 375x560, 360x640 and 1280x800; a full offline run still stops in the voice scene, now issue #69."],"next_action":"Make the offline scene suite skip its voice scene with a printed reason and count it in the summary (#69), then run a full offline suite before the next demo change.","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0014","timestamp":"2026-11-01T06:58:32Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"9f947e94fe55637f61e6d7ec26c5c7126f93a2a31be79da4f57478561bfe0cf4","request_id":"1a2058753a1a438da62871c74b19cb17","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0014"} -->
+
+Completed:
+- The owner found the demo plain and the call panel too small; both redesigns are now merged and the two issues that asked for them are closed with their evidence, so no task stays active after its merge.
+
+Evidence:
+- Merged main da521b8 passes npm run check (lint, Python lint, typecheck, orphan check, 49 engine tests, 8 of 8 engine scenarios) and npm run build including the copilot contract check; the layout scene passes at 390x664, 375x560, 360x640 and 1280x800; a full offline run still stops in the voice scene, now issue #69.
+
+Decisions:
+- no new decisions
+
+Changed:
+- checkpoints/CURRENT.md, tasks/TASK-WCP-0013-demo-sites-redesign.md, tasks/TASK-WCP-0014-widget-redesign.md, copilot-engine/ledger.jsonl
+
+Blocked/uncertain:
+- none
+
+Next:
+- Make the offline scene suite skip its voice scene with a printed reason and count it in the summary (#69), then run a full offline suite before the next demo change.
