@@ -1,6 +1,6 @@
 # 0015. The production branch deploys the lab
 
-**Status:** Accepted · **Date:** 2026-11-01 · **Replaces:** [0007](0007-not-hosted-yet.md)
+**Status:** Replaced by [0016](0016-merges-go-live.md) · **Date:** 2026-11-01 · **Replaces:** [0007](0007-not-hosted-yet.md)
 
 ## Decision
 
