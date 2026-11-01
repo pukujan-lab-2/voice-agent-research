@@ -13,6 +13,14 @@ function setValue(el: Box, value: string) {
   el.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
+// The desk writes a phone number as 555-010-4422; a page box that takes digits only gets 5550104422 instead.
+const accepted = (el: Box, field: Field, value: string): string => {
+  if (field.kind !== 'phone') return value;
+  const c = el.cloneNode() as Box;
+  c.value = value;
+  return c.checkValidity() ? value : value.replace(/\D/g, '');
+};
+
 export class DomFiller implements Hooks {
   handedBack = false;
   private form: PageForm;
@@ -24,6 +32,7 @@ export class DomFiller implements Hooks {
     if (!p || p.tag === 'radio' || p.tag === 'select') return;
     const el = document.querySelector<Box>(`[data-copilot-id="${p.id}"]`);
     if (!el) return;
+    value = accepted(el, field, value);
     const c = el.cloneNode() as Box;
     c.value = value;
     // minlength is only enforced on text a person typed, so a copy given a value passes it: check it here.
@@ -47,7 +56,7 @@ export class DomFiller implements Hooks {
     const el = document.querySelector<Box>(sel);
     if (!el) return gone;
     if (p.tag === 'select') { setValue(el, p.options!.find(o => o.label === value)?.value ?? ''); return; } // a skipped optional list goes back to its blank choice
-    setValue(el, value);
+    setValue(el, accepted(el, field, value));
     if (!el.checkValidity()) {
       const msg = el.validationMessage.replace(/\s+/g, ' ').trim();
       setValue(el, '');

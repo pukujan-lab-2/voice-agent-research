@@ -1,6 +1,7 @@
 // Browser side of the backend: the engine runs in the page, and only these three things go to the server, which holds
 // the keys. The server signs every passage it hands out, so the judge only ever sees real manual passages.
 import type { Model, Understanding } from '../../../copilot-engine/src/types.ts';
+import type { ChatModel, ChatMsg, ChatResult } from '../../../copilot-engine/src/desk.ts';
 import type { Judge, Passage, Retriever } from '../../../copilot-engine/src/guide.ts';
 import type { ReturnCard, VerifyBackend, VerifyResult } from '../../../copilot-engine/src/verify.ts';
 import { maskPII } from '../../../copilot-engine/src/guard.ts';
@@ -65,6 +66,23 @@ export class RemoteModel implements Model {
         said, values,
       });
     } catch { return { action: 'ask_again' }; }
+  }
+}
+
+// One turn of the v2 desk's model (LFM3 on our server). Any failure throws, and the desk runs that turn on its code
+// rules; when the server has no desk model (offline), every later turn goes straight to the rules.
+export class RemoteDeskModel implements ChatModel {
+  name = 'lfm3';
+  private off = false;
+  async chat(messages: ChatMsg[], tools: unknown[], opts: { maxTokens?: number; temperature?: number } = {}): Promise<ChatResult> {
+    if (this.off) throw new Error('no desk model');
+    const t0 = Date.now();
+    const r = await fetch(`${API_BASE}/api/desk`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-session-id': callId },
+      body: JSON.stringify({ messages, tools, max_tokens: opts.maxTokens, temperature: opts.temperature }) });
+    if (r.status === 503) this.off = true;
+    if (!r.ok) throw new Error(`/api/desk: ${r.status}`);
+    const j = await r.json();
+    return { content: String(j.content ?? ''), calls: Array.isArray(j.calls) ? j.calls : [], ms: Date.now() - t0, model: String(j.model ?? this.name) };
   }
 }
 

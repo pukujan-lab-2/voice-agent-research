@@ -5,6 +5,8 @@
 // an answer of its own, so it cannot make one up.
 import { isFiller } from './guard.ts';
 
+export const NO_ANSWER = "I don't know. The manual doesn't cover that, and I only answer from the manual.";
+
 export interface Step { n: number; text: string; page?: number }
 // unknown: what to say when nothing answers (default: the manual doesn't cover that).
 export interface Manual { id: string; title: string; business: string; steps: Step[]; passages: Passage[]; unknown?: string }
@@ -82,7 +84,7 @@ export class Guide {
     const p = hits.find(h => h.id === id);
     this.last = p;
     this.lastQuote = [];
-    if (!p) return this.manual.unknown ?? "I don't know. The manual doesn't cover that, and I only answer from the manual.";
+    if (!p) return this.manual.unknown ?? NO_ANSWER;
     if (p.cite) return `${p.cite.title} says: "${await this.quote(p.text, q)}"`;
     return `The manual says${p.page ? ` (page ${p.page})` : ''}: "${await this.quote(p.text, q)}"`;
   }

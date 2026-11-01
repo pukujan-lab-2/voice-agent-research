@@ -1,6 +1,7 @@
 // The copilot a site adds with one script tag, with no UI of its own: the site draws the call panel and drives it
-// through window.copilot. The engine runs here in the page and makes every decision in code; the backend only lends it
-// Jev (is this answer on topic? which manual passage answers?) and Octo search. Voice runs on LiveKit Agents with open
+// through window.copilot. The v2 desk runs here in the page: LFM3 talks and picks actions through tools, and code owns
+// the form, every read-back, every fill and every quote. The backend only lends it the model turn (LFM3), Jev (which
+// passage answers?) and Octo search. Voice runs on LiveKit Agents with open
 // models on our server (speech/agent.py); browser speech is not used. If the mic is blocked, the call carries on as text.
 //
 //   copilot.mount(config)        on a page with a form or a manual, once it is on screen (config: see Config)
@@ -14,15 +15,15 @@
 //   copilot.showSource(id) / copilot.closeSource()   open the source of an earlier answer / close the source viewer
 //   copilot.onNavigate(fn)       the site's client-side navigate, so the copilot can change page without ending the call
 //   copilot.subscribe(fn) / copilot.getSnapshot()   the state to draw (works with React's useSyncExternalStore)
-import { Copilot } from '../../../copilot-engine/src/engine.ts';
-import { Guide, type Manual } from '../../../copilot-engine/src/guide.ts';
+import { Desk, type ChatModel } from '../../../copilot-engine/src/desk.ts';
+import { Guide, type Manual, NO_ANSWER } from '../../../copilot-engine/src/guide.ts';
 import { flowFromPage, readInPage, type PageForm } from '../../../copilot-engine/src/page.ts';
 import type { Flow, Model } from '../../../copilot-engine/src/types.ts';
 import { forDisplay, forSpeech } from '../../../copilot-engine/src/guard.ts';
 import { Verifier, WANTS_VERIFY, type ReturnCard } from '../../../copilot-engine/src/verify.ts';
 import { DomFiller } from './dom-filler.ts';
 import { API_BASE } from './config.ts';
-import { newCall, RemoteJudge, RemoteModel, RemoteRetriever, RemoteVerify, report, traceSpan, warmUp } from './remote.ts';
+import { newCall, RemoteDeskModel, RemoteJudge, RemoteModel, RemoteRetriever, RemoteVerify, report, traceSpan, warmUp } from './remote.ts';
 
 export type Config = {
   business: string;
@@ -181,7 +182,7 @@ function sayNow(text: string) {
 async function searched(text: string) {
   if (room && snap.voice) sayNow('Let me check the tax guides.');
   const t0 = performance.now();
-  try { return await deskReply(text); } finally { lastSearchMs = Math.round(performance.now() - t0); }
+  try { return await libraryReply(text); } finally { lastSearchMs = Math.round(performance.now() - t0); }
 }
 
 function agentIdentity(): string {
@@ -215,7 +216,7 @@ function smallTalk(text: string): string | null {
   if (kinds.some(k => !k)) return null;
   const lastBot = [...snap.messages].reverse().find(m => m.who === 'bot')?.text ?? '';
   // What the copilot was waiting for: the open form question, or the last thing it asked.
-  const formOpen = snap.mode === 'form' && !!copilot && copilot.state !== 'done';
+  const formOpen = snap.mode === 'form' && formOn();
   const asked = (formOpen ? currentAsk() : '') || ([...lastBot.split(/(?<=[.!?])\s+/)].reverse().find(x => /\?$/.test(x)) ?? '');
   const ask = asked || (snap.mode === 'ask' ? "What's your question?" : 'What can I help with?');
   if (kinds.includes('repeat')) return lastBot || ask;
@@ -333,23 +334,28 @@ function toText(msg?: string) {
 const IDLE_MS = 290_000;
 let modelUsedAt = 0;
 const remoteModel = new RemoteModel();
-const model: Model = {
-  name: 'remote',
-  async understand(input) {
-    const t0 = Date.now();
-    const cold = t0 - modelUsedAt > IDLE_MS;
-    const show = setTimeout(() => set({ wait: cold
-      ? { text: 'Warming up the assistant…', until: t0 + 2000 }
-      : { text: 'Thinking…', until: t0 + 3000 } }), 600);
-    try { return await remoteModel.understand(input); }
-    finally { clearTimeout(show); modelUsedAt = Date.now(); if (snap.wait) set({ wait: null }); }
-  },
-};
+const remoteDesk = new RemoteDeskModel();
+async function timed<T>(call: () => Promise<T>): Promise<T> {
+  const t0 = Date.now();
+  const cold = t0 - modelUsedAt > IDLE_MS;
+  const show = setTimeout(() => set({ wait: cold
+    ? { text: 'Warming up the assistant…', until: t0 + 2000 }
+    : { text: 'Thinking…', until: t0 + 3000 } }), 600);
+  try { return await call(); }
+  finally { clearTimeout(show); modelUsedAt = Date.now(); if (snap.wait) set({ wait: null }); }
+}
+// Jev's on-topic gate, for caller verification.
+const model: Model = { name: 'remote', understand: input => timed(() => remoteModel.understand(input)) };
+// The desk's model turn (LFM3).
+const deskModel: ChatModel = { name: remoteDesk.name, chat: (m, t, o) => timed(() => remoteDesk.chat(m, t, o)) };
 function warm() {
   if (Date.now() - modelUsedAt < IDLE_MS) return;
   void warmUp().then(() => { modelUsedAt = Date.now(); });
 }
-let copilot: Copilot | null = null;
+let desk: Desk | null = null;
+// The form desk is done once every field is in (or the caller ended): the form is theirs to check and submit.
+const formDone = () => !!desk && (desk.complete || desk.done);
+const formOn = () => !!desk && !formDone();
 let flow: Flow | null = null;
 let form: PageForm | null = null;
 let firstEl: Element | null = null;
@@ -388,25 +394,25 @@ function prefilledValues(f: PageForm): Record<string, string> {
 }
 function startFormNow() {
   form = readInPage();
-  if (!form.fields.length) { copilot = null; add('bot', "There's nothing left for me to fill in on this page."); return; }
+  if (!form.fields.length) { desk = null; add('bot', "There's nothing left for me to fill in on this page."); return; }
   flow = flowFromPage(form, { business: cfg!.business, id: cfg!.form });
   if (cfg!.form) flow.intro = `Hi, I'm the ${cfg!.business} copilot. I can fill in this ${cfg!.form} form with you, one question at a time. I'll type your answers in, and you press ${form.submit} yourself at the end.`;
   if (parts++) flow.intro = `Thanks. On to the next part.`;
   firstEl = document.querySelector(`[data-copilot-id="${form.fields[0].id}"]`);
   const filler = new DomFiller(form);
-  copilot = new Copilot(flow, model, filler);
+  desk = new Desk(flow, { model: deskModel, hooks: filler, answer: answerFor, unknown: manual ? manual.unknown ?? NO_ANSWER : undefined, finish: flow.doneMessage });
   const draft = takeDraft();
   if (draft) {
     // Back on a form left half filled during this call: its answers go back in and the open question is asked.
-    for (const f of flow.fields) if (draft[f.name] !== undefined) void filler.fill(f, draft[f.name]);
-    add('bot', copilot.restore(draft, 'Back to the form. Your earlier answers are still filled in.'));
+    for (const f of flow.fields) if (draft[f.name]) void filler.fill(f, draft[f.name]);
+    add('bot', desk.prefill(draft, 'Back to the form. Your earlier answers are still filled in.'));
   } else if (Object.keys(prefilledValues(form)).length) {
     const pre = prefilledValues(form);
     const lead = carried ? `Here's the ${cfg!.form} form, with ${Object.keys(pre).length === 1 ? 'one answer' : 'some answers'} already in. I'll fill in the rest with you, and you press ${form.submit} yourself at the end.` : flow.intro;
-    add('bot', copilot.restore(pre, lead));
+    add('bot', desk.prefill(pre, lead));
   } else {
     if (carried) flow.intro = `Here's the ${cfg!.form} form. I'll fill it in with you, one question at a time, and you press ${form.submit} yourself at the end.`;
-    add('bot', copilot.start());
+    add('bot', desk.start());
   }
   highlight();
 }
@@ -414,8 +420,8 @@ function startFormNow() {
 // ---- Drafts: a form left mid-call (the caller asked for another page) keeps its answers for this browser tab.
 const draftKey = () => `copilot-draft:${location.pathname}`;
 function saveDraft() {
-  if (!form || !copilot || !flow) return;
-  const values: Record<string, string> = { ...copilot.values };
+  if (!form || !desk || !flow) return;
+  const values: Record<string, string> = { ...desk.values };
   // Boxes the person typed into themselves count as answered too.
   for (const p of form.fields) {
     if (values[p.id] !== undefined || p.tag === 'radio' || p.tag === 'select') continue;
@@ -423,7 +429,7 @@ function saveDraft() {
     if (v) values[p.id] = v;
   }
   try {
-    if (Object.keys(values).length && copilot.state !== 'done') sessionStorage.setItem(draftKey(), JSON.stringify(values));
+    if (Object.keys(values).length && !formDone()) sessionStorage.setItem(draftKey(), JSON.stringify(values));
     else sessionStorage.removeItem(draftKey());
   } catch { /* storage off: the form starts over */ }
 }
@@ -438,8 +444,8 @@ function takeDraft(): Record<string, string> | null {
 // Mark the field being asked ([data-copilot-active], for the site to style) and keep it above the panel.
 function highlight() {
   document.querySelectorAll('[data-copilot-active]').forEach(e => e.removeAttribute('data-copilot-active'));
-  if (!snap.open || snap.mode !== 'form' || !copilot || !['ask', 'verify'].includes(copilot.state)) return;
-  const el = document.querySelector(`[data-copilot-id="${copilot.current()}"]`);
+  if (!snap.open || snap.mode !== 'form' || !desk || !formOn()) return;
+  const el = document.querySelector(`[data-copilot-id="${desk.pending?.field ?? desk.current}"]`);
   const box = el && (el as HTMLInputElement).type === 'radio' ? el.closest('fieldset') ?? el : el;
   if (!box) return;
   box.setAttribute('data-copilot-active', '');
@@ -449,10 +455,8 @@ function highlight() {
 }
 
 function currentAsk(): string {
-  if (!copilot || !flow) return '';
-  if (copilot.state === 'ask') return flow.fields.find(f => f.name === copilot!.current())?.question ?? '';
-  if (copilot.state === 'review') return flow.reviewAsk ?? '';
-  return '';
+  if (!desk || !flow || !formOn()) return '';
+  return desk.pending?.text ?? flow.fields.find(f => f.name === desk!.current)?.question ?? '';
 }
 
 function stepNext(): HTMLButtonElement | null {
@@ -470,10 +474,10 @@ function watchForm() {
   const el = document.querySelector('[data-copilot-form]');
   if (!el) return;
   observer = new MutationObserver(() => {
-    if (!copilot || copilot.state !== 'done' || snap.mode !== 'form' || !snap.open) return;
+    if (!formDone() || snap.mode !== 'form' || !snap.open) return;
     clearTimeout(stepTimer);
     stepTimer = setTimeout(() => {
-      if (!copilot || copilot.state !== 'done') return;
+      if (!formDone()) return;
       const next = readInPage();
       const first = next.fields[0] && document.querySelector(`[data-copilot-id="${next.fields[0].id}"]`);
       if (first && first !== firstEl) startForm();
@@ -491,12 +495,12 @@ function setMode(m: Mode) {
   if (!snap.modes.includes(m)) return;
   set({ mode: m });
   if (m === 'ask') {
-    if (!snap.messages.length) add('bot', cfg!.desk!.greeting);
+    if (!snap.messages.length) add('bot', askDesk().start());
   } else if (m === 'guide' && manual) {
     guide ??= new Guide(manual, new RemoteRetriever(manual.id), new RemoteJudge());
     add('bot', guide.log.length ? 'Back to the walk-through. Say "repeat" to hear the step again.' : guide.start());
   } else if (m === 'form') {
-    if (!copilot) startForm(); else add('bot', `Back to the form. ${currentAsk()}`.trim());
+    if (!desk) startForm(); else add('bot', `Back to the form. ${currentAsk()}`.trim());
   }
   highlight();
 }
@@ -524,7 +528,8 @@ async function verifyReply(text: string): Promise<string | null> {
 const ADVICE = /\b((?<!(what|how|where|when|who) )should (i|we) (?!(do|bring|expect|send|contact|call|mail|include|use|report|keep)\b)|shall (i|we)|how much (will|would|should) (i|we)|(will|would) (i|we) (owe|get back|have to pay|be audited)|what('s| is| will be) (my|our) (refund|tax bill|tax)\b|am i (better|worse) off|are we (better|worse) off|is it (better|worth it|smart|wise) (for me|for us|to)|do you (recommend|think i|think we)|what would you (do|recommend)|(better|best) for (me|us)|can you (do|file|prepare|review) (my|our)|help me (decide|choose)|which is better for)/i;
 const BOOK = /\b(book|schedule|set up|make) (a |an |my )?(consult(ation)?|appointment|meeting|call)\b|\b(talk|speak) (to|with) (a|an|someone|somebody|a real) ?(preparer|accountant|person|human|cpa|expert)?\b/i;
 
-async function deskReply(text: string): Promise<{ reply: string; links: Message['links']; source?: Source }> {
+// Booking and advice are code's, before the model: a question about the visitor's own situation is never answered.
+function deskRoute(text: string): { reply: string; links: Message['links'] } | null {
   const d = cfg!.desk!;
   const book = d.book && !location.pathname.startsWith(d.book.href) ? [{ text: d.book.text, href: d.book.href }] : [];
   if (BOOK.test(text)) {
@@ -532,6 +537,40 @@ async function deskReply(text: string): Promise<{ reply: string; links: Message[
       : { reply: `We're on the booking form. ${currentAsk()}`.trim(), links: [] };
   }
   if (ADVICE.test(text)) return { reply: `${d.advice}${book.length ? ` Open ${d.book!.text} to pick a time.` : ''}`, links: book };
+  return null;
+}
+
+// The desk's lookup (its answer_question tool): the library's answer, quoted, with its source opened in the site's
+// viewer, or the manual's; null when nothing answers. The links and source go on the reply's message.
+let answered: { links: Message['links']; source?: Source } | null = null;
+function takeAnswered() { const a = answered; answered = null; return a; }
+async function answerFor(q: string): Promise<string | null> {
+  if (!lookup) return null;
+  if (cfg?.desk) {
+    const r = await searched(q);
+    if (!lookup.last) return null;
+    answered = { links: r.links, source: r.source };
+    return r.reply;
+  }
+  const reply = await lookup.lookup(q);
+  const p = lookup.last;
+  if (!p) return null;
+  answered = { links: p.cite ? [{ text: p.cite.title, href: p.cite.url }] : [] };
+  return reply;
+}
+
+// The question desk of a page with no form (the tax site's /tax): LFM3 talks, and every fact is quoted by answerFor.
+let asker: Desk | null = null;
+function askDesk(): Desk {
+  if (!asker) {
+    asker = new Desk({ id: 'ask', business: cfg!.business, scope: (cfg!.manual?.title ?? 'documents').toLowerCase(), intro: cfg!.desk!.greeting, doneMessage: '', fields: [] },
+      { model: deskModel, answer: answerFor, unknown: manual ? manual.unknown ?? NO_ANSWER : undefined });
+    asker.start();
+  }
+  return asker;
+}
+
+async function libraryReply(text: string): Promise<{ reply: string; links: Message['links']; source?: Source }> {
   const reply = await lookup!.lookup(text);
   const p = lookup!.last;
   if (!p?.cite) return { reply, links: [] };
@@ -771,7 +810,7 @@ async function navReply(text: string): Promise<string | null> {
   }
   const form = cfg?.pages?.find(p => p.form);
   if (form && BACK_TO_FORM.test(text)) {
-    if (location.pathname === form.path) { closeSource(); return snap.mode === 'form' && copilot ? `Back to the form. ${currentAsk()}`.trim() : null; }
+    if (location.pathname === form.path) { closeSource(); return snap.mode === 'form' && desk ? `Back to the form. ${currentAsk()}`.trim() : null; }
     go(form.path);
     return ''; // the form page's own greeting carries on from the open question
   }
@@ -790,12 +829,12 @@ async function navReply(text: string): Promise<string | null> {
   const whole = pageFor(text.replace(/\?$/, ''));
   // "I need a payment plan", "where are your offices": a page only when one is named, else it's a question or an answer
   const want = WANT.exec(text);
-  if (!NAV.test(text) && want && pageFor(want[1]) && !(snap.mode === 'form' && copilot && copilot.state !== 'done')) {
+  if (!NAV.test(text) && want && pageFor(want[1]) && !(snap.mode === 'form' && formOn())) {
     const p = pageFor(want[1])!;
     if (location.pathname !== p.path) { go(p.path); return `Here's the ${p.title} page.`; }
   }
   // a bare page name is an answer, not a request, while a form question is open ("payroll" for "what do they need help with")
-  const asking = snap.mode === 'form' && !!copilot && copilot.state !== 'done';
+  const asking = snap.mode === 'form' && formOn();
   const m = NAV.exec(text) ?? (whole && whole.score >= 100 && !asking ? [text, text] as unknown as RegExpExecArray : null);
   if (!m || !cfg?.pages?.length) return null;
   const target = m[1];
@@ -838,32 +877,29 @@ async function send(text: string): Promise<string> {
     const small = verifier?.secretOpen() ? null : smallTalk(text);
     const ver = small === null ? await verifyReply(text) : null;
     const nav = ver === null ? await navReply(text) : null;
+    const routed = small === null && ver === null && nav === null && cfg.desk && (snap.mode === 'ask' || isQuestion(text) || ADVICE.test(text)) ? deskRoute(text) : null;
+    takeAnswered();
     if (small !== null) { reply = small; kind = 'small-talk'; } else if (ver !== null) {
       reply = ver; kind = 'verify';
       if (verifier?.state === 'verified' && verifyBackend?.call && !location.pathname.startsWith('/tax/portal')) links = [{ text: 'Open your client portal', href: '/tax/portal' }];
-    } else if (nav !== null) { reply = nav; kind = 'nav'; } else if (snap.mode === 'ask') {
-      ({ reply, links, source } = await searched(text));
-      kind = 'ask';
-    }
+    } else if (nav !== null) { reply = nav; kind = 'nav'; } else if (routed) { ({ reply, links } = routed); kind = 'ask'; }
+    else if (snap.mode === 'ask') { reply = await askDesk().turn(text); kind = 'ask'; }
     else if (snap.mode === 'guide') reply = await guide!.turn(text);
-    else if (!copilot) startForm();
-    else if (copilot.state === 'done') reply = `I've handed the form back to you. Please check it and press ${form!.submit} yourself.`;
-    // A side question during a form is answered from the manual (or "I don't know"); then the form carries on.
-    else if (lookup && cfg.desk && (isQuestion(text) || ADVICE.test(text))) {
-      const r = await searched(text);
-      kind = 'ask';
-      reply = `${r.reply} Back to the form: ${currentAsk()}`.trim(); links = r.links; source = r.source;
-    } else if (lookup && isQuestion(text)) reply = `${await lookup.lookup(text)} Back to the form: ${currentAsk()}`.trim();
+    else if (!desk) startForm();
+    else if (formDone()) reply = `I've handed the form back to you. Please check it and press ${form!.submit} yourself.`;
     else {
+      // The desk fills the form, and answers a side question from the library or manual (or says it doesn't know).
+      closeSource();
       // After two misses on a serial, email or phone, a caller is offered the keyboard (the call panel's button).
       flow!.typeOffer = snap.voice ? 'You can also type it with Keyboard.' : '';
-      closeSource();
-      reply = await copilot.turn(text);
+      reply = await desk.turn(text);
       // A multi-step form: when this step's answers are all in, the copilot may press the step's Next button
       // (data-copilot-next, a type="button" that only moves on; never the form's submit). The next step then starts.
-      const next = (copilot.state as string) === 'done' ? stepNext() : null;
+      const next = formDone() ? stepNext() : null;
       if (next) { reply = ''; next.click(); }
     }
+    const looked = takeAnswered();
+    if (looked) { links = looked.links; source = looked.source; kind = 'ask'; }
   } catch (e) {
     reply = "Sorry, something went wrong on my side. Nothing was sent. Please try again.";
     console.error(e);
@@ -893,6 +929,7 @@ function end() {
   stopVoice();
   noted = false;
   verifier = null; verifyBackend = null; // a new call starts verification over (the server still counts failures per visitor)
+  asker = null; // and a new conversation
   set({ account: null });
   set({ open: false, voice: false, heard: '', status: 'idle', startedAt: 0, wait: null });
   document.querySelectorAll('[data-copilot-active]').forEach(e => e.removeAttribute('data-copilot-active'));
@@ -936,7 +973,7 @@ function detach() {
   closeSource();
   observer?.disconnect(); observer = null; clearTimeout(stepTimer);
   document.querySelectorAll('[data-copilot-active]').forEach(e => e.removeAttribute('data-copilot-active'));
-  copilot = null; flow = null; form = null; firstEl = null; parts = 0; guide = null;
+  desk = null; asker = null; flow = null; form = null; firstEl = null; parts = 0; guide = null;
 }
 
 function unmount(now = false) {

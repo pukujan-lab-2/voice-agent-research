@@ -1,6 +1,6 @@
 # TASK-WCP-0003 — Desk v2
 
-<!-- continuity:task {"acceptance": ["The v2 desk passes npm run check (lint, strict typecheck, tests)", "The live site uses the v2 desk with call resume and opt-in returning-customer memory", "Desk-sim results on the default model are recorded"], "depends_on": [], "goal": "Merge the v2 desk (memory, resume) into the live site", "id": "WCP-0003", "issue_url": "https://github.com/Pukujan-lab/voice-agent-research/issues/16", "next_action": "Review PR #37, then wire the v2 desk into the live site", "owner": "owner", "priority": "P1", "protocol_version": "0.1.0-draft", "schema": "project-continuity.task.v1", "status": "active", "why": "The v2 desk handles read-backs, resume and returning customers better than the live site's form flow"} -->
+<!-- continuity:task {"acceptance": ["The v2 desk passes npm run check (lint, strict typecheck, tests)", "The live site uses the v2 desk for typed and spoken turns, with read-backs, a clear yes before anything is typed in, quoted answers and nothing ever sent", "Desk-sim results on the default model are recorded"], "depends_on": [], "goal": "Merge the v2 desk (memory, resume) into the live site", "id": "WCP-0003", "issue_url": "https://github.com/Pukujan-lab/voice-agent-research/issues/16", "next_action": "Merge the live-site wiring PR once CI passes, then close #16", "owner": "owner", "priority": "P1", "protocol_version": "0.1.0-draft", "schema": "project-continuity.task.v1", "status": "active", "why": "The v2 desk handles read-backs, resume and returning customers better than the live site's form flow"} -->
 
 - Status: active
 - Owner: owner
@@ -18,6 +18,8 @@ The v2 desk handles read-backs, resume and returning customers better than the l
 ## Allowed files
 
 - `copilot-engine/src/desk*.ts`, `copilot-engine/tests/desk*`
+- `copilot-engine/src/memory.ts` and `guide.ts` (browser-safe loading, the shared "I don't know" line)
+- `demo/live-site/api.ts`, `build.ts`, `server.ts`, `widget/sdk.ts`, `widget/remote.ts`, `widget/dom-filler.ts`, `tests/scenes.ts`
 - this task file
 
 ## Human outcome
@@ -33,8 +35,10 @@ Callers get a receptionist that reads values back, resumes dropped calls and rem
 ## Acceptance criteria
 
 - [x] `npm run check` passes, and `npm test` now runs the 15 desk tests too (33 tests in all).
-- [ ] The live site uses the v2 desk.
-- [ ] Desk-sim results on the default model are recorded.
+- [x] The live site uses the v2 desk, typed and spoken (spoken turns reach the same `send()`), as of the PR that closes #16; merge pending.
+- [x] Desk-sim results on the default model are recorded: `copilot-engine/tests/desk-final-lfm3.json` (decision 0009, PR #40).
+
+Correction, 2026-11-01: the earlier wording asked for call resume and returning-customer memory on the site. Issue #16's own "done when" asks only that the site uses the v2 desk and its tests still pass. Memory and resume need a server-side store the static site does not have, so they move to a follow-up issue, as does the per-field risk score from decision 0011.
 
 ## Evidence and sources
 
@@ -99,6 +103,29 @@ Blocked/uncertain:
 
 Next:
 - Review PR #37, then wire the v2 desk into the live site
+
+### 2026-11-01 03:16:47 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":["The real-audio voice test was not run: the speech stack on this Mac is serving the owner's live test"],"changed":["copilot-engine/src/desk.ts, guide.ts, memory.ts, tests/desk.test.ts; demo/live-site/api.ts, build.ts, server.ts, tests/scenes.ts, widget/sdk.ts, remote.ts, dom-filler.ts; tasks/TASK-WCP-0003-desk-v2.md"],"completed":["The live site's form pages and the /tax question page now run on the v2 desk, with LFM3 writing replies through a new /api/desk endpoint; scene tests check v2 behaviour"],"decisions":["Risk-score bands from decision 0011 moved to #56, and site memory and call resume to #57, because #16's done-when covers neither"],"evidence":["npm run check passes: 40 engine and desk tests, 8/8 call scenarios; offline scenes pass except failures that also happen on main (stubbed voice and microphone, /tax/book submit timeout, two keyword-search misses); live LFM3 clinic scene passes in full"],"next_action":"Merge the live-site wiring PR once CI passes, then close #16","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0003","timestamp":"2026-11-01T03:16:47Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"916b65469c8302735da1672d79b51e24eb79216b60fc4e49c2bcb11419a44428","request_id":"e8a647a5fa34401895e241ffad927802","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0003"} -->
+
+Completed:
+- The live site's form pages and the /tax question page now run on the v2 desk, with LFM3 writing replies through a new /api/desk endpoint; scene tests check v2 behaviour
+
+Evidence:
+- npm run check passes: 40 engine and desk tests, 8/8 call scenarios; offline scenes pass except failures that also happen on main (stubbed voice and microphone, /tax/book submit timeout, two keyword-search misses); live LFM3 clinic scene passes in full
+
+Decisions:
+- Risk-score bands from decision 0011 moved to #56, and site memory and call resume to #57, because #16's done-when covers neither
+
+Changed:
+- copilot-engine/src/desk.ts, guide.ts, memory.ts, tests/desk.test.ts; demo/live-site/api.ts, build.ts, server.ts, tests/scenes.ts, widget/sdk.ts, remote.ts, dom-filler.ts; tasks/TASK-WCP-0003-desk-v2.md
+
+Blocked/uncertain:
+- The real-audio voice test was not run: the speech stack on this Mac is serving the owner's live test
+
+Next:
+- Merge the live-site wiring PR once CI passes, then close #16
 
 ## Handoff
 

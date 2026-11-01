@@ -1,6 +1,7 @@
 // The demo backend: the only place the keys live. It runs unchanged in Node (server.ts, locally or on the MacBook Pro)
 // and as a Cloudflare Pages Function (functions/api/[[path]].ts). It lends the in-page engine three narrow things:
 //   POST /api/understand  Jev's on-topic gate for one free-text answer (inner model: rules, or a local LFM at LLAMA_URL)
+//   POST /api/desk        one turn of the v2 desk's model: LFM3 at LLAMA_URL, with only the desk's own tools (decision 0009)
 //   POST /api/search      Octo RAG search inside one allow-listed demo manual; every passage comes back signed
 //   POST /api/judge       Jev picks which signed passage answers the question (or none)
 //   POST /api/log         an error from the widget in a visitor's browser, written to the server log
@@ -17,6 +18,7 @@
 // Jev calls have a daily cap, so the open demo can't be used as a free model relay.
 import { createPractice } from './practice-api.ts';
 import type { ExportTrace, SpanSpec } from './tracing.ts';
+import { OpenAIChat, type ChatMsg } from '../../copilot-engine/src/desk.ts';
 import { JevJudge, KeywordRetriever, OctoRetriever, OverlapJudge, type Judge, type Passage, type Retriever } from '../../copilot-engine/src/guide.ts';
 import { JevGate, LlamaModel, RuleModel } from '../../copilot-engine/src/models.ts';
 import type { Field, FieldKind, Flow, Model } from '../../copilot-engine/src/types.ts';
@@ -24,7 +26,7 @@ import { maskPII } from '../../copilot-engine/src/guard.ts';
 
 export type ApiEnv = {
   OPENROUTER_JEV_KEY?: string; OCTO_KEY?: string; OCTO_WORKSPACE?: string; JEV_URL?: string; OCTO_BASE?: string; OCTO_TIMEOUT_MS?: string; OCTO_TRACES?: string;
-  SIGNING_SECRET?: string; LLAMA_URL?: string; OFFLINE?: string; JEV_DAILY_CAP?: string; RATE_PER_MIN?: string;
+  SIGNING_SECRET?: string; LLAMA_URL?: string; DESK_URL?: string; DESK_MODEL?: string; OFFLINE?: string; JEV_DAILY_CAP?: string; RATE_PER_MIN?: string;
 };
 
 // Only the fictional demo manuals and the IRS library (public-domain IRS.gov pages, data/irs.passages.json) can be searched.
@@ -54,6 +56,32 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
 // Every line goes through maskPII, so a date of birth, an SSN or a last four can't reach the log even by mistake.
 const log = (msg: string) => console.error(`${new Date().toISOString()} ${maskPII(msg).replace(/\s+/g, ' ')}`);
 
+// The desk's tools: a desk request may offer the model these and nothing else.
+const DESK_TOOLS = new Set(['propose_value', 'confirm_pending', 'reject_pending', 'go_to_field', 'answer_question', 'end_call']);
+const ROLES = new Set(['system', 'user', 'assistant', 'tool']);
+// A desk request's conversation, rebuilt from plain strings: at most 40 messages, each one clipped, tool calls only to
+// the desk's tools. Anything else in the body is dropped, so /api/desk can't be used as a general model relay.
+function deskMessages(raw: unknown): ChatMsg[] | null {
+  if (!Array.isArray(raw) || !raw.length) return null;
+  const out: ChatMsg[] = [];
+  for (const m of raw.slice(-40)) {
+    if (!m || !ROLES.has(m.role)) return null;
+    const msg: ChatMsg = { role: m.role, content: m.content == null ? null : clip(m.content, 6000) };
+    if (m.role === 'assistant' && Array.isArray(m.tool_calls)) {
+      msg.tool_calls = m.tool_calls.slice(0, 6).filter((c: any) => DESK_TOOLS.has(c?.function?.name))
+        .map((c: any) => ({ id: clip(c.id, 64), type: 'function', function: { name: c.function.name, arguments: clip(c.function.arguments, 800) } }));
+    }
+    if (m.role === 'tool') msg.tool_call_id = clip(m.tool_call_id, 64);
+    out.push(msg);
+  }
+  return out[0].role === 'system' ? out : null;
+}
+function deskTools(raw: unknown): unknown[] | null {
+  if (!Array.isArray(raw) || raw.length > 6) return null;
+  const tools = raw.filter((t: any) => t?.type === 'function' && DESK_TOOLS.has(t.function?.name));
+  return tools.length === raw.length && JSON.stringify(tools).length < 8000 ? tools : null;
+}
+
 const WARM_FIELD: Field = { name: 'warm', label: 'warm-up', question: 'Say hello.', kind: 'text' };
 
 export function createApi(env: ApiEnv, opts: { offlinePassages?: Record<string, LibraryPassage[]>; matchNames?: NameMatcher; trace?: ExportTrace } = {}) {
@@ -63,6 +91,10 @@ export function createApi(env: ApiEnv, opts: { offlinePassages?: Record<string, 
   const inner: Model = env.LLAMA_URL ? new LlamaModel(env.LLAMA_URL, 'lfm') : new RuleModel();
   const gate = offline ? null : new JevGate(inner, { key: env.OPENROUTER_JEV_KEY, url: jevUrl });
   const jev = offline ? null : new JevJudge({ key: env.OPENROUTER_JEV_KEY, url: jevUrl });
+  // The v2 desk's model: LFM3 on our GPU, the same server as LLAMA_URL unless DESK_URL names another. Offline, none:
+  // the desk then runs each turn on its code rules.
+  const deskModel = offline || !(env.DESK_URL || env.LLAMA_URL) ? null
+    : new OpenAIChat({ url: env.DESK_URL || `${env.LLAMA_URL!.replace(/\/$/, '')}/v1`, key: '', model: env.DESK_MODEL || 'lfm3', stream: false, nothink: true, timeoutMs: 15000 });
   const overlap = new OverlapJudge();
   // When Jev is overloaded or down, the word-overlap judge stands in, so a covered question isn't answered "I don't know".
   const judge: Judge = !jev ? overlap : {
@@ -300,6 +332,13 @@ export function createApi(env: ApiEnv, opts: { offlinePassages?: Record<string, 
       const m = gate && jevAllowed() ? gate : inner;
       return json(await m.understand({ flow, field, said, values }));
     }
+    if (path === '/api/desk') {
+      if (!deskModel) return json({ error: 'no desk model' }, 503);
+      const messages = deskMessages(b.messages), tools = deskTools(b.tools ?? []);
+      if (!messages || !tools) return json({ error: 'bad desk request' }, 400);
+      const r = await deskModel.chat(messages, tools, { maxTokens: Math.min(Math.max(Number(b.max_tokens) || 220, 1), 220), temperature: Math.min(Math.max(Number(b.temperature) || 0, 0), 1) });
+      return json({ content: r.content, calls: r.calls.filter(c => DESK_TOOLS.has(c.name)), model: r.model });
+    }
     if (path === '/api/search') {
       const label = clip(b.manual, 40);
       if (!MANUALS[label]) return json({ error: 'unknown manual' }, 400);
@@ -405,7 +444,7 @@ export function createApi(env: ApiEnv, opts: { offlinePassages?: Record<string, 
       // The warm-up is free (no Jev, one at a time), so it does not use up the visitor's answers; so is /api/trace.
       if (path !== '/api/warm' && path !== '/api/trace' && limited(ip || req.headers.get('cf-connecting-ip') || 'local')) { log(`${path} 429 rate limit`); return json({ error: 'slow down' }, 429); }
       const raw = await req.text();
-      if (raw.length > 32_000) { log(`${path} 413`); return json({ error: 'too large' }, 413); }
+      if (raw.length > (path === '/api/desk' ? 64_000 : 32_000)) { log(`${path} 413`); return json({ error: 'too large' }, 413); }
       let b: any;
       try { b = JSON.parse(raw); } catch { log(`${path} 400 bad json`); return json({ error: 'bad json' }, 400); }
       const sid = req.headers.get('x-session-id');

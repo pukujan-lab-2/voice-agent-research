@@ -3,10 +3,14 @@
 // writes the read-back (names spelled, numbers grouped), fills a field only after a confirmed read-back, never
 // submits, only knows real fields and options, and answers side questions only from the business's own passages.
 // If the model fails or times out, that turn runs on the v1 rules (the same guard functions the Copilot uses).
+// It runs in Node (tests, the desk simulator) and in the browser (the live site), so it reads no Node-only globals.
 import type { Field, Flow, Hooks } from './types.ts';
-import { formatSerial, parseName, spokenToEmail, spokenToPhone, spokenToSerial, stripFiller, validEmail, validSerial, yesNo } from './guard.ts';
+import { formatDate, formatSerial, parseName, spellOut, spokenDigits, spokenToCode, spokenToDate, spokenToEmail, spokenToPhone, spokenToSerial, stripFiller, validEmail, validSerial, yesNo } from './guard.ts';
 import { shortQuote, type Passage } from './guide.ts';
 import { customerKey, newSessionId, SESSION_TTL_MS, type CustomerRecord, type SessionSnapshot, type Store } from './memory.ts';
+
+// Environment settings in Node; none in the browser.
+const ENV: Record<string, string | undefined> = (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env ?? {};
 
 // ---------- model client (OpenAI-compatible chat completions with tools) ----------
 export type ToolCall = { name: string; args: Record<string, unknown> };
@@ -21,9 +25,9 @@ export class OpenAIChat implements ChatModel {
   // patient: in tests, wait out 429 rate-limit windows (up to ~10 min) instead of failing the turn.
   constructor(o: { url?: string; key?: string; model?: string; stream?: boolean; nothink?: boolean; timeoutMs?: number; patient?: boolean } = {}) {
     this.o = {
-      url: (o.url ?? process.env.DESK_URL ?? '').replace(/\/$/, ''), key: o.key ?? process.env.DESK_KEY ?? '',
-      model: o.model ?? process.env.DESK_MODEL ?? '', stream: o.stream ?? process.env.DESK_STREAM === '1',
-      nothink: o.nothink ?? process.env.DESK_THINK !== '1', timeoutMs: o.timeoutMs ?? 15000, patient: o.patient ?? false,
+      url: (o.url ?? ENV.DESK_URL ?? '').replace(/\/$/, ''), key: o.key ?? ENV.DESK_KEY ?? '',
+      model: o.model ?? ENV.DESK_MODEL ?? '', stream: o.stream ?? ENV.DESK_STREAM === '1',
+      nothink: o.nothink ?? ENV.DESK_THINK !== '1', timeoutMs: o.timeoutMs ?? 15000, patient: o.patient ?? false,
     };
     if (!this.o.url) throw new Error('DESK_URL is not set');
     this.name = this.o.model || 'desk-model';
@@ -50,7 +54,7 @@ export class OpenAIChat implements ChatModel {
           if ((r.status === 429 || r.status >= 500) && !/context size|context length|exceeds the context/i.test(txt)) {
             // Only rate limits are waited out patiently; a server error gets three tries.
             if ((!this.o.patient || r.status !== 429) && attempt >= 2) break;
-            if (process.env.DESK_DEBUG) console.error(`[${this.o.model}] ${lastErr.slice(0, 160)}`);
+            if (ENV.DESK_DEBUG) console.error(`[${this.o.model}] ${lastErr.slice(0, 160)}`);
             const wait = this.o.patient && r.status === 429 ? 15000 : 1500 * (attempt + 1);
             this.waitedMs += wait; await new Promise(res => setTimeout(res, wait)); continue;
           }
@@ -148,7 +152,10 @@ const lev = (a: string, b: string): number => {
 };
 const titleWord = (w: string): string => w.split(/([-'])/).map(p => /^[a-z]/i.test(p) ? p[0].toUpperCase() + p.slice(1).toLowerCase() : p).join('').replace(/^(Mc)([a-z])/, (_m, a: string, b: string) => a + b.toUpperCase());
 
-export function normalizeName(raw: string): { value?: string; problem?: string } {
+// A first or last name field ("Beneficiary first name") takes one word.
+const partName = (f: Field) => /\b(first|last|given|family|middle)\s+name\b|\bsurname\b/i.test(f.label);
+
+export function normalizeName(raw: string, part = false): { value?: string; problem?: string } {
   let t = raw.trim().replace(/[’]/g, "'").replace(/[.!?;:"]+/g, ' ');
   const parsed = parseName(t);
   if (parsed) t = parsed;
@@ -170,7 +177,7 @@ export function normalizeName(raw: string): { value?: string; problem?: string }
   }
   if (!words.length) return { problem: "I didn't catch the name." };
   if (words.length > 5) return { problem: 'That sounded like more than one name.' };
-  if (words.length < 2) return { problem: 'Could I have the full name, first and last?' };
+  if (words.length < 2 && !part) return { problem: 'Could I have the full name, first and last?' };
   return { value: words.map(titleWord).join(' ') };
 }
 
@@ -216,11 +223,21 @@ export function normalize(f: Field, raw: string): { value?: string; problem?: st
   const v = String(raw ?? '').trim();
   if (!v) return { problem: 'I did not catch that.' };
   switch (f.kind) {
-    case 'name': return normalizeName(v);
+    case 'name': return normalizeName(v, partName(f));
     case 'phone': return normalizePhone(v);
     case 'email': return normalizeEmail(v);
     case 'serial': return normalizeSerial(v, f.hint?.match(/\b[0-9A-Z]{4}-[0-9A-Z]{4}-[0-9A-Z]{4}\b/)?.[0]);
     case 'choice': { const o = matchOption(f, v); return o ? { value: o } : { problem: `For the ${f.label} I can put ${orList(f.options ?? [])}.` }; }
+    case 'code': { const c = spokenToCode(v); return c ? { value: c } : { problem: `I didn't catch the ${f.label}. You can read it out letter by letter.` }; }
+    case 'date': case 'when': {
+      const d = /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : spokenToDate(v, new Date(), { future: f.kind === 'when' });
+      return d ? { value: d } : { problem: f.kind === 'when' ? 'I need a date from today on, like November 16.' : 'I need the month, the day and the year, like March 3, 1985.' };
+    }
+    case 'digits': {
+      // Never echoes what was heard: it may be a whole SSN said by mistake.
+      const d = spokenDigits(v), n = f.length ?? 4;
+      return d.length === n ? { value: d } : { problem: d.length > n ? `That's more digits than I need. Just the ${n} digits, please.` : `I need ${n} digits.` };
+    }
     default: {
       const s = stripFiller(v).replace(/\s+/g, ' ');
       return s.length < 2 ? { problem: 'I did not catch that.' } : s.length > 300 ? { value: s.slice(0, 300) } : { value: s };
@@ -250,7 +267,11 @@ export function readback(f: Field, v: string, n = 0, brisk = false): string {
     }
     case 'serial': return pick([`I have ${formatSerial(v)}, that's ${groupChars(v)}. Is that right?`, `Let me read that back in groups: ${formatSerial(v)}, ${groupChars(v)}. Is that correct?`]);
     case 'choice': return pick([`So that's ${v} for the ${f.label}, is that right?`, `Okay, ${v} for the ${f.label}. Did I get that right?`, `${v} for the ${f.label}, is that correct?`]);
-    default: return pick([`I'll put down "${v}" for the ${f.label}. Is that right?`, `So for the ${f.label}: "${v}". Is that right?`]);
+    case 'code': return pick([`I have ${v}, that's ${spellOut(v)}. Is that right?`, `Let me read that back: ${spellOut(v)}. Is that correct?`]);
+    case 'date': case 'when': return pick([`I have ${formatDate(v)} for the ${f.label}. Is that right?`, `So that's ${formatDate(v)}, is that right?`]);
+    case 'digits': return pick([`I have ${spellOut(v)}. Is that right?`, `Let me read that back: ${spellOut(v)}. Is that correct?`]);
+    default: if (f.spell) return `I have "${v}", spelled ${v.split(/\s+/).map(spellWord).join(', ')}. Is that right?`;
+      return pick([`I'll put down "${v}" for the ${f.label}. Is that right?`, `So for the ${f.label}: "${v}". Is that right?`]);
   }
 }
 
@@ -261,6 +282,8 @@ function briskReadback(f: Field, v: string): string {
     case 'email': { const r = readback(f, v); const m = r.match(/that's (.*)\. Is that right\?$/); return `${v}, ${m ? m[1] : ''}, right?`.replace(', , ', ', '); }
     case 'serial': return `${formatSerial(v)}, ${groupChars(v)}, right?`;
     case 'choice': return `${v} for the ${f.label}, right?`;
+    case 'code': case 'digits': return `${spellOut(v)}, right?`;
+    case 'date': case 'when': return `${formatDate(v)}, right?`;
     default: return `"${v}", right?`;
   }
 }
@@ -285,9 +308,11 @@ function smallTalkReply(said: string): string {
 }
 // The next question, with a light varied lead-in so it does not sound like a script.
 function transition(q: string, n: number): string {
-  const lead = ['', 'Next, ', 'And ', ''][n % 4];
+  // A question that already opens with its own lead-in ("And what time of day…") keeps it.
+  const lead = /^(and|next|now|also|so|then)\b/i.test(q) ? '' : ['', 'Next, ', 'And ', ''][n % 4];
   return lead ? lead + q.charAt(0).toLowerCase() + q.slice(1) : q;
 }
+const CORRECTION = /\b(?:my|the)\s+([a-z]+(?:\s+[a-z]+)?)\s+(?:should be|is actually|is really|should say)\s+(.+)$/i;
 const FORGET = /\b(forget (me|my (details|info\w*|data|number|email))|delete (my|all my) (details|info\w*|data|record|number)|don'?t (remember|keep|store|save) (me|my \w+)|remove my (details|info\w*|data))\b/i;
 const RETURNING = /\b((been|come|came|brought \w+|booked|visited|called|seen)\b[^.?!]{0,30}\bbefore|already in (your|the) system|been (a )?(patients?|customers?) (here|there|with you|for)|returning (customer|patient)|last time (i|we)|you (should |might )?(already )?have (my|our|her|his|their) (details|info\w*))\b/i;
 const SUBMIT_LINE = "Everything is filled in on the form on your screen. Have a look, and when it's right, press Submit. I won't send it for you.";
@@ -353,6 +378,11 @@ const ASKED_Q = /\b(what|where|which|how|why|when|can i|do i|do you|does|is ther
 const QUESTION = /\?\s*$|^\s*(what|where|which|how|why|when|can you|could you|do you|does|is there|are you|will|would you)\b/i;
 const CLAIMS = /\b(submit\w*|i'?ve (added|put|entered|noted|recorded|saved|filled|updated|changed)|i have (added|put|entered|noted|recorded|saved|filled|updated|changed)|(is|are|been) (saved|recorded|filled|updated|noted|entered|confirmed)|all set|booked|scheduled|you'?re set)\b/i;
 const BYE = /\b(bye|goodbye|that'?s all|have to go|gotta go|hang up|stop|cancel|never ?mind)\b/i;
+// An optional field's "none": left blank (the same words the Copilot accepts).
+const NONE = /^\s*(no(ne|pe)?|n\/?a|skip( it| that)?|nothing|not applicable|no notice|leave it (blank|empty)|there (isn'?t|is no) (one|code)|i (didn'?t|did not|haven'?t|have not) (get|got|receive[d]?)( one| a notice| any( notice)?)?)\W*$/i;
+// A desk with no form only answers questions. Model text that states a rule, a date, an amount or what the caller can or
+// must do is a fact that has to come from the business's own passages, so that turn is looked up instead.
+const FACTS = /\b(deduct\w*|credits?|deadlines?|due (date|by|on)|penalt\w*|refunds?|percent|withh[eo]ld\w*|exempt\w*|qualif\w*|eligib\w*|owe|filing status|you (can|can't|cannot|must|need to|have to|should|may|will)|the (rule|law|limit)s?|allowed|required|costs?|prices?|hours|open (on|at|from|until))\b|[$%]|\d/i;
 
 export class Desk {
   flow: Flow;
@@ -362,7 +392,7 @@ export class Desk {
   current: string;
   returnTo: string[] = [];
   brisk = false; // the customer asked to hurry: shorter read-backs
-  histTurns = Number(process.env.DESK_HISTORY_TURNS) || 6; // past user turns the model sees (cut on a context error)
+  histTurns = Number(ENV.DESK_HISTORY_TURNS) || 6; // past user turns the model sees (cut on a context error)
   done = false;
   complete = false;
   log: { who: 'user' | 'agent'; text: string }[] = [];
@@ -390,17 +420,28 @@ export class Desk {
   private mem = { asked: false, awaiting: false, lookedUp: false, forget: false, returning: false };
   private notes: string[] = []; // things code must say this turn (from inside confirm)
 
-  constructor(flow: Flow, opts: { model?: ChatModel; heavy?: ChatModel; docs?: Docs; hooks?: Partial<Hooks>; route?: (said: string, d: Desk) => boolean; sessions?: Store; customers?: Store } = {}) {
+  // answer: the site's own lookup for a question (it may also show the source); it returns the words to say, quoted
+  // from the business's documents, or null when nothing answers. Without it, `docs` is searched and quoted here.
+  // unknown: what to say when nothing answers. finish: what to say when every field is filled (a page form names its
+  // own submit button, and anything the customer still has to do by hand).
+  private answer?: (question: string) => Promise<string | null>;
+  private unknown: string;
+  private finish?: string;
+
+  constructor(flow: Flow, opts: { model?: ChatModel; heavy?: ChatModel; docs?: Docs; answer?: (question: string) => Promise<string | null>; unknown?: string; finish?: string; hooks?: Partial<Hooks>; route?: (said: string, d: Desk) => boolean; sessions?: Store; customers?: Store } = {}) {
     this.flow = flow;
+    this.answer = opts.answer;
+    this.unknown = opts.unknown ?? "I'm sorry, I don't have that information.";
+    this.finish = opts.finish;
     this.sessions = opts.sessions;
     this.customers = opts.customers;
     this.chatModel = opts.model;
     // Hybrid (a hosted model for hard turns) is off unless DESK_HYBRID=1: the default path is the local model only.
-    this.heavy = process.env.DESK_HYBRID === '1' ? opts.heavy : undefined;
+    this.heavy = ENV.DESK_HYBRID === '1' ? opts.heavy : undefined;
     this.docs = opts.docs;
     this.hooks = opts.hooks ?? {};
     if (opts.route) this.route = opts.route;
-    this.current = flow.fields[0].name;
+    this.current = flow.fields[0]?.name ?? '';
     this.toolsSpec = this.tools();
     this.system = this.systemPrompt();
   }
@@ -410,9 +451,24 @@ export class Desk {
     return this.flow.fields.find(f => f.name.toLowerCase() === n) ?? this.flow.fields.find(f => f.label.toLowerCase() === n || (f.aliases ?? []).includes(n));
   }
 
+  // A flow with no fields is a question desk: it talks and answers from the business's documents, and fills nothing.
+  get answerOnly(): boolean { return !this.flow.fields.length; }
+
   start(): string {
-    const f = this.field(this.current)!;
-    const say = `${this.flow.intro} ${f.question}`;
+    const f = this.field(this.current);
+    const say = f ? `${this.flow.intro} ${f.question}` : this.flow.intro;
+    this.log.push({ who: 'agent', text: say });
+    return say;
+  }
+
+  // Starts with answers already on the form (a draft kept from earlier in the call, or what the page filled in itself):
+  // they count as given, and the first empty field is asked.
+  prefill(values: Record<string, string>, lead: string): string {
+    for (const [k, v] of Object.entries(values)) { const f = this.field(k); if (f) this.values[f.name] = v; }
+    this.moveOn();
+    let say: string;
+    if (this.allFilled()) { say = `${lead} ${this.finishLine()}`; this.complete = true; }
+    else say = `${lead} ${this.field(this.current)!.question}`;
     this.log.push({ who: 'agent', text: say });
     return say;
   }
@@ -575,7 +631,7 @@ export class Desk {
     return null;
   }
   private resumeLine(): string {
-    return this.pending ? this.pending.text : this.field(this.current)!.question;
+    return this.pending ? this.pending.text : this.field(this.current)?.question ?? '';
   }
 
   // Hybrid routing: questions, corrections, long or messy turns go straight to the bigger model.
@@ -609,7 +665,8 @@ export class Desk {
 
   // ----- prompts -----
   private systemPrompt(): string {
-    const fields = this.flow.fields.map(f => `- ${f.name}: ${f.label} (${f.kind}${f.options ? `; one of: ${f.options.join(' | ')}` : ''})${f.hint ? `. ${f.hint}` : ''}`).join('\n');
+    if (this.answerOnly) return this.askPrompt();
+    const fields = this.flow.fields.map(f => `- ${f.name}: ${f.label} (${f.kind}${f.options ? `; one of: ${f.options.join(' | ')}` : ''}${f.optional ? '; optional, the customer may say none' : ''})${f.hint ? `. ${f.hint}` : ''}`).join('\n');
     return `You are the front-desk receptionist at ${this.flow.business}, on a voice call. You fill in the online form for the customer while you talk. You cannot see or press the Submit button; the customer presses it at the end.
 
 How you sound: warm, calm and professional, like an experienced receptionist. Spoken English, 1 or 2 short sentences. No lists, no markdown, no emojis. A little small talk is fine, then gently steer back. Ask for one thing at a time.
@@ -635,6 +692,27 @@ Customer: "Sorry, it's been a crazy morning." -> no tool; say "No worries at all
 Customer: "Do you take walk-ins?" -> answer_question("Do you take walk-ins?"); say nothing else.`;
   }
 
+  // The question desk (no form): the model talks, and every fact comes from answer_question.
+  private askPrompt(): string {
+    const docs = this.flow.scope || `${this.flow.business}'s documents`;
+    return `You are the front-desk assistant at ${this.flow.business}, on a call or a chat. You answer questions only from the ${docs}, through the answer_question tool.
+
+What you told the caller you can do: "${this.flow.intro}"
+
+How you sound: warm, calm and professional. Spoken English, 1 or 2 short sentences. No lists, no markdown, no emojis.
+
+How you work:
+- Any question about rules, forms, dates, amounts, deadlines, prices, hours or what someone can or must do: call answer_question with the question. Never state such facts yourself, not even ones you are sure of. Code reads the answer from the ${docs} and shows where it comes from.
+- Greetings, thanks, small talk, and questions about you ("can I ask you about taxes?", "what can you do?", "are you a bot?"): answer briefly yourself, with no tool, from what you told the caller you can do. You are the ${this.flow.business} assistant, an AI; never name a model or the company that made it.
+- Anything unrelated to ${this.flow.business}: say kindly that you can only help with questions the ${docs} answer.
+- If the caller says goodbye or wants to stop, call end_call.
+
+Examples:
+Caller: "Hi, can I ask you about taxes?" -> no tool; say "Of course, go ahead. What would you like to know?"
+Caller: "How long do I have to file an amended return?" -> answer_question("How long do I have to file an amended return?"); say nothing else.
+Caller: "Thanks, that helps." -> no tool; say "You're welcome. Anything else?"`;
+  }
+
   private stateNote(): string {
     const lines = this.flow.fields.map(f => {
       const v = this.values[f.name];
@@ -653,7 +731,7 @@ Customer: "Do you take walk-ins?" -> answer_question("Do you take walk-ins?"); s
     const starts = h.map((m, i) => (m.role === 'user' ? i : -1)).filter(i => i >= 0);
     if (starts.length > this.histTurns) h = h.slice(starts[starts.length - this.histTurns]);
     const opening: ChatMsg[] = h === this.hist ? [{ role: 'user', content: '(call connected)' }, { role: 'assistant', content: this.log[0]?.text ?? '' }] : [];
-    return [{ role: 'system', content: this.system }, ...opening, ...h, { role: 'user', content: `${said}\n\n${this.stateNote()}` }];
+    return [{ role: 'system', content: this.system }, ...opening, ...h, { role: 'user', content: this.answerOnly ? said : `${said}\n\n${this.stateNote()}` }];
   }
 
   private remember(said: string, reply: string) {
@@ -670,6 +748,11 @@ Customer: "Do you take walk-ins?" -> answer_question("Do you take walk-ins?"); s
     const names = this.flow.fields.map(f => f.name);
     const fn = (name: string, description: string, properties: Record<string, unknown> = {}, required: string[] = []) =>
       ({ type: 'function', function: { name, description, parameters: { type: 'object', properties, required } } });
+    const ask = [
+      fn('answer_question', `Look up the answer to a question about ${this.flow.business} in its own documents.`, { question: { type: 'string' } }, ['question']),
+      fn('end_call', 'The customer says goodbye or wants to stop.', { reason: { type: 'string' } }),
+    ];
+    if (this.answerOnly) return ask;
     return [
       fn('propose_value', 'Propose a value for a form field. Code reads it back to the customer; it is only filled after they say yes.',
         { field: { type: 'string', enum: names }, value: { type: 'string', description: 'The cleaned-up value' } }, ['field', 'value']),
@@ -685,7 +768,14 @@ Customer: "Do you take walk-ins?" -> answer_question("Do you take walk-ins?"); s
   private userText(): string { return this.log.filter(m => m.who === 'user').slice(-8).map(m => m.text).join(' \n '); }
   grounded(f: Field, v: string): boolean {
     const said = this.userText();
-    if (f.kind === 'choice') return true; // only real options can get here; the read-back catches a wrong pick
+    if (f.kind === 'choice') {
+      // A real option, and one the customer just named: a word of it (or a synonym), or a number when it has one.
+      const recent = this.log.filter(m => m.who === 'user').slice(-2).map(m => m.text).join(' \n ');
+      if (matchOption(f, recent) === v) return true;
+      const have = new Set(docWords(recent));
+      if ([v, ...(f.synonyms?.[v] ?? [])].flatMap(docWords).some(x => have.has(x))) return true;
+      return /\d/.test(v) && /\d|\b(one|two|three|four|five|six|seven|eight|nine|ten|hundred|thousand|k)\b/i.test(recent);
+    }
     if (f.kind === 'name' || f.kind === 'email') {
       const letters = (s: string) => s.toLowerCase().replace(/[^a-z]/g, '');
       const pool = letters(joinSpelled(said)) + '|' + letters(said);
@@ -697,12 +787,30 @@ Customer: "Do you take walk-ins?" -> answer_question("Do you take walk-ins?"); s
         .split(/[^a-z0-9]+/).map(w => /^\d+$/.test(w) ? w : NUM[w] ?? '').join('');
       return digits.includes(v.replace(/\D/g, '')) || digits.includes(v.replace(/\D/g, '').slice(-7));
     }
+    if (f.kind === 'code') return said.toUpperCase().replace(/[^A-Z0-9]/g, '').includes(v) || this.log.filter(m => m.who === 'user').slice(-8).some(m => spokenToCode(m.text) === v);
+    if (f.kind === 'digits') return this.log.filter(m => m.who === 'user').slice(-8).some(m => spokenDigits(m.text).includes(v));
+    if (f.kind === 'date' || f.kind === 'when') return this.log.filter(m => m.who === 'user').slice(-8).some(m => spokenToDate(m.text, new Date(), { future: f.kind === 'when' }) === v);
     if (f.kind === 'serial') {
       const pool = this.log.filter(m => m.who === 'user').slice(-8).map(m => spokenToSerial(m.text)).join('|') + '|' + said.toUpperCase().replace(/[^A-Z0-9]/g, '');
       return pool.includes(v);
     }
     const w = docWords(v), have = new Set(docWords(said));
     return w.length === 0 || w.filter(x => have.has(x)).length / w.length >= 0.5;
+  }
+
+  // One question looked up: the site's own answer, else a quote from the business's passages; null when nothing answers.
+  private async lookup(q: string): Promise<{ text: string; id: string } | null> {
+    if (this.answer) { const t = await this.answer(q); return t ? { text: t, id: 'site' } : null; }
+    const p = this.docs ? await this.docs(q) : null;
+    return p ? { text: shortQuote(p.text, q, 140), id: p.id } : null;
+  }
+  private get canLookUp(): boolean { return !!(this.answer || this.docs); }
+
+  // An optional field the customer has nothing for: left blank, and the form moves on.
+  private skip(f: Field) {
+    this.values[f.name] = '';
+    this.events.push({ turn: this.n, type: 'skipped', field: f.name });
+    if (this.current === f.name) this.moveOn();
   }
 
   // ----- applying the model's tool calls -----
@@ -713,6 +821,20 @@ Customer: "Do you take walk-ins?" -> answer_question("Do you take walk-ins?"); s
     const stale = !!this.pending; // a read-back asked on an earlier turn
     const ev = (e: Omit<DeskEvent, 'turn'>) => this.events.push({ turn: this.n, by, ...e });
     const rec = (c: ToolCall, result: string) => this.acts.push({ name: c.name, args: c.args ?? {}, result });
+    // "My email should be …": a correction to a named field goes to that field, whatever the model called.
+    const fix = CORRECTION.exec(said);
+    const ff = fix ? this.field(fix[1].trim()) : undefined;
+    if (ff && !this.pending) {
+      const v = this.ruleParse(ff, fix![2]);
+      if (v && this.grounded(ff, v)) calls = [{ name: 'propose_value', args: { field: ff.name, value: v } }];
+    }
+    // "None" to an optional question: left blank, whatever the model called.
+    const cur = this.field(this.current);
+    if (!this.pending && cur?.optional && this.values[cur.name] === undefined && NONE.test(said)) {
+      this.skip(cur); keptNow = true; acted = true; calls = [];
+      rec({ name: 'skip_field', args: { field: cur.name } }, `Left ${cur.name} blank. ${this.allFilled() ? 'All fields are filled.' : `Next: ${this.current}.`}`);
+      tails.push(`Okay, I'll leave the ${cur.label.replace(/\s*\(optional\)\s*$/i, '')} blank.`);
+    }
     // A clear yes to the read-back just asked fills it first, whatever the model called: small models often
     // re-propose the same value instead of confirming, which would loop the read-back forever.
     if (this.pending && this.lastAgentAskedReadback() && clearYes(said)) {
@@ -725,6 +847,9 @@ Customer: "Do you take walk-ins?" -> answer_question("Do you take walk-ins?"); s
       if (c.name === 'propose_value') {
         const f = this.field(String(a.field ?? ''));
         if (!f) { ev({ type: 'bad_field', detail: String(a.field) }); rec(c, 'Error: no such field.'); continue; }
+        if (f.optional && NONE.test(String(a.value ?? '')) && NONE.test(said) && this.pending?.field !== f.name) {
+          this.skip(f); keptNow = true; acted = true; rec(c, `Left ${f.name} blank.`); continue;
+        }
         let nv = normalize(f, String(a.value ?? ''));
         // The model miscopied what was said (two letters swapped, a stray digit): if the rules read a valid value
         // straight from the customer's words, use that one instead.
@@ -733,11 +858,11 @@ Customer: "Do you take walk-ins?" -> answer_question("Do you take walk-ins?"); s
           if (rv && rv !== nv.value && this.grounded(f, rv)) { ev({ type: 'rule_value', field: f.name, value: rv, detail: String(a.value ?? '') }); nv = { value: rv }; }
         }
         if (!nv.value && (f.kind === 'serial' || f.kind === 'phone') && !/\d|\b(zero|oh|one|two|three|four|five|six|seven|eight|nine)\b/i.test(said)) { ev({ type: 'ungrounded', field: f.name, value: String(a.value ?? '') }); rec(c, 'Not used: the customer did not say that.'); continue; }
-        if (!nv.value) { ev({ type: 'problem', field: f.name, detail: nv.problem }); rec(c, `Not valid: ${nv.problem}`); tails.push(`${nv.problem} ${/\?$/.test(nv.problem ?? '') ? '' : f.kind === 'name' ? 'Could you spell it for me?' : f.kind === 'serial' ? 'Could you read it again, in groups of four?' : f.question}`); questionTail = true; acted = true; continue; }
+        if (!nv.value) { ev({ type: 'problem', field: f.name, detail: nv.problem }); rec(c, `Not valid: ${nv.problem}`); tails.push(`${nv.problem} ${/\?$/.test(nv.problem ?? '') ? '' : f.kind === 'name' ? 'Could you spell it for me?' : f.kind === 'serial' ? 'Could you read it again, in groups of four?' : f.question}${this.offer(f)}`); questionTail = true; acted = true; continue; }
         const value = nv.value; // non-empty from here; a const keeps that narrowing inside the callbacks below
         if (!this.grounded(f, nv.value)) {
           ev({ type: 'ungrounded', field: f.name, value: nv.value }); rec(c, 'Not used: the customer did not say that. Ask them to say or spell it.');
-          tails.push(f.kind === 'name' || f.kind === 'email' ? `Sorry, could you spell the ${f.label} for me, letter by letter?` : `Sorry, could you say the ${f.label} once more?`);
+          tails.push((f.kind === 'name' || f.kind === 'email' ? `Sorry, could you spell the ${f.label} for me, letter by letter?` : `Sorry, could you say the ${f.label} once more?`) + this.offer(f));
           questionTail = true; acted = true; continue;
         }
         acted = true;
@@ -783,11 +908,14 @@ Customer: "Do you take walk-ins?" -> answer_question("Do you take walk-ins?"); s
         ev({ type: 'reject', field: f.name, value: this.pending.value }); rec(c, 'Cleared. Ask for it again.');
         this.pending = null;
         this.current = f.name;
-        tails.push(f.kind === 'name' || f.kind === 'email' ? `Sorry about that. Could you spell it for me, letter by letter?` : f.kind === 'serial' ? 'Sorry about that. Could you read it again, slowly, in groups of four?' : `Sorry about that. ${f.question}`);
+        tails.push((f.kind === 'name' || f.kind === 'email' ? `Sorry about that. Could you spell it for me, letter by letter?` : f.kind === 'serial' ? 'Sorry about that. Could you read it again, slowly, in groups of four?' : `Sorry about that. ${f.question}`) + this.offer(f));
         questionTail = true;
       } else if (c.name === 'go_to_field') {
         const f = this.field(String(a.field ?? ''));
         if (!f) { ev({ type: 'bad_field', detail: String(a.field) }); continue; }
+        // "Go to" the empty field already open is no move: small models do this instead of proposing the answer
+        // just given, and the code net below then reads that answer back.
+        if (f.name === this.current && !this.pending && this.values[f.name] === undefined) { ev({ type: 'goto_same', field: f.name } as DeskEvent); continue; }
         acted = true;
         if (this.pending && (this.pending.field === f.name || this.pending.group?.some(g => g.field === f.name))) {
           ev({ type: 'goto_pending', field: f.name }); rec(c, `Still waiting for yes or no on ${f.name}.`);
@@ -800,17 +928,18 @@ Customer: "Do you take walk-ins?" -> answer_question("Do you take walk-ins?"); s
         questionTail = true;
       } else if (c.name === 'answer_question') {
         acted = true; answered = true;
-        let q = String(a.question ?? said);
-        let p = this.docs ? await this.docs(q) : null;
+        const q = String(a.question ?? said);
+        let p = await this.lookup(q);
         // The model's rewording can lose the point; try the customer's own question too.
         const own = said.match(ASKED_Q)?.[0] ?? said;
-        if (!p && this.docs && own !== q) { p = await this.docs(own); if (p) q = own; }
-        ev({ type: 'answer', detail: p ? p.id : 'none' }); rec(c, p ? `Passage read to the customer: ${p.text}` : 'No passage answers this; told the customer you do not know.');
-        tails.push(p ? shortQuote(p.text, q, 140) : "I'm sorry, I don't have that information.");
+        const same = (x: string) => x.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+        if (!p && same(own) !== same(q)) p = await this.lookup(own);
+        ev({ type: 'answer', detail: p ? p.id : 'none' }); rec(c, p ? `Read to the customer: ${p.text}` : 'Nothing in the documents answers this; told the customer you do not know.');
+        tails.push(p ? p.text : this.unknown);
       } else if (c.name === 'end_call') {
         if (this.allFilled() || BYE.test(said)) {
           acted = true; this.done = true; ev({ type: 'end' });
-          return this.allFilled() ? this.finishLine() : "No problem. I haven't sent anything; the form stays as it is. Thanks for calling, goodbye.";
+          return this.allFilled() ? this.finishLine() : this.answerOnly ? 'Thanks for calling, goodbye.' : "No problem. I haven't sent anything; the form stays as it is. Thanks for calling, goodbye.";
         }
         ev({ type: 'end_refused' });
       } else ev({ type: 'bad_tool', detail: c.name });
@@ -819,10 +948,16 @@ Customer: "Do you take walk-ins?" -> answer_question("Do you take walk-ins?"); s
     // A question the model did not look up: look it up; answer only if the business's passages answer it.
     // A question asked in the same breath as an answer ("my name's Sarah. What does E24 mean?") is answered too,
     // before the read-back.
+    // On a question desk the model decides what is a question for the documents ("can I ask you about taxes?" is not);
+    // code looks it up only when the model stated a fact itself, or said nothing at all to a question.
     const askedQ = said.match(ASKED_Q)?.[0];
-    if (!answered && this.docs && (askedQ || (!proposedNow && !confirmedNow && QUESTION.test(said))) && !calls.some(c => c.name === 'go_to_field' || c.name === 'end_call')) {
-      const p = await this.docs(askedQ && (proposedNow || confirmedNow) ? askedQ : said);
-      if (p) { answered = true; acted = true; ev({ type: 'answer', detail: p.id, by: 'net' } as DeskEvent); rec({ name: 'answer_question', args: { question: said } }, `Passage read to the customer: ${p.text}`); tails.push(shortQuote(p.text, said, 140)); }
+    const stated = content.split(/(?<=[.!?])\s+/).some(x => FACTS.test(x));
+    const netAsk = this.answerOnly ? !answered && !this.done && (stated || (!content.trim() && QUESTION.test(said)))
+      : !answered && (askedQ || (!proposedNow && !confirmedNow && QUESTION.test(said))) && !calls.some(c => c.name === 'go_to_field' || c.name === 'end_call');
+    if (netAsk && this.canLookUp) {
+      const p = await this.lookup(askedQ && (proposedNow || confirmedNow) ? askedQ : said);
+      if (p) { answered = true; acted = true; ev({ type: 'answer', detail: p.id, by: 'net' } as DeskEvent); rec({ name: 'answer_question', args: { question: said } }, `Read to the customer: ${p.text}`); tails.push(p.text); }
+      else if (this.answerOnly) { answered = true; ev({ type: 'answer', detail: 'none', by: 'net' } as DeskEvent); tails.push(this.unknown); }
     }
     // Code nets for weak models: a clear yes to the read-back just asked is a yes; a clear no is a no.
     if (!acted && this.pending && this.lastAgentAskedReadback()) {
@@ -831,10 +966,13 @@ Customer: "Do you take walk-ins?" -> answer_question("Do you take walk-ins?"); s
         const f = this.field(this.pending.field)!; ev({ type: 'reject', field: f.name, value: this.pending.value, by: 'net' } as DeskEvent); rec({ name: 'reject_pending', args: {} }, 'Cleared. Ask for it again.'); this.pending = null; this.current = f.name;
         tails.push(f.kind === 'name' || f.kind === 'email' ? 'Sorry about that. Could you spell it for me, letter by letter?' : `Sorry about that. ${f.question}`); questionTail = true;
       }
-    } else if (!acted && !this.pending && !QUESTION.test(said)) {
+    } else if (!acted && !this.pending && !QUESTION.test(said) && !this.answerOnly) {
       const f = this.field(this.current)!;
-      const v = f.kind === 'text' ? '' : this.ruleParse(f, said);
-      if (v && this.grounded(f, v)) { this.setPending(f, v); proposedNow = true; ev({ type: 'propose', field: f.name, value: v, by: 'net' } as DeskEvent); rec({ name: 'propose_value', args: { field: f.name, value: v } }, `Read back to the customer: "${this.pending!.text}" Waiting for yes or no.`); }
+      // Free text is taken as said only when it reads like an answer: a few words, not a bare yes or no.
+      const v = f.kind !== 'text' ? this.ruleParse(f, said) : said.trim().split(/\s+/).length >= 3 && !clearYes(said) && !clearNo(said) ? said.trim() : '';
+      const refused = v && this.grounded(f, v) ? await this.hooks.check?.(f, v) : undefined;
+      if (refused) { ev({ type: 'page_refused', field: f.name, detail: String(refused), by: 'net' } as DeskEvent); tails.push(`${refused} ${f.question}`); questionTail = true; }
+      else if (v && this.grounded(f, v)) { this.setPending(f, v); proposedNow = true; ev({ type: 'propose', field: f.name, value: v, by: 'net' } as DeskEvent); rec({ name: 'propose_value', args: { field: f.name, value: v } }, `Read back to the customer: "${this.pending!.text}" Waiting for yes or no.`); }
     }
 
     // Back on a field that is already filled, and the customer wants it kept: move on.
@@ -856,14 +994,16 @@ Customer: "Do you take walk-ins?" -> answer_question("Do you take walk-ins?"); s
     if (this.pending && (proposedNow || confirmedNow)) { tails.push(this.pending.text); questionTail = true; }
     else if ((confirmedNow || keptNow) && this.allFilled()) { tails.push(this.finishLine()); this.complete = true; questionTail = true; }
     else if (confirmedNow || keptNow) { tails.push(transition(this.field(this.current)!.question, this.n)); questionTail = true; }
-    else if (answered && !questionTail) { tails.push(this.pending ? `Now, back to that read-back: ${this.pending.text}` : `Now, ${lowerFirst(this.field(this.current)!.question)}`); questionTail = true; }
+    else if (answered && !questionTail && !this.answerOnly) { tails.push(this.pending ? `Now, back to that read-back: ${this.pending.text}` : `Now, ${lowerFirst(this.field(this.current)!.question)}`); questionTail = true; }
 
-    let text = this.cleanModelText(content, tails.length > 0, confirmedNow);
+    // On a question desk, a looked-up answer is said on its own: the model's words beside it could state a fact.
+    let text = this.answerOnly && answered ? '' : this.cleanModelText(content, tails.length > 0, confirmedNow);
     // Warmth that does not depend on the model: a short reply to small talk, a varied thank-you after a yes.
     if (!text && SMALL_TALK.test(said)) text = smallTalkReply(said);
     if (!text && confirmedNow) text = ACKS[this.n % ACKS.length];    if (!tails.length) {
       if (this.pending) { tails.push(this.pending.text); questionTail = true; }
       else if (!this.pending && this.allFilled() && !this.done) { tails.push(this.finishLine()); this.complete = true; }
+      else if (this.answerOnly) { if (!text) tails.push(this.done ? '' : "Sorry, I didn't catch that. What would you like to know?"); }
       else if (!/\?/.test(text)) tails.push(this.field(this.current)!.question);
     }
     if (questionTail) text = text.split(/(?<=[.!?])\s+/).filter(s => !/\?$/.test(s)).join(' ');
@@ -880,18 +1020,25 @@ Customer: "Do you take walk-ins?" -> answer_question("Do you take walk-ins?"); s
       this.mem.asked = true; this.mem.awaiting = true;
       return this.mem.returning ? "That's everything I need. Shall I update the details I keep for you, for next time?" : "That's everything I need. Would you like me to remember your name and contact details for next time?";
     }
-    return "That's everything I need, it's all filled in on the form on your screen. Have a look, and when it's right, press Submit. I won't send it for you.";
+    return this.finish ?? "That's everything I need, it's all filled in on the form on your screen. Have a look, and when it's right, press Submit. I won't send it for you.";
   }
 
   private lastAgentAskedReadback(): boolean {
     const a = [...this.log].reverse().find(m => m.who === 'agent');
-    return !!a && !!this.pending && /\?\s*$/.test(a.text) && a.text.includes(this.pending.text);
+    return !!a && !!this.pending && /\?\s*$/.test(a.text) && a.text.toLowerCase().includes(this.pending.text.toLowerCase());
   }
 
   private setPending(f: Field, v: string, group: { field: string; value: string }[] = []) {
     const g = group.filter(x => x.field !== f.name);
     this.pending = { field: f.name, value: v, group: g, text: g.length ? groupReadback([v, ...g.map(x => x.value)], this.n, this.brisk) : readback(f, v, this.n, this.brisk) };
     this.queue = this.queue.filter(q => q.field !== f.name && !g.some(x => x.field === q.field));
+  }
+
+  // After a second miss on a serial, email or phone, the flow's typeOffer ("You can also type it with Keyboard.").
+  private offer(f: Field): string {
+    if (!this.flow.typeOffer || !['serial', 'email', 'phone'].includes(f.kind)) return '';
+    const misses = this.events.filter(e => e.field === f.name && ['problem', 'ungrounded', 'reject'].includes(e.type)).length;
+    return misses >= 2 ? ` ${this.flow.typeOffer}` : '';
   }
 
   private goTo(f: Field) {
@@ -934,12 +1081,14 @@ Customer: "Do you take walk-ins?" -> answer_question("Do you take walk-ins?"); s
     if (next) this.current = next.name;
   }
 
-  allFilled(): boolean { return this.flow.fields.every(f => this.values[f.name] !== undefined); }
+  allFilled(): boolean { return !this.answerOnly && this.flow.fields.every(f => this.values[f.name] !== undefined); }
 
   // Model text is kept only where it is safe: no claims of saving or submitting, no numbers nobody said, no read-backs
   // of its own, and short.
   private cleanModelText(content: string, haveTail: boolean, confirmedNow: boolean): string {
-    let t = (content ?? '').replace(/[*_#`>]+/g, '').replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, '').replace(/\s+/g, ' ').trim();
+    // A stray thinking tag ("…taxes?</thinkYes, go ahead."): keep what came before it.
+    const cut = (content ?? '').split(/<\/?think>?/i);
+    let t = (cut.find(x => x.trim()) ?? '').replace(/[*_#`>]+/g, '').replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, '').replace(/\s+/g, ' ').trim();
     if (!t) return '';
     const known = new Set((this.userText() + ' ' + Object.values(this.values).join(' ')).match(/\d+/g) ?? []);
     let sents = t.split(/(?<=[.!?])\s+/).filter(s => s.trim());
@@ -961,7 +1110,7 @@ Customer: "Do you take walk-ins?" -> answer_question("Do you take walk-ins?"); s
   // ----- v1-style rules: used for a turn when the model fails, and by the code nets -----
   private ruleParse(f: Field, said: string): string {
     switch (f.kind) {
-      case 'name': { const n = parseName(joinSpelled(said)); return n ? normalizeName(n).value ?? '' : ''; }
+      case 'name': { const n = parseName(joinSpelled(said)); return n ? normalizeName(n, partName(f)).value ?? '' : ''; }
       case 'phone': return normalizePhone(said).value ?? '';
       case 'email': return normalizeEmail(said).value ?? '';
       case 'serial': return normalizeSerial(said).value ?? '';
@@ -980,10 +1129,13 @@ Customer: "Do you take walk-ins?" -> answer_question("Do you take walk-ins?"); s
       if (clearNo(said)) return this.apply('', [{ name: 'reject_pending', args: {} }], 'rules');
       return `Sorry, ${lowerFirst(this.pending.text)}`;
     }
-    if (QUESTION.test(said) && this.docs) return this.apply('', [{ name: 'answer_question', args: { question: said } }], 'rules');
+    if ((QUESTION.test(said) || this.answerOnly) && this.canLookUp) return this.apply('', [{ name: 'answer_question', args: { question: said } }], 'rules');
+    if (this.answerOnly) return "Sorry, I didn't catch that. What would you like to know?";
     const f = this.field(this.current)!;
     const v = this.ruleParse(f, said);
     if (v) return this.apply('', [{ name: 'propose_value', args: { field: f.name, value: v } }], 'rules');
+    // A serial, phone or code that is there but wrong gets what was heard and what is wrong, as with the model.
+    if (['serial', 'phone', 'digits', 'code'].includes(f.kind) && /\d/.test(said)) return this.apply('', [{ name: 'propose_value', args: { field: f.name, value: said } }], 'rules');
     return `Sorry, I didn't quite catch that. ${f.question}`;
   }
 }
@@ -993,12 +1145,12 @@ const lowerFirst = (s: string) => s ? s[0].toLowerCase() + s.slice(1) : s;
 // Builds a model from env-style config (DESK_URL, DESK_KEY, DESK_MODEL, DESK_STREAM).
 // Default agent model: local LFM3-1.7B served by llama.cpp (OpenAI-compatible) at DESK_URL.
 export const DEFAULT_DESK_URL = 'http://127.0.0.1:11438/v1';
-export function modelFromEnv(prefix = 'DESK', env: Record<string, string | undefined> = process.env): OpenAIChat | undefined {
+export function modelFromEnv(prefix = 'DESK', env: Record<string, string | undefined> = ENV): OpenAIChat | undefined {
   const url = env[`${prefix}_URL`] ?? (prefix === 'DESK' ? DEFAULT_DESK_URL : undefined);
   if (!url) return undefined;
   return new OpenAIChat({ url, key: env[`${prefix}_KEY`] ?? '', model: env[`${prefix}_MODEL`] ?? (prefix === 'DESK' ? 'lfm3' : ''), stream: env[`${prefix}_STREAM`] === '1', timeoutMs: +(env[`${prefix}_TIMEOUT_MS`] ?? 15000) });
 }
 // The hosted model for the optional hybrid (DESK_HYBRID=1, DESK_HEAVY_URL / _KEY / _MODEL).
-export function heavyFromEnv(env: Record<string, string | undefined> = process.env): OpenAIChat | undefined {
+export function heavyFromEnv(env: Record<string, string | undefined> = ENV): OpenAIChat | undefined {
   return env.DESK_HYBRID === '1' ? modelFromEnv('DESK_HEAVY', env) : undefined;
 }

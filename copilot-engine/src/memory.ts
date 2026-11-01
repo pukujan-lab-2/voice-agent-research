@@ -2,8 +2,10 @@
 // Stores are pluggable: an in-memory Map, a JSON file (tests), or anything that implements Store (an Octo
 // workspace store later). Customer records are keyed by a salted hash of the normalized phone or email, so the
 // store never holds a contact detail as a key.
-import crypto from 'node:crypto';
-import fs from 'node:fs';
+// No top-level Node imports: the desk also runs in the browser (the live site), where only the Store types and
+// newSessionId are used. The Node-only parts (the file store, the customer key's hash) load Node's modules when called.
+const node = <T>(id: string): T => (globalThis as unknown as { process: { getBuiltinModule(id: string): T } }).process.getBuiltinModule(id);
+const fs = () => node<typeof import('node:fs')>('node:fs');
 
 export interface Store {
   get(key: string): Promise<unknown | undefined>;
@@ -32,9 +34,9 @@ export class JsonFileStore implements Store {
   private path: string; private now: () => number;
   constructor(path: string, now: () => number = Date.now) { this.path = path; this.now = now; }
   private read(): Record<string, Entry> {
-    try { return JSON.parse(fs.readFileSync(this.path, 'utf8')); } catch { return {}; }
+    try { return JSON.parse(fs().readFileSync(this.path, 'utf8')); } catch { return {}; }
   }
-  private write(d: Record<string, Entry>) { fs.writeFileSync(this.path, JSON.stringify(d), { mode: 0o600 }); }
+  private write(d: Record<string, Entry>) { fs().writeFileSync(this.path, JSON.stringify(d), { mode: 0o600 }); }
   async get(key: string) {
     const d = this.read(); const e = d[key];
     if (!e) return undefined;
@@ -48,12 +50,15 @@ export class JsonFileStore implements Store {
 export const SESSION_TTL_MS = 30 * 60 * 1000;
 
 // Opaque, unguessable session id.
-export function newSessionId(): string { return crypto.randomBytes(18).toString('base64url'); }
+export function newSessionId(): string {
+  const b = globalThis.crypto.getRandomValues(new Uint8Array(18));
+  return btoa(String.fromCharCode(...b)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
 
 // Key for a returning customer: hash of the normalized phone digits or lower-cased email.
-export function customerKey(kind: 'phone' | 'email', value: string, salt = process.env.DESK_MEMORY_SALT ?? 'desk-v2'): string {
+export function customerKey(kind: 'phone' | 'email', value: string, salt = globalThis.process?.env?.DESK_MEMORY_SALT ?? 'desk-v2'): string {
   const norm = kind === 'phone' ? value.replace(/\D/g, '').replace(/^1(?=\d{10}$)/, '') : value.trim().toLowerCase();
-  return 'cust:' + crypto.createHash('sha256').update(`${salt}|${kind}|${norm}`).digest('hex');
+  return 'cust:' + node<typeof import('node:crypto')>('node:crypto').createHash('sha256').update(`${salt}|${kind}|${norm}`).digest('hex');
 }
 
 export type SessionSnapshot = {

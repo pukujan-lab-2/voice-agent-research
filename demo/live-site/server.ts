@@ -26,7 +26,7 @@ export function loadEnv(): ApiEnv {
       if (name && !env[name]) env[name] = m[2].trim().replace(/^['"]|['"]$/g, '');
     }
   }
-  for (const k of ['OPENROUTER_JEV_KEY', 'OCTO_KEY', 'OCTO_WORKSPACE', 'JEV_URL', 'OCTO_BASE', 'OCTO_TIMEOUT_MS', 'SIGNING_SECRET', 'LLAMA_URL', 'OFFLINE', 'JEV_DAILY_CAP', 'RATE_PER_MIN', 'OCTO_TRACES'] as const) {
+  for (const k of ['OPENROUTER_JEV_KEY', 'OCTO_KEY', 'OCTO_WORKSPACE', 'JEV_URL', 'OCTO_BASE', 'OCTO_TIMEOUT_MS', 'SIGNING_SECRET', 'LLAMA_URL', 'DESK_URL', 'DESK_MODEL', 'OFFLINE', 'JEV_DAILY_CAP', 'RATE_PER_MIN', 'OCTO_TRACES'] as const) {
     if (process.env[k]) env[k] = process.env[k];
   }
   return env;

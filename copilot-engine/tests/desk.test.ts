@@ -220,3 +220,124 @@ test('a read-back the customer says no to is dropped when they give a different 
   assert.equal(d.pending?.value, 'Michael Nguyen');
   assert.doesNotMatch(r, /Mateo/);
 });
+
+// The live site's tax desk: no form, only questions. The model decides what goes to the documents.
+const taxDesk = { id: 'tax-desk', business: 'Brindlewick Tax', scope: 'tax guides', intro: 'Hi, ask me a tax question.', doneMessage: '', fields: [] };
+
+test('a question desk answers questions about itself without a lookup, and looks up tax questions', async () => {
+  const asked: string[] = [];
+  const answer = async (q: string) => { asked.push(q); return /amend/i.test(q) ? 'IRS Pub 17 says: "File within 3 years."' : null; };
+  const d = new Desk(taxDesk, { answer, unknown: "The guides don't cover that.", model: stub(s => /amend/i.test(s)
+    ? { calls: [call('answer_question', { question: s })] }
+    : { content: 'Of course, go ahead. What would you like to know?' }) });
+  assert.equal(d.start(), 'Hi, ask me a tax question.');
+  assert.equal(await d.turn('can I ask you about taxes?'), 'Of course, go ahead. What would you like to know?');
+  assert.deepEqual(asked, [], 'a question about the assistant is not searched');
+  assert.equal(await d.turn('how long do I have to amend a return?'), 'IRS Pub 17 says: "File within 3 years."');
+  assert.equal(d.complete, false);
+  assert.equal(d.submitted, 0);
+});
+
+test('a question desk never lets the model state a fact itself', async () => {
+  const asked: string[] = [];
+  const d = new Desk(taxDesk, { answer: async q => { asked.push(q); return null; }, unknown: "The guides don't cover that.",
+    model: stub(() => ({ content: 'You can deduct up to $2,500 of student loan interest.' })) });
+  d.start();
+  const r = await d.turn('can I deduct student loan interest');
+  assert.equal(r, "The guides don't cover that.");
+  assert.doesNotMatch(r, /2,500/);
+  assert.equal(asked.length, 1);
+});
+
+test('a question desk falls back to looking up when the model is down', async () => {
+  const d = new Desk(taxDesk, { answer: async () => 'IRS FAQ says: "Yes."', model: stub(() => 'fail') });
+  d.start();
+  assert.equal(await d.turn('is tip income taxable?'), 'IRS FAQ says: "Yes."');
+});
+
+// The site's forms: dates, notice codes, the last digits of a number, and optional questions.
+const intake = { id: 'intake', business: 'Brindlewick Tax', scope: 'the intake form', intro: 'Hi.', doneMessage: '', fields: [
+  { name: 'notice', label: 'notice code', question: "What's the notice code?", kind: 'code' as const, optional: true },
+  { name: 'dob', label: 'date of birth', question: "What's your date of birth?", kind: 'date' as const },
+  { name: 'last4', label: 'last four', question: 'What are the last four digits?', kind: 'digits' as const, length: 4 },
+] };
+
+test('codes, dates and digits are read back their own way, and "none" leaves an optional field blank', async () => {
+  const d = new Desk(intake, { model: stub(s => /yes/i.test(s) ? { calls: [call('confirm_pending')] }
+    : /march/i.test(s) ? { calls: [call('propose_value', { field: 'dob', value: s })] }
+    : /\d/.test(s) ? { calls: [call('propose_value', { field: 'last4', value: s })] }
+    : { calls: [call('propose_value', { field: 'notice', value: 'none' })] }) });
+  d.start();
+  const r1 = await d.turn("I didn't get one");
+  assert.equal(d.values.notice, '');
+  assert.match(r1, /leave the notice code blank/);
+  assert.match(r1, /date of birth/);
+  const r2 = await d.turn('March 3rd 1985');
+  assert.equal(d.pending?.value, '1985-03-03');
+  assert.match(r2, /March 3, 1985/);
+  await d.turn('yes');
+  const r3 = await d.turn('4 4 1 2');
+  assert.match(r3, /4, 4, 1, 2/);
+  const r4 = await d.turn('yes');
+  assert.equal(d.values.last4, '4412');
+  assert.equal(d.complete, true);
+  assert.match(r4, /press Submit/);
+});
+
+test('a form started from a draft asks the first empty field', () => {
+  const d = new Desk(intake, {});
+  const r = d.prefill({ notice: 'CP2000' }, 'Back to the form.');
+  assert.equal(r, "Back to the form. What's your date of birth?");
+  assert.equal(d.values.notice, 'CP2000');
+});
+
+test('a first or last name field takes one word; a full name field still wants two', async () => {
+  assert.equal(normalizeName('Michael', true).value, 'Michael');
+  assert.match(normalizeName('Michael').problem ?? '', /first and last/);
+  const flow = { id: 'r17', business: 'Saltmere', scope: 'the form', intro: 'Hi.', doneMessage: '', fields: [{ name: 'bfirst', label: 'beneficiary first name', kind: 'name' as const, question: "What's the beneficiary's first name?" }] };
+  const d = new Desk(flow, {});
+  d.start();
+  assert.match(await d.turn('Michael'), /Michael/);
+  assert.equal(d.pending?.value, 'Michael');
+});
+
+test('an answer the model ignores ("go to" the open field) is still read back by code', async () => {
+  const flow = { id: 'svc', business: 'Halden', scope: 'the form', intro: 'Hi.', doneMessage: '', fields: [
+    { name: 'serial', label: 'serial number', kind: 'serial' as const, question: 'Can you read me the serial number?' },
+    { name: 'what', label: 'what happened', kind: 'text' as const, question: 'What happened?' },
+  ] };
+  let open = 'serial';
+  const d: Desk = new Desk(flow, { model: stub(s => /^yes$/i.test(s) ? { calls: [call('confirm_pending')] } : { content: 'Sure.', calls: [call('go_to_field', { field: open })] }) });
+  d.start();
+  assert.match(await d.turn('one three three four five nine two C, I, S, D, three'), /1334-592C-ISD3/);
+  assert.equal(d.values.serial, undefined);
+  await d.turn('yes');
+  assert.equal(d.values.serial, '1334592CISD3');
+  open = 'what';
+  assert.match(await d.turn('it shows E24 and there is water at the bottom'), /water at the bottom/);
+  assert.equal(d.values.what, undefined);
+  await d.turn('yes');
+  assert.equal(d.values.what, 'it shows E24 and there is water at the bottom');
+});
+
+test('a choice the customer never named is not read back; "my email should be …" goes to the email', async () => {
+  const flow = { id: 'quote', business: 'Prana', scope: 'the form', intro: 'Hi.', doneMessage: '', fields: [
+    { name: 'email', label: 'email', kind: 'email' as const, question: "What's your email?" },
+    { name: 'budget', label: 'budget', kind: 'choice' as const, options: ['$1,000 to $3,000', '$3,000 to $7,000'], question: 'Roughly what budget?' },
+  ] };
+  const d = new Desk(flow, { model: stub(s => /^yes$/i.test(s) ? { calls: [call('confirm_pending')] }
+    : /email|example/.test(s) && !/should be/.test(s) ? { calls: [call('propose_value', { field: 'email', value: 'sofia@example.com' })] }
+    : { calls: [call('propose_value', { field: 'budget', value: '$3,000 to $7,000' })] }) });
+  d.start();
+  await d.turn('sofia at example dot com');
+  await d.turn('yes');
+  assert.equal(d.values.email, 'sofia@example.com');
+  const r = await d.turn('Wait, my email should be sofia dot marin at example dot com');
+  assert.match(r, /sofia\.marin@example\.com/);
+  assert.equal(d.pending?.field, 'email');
+  await d.turn('yes');
+  assert.equal(d.values.email, 'sofia.marin@example.com');
+  assert.equal(d.values.budget, undefined, 'the model\'s made-up budget was never kept');
+  await d.turn('I like the weather');
+  assert.notEqual(d.pending?.field, 'budget');
+});
