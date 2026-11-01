@@ -1,6 +1,6 @@
 # TASK-WCP-0009 — Hosted runners
 
-<!-- continuity:task {"acceptance":["gates and stack-train run on ubuntu-latest","OIO_RUNS_ON is removed","Decision 0010 replaces 0008","Queued pull requests get a gates result"],"depends_on":[],"goal":"CI runs on GitHub-hosted runners now the repo is public","id":"WCP-0009","issue_url":"https://github.com/Pukujan-lab/voice-agent-research/issues/50","next_action":"Open the pull request for #50, remove OIO_RUNS_ON, and rerun CI on #46, #47 and #49","owner":"owner","priority":"P1","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"active","why":"The org runner group refuses public repositories, so CI never starts"} -->
+<!-- continuity:task {"acceptance":["gates and stack-train run on ubuntu-latest","OIO_RUNS_ON is removed","Decision 0010 replaces 0008","Queued pull requests get a gates result"],"depends_on":[],"goal":"CI runs on GitHub-hosted runners now the repo is public","id":"WCP-0009","next_action":"Open the pull request for #50, remove OIO_RUNS_ON, and rerun CI on #46, #47 and #49","owner":"owner","priority":"P1","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"active","why":"The org runner group refuses public repositories, so CI never starts"} -->
 
 - Status: active
 - Owner: owner
