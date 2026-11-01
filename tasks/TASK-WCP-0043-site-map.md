@@ -79,6 +79,29 @@ Blocked/uncertain:
 Next:
 - Merge #105, #128, #130 and this pull request in order, push main to production, post the before-and-after table on #100
 
+### 2026-11-01 23:41:00 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["copilot-engine/package.json"],"completed":["The site-map branch is up to date with main and the updated business-config branch"],"decisions":["no new decisions"],"evidence":["npm run check passes after the merge"],"next_action":"Wait for the ordered merge queue (#49, #50, #51)","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0043","timestamp":"2026-11-01T23:41:00Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"ed4825c69235aa81a2197fcc29df029a762fc2ae22f6dd3487ef11bf53ba1457","request_id":"b011eef8a99d443484c31802134fae8d","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0043"} -->
+
+Completed:
+- The site-map branch is up to date with main and the updated business-config branch
+
+Evidence:
+- npm run check passes after the merge
+
+Decisions:
+- no new decisions
+
+Changed:
+- copilot-engine/package.json
+
+Blocked/uncertain:
+- none
+
+Next:
+- Wait for the ordered merge queue (#49, #50, #51)
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
