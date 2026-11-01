@@ -54,7 +54,7 @@ raise it; a person lookup cannot score below 45.
 
 `new Desk(flow, { lookups: new Lookups(spec, sql), caller: () => ({ verified, clientId }) })`, where `sql` runs
 `{ text, params }` against the business's Octo workspace (`OctoHttp.sql` in `site-search.ts`). Storing the declarations per
-business is the per-business config work (#103); until then a host builds them in code.
+business is the per-business config work (#28); until then a host builds them in code.
 
 ## Limits
 
