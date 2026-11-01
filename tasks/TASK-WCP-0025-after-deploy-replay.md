@@ -60,6 +60,29 @@ Starting revision, material inputs/configuration, runtime, exact command or prom
 
 No checkpoints yet.
 
+### 2026-11-01 18:05:30 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":[".github/workflows/after-deploy.yml, eval/after-deploy.ts, deploy/pro/{voice-check,update}.sh, demo/live-site/tests/voice-call.ts, .gitignore, eval/README.md"],"completed":["After each production move a workflow waits for Komodo, replays every case against the public site and records an eval span on the deploy in Phoenix; the voice test can now run against a deployed site and record its own span"],"decisions":["The site does not report its commit, so the workflow waits a fixed 12 minutes; the voice test stays on the Pro because it needs macOS say and Chrome for Testing, and its post-deploy start in update.sh is opt-in"],"evidence":["eval/after-deploy.ts posted a real span (deploy.replay, session deploy-testrun00001, score 0.14) that read back from Phoenix; npm run check passes. Not yet run: the workflow itself (Actions is stalled) and a voice test from the Pro against the public URL"],"next_action":"Merge #98, then this; dispatch After deploy once; run deploy/pro/voice-check.sh from the Pro","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0025","timestamp":"2026-11-01T18:05:30Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"9d4001a2f993550746c162cb35b8ac5b3e982a7c140aa1a9d9200041505da1fb","request_id":"ff64f829bb0b4dac92530e6264f92fed","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0025"} -->
+
+Completed:
+- After each production move a workflow waits for Komodo, replays every case against the public site and records an eval span on the deploy in Phoenix; the voice test can now run against a deployed site and record its own span
+
+Evidence:
+- eval/after-deploy.ts posted a real span (deploy.replay, session deploy-testrun00001, score 0.14) that read back from Phoenix; npm run check passes. Not yet run: the workflow itself (Actions is stalled) and a voice test from the Pro against the public URL
+
+Decisions:
+- The site does not report its commit, so the workflow waits a fixed 12 minutes; the voice test stays on the Pro because it needs macOS say and Chrome for Testing, and its post-deploy start in update.sh is opt-in
+
+Changed:
+- .github/workflows/after-deploy.yml, eval/after-deploy.ts, deploy/pro/{voice-check,update}.sh, demo/live-site/tests/voice-call.ts, .gitignore, eval/README.md
+
+Blocked/uncertain:
+- none
+
+Next:
+- Merge #98, then this; dispatch After deploy once; run deploy/pro/voice-check.sh from the Pro
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
