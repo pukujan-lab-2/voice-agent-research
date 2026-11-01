@@ -1,8 +1,8 @@
 # TASK-WCP-0016 — LFM3-Audio runs a voice call as a voice stack
 
-<!-- continuity:task {"acceptance":["An lfm3-audio stack is in speech/stacks.json, picked like the other stacks (owner VOICE_STACK, visitor, business default) and listed in /voice-lab with only the languages a call test shows it handles","voice_parts() in speech/agent.py and speech/server.py run LFM3-Audio as the listener and the voice of a LiveKit call, and every fill still goes through decision 0011's code lock","A scripted tool-calling test (fill, change an earlier answer, confirm, refuse to submit without a recorded yes) runs on english-fast and on lfm3-audio, and both pass counts are posted on #71","docs/03-lfm3-omni-voice.md carries what the model card and the test showed, and the decisions index is current"],"depends_on":[],"goal":"LFM3-Audio runs a voice call end to end as a voice stack, with a tool-calling test","id":"WCP-0016","issue_url":"https://github.com/Pukujan-lab/voice-agent-research/issues/71","next_action":"Land this record on main, create the task worktree, and start the lfm3-audio downloads once the owner approves them","owner":"owner","priority":"P1","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"active","why":"The owner chose LFM3-Audio end to end and asked where it is; decision 0012 lists the lfm3-audio stack as a later step, and no test shows whether any model here can call tools (#71)"} -->
+<!-- continuity:task {"acceptance":["An lfm3-audio stack is in speech/stacks.json, picked like the other stacks (owner VOICE_STACK, visitor, business default) and listed in /voice-lab with only the languages a call test shows it handles","voice_parts() in speech/agent.py and speech/server.py run LFM3-Audio as the listener and the voice of a LiveKit call, and every fill still goes through decision 0011's code lock","A scripted tool-calling test (fill, change an earlier answer, confirm, refuse to submit without a recorded yes) runs on english-fast and on lfm3-audio, and both pass counts are posted on #71","docs/03-lfm3-omni-voice.md carries what the model card and the test showed, and the decisions index is current"],"depends_on":[],"goal":"LFM3-Audio runs a voice call end to end as a voice stack, with a tool-calling test","id":"WCP-0016","issue_url":"https://github.com/Pukujan-lab/voice-agent-research/issues/71","next_action":"none; delivered in #77 and #80, merged as 1c76d68 and 64b800b","owner":"owner","priority":"P1","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"completed","why":"The owner chose LFM3-Audio end to end and asked where it is; decision 0012 lists the lfm3-audio stack as a later step, and no test shows whether any model here can call tools (#71)"} -->
 
-- Status: active
+- Status: completed
 - Owner: owner
 - Priority: P1
 - Depends on: none
@@ -57,6 +57,13 @@ The owner asked, after PR #77 merged, that voice models be swapped and not run a
 
 - Leaf #71; parent none; depends on #61 (merged); related #55, decision 0012, decision 0011, decision 0009.
 - Primary writer / branch: claude-code / created by `continuity worktree create WCP-0016`; source issue open as of 2026-11-01.
+
+## Delivery
+
+- Delivered in pull request #77, merged as `1c76d68` on 2026-11-01 09:16 UTC from pushed head `a780eec` (the stack, the tool-calling test, decision 0013 and the voice notes), and in pull request #80, merged as `64b800b` at 09:29 UTC from pushed head `1246cca` (models swapped, decision 0014). Required checks on both: `gates`, the release-train check and the close job passed. #71 closed on the second merge.
+- Results are on #71: tool calls 6 of 8 and outcomes 10 of 10 on `lfm3-audio`, 7 of 8 and 9 of 10 on `english-fast` (one run each); one real LiveKit call on `lfm3-audio`; English only on that stack; the swap test through five stacks.
+- Not delivered, for their own issues if the owner wants them: the other languages on LFM3-Audio's hearing and voice with the LFM3 text model deciding, LFM3-Omni (notes on #71), and 4-bit against BF16 accuracy.
+- Primary writer / branches: claude-code / `task/WCP-0016-lfm3-audio-stack` and `task/WCP-0016-swap-models`; source issue closed as of 2026-11-01.
 
 ## Checkpoint log
 
@@ -153,6 +160,29 @@ Blocked/uncertain:
 
 Next:
 - Wait for the required checks on the pull request, confirm the merge and that issue 71 closed, then remove the worktree with continuity worktree remove WCP-0016
+
+### 2026-11-01 08:30:17 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":["none"],"changed":["tasks/TASK-WCP-0016-lfm3-audio-stack.md, copilot-engine/ledger.jsonl"],"completed":["The LFM3-Audio task was finished but its record still said active, which blocks removing its worktree. The record now says both pull requests merged (#77 as 1c76d68, #80 as 64b800b), #71 closed, and what was left for their own issues."],"decisions":["no new decision"],"evidence":["Observed on the merges: gates, the release-train check and the close job passed on both pull requests; main fetched and contains speech/server.py with Stacks.use, tests/voice-tools.ts and decisions 0013 and 0014. npm run check passed on this branch."],"next_action":"After this record merges, run continuity worktree remove WCP-0016","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0016","timestamp":"2026-11-01T08:30:17Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"c2cb71c7a08926b988f600cdda3d828f38fb24c864040ffa1724372903d86e52","request_id":"c17caa82517e4757be9d6a540eb32cbe","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0016"} -->
+
+Completed:
+- The LFM3-Audio task was finished but its record still said active, which blocks removing its worktree. The record now says both pull requests merged (#77 as 1c76d68, #80 as 64b800b), #71 closed, and what was left for their own issues.
+
+Evidence:
+- Observed on the merges: gates, the release-train check and the close job passed on both pull requests; main fetched and contains speech/server.py with Stacks.use, tests/voice-tools.ts and decisions 0013 and 0014. npm run check passed on this branch.
+
+Decisions:
+- no new decision
+
+Changed:
+- tasks/TASK-WCP-0016-lfm3-audio-stack.md, copilot-engine/ledger.jsonl
+
+Blocked/uncertain:
+- none
+
+Next:
+- After this record merges, run continuity worktree remove WCP-0016
 
 ## Handoff
 
