@@ -41,7 +41,13 @@ A business with its own site can have it searched by the copilot after one comma
 
 ## Evidence and sources
 
-Link repository state at a revision and cite external factual claims directly. Record commands and results for claims that need verification.
+Observed on branch `task/WCP-0070-ingest-pipeline` (base b9a3e7c):
+
+- `npm run check` passes, including 31 new Python tests (`npm run test:py`) over a real local HTTP site with ETags, a sitemap and robots.txt, and an Octo stand-in on SQLite.
+- Live round trip on Octo's real Postgres and search (business `ingest-smoke`, cleaned up afterwards): first run +4 passages, second run 0 writes (2 unchanged), a removed page deleted 2 passages, and a search with `titlePrefix` `ingest-smoke/en/policy/` returned the new passages. No leftover documents.
+- The refactored IRS scripts read live Octo through the shared client: `irs_passages` count 145,519, `/files` list, and a jsonb upsert on a scratch table, under Python 3.9 and 3.12.
+- Docling reads a real PDF made with reportlab (test run once in a separate venv with Docling installed; skipped when it is absent).
+- Choices: trafilatura 2.3.1 for HTML, Docling 2.145 for PDF, httpx for conditional GETs, Crawl4AI not included (see docs/ingest.md).
 
 ## Reproduction details (only when needed)
 
