@@ -110,6 +110,29 @@ Blocked/uncertain:
 Next:
 - Bring #49 (WCP-0041) up to date the same way, then #50 and #51
 
+### 2026-11-01 23:32:22 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["copilot-engine/package.json"],"completed":["The prompt-budget branch is up to date with main after the conversation-quality pull request merged; every test script kept"],"decisions":["no new decisions"],"evidence":["npm run check passes after the merge"],"next_action":"Bring #49, #50 and #51 up to date in order","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0040","timestamp":"2026-11-01T23:32:22Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"4b969a33fad4ac53ff9d798a4f4c14ad88255c57ebb6b25a749556c8c5f25fa4","request_id":"644386da72bb40478a8216283da4d69e","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0040"} -->
+
+Completed:
+- The prompt-budget branch is up to date with main after the conversation-quality pull request merged; every test script kept
+
+Evidence:
+- npm run check passes after the merge
+
+Decisions:
+- no new decisions
+
+Changed:
+- copilot-engine/package.json
+
+Blocked/uncertain:
+- none
+
+Next:
+- Bring #49, #50 and #51 up to date in order
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
