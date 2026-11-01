@@ -1,0 +1,53 @@
+name: Promote to production
+
+# A push to main that passed CI goes live: this moves the `production` branch to that commit, and Komodo deploys it
+# within about 5 minutes (decision 0016, deploy/README.md). It only fast-forwards. If `production` has commits that
+# are not on main it stops and says so; it never forces. Pull requests and forks never reach this job: it runs only
+# for a CI run on a push to main of this repository.
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: promote-production
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    name: Move production to the commit CI passed
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+      - name: Fast-forward production
+        env:
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          git fetch --quiet origin production
+          if ! git merge-base --is-ancestor origin/production "$SHA"; then
+            echo "::error::production has commits that are not in $SHA; not moving it. A person decides what to do."
+            echo "production is not an ancestor of ${SHA:0:12}; left alone." >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          if [ "$(git rev-parse origin/production)" = "$SHA" ]; then
+            echo "production is already at ${SHA:0:12}." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          git push origin "$SHA:refs/heads/production"
+          echo "production moved to ${SHA:0:12}; Komodo deploys it within about 5 minutes." >> "$GITHUB_STEP_SUMMARY"

@@ -4,7 +4,7 @@
 
 This is an as-of projection (2026-11-01); live GitHub issues own progression. Link the owning leaf, parent ancestry and dependencies for active work.
 
-Older state: [`history/2026-10.md`](history/2026-10.md) and earlier months in `history/`.
+Older state: [`history/2026-11.md`](history/2026-11.md) and earlier months in `history/`.
 
 ## Program state
 
@@ -13,12 +13,6 @@ Phase: demo build. The copilot runs locally on fictional demo sites; nothing is 
 ## Active
 
 - IRS library load into Octo (#18), running with 4 workers.
-
-## Done recently
-
-- Demo sites redesign (#64): merged as `35b9ad1`, task WCP-0013 completed.
-- Copilot call panel redesign (#65): merged as `da521b8`, task WCP-0014 completed; its voice-test acceptance moved to #69.
-- Offline scene suite voice path (#69): merged as `839a083`, task WCP-0015 completed. A full run now prints `172/178 (5 skipped)` and names each skip.
 
 ## Queued
 

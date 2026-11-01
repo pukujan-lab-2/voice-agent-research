@@ -1,6 +1,6 @@
 # TASK-WCP-0008 — Capability questions
 
-<!-- continuity:task {"acceptance":["Questions about the assistant get a short answer about what it does, with no guide search","Real questions that start the same way still go to the guides","npm run check passes"],"depends_on":[],"goal":"Questions about the assistant get a real answer, not a guide search","id":"WCP-0008","issue_url":"https://github.com/Pukujan-lab/voice-agent-research/issues/48","next_action":"Open the pull request for #48 and let auto-merge wait for gates","owner":"owner","priority":"P2","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"active","why":"\"Can I ask you about taxes?\" got unrelated IRS passages (owner, 2026-10-31)"} -->
+<!-- continuity:task {"acceptance":["Questions about the assistant get a short answer about what it does, with no guide search","Real questions that start the same way still go to the guides","npm run check passes"],"depends_on":[],"goal":"Questions about the assistant get a real answer, not a guide search","id":"WCP-0008","next_action":"Open the pull request for #48 and let auto-merge wait for gates","owner":"owner","priority":"P2","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"active","why":"\"Can I ask you about taxes?\" got unrelated IRS passages (owner, 2026-10-31)"} -->
 
 - Status: active
 - Owner: owner

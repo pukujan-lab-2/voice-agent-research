@@ -1,6 +1,6 @@
 # TASK-WCP-0073 — Declared Lookups
 
-<!-- continuity:task {"acceptance":["Only declared fields are returned","Injection attempts and cross-business reads fail (tests)","A person-lookup is refused until the caller is verified"],"depends_on":[],"goal":"A business declares read-only record lookups that code runs safely with risk scores","id":"WCP-0073","issue_url":"https://github.com/Pukujan-lab/voice-agent-research/issues/111","next_action":"Start the leaf on its task branch","owner":"owner","priority":"P2","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"active","why":"Nothing reads an order, appointment or price from a table (#111)"} -->
+<!-- continuity:task {"acceptance":["Only declared fields are returned","Injection attempts and cross-business reads fail (tests)","A person-lookup is refused until the caller is verified"],"depends_on":[],"goal":"A business declares read-only record lookups that code runs safely with risk scores","id":"WCP-0073","issue_url":"https://github.com/pukujan-lab-2/voice-agent-research/issues/35","next_action":"Start the leaf on its task branch","owner":"owner","priority":"P2","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"active","why":"Nothing reads an order, appointment or price from a table (#35)"} -->
 
 - Status: active
 - Owner: owner
@@ -13,7 +13,7 @@ A business declares read-only record lookups that code runs safely with risk sco
 
 ## Why
 
-Nothing reads an order, appointment or price from a table (#111)
+Nothing reads an order, appointment or price from a table (#35)
 
 ## Allowed files
 
@@ -32,7 +32,7 @@ A business can let the copilot look up an order, appointment or price without th
 ## Scope and boundaries
 
 - In scope: declaration schema, parameterized runner, declared-fields-only output, per-business scoping, risk score and verification gate.
-- Out of scope: writing data; storing the config (#103).
+- Out of scope: writing data; storing the config (#28).
 - Dependencies/uncertainty: none. Octo's RAG has no metadata filter; title paths and an Octo table stand in until Octo adds one.
 
 ## Acceptance criteria
@@ -58,7 +58,7 @@ Starting revision, material inputs/configuration, runtime, exact command or prom
 
 ## Related records
 
-- Leaf #111; parent #107; depends on none.
+- Leaf #35; parent #31; depends on none.
 - Primary writer claude-code / `task/WCP-0073-*`; source issue open as of 2026-11-01.
 - PR/CI evidence: pending.
 
