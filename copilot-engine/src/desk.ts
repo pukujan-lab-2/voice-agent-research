@@ -465,6 +465,7 @@ export class Desk {
   // Memory (both optional): `sessions` keeps a snapshot for call resume; `customers` keeps opt-in returning-customer
   // details. Any Store works (memory.ts has a Map and a JSON file store; an Octo store can implement the same).
   sessionId?: string;
+  private scope: string; // the business a snapshot belongs to: part of its key, so one business never reads another's
   private sessions?: Store;
   private customers?: Store;
   private mem = { asked: false, awaiting: false, lookedUp: false, forget: false, returning: false };
@@ -486,8 +487,9 @@ export class Desk {
   private unknown: string;
   private finish?: string;
 
-  constructor(flow: Flow, opts: { model?: ChatModel; heavy?: ChatModel; docs?: Docs; answer?: (question: string, filter?: SearchFilter) => Promise<string | null>; search?: SiteSearch; lookups?: Lookups; caller?: () => Caller; unknown?: string; finish?: string; hooks?: Partial<Hooks>; route?: (said: string, d: Desk) => boolean; sessions?: Store; customers?: Store; fullFormFields?: number } = {}) {
+  constructor(flow: Flow, opts: { model?: ChatModel; heavy?: ChatModel; docs?: Docs; answer?: (question: string, filter?: SearchFilter) => Promise<string | null>; search?: SiteSearch; lookups?: Lookups; caller?: () => Caller; unknown?: string; finish?: string; hooks?: Partial<Hooks>; route?: (said: string, d: Desk) => boolean; sessions?: Store; customers?: Store; fullFormFields?: number; scope?: string } = {}) {
     this.flow = flow;
+    this.scope = id(opts.scope ?? '');
     this.windowed = flow.fields.length > (opts.fullFormFields ?? FULL_FORM_FIELDS);
     this.answer = opts.answer;
     this.unknown = opts.unknown ?? "I'm sorry, I don't have that information.";
@@ -622,12 +624,14 @@ export class Desk {
   }
 
   // ----- memory: call resume -----
+  private sessKey(sid: string): string { return `sess:${this.scope ? `${this.scope}:` : ''}${id(sid)}`; }
+
   // Saves the call under an opaque random id (30 minute TTL). Called after every turn when a session store is set.
   async save(): Promise<string | undefined> {
     if (!this.sessions) return undefined;
     this.sessionId ??= newSessionId();
     const snap: SessionSnapshot = { v: 1, flow: this.flow.id, savedAt: Date.now(), values: { ...this.values }, pending: this.pending ? { ...this.pending } : null, queue: [...this.queue], current: this.current, returnTo: [...this.returnTo], log: this.log.slice(-12) };
-    try { await this.sessions.set(`sess:${id(this.sessionId)}`, snap, SESSION_TTL_MS); } catch { /* a failed save never breaks the call */ }
+    try { await this.sessions.set(this.sessKey(this.sessionId), snap, SESSION_TTL_MS); } catch { /* a failed save never breaks the call */ }
     return this.sessionId;
   }
 
@@ -635,7 +639,7 @@ export class Desk {
   // never filled: it still needs a yes on this call.
   async restore(sessionId: string): Promise<string> {
     let snap: SessionSnapshot | undefined;
-    try { snap = this.sessions ? (await this.sessions.get(`sess:${id(sessionId)}`)) as SessionSnapshot | undefined : undefined; } catch { snap = undefined; }
+    try { snap = this.sessions ? (await this.sessions.get(this.sessKey(sessionId))) as SessionSnapshot | undefined : undefined; } catch { snap = undefined; }
     if (!snap || snap.v !== 1 || snap.flow !== this.flow.id) { this.events.push({ turn: this.n, type: 'resume_fresh' }); return this.start(); }
     this.sessionId = sessionId;
     for (const [k, v] of Object.entries(snap.values)) if (this.field(k)) this.values[k] = v;
