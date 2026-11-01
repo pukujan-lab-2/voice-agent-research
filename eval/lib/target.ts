@@ -16,6 +16,7 @@ export type Answer = {
   reply: string;
   kind: 'answer' | 'unknown' | 'no-search' | 'deflected' | 'error';
   cite?: { id: string; title?: string; url?: string };
+  citedId?: string;           // the cited passage's own id in the store (cite.id is its title when it has one)
   quote: string[];            // the sentences read out, each meant to be word for word from the cited passage
   citedText?: string;         // the cited passage's text, for the "quote is really in the passage" check
   hits: string[];             // ids of the top 10 search hits, in rank order
@@ -71,7 +72,7 @@ export function makeTarget(cfg: Config, root: string) {
     return {
       reply, kind: p ? 'answer' : (top.length ? 'unknown' : 'no-search'), quote: g.lastQuote,
       cite: p ? { id: String(p.title ?? p.id), title: p.cite?.title ?? p.title, url: p.cite?.url } : undefined,
-      citedText: p?.text, hits, searchMs, ms: Date.now() - t0,
+      citedId: p?.id, citedText: p?.text, hits, searchMs, ms: Date.now() - t0,
     };
   }
   return { ask, advice };

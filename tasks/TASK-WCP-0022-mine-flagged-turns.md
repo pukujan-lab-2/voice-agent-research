@@ -1,8 +1,8 @@
 # TASK-WCP-0022 — Mine Flagged Turns
 
-<!-- continuity:task {"acceptance":["`eval/mine.ts` reads the newest spans from the chatbots workspace only and flags turns with plain code rules","The 2026-11-01 17:10 call (session 7d689fcd) is flagged for its judge-dropped answer, its vague \"Yeah.\" and the repeated quote","The flagged table is stored in an Octo table and printed; no local copy","`npm run check` passes"],"depends_on":[],"goal":"Flag suspect turns in real calls with plain code rules","id":"WCP-0022","issue_url":"https://github.com/Pukujan-lab/voice-agent-research/issues/89","next_action":"Write the rules and run them on the recorded 2026-11-01 call","owner":"owner","priority":"P2","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"active","why":"Bad real turns reach the owner as complaints; nothing flags them (#89)"} -->
+<!-- continuity:task {"acceptance":["`eval/mine.ts` reads the newest spans from the chatbots workspace only and flags turns with plain code rules","The 2026-11-01 17:10 call (session 7d689fcd) is flagged for its judge-dropped answer, its vague \"Yeah.\" and the repeated quote","The flagged table is stored in an Octo table and printed; no local copy","`npm run check` passes"],"depends_on":[],"goal":"Flag suspect turns in real calls with plain code rules","id":"WCP-0022","issue_url":"https://github.com/Pukujan-lab/voice-agent-research/issues/89","next_action":"Write the rules and run them on the recorded 2026-11-01 call","owner":"owner","priority":"P2","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"completed","why":"Bad real turns reach the owner as complaints; nothing flags them (#89)"} -->
 
-- Status: active
+- Status: completed
 - Owner: owner
 - Priority: P2
 - Depends on: none
@@ -56,7 +56,7 @@ Starting revision, material inputs/configuration, runtime, exact command or prom
 ## Related records
 
 - Leaf #89; parent #88; depends on none; related #17, #12, #13, #15.
-- Primary writer / branch: claude-code / `task/WCP-0022-mine-flagged-turns`; source issue open as of 2026-11-01.
+- Primary writer / branch: claude-code / `task/WCP-0022-mine-flagged-turns`; merged in #95; issue #89 closed.
 - Related PR/CI evidence and push receipt: none yet.
 
 ## Checkpoint log

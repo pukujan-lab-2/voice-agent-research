@@ -15,6 +15,7 @@ export type Span = {
 
 export type Search = { q: string; ids: string[]; texts: string[]; ms: number };
 export type Judge = { q: string; id: string };
+export type Sentences = { q: string; idx: number[] };
 export type Turn = {
   call: string;
   id: string;               // the widget/voice turn id; the span id for a chat turn that has none
@@ -27,6 +28,8 @@ export type Turn = {
   desk: string;             // tool calls the desk model made ('' when it answered in its own words)
   searches: Search[];
   judges: Judge[];
+  sentences: Sentences[];
+  deskMessages: string;     // the messages the desk model was sent for this turn (JSON), '' when none were recorded
   firstAudioMs?: number;    // voice only: how long the caller waited for the first sound
   searchMs?: number;        // voice only: search time the agent measured
   bargeIns: number;
@@ -83,6 +86,7 @@ function documents(a: Record<string, any>) {
   return { ids, texts };
 }
 function judgeId(output: string) { try { return String(JSON.parse(output).id ?? ''); } catch { return ''; } }
+function sentenceIdx(output: string): number[] { try { return JSON.parse(output).idx ?? []; } catch { return []; } }
 
 // Spans in, calls out. Matrix runs and eval spans are test traffic, not calls.
 export function buildCalls(spans: Span[]): Call[] {
@@ -103,21 +107,23 @@ export function buildCalls(spans: Span[]): Call[] {
       const fillerMs = num(v?.['voice.filler_ms']), decide = num(v?.['voice.decide_ms']), first = num(v?.['voice.tts_first_ms']);
       return {
         call: id, id: tid, n: i + 1, at: s.start_time, input: str(a['input.value']), reply: str(a['output.value']),
-        quote: str(a['guide.quote']), href: str(a['guide.href']), desk: str(a['desk.calls']), searches: [], judges: [],
+        quote: str(a['guide.quote']), href: str(a['guide.href']), desk: str(a['desk.calls']), searches: [], judges: [], sentences: [], deskMessages: '',
         firstAudioMs: fillerMs ?? (decide !== undefined && first !== undefined ? decide + first : undefined),
         searchMs: num(v?.['voice.search_ms']), bargeIns: num(v?.['voice.barge_ins']) ?? 0,
       };
     });
     // Backend spans carry no turn id: they belong to the turn whose window holds their start.
     for (const s of all) {
-      if (s.name !== 'search' && s.name !== 'judge') continue;
+      if (!['search', 'judge', 'sentences', 'desk'].includes(s.name)) continue;
       const t0 = ms(s.start_time);
       let owner = -1;
       desk.forEach((d, i) => { if (t0 >= ms(d.start_time) - 50 && t0 <= ms(d.end_time) + WINDOW_SLACK_MS) owner = i; });
       if (owner < 0) continue;
       const a = s.attributes;
       if (s.name === 'search') turns[owner].searches.push({ q: str(a['input.value']), ...documents(a), ms: ms(s.end_time) - t0 });
-      else turns[owner].judges.push({ q: str(a['input.value']), id: judgeId(str(a['output.value'])) });
+      else if (s.name === 'judge') turns[owner].judges.push({ q: str(a['input.value']), id: judgeId(str(a['output.value'])) });
+      else if (s.name === 'sentences') turns[owner].sentences.push({ q: str(a['input.value']), idx: sentenceIdx(str(a['output.value'])) });
+      else if (!turns[owner].deskMessages) turns[owner].deskMessages = str(a['input.value']);
     }
     const call = all.find(s => s.name === 'call' && !s.parent_id)?.attributes;
     const voiceCall = all.find(s => s.name === 'voice.call')?.attributes;
