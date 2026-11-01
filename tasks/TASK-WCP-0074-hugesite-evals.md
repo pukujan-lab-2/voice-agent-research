@@ -21,6 +21,7 @@ The new layer has no end-to-end check (#112)
 - `eval/hugesite.ts and eval/lib/ additions`
 - `eval/tests/`
 - `eval/README.md`
+- `docs/retrieval-limits.md`, `docs/decisions/0018-…md` and its index line, `PROJECT.md` status row
 - `tasks/TASK-WCP-0074-hugesite-evals.md`
 
 ## Human outcome
