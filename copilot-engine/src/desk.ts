@@ -7,6 +7,7 @@
 import type { Field, Flow, Hooks } from './types.ts';
 import { formatDate, formatSerial, parseName, spellOut, spokenDigits, spokenToCode, spokenToDate, spokenToEmail, spokenToPhone, spokenToSerial, stripFiller, validEmail, validSerial, yesNo } from './guard.ts';
 import { shortQuote, type Passage, type SearchFilter } from './guide.ts';
+import { ownQuestion } from './dialogue.ts';
 import { filterFrom, SEARCH_HINT, withSearchTools, type SiteSearch } from './search-site.ts';
 import { LOOKUP_HINT, type Caller, type Lookups } from './lookups.ts';
 import { customerKey, newSessionId, SESSION_TTL_MS, type CustomerRecord, type SessionSnapshot, type Store } from './memory.ts';
@@ -1141,7 +1142,7 @@ Caller: "Thanks, that helps." -> no tool; say "You're welcome. Anything else?"`;
         let p = await this.lookup(q, filter);
         if (!p && filter && (filter.section || filter.pageType || filter.language)) { ev({ type: 'filter_dropped', detail: JSON.stringify(filter) }); p = await this.lookup(q); }
         // The model's rewording can lose the point; try the customer's own question too.
-        const own = said.match(ASKED_Q)?.[0] ?? said;
+        const own = ownQuestion(said);
         const same = (x: string) => x.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
         if (!p && same(own) !== same(q)) p = await this.lookup(own);
         ev({ type: 'answer', detail: p ? p.id : 'none' }); rec(c, p ? `Read to the customer: ${p.text}` : 'Nothing in the documents answers this; told the customer you do not know.');

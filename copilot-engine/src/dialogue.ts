@@ -14,7 +14,7 @@ export type Offer = { when: string; href: string; label: string; say: string };
 type DialogueConfig = { offers?: Offer[]; book?: { text: string; href: string } };
 // What the visitor's words turned into. reply: say this. go: also open this page. ask: look this up as the question.
 type Turn = { reply?: string; go?: string; ask?: string };
-type Said = { src: string; where: string; quote: string; found: boolean; repeated: boolean; question: string };
+type Said = { src: string; where: string; quote: string; found: boolean; repeated: boolean; question: string; closest?: boolean };
 
 const norm = (s: string) => s.toLowerCase().replace(/[’]/g, "'").replace(/[^a-z0-9' ]+/g, ' ').replace(/\s+/g, ' ').trim();
 
@@ -53,6 +53,10 @@ export class Dialogue {
   private skipClarify = false; // this turn's lookup is the answer to a question already asked back
   topic = ''; // the last question looked up, without its question words ("file my tax return")
   lastQuestion = '';
+  private lastAsked = ''; // the last question looked up, answered or not: what a fragment is attached to
+  private refused = 0; // refusals in a row
+  private lastRefusal = '';
+  private lastWait = '';
   shown: { src: string; quote: string; question: string }[] = []; // what was quoted so far, for a recap
   private n = 0;
 
@@ -66,6 +70,8 @@ export class Dialogue {
     const t = norm(said);
     const p = this.pending;
     this.skipClarify = false;
+    // "Hmm." or "uh…" on its own is someone thinking, not a turn
+    if (t && !stripFillers(said)) return { reply: '' };
     if (p) {
       this.pending = null;
       if (p.kind === 'offer') {
@@ -100,6 +106,9 @@ export class Dialogue {
       }
     }
     if (YES.test(t) || NO.test(t)) return { reply: this.afterFiller(YES.test(t)) };
+    // a short fragment after a question ("for each year") belongs to that question; it is never searched alone
+    const bare = stripFillers(said);
+    if (this.lastAsked && isFragment(bare)) return { ask: this.join(bare) };
     // "is it gonna take long?": a time or cost question with nothing in it to look up, about the last topic
     if (this.topic && DANGLING.test(t) && t.split(' ').length <= 8 && (TIME.test(t) || COST.test(t))) return this.followUp(t);
     if (/\b(sum|recap|summar\w+|where are we|what did we (find|cover)|what have we)\b/.test(t) && this.shown.length) return { reply: this.recap() };
@@ -117,6 +126,22 @@ export class Dialogue {
     if (TIME.test(t)) { this.pending = { kind: 'confirm', ask: `How long does it take to ${vp}?` }; return { reply: `Do you mean how long it takes to ${vp}? Say yes and I'll look it up in the tax guides.` }; }
     if (COST.test(t)) { this.pending = { kind: 'confirm', ask: `How much does it cost to ${vp}?` }; return { reply: `Do you mean how much it costs to ${vp}? Say yes and I'll look it up in the tax guides.` }; }
     return { reply: `Do you mean ${vp}? Tell me a bit more about what you want to know.` };
+  }
+
+  // The question the model chose to look up, with a fragment attached to the question before it ("For each year?" is
+  // "What is the best month to file taxes for each year?"). Every lookup question goes through here.
+  resolve(q: string): string {
+    const bare = stripFillers(q);
+    const out = this.lastAsked && isFragment(bare.replace(/\?$/, '')) ? this.join(bare) : q;
+    this.lastAsked = out;
+    return out;
+  }
+
+  private join(fragment: string): string {
+    const f = fragment.replace(/[?.!]+$/, '').trim();
+    const out = `${this.lastAsked.replace(/\?$/, '')} ${f.charAt(0).toLowerCase()}${f.slice(1)}?`;
+    this.lastAsked = out;
+    return out;
   }
 
   // ---- on the model's decision to look something up: ask back when it is too vague to quote ----
@@ -162,13 +187,43 @@ export class Dialogue {
       say = `That's the same part of ${a.src} I showed you before, so I don't have anything more specific in the guides.`;
     } else if (!a.found) {
       say = `${source} says: ${a.quote} I couldn't pick out the exact line on the page.`;
+    } else if (a.closest) {
+      say = `The closest I have to that is ${source}: ${a.quote} It may not answer exactly what you asked. It's highlighted on the page.`;
     } else {
       const lead = [`${source} says:`, `According to ${source}:`, `Here's what ${source} says:`][this.n % 3];
       say = `${lead} ${a.quote} It's highlighted on the page.`;
     }
+    this.refused = 0;
     if (offer) { this.pending = { kind: 'offer', offer }; return `${say} ${offer.say}`; }
     this.pending = { kind: 'cover' };
     return `${say} Does that cover it, or should I look at a different part?`;
+  }
+
+  // What to say when nothing answers. The first time it is the plain "I don't know" (null: the caller's own line); after
+  // that never the same sentence twice in a row: the closest passage, one question back, or a preparer.
+  refusal(question: string, nearest?: { src: string; quote: string }): string | null {
+    this.refused++;
+    if (this.refused === 1) { this.lastRefusal = ''; return null; }
+    const options: string[] = [];
+    if (nearest) options.push(`The closest thing in the guides is ${nearest.src}: ${nearest.quote} It may not be what you asked, though.`);
+    options.push(`Let me try that another way. Can you tell me the form, the year, or what you're trying to get done?`);
+    if (this.book) options.push(`I'm not finding that in the guides. A preparer can look into it with you. Want me to open the booking form?`);
+    const pick = options[(this.refused - 2) % options.length] !== this.lastRefusal ? options[(this.refused - 2) % options.length] : options[(this.refused - 1) % options.length];
+    this.lastRefusal = pick;
+    if (this.book && pick === options.at(-1) && this.book) this.pending = { kind: 'offer', offer: { when: '', href: this.book.href, label: this.book.text, say: '' } };
+    this.lastAsked = question;
+    return pick;
+  }
+
+  // What the copilot says while a search is still running past the first moment: a short line, not the one before it, and
+  // when the question's topic is a known one, a line that names it. Code picks it; it only says what is true (it is looking).
+  waitLine(question: string): string {
+    const q = norm(question);
+    const topic = WAIT_TOPICS.find(([re]) => re.test(q))?.[1];
+    const pool = [...WAIT_LINES, ...(topic ? [topic, topic] : [])].filter(l => l !== this.lastWait);
+    const pick = pool[Math.floor(Math.random() * pool.length)];
+    this.lastWait = pick;
+    return pick;
   }
 
   private offerFor(question: string): Offer | null {
@@ -205,6 +260,41 @@ const overlap = (t: string, labels: string[]): number | undefined => {
   const score = labels.map(l => [...w(l)].filter(y => w(t).has(y)).length);
   return score[0] === score[1] ? undefined : score[0] > score[1] ? 0 : 1;
 };
+
+// ---- thinking out loud, and pieces of one question ----
+const FILLER = /^(?:(?:hmm+|hm+|uh+|um+|umm+|er+|erm|ah+|oh|well|like|so|okay so|you know|i mean)(?=[\s,.…-]|$)[\s,.…-]*)+/i;
+// The words with their leading "hmm", "uh", "like" taken off.
+export const stripFillers = (said: string): string => said.trim().replace(FILLER, '').trim();
+// A piece of a question, not a question: under four words with no question word and no verb ("for each year").
+const WH = /^(what|when|where|which|who|why|how)\b/i;
+const VERB = /\b(is|are|was|were|do|does|did|can|could|should|would|will|have|has|need|want|file|pay|get|find|know|tell|show|send|open|help|mean|say|take|go|use|make|give|check|start|fill|apply|call|book|report|claim|deduct)\b/i;
+export const isFragment = (bare: string): boolean => {
+  const t = bare.replace(/[?.!,]+$/, '').trim();
+  return !!t && t.split(/\s+/).length < 4 && !WH.test(t) && !VERB.test(t) && !YES.test(norm(t)) && !NO.test(norm(t));
+};
+// Of everything said in one breath, the question to look up when the model's own rewrite found nothing: the last question
+// with at least four words ("what's the deadline?"), else all of it; never an aside like "what happens?".
+export function ownQuestion(said: string): string {
+  const qs = (stripFillers(said).match(/[^.?!]*\?/g) ?? []).map(x => stripFillers(x.trim())).filter(x => x.split(/\s+/).length >= 4);
+  const out = qs.at(-1) ?? stripFillers(said);
+  return isFragment(out.replace(/\?$/, '')) ? '' : out; // a fragment is never searched alone
+}
+
+const WAIT_LINES = ['One sec.', 'Let me look that up.', 'Checking on that.', 'Okay, looking into it.'];
+const WAIT_TOPICS: [RegExp, string][] = [
+  [/payment plan|installment|pay over time/, 'Let me pull up the payment plan rules.'],
+  [/deadline|due date|last day|what month|when to file|when do i file|when should i file/, 'Let me look up the filing deadline.'],
+  [/refund/, 'Let me look into refunds.'],
+  [/extension/, 'Let me check on extensions.'],
+  [/estimated|quarterly/, 'Let me check the estimated tax rules.'],
+  [/amend|1040-?x/, 'Let me look up amended returns.'],
+  [/notice|letter from the irs/, 'Let me look up IRS notices.'],
+  [/deduct/, 'Let me look up that deduction.'],
+  [/credit/, 'Let me look up that credit.'],
+  [/file|filing|return/, 'Let me look up filing.'],
+];
+// Every line waitLine can say: the voice server makes them ahead of time so the first sound is fast.
+export const WAIT_SET: string[] = [...WAIT_LINES, ...WAIT_TOPICS.map(t => t[1])];
 
 // "find my taxes" with a reason is not vague: "find my taxes for 2023" names a year, "find my tax refund" a refund.
 const ANCHOR_FOR_FIND = /\b(refund|status|20\d\d|19\d\d|owe|balance|form|forms|transcript|copy|return|returns|filed)\b/;

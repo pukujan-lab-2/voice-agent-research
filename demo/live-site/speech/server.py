@@ -154,7 +154,13 @@ class KokoroTts:
 # Short lines the copilot says again and again (the intro, "Yes, I can hear you.") are kept once made, so they start at
 # once; the first time the model makes a sentence after a pause it can take a few seconds on a busy laptop.
 COMMON = ["Hi, I'm Brindlewick's assistant.", 'What can I help with?', 'Yes, I can hear you.', "What's your question?",
-          'Sure, take your time.', "You're welcome.", 'Anything else?', 'Let me check the tax guides.']
+          'Sure, take your time.', "You're welcome.", 'Anything else?', 'Let me check the tax guides.',
+          # What the page says while a search runs past its first moment (copilot-engine/src/dialogue.ts, WAIT_SET); a test
+          # keeps the two lists in step.
+          'One sec.', 'Let me look that up.', 'Checking on that.', 'Okay, looking into it.',
+          'Let me pull up the payment plan rules.', 'Let me look up the filing deadline.', 'Let me look into refunds.',
+          'Let me check on extensions.', 'Let me check the estimated tax rules.', 'Let me look up amended returns.',
+          'Let me look up IRS notices.', 'Let me look up that deduction.', 'Let me look up that credit.', 'Let me look up filing.']
 
 
 class Cached:

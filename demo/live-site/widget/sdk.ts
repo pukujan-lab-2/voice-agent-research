@@ -18,8 +18,8 @@
 //   copilot.onNavigate(fn)       the site's client-side navigate, so the copilot can change page without ending the call
 //   copilot.subscribe(fn) / copilot.getSnapshot()   the state to draw (works with React's useSyncExternalStore)
 import { Desk, type ChatModel } from '../../../copilot-engine/src/desk.ts';
-import { Guide, type Manual, NO_ANSWER } from '../../../copilot-engine/src/guide.ts';
-import { Dialogue, type Offer } from '../../../copilot-engine/src/dialogue.ts';
+import { Guide, shortQuote, type Manual, NO_ANSWER } from '../../../copilot-engine/src/guide.ts';
+import { Dialogue, ownQuestion, type Offer } from '../../../copilot-engine/src/dialogue.ts';
 import { flowFromPage, readInPage, type PageForm } from '../../../copilot-engine/src/page.ts';
 import type { Flow, Model } from '../../../copilot-engine/src/types.ts';
 import { forDisplay, forSpeech } from '../../../copilot-engine/src/guard.ts';
@@ -199,10 +199,13 @@ function sayIt(text: string) {
   if (room && agent) void room.localParticipant.performRpc({ destinationIdentity: agent, method: 'agent.say', payload: JSON.stringify({ text }) }).catch(e => { report('voice', `agent.say: ${(e as Error).message}`); failure('rpc', `agent.say: ${(e as Error).message}`, { method: 'agent.say', text }); });
 }
 // A library search can take several seconds: on a call, the caller hears that it is looking rather than silence.
+// A search that answers within a moment says nothing first; one that runs on gets a short line that is never the one
+// before it (code picks it: a topic line when the question's topic is known, never a claim that anything was found).
+const WAIT_MS = 1200;
 async function searched(text: string) {
-  if (room && snap.voice) sayNow('Let me check the tax guides.');
   const t0 = performance.now();
-  try { return await libraryReply(text); } finally { lastSearchMs = Math.round(performance.now() - t0); }
+  const timer = room && snap.voice ? setTimeout(() => sayNow(talk().waitLine(text)), WAIT_MS) : undefined;
+  try { return await libraryReply(text); } finally { clearTimeout(timer); lastSearchMs = Math.round(performance.now() - t0); }
 }
 
 function agentIdentity(): string {
@@ -646,19 +649,29 @@ function deskRoute(text: string): { reply: string; links: Message['links'] } | n
 // viewer, or the manual's; null when nothing answers. The links and source go on the reply's message.
 let answered: { links: Message['links']; source?: Source } | null = null;
 function takeAnswered() { const a = answered; answered = null; return a; }
-async function answerFor(q: string): Promise<string | null> {
+let saidNow = ''; // what the visitor said this turn, before the desk model rewrote it
+async function answerFor(q0: string): Promise<string | null> {
   if (!lookup) return null;
   if (cfg?.desk) {
-    // The model chose to look this up; code asks back first when the question is too vague to quote an answer to.
-    const ask = snap.mode === 'ask' ? talk().clarify(q) : null;
+    // The model chose to look this up. A fragment is attached to the question before it, then code asks back first
+    // when the question is too vague to quote an answer to.
+    const asking = snap.mode === 'ask';
+    const q = asking ? talk().resolve(q0) : q0;
+    const ask = asking ? talk().clarify(q) : null;
     if (ask) return ask;
-    const r = await searched(q);
+    lookup.also = asking ? ownQuestion(saidNow) : ''; // the visitor's own words are searched too
+    let r: Awaited<ReturnType<typeof searched>>;
+    try { r = await searched(q); } finally { lookup.also = ''; }
     if (r.asked) return r.reply; // asked which of two meanings: nothing was quoted
-    if (!lookup.last) return null;
+    if (!lookup.last) {
+      // Nothing answers: the first time the plain "I don't know"; after that something else, never the same line twice.
+      const near = lookup.lastNearest;
+      return asking ? talk().refusal(q, near && { src: near.cite?.title.split(', ')[0] ?? 'the guides', quote: shortQuote(near.text, q) }) : null;
+    }
     answered = { links: r.links, source: r.source };
     return r.reply;
   }
-  const reply = await lookup.lookup(q);
+  const reply = await lookup.lookup(q0);
   const p = lookup.last;
   if (!p) return null;
   answered = { links: p.cite ? [{ text: p.cite.title, href: p.cite.url }] : [] };
@@ -699,7 +712,7 @@ async function libraryReply(text: string): Promise<{ reply: string; links: Messa
     const d = talk();
     const repeated = lookup!.lastRepeat;
     if (!repeated) d.note(text, src.title, quote);
-    return { reply: d.phrase({ src: src.title, where, quote, found: !!found, repeated, question: text }), links, source: snap.source ?? src };
+    return { reply: d.phrase({ src: src.title, where, quote, found: !!found, repeated, question: text, closest: lookup!.lastClosest }), links, source: snap.source ?? src };
   }
   return {
     reply: found ? `I've opened ${src.title}${where ? `, ${where}` : ''}. The highlighted part says: ${quote}`
@@ -983,6 +996,7 @@ async function send(text: string, voice?: Record<string, unknown>): Promise<stri
   if (!cfg || snap.busy || !text) return '';
   set({ busy: true, status: 'thinking' });
   const turnAt = Date.now();
+  saidNow = text;
   // a form still loading (see startForm) is read before this answer goes in
   for (let i = 0; waitingForm && i < 60; i++) await new Promise(r => setTimeout(r, 100));
   // What a caller says to a secret question (date of birth, last four, zip) is never shown on screen.

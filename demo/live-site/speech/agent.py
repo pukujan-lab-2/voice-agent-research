@@ -18,7 +18,7 @@ any library search) and the voice's first audio; barge-ins, failed RPC calls and
 
 Run: speech/.venv/bin/python speech/agent.py dev    (server.ts starts it with the speech server)
 """
-import asyncio, json, os, time, uuid
+import asyncio, json, os, re, time, uuid
 
 import aiohttp
 from livekit import rtc
@@ -154,6 +154,10 @@ class _LocalStream(tts.ChunkedStream):
         output_emitter.flush()
 
 
+# "Hmm.", "uh", "um", "like": thinking aloud at the start of a turn is not part of the question (copilot-engine's stripFillers).
+FILLER = re.compile(r'^(?:(?:hmm+|hm+|uh+|um+|umm+|er+|erm|ah+|oh|well|like|so|okay so|you know|i mean)(?=[\s,.…-]|$)[\s,.…-]*)+', re.I)
+JOIN_WITHIN_S = 10.0  # more speech this soon after a reply was handed over, before it began, joins the earlier words
+
 class Copilot(Agent):
     """No LLM of its own: each finished turn goes to the copilot engine in the caller's page, and its reply is spoken."""
 
@@ -161,6 +165,11 @@ class Copilot(Agent):
         super().__init__(instructions='The copilot engine in the page decides every reply.')
         self._room, self._caller, self._stt, self._tts, self._tel, self._voice = room, caller, stt_, tts_, tel, voice
         self.turn: dict = {}
+        # The reply last handed to the voice and the words behind it: a reply that has not begun when more speech arrives is
+        # dropped, and the two pieces are one question (a pause in the middle of a sentence ends a turn too early).
+        self._speech = None
+        self._said = ''
+        self._said_at = 0.0
 
     async def _rpc(self, method: str, payload: dict, timeout: float = 45.0) -> dict:
         t = time.perf_counter()
@@ -183,10 +192,14 @@ class Copilot(Agent):
             self.session.say(r['say'], allow_interruptions=True)
 
     async def on_user_turn_completed(self, turn_ctx, new_message) -> None:
-        said = (new_message.text_content or '').strip()
+        said = FILLER.sub('', (new_message.text_content or '').strip()).strip()
         if not said:
-            raise StopResponse()
+            raise StopResponse()  # "hmm", "uh…": someone thinking, not a turn
         t = time.perf_counter()
+        sp = self._speech
+        if sp is not None and not sp.done() and self._tts.first_ms is None and t - self._said_at < JOIN_WITHIN_S:
+            sp.interrupt()  # the earlier reply never started: this is the rest of the same question
+            said = f'{self._said} {said}'.strip()
         turn = uuid.uuid4().hex
         heard = {'turn': turn, 'stt_ms': self._stt.last_ms, 'confidence': self._stt.last_confidence, 'language': self._stt.last_language}
         try:
@@ -199,7 +212,8 @@ class Copilot(Agent):
                      'kind': r.get('kind', ''), 'search_ms': r.get('searchMs')}
         if r.get('say'):
             self._tts.first_ms = None
-            self.session.say(r['say'], allow_interruptions=True)
+            self._speech = self.session.say(r['say'], allow_interruptions=True)
+            self._said, self._said_at = said, time.perf_counter()
         # The engine's reply is the whole response: no LLM runs after it.
         raise StopResponse()
 
@@ -257,9 +271,9 @@ async def entrypoint(ctx: JobContext):
         vad=ctx.proc.userdata['vad'], stt=stt_, tts=tts_,
         turn_handling={
             'turn_detection': turns,
-            # A third of a second of quiet ends a turn when the turn detector thinks the caller is done; up to 2 s when
-            # the sentence sounds unfinished ("my number is 512…").
-            'endpointing': {'min_delay': 0.3, 'max_delay': 2.0},
+            # Seven tenths of a second of quiet ends a turn when the turn detector thinks the caller is done; up to 4 s when
+            # the sentence sounds unfinished ("my number is 512…", or a pause to think in the middle of a question).
+            'endpointing': {'min_delay': 0.7, 'max_delay': 4.0},
             # Barge-in: 0.15 s of the caller's voice stops the copilot's (the page's echo cancellation keeps its own out).
             'interruption': {'enabled': True, 'mode': 'vad', 'min_duration': 0.15, 'min_words': 0},
             'preemptive_generation': {'enabled': False},
