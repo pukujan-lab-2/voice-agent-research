@@ -1,6 +1,6 @@
-# TASK-WCP-0053 — Declared Lookups
+# TASK-WCP-0073 — Declared Lookups
 
-<!-- continuity:task {"acceptance":["Only declared fields are returned","Injection attempts and cross-business reads fail (tests)","A person-lookup is refused until the caller is verified"],"depends_on":[],"goal":"A business declares read-only record lookups that code runs safely with risk scores","id":"WCP-0053","issue_url":"https://github.com/Pukujan-lab/voice-agent-research/issues/111","next_action":"Start the leaf on its task branch","owner":"owner","priority":"P2","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"active","why":"Nothing reads an order, appointment or price from a table (#111)"} -->
+<!-- continuity:task {"acceptance":["Only declared fields are returned","Injection attempts and cross-business reads fail (tests)","A person-lookup is refused until the caller is verified"],"depends_on":[],"goal":"A business declares read-only record lookups that code runs safely with risk scores","id":"WCP-0073","issue_url":"https://github.com/Pukujan-lab/voice-agent-research/issues/111","next_action":"Start the leaf on its task branch","owner":"owner","priority":"P2","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"active","why":"Nothing reads an order, appointment or price from a table (#111)"} -->
 
 - Status: active
 - Owner: owner
@@ -21,7 +21,7 @@ Nothing reads an order, appointment or price from a table (#111)
 - `schemas/lookups.schema.json` (new)
 - `copilot-engine/tests/lookups.test.ts`
 - `docs/lookups.md`
-- `tasks/TASK-WCP-0053-declared-lookups.md`
+- `tasks/TASK-WCP-0073-declared-lookups.md`
 
 ## Human outcome
 
@@ -50,7 +50,7 @@ Starting revision, material inputs/configuration, runtime, exact command or prom
 ## Related records
 
 - Leaf #111; parent #107; depends on none.
-- Primary writer claude-code / `task/WCP-0053-*`; source issue open as of 2026-11-01.
+- Primary writer claude-code / `task/WCP-0073-*`; source issue open as of 2026-11-01.
 - PR/CI evidence: pending.
 
 ## Checkpoint log

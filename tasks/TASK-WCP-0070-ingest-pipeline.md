@@ -1,6 +1,6 @@
-# TASK-WCP-0050 — Ingest Pipeline
+# TASK-WCP-0070 — Ingest Pipeline
 
-<!-- continuity:task {"acceptance":["A fixture site loads into a business prefix with metadata on every passage and a printed count","A second run with nothing changed writes nothing; a changed page replaces only its passages; a deleted page's passages are removed","Duplicates are indexed once; two businesses never share a prefix or rows"],"depends_on":[],"goal":"Any business's site and documents load into its own Octo prefix with metadata, incrementally","id":"WCP-0050","issue_url":"https://github.com/Pukujan-lab/voice-agent-research/issues/108","next_action":"Start the leaf on its task branch","owner":"owner","priority":"P2","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"active","why":"A new business has no way to put its site into Octo; the IRS scripts are one-off (#108)"} -->
+<!-- continuity:task {"acceptance":["A fixture site loads into a business prefix with metadata on every passage and a printed count","A second run with nothing changed writes nothing; a changed page replaces only its passages; a deleted page's passages are removed","Duplicates are indexed once; two businesses never share a prefix or rows"],"depends_on":[],"goal":"Any business's site and documents load into its own Octo prefix with metadata, incrementally","id":"WCP-0070","issue_url":"https://github.com/Pukujan-lab/voice-agent-research/issues/108","next_action":"Start the leaf on its task branch","owner":"owner","priority":"P2","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"active","why":"A new business has no way to put its site into Octo; the IRS scripts are one-off (#108)"} -->
 
 - Status: active
 - Owner: owner
@@ -21,7 +21,7 @@ A new business has no way to put its site into Octo; the IRS scripts are one-off
 - `package.json` (test:py script)
 - `.github/workflows/ci.yml` (Python tests step)
 - `docs/ingest.md`
-- `tasks/TASK-WCP-0050-ingest-pipeline.md`
+- `tasks/TASK-WCP-0070-ingest-pipeline.md`
 
 ## Human outcome
 
@@ -50,7 +50,7 @@ Starting revision, material inputs/configuration, runtime, exact command or prom
 ## Related records
 
 - Leaf #108; parent #107; depends on none.
-- Primary writer claude-code / `task/WCP-0050-*`; source issue open as of 2026-11-01.
+- Primary writer claude-code / `task/WCP-0070-*`; source issue open as of 2026-11-01.
 - PR/CI evidence: pending.
 
 ## Checkpoint log

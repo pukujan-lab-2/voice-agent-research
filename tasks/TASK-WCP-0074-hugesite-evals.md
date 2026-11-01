@@ -1,6 +1,6 @@
-# TASK-WCP-0054 — Hugesite Evals
+# TASK-WCP-0074 — Hugesite Evals
 
-<!-- continuity:task {"acceptance":["Citation present, quote word for word in the cited passage, no undeclared field, no cross-business data, all by code","Runs in CI without keys"],"depends_on":["WCP-0050","WCP-0051","WCP-0052","WCP-0053"],"goal":"Automated code-check evals for facts, vague questions and record lookups on a large site","id":"WCP-0054","issue_url":"https://github.com/Pukujan-lab/voice-agent-research/issues/112","next_action":"Start the leaf on its task branch","owner":"owner","priority":"P2","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"active","why":"The new layer has no end-to-end check (#112)"} -->
+<!-- continuity:task {"acceptance":["Citation present, quote word for word in the cited passage, no undeclared field, no cross-business data, all by code","Runs in CI without keys"],"depends_on":["WCP-0050","WCP-0051","WCP-0052","WCP-0053"],"goal":"Automated code-check evals for facts, vague questions and record lookups on a large site","id":"WCP-0074","issue_url":"https://github.com/Pukujan-lab/voice-agent-research/issues/112","next_action":"Start the leaf on its task branch","owner":"owner","priority":"P2","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"active","why":"The new layer has no end-to-end check (#112)"} -->
 
 - Status: active
 - Owner: owner
@@ -21,7 +21,7 @@ The new layer has no end-to-end check (#112)
 - `eval/hugesite.ts and eval/lib/ additions`
 - `eval/tests/`
 - `eval/README.md`
-- `tasks/TASK-WCP-0054-hugesite-evals.md`
+- `tasks/TASK-WCP-0074-hugesite-evals.md`
 
 ## Human outcome
 
@@ -49,7 +49,7 @@ Starting revision, material inputs/configuration, runtime, exact command or prom
 ## Related records
 
 - Leaf #112; parent #107; depends on WCP-0050, WCP-0051, WCP-0052, WCP-0053.
-- Primary writer claude-code / `task/WCP-0054-*`; source issue open as of 2026-11-01.
+- Primary writer claude-code / `task/WCP-0074-*`; source issue open as of 2026-11-01.
 - PR/CI evidence: pending.
 
 ## Checkpoint log
