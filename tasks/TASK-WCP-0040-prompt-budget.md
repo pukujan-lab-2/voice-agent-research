@@ -110,6 +110,52 @@ Blocked/uncertain:
 Next:
 - Bring #49 (WCP-0041) up to date the same way, then #50 and #51
 
+### 2026-11-01 23:32:22 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["copilot-engine/package.json"],"completed":["The prompt-budget branch is up to date with main after the conversation-quality pull request merged; every test script kept"],"decisions":["no new decisions"],"evidence":["npm run check passes after the merge"],"next_action":"Bring #49, #50 and #51 up to date in order","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0040","timestamp":"2026-11-01T23:32:22Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"4b969a33fad4ac53ff9d798a4f4c14ad88255c57ebb6b25a749556c8c5f25fa4","request_id":"644386da72bb40478a8216283da4d69e","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0040"} -->
+
+Completed:
+- The prompt-budget branch is up to date with main after the conversation-quality pull request merged; every test script kept
+
+Evidence:
+- npm run check passes after the merge
+
+Decisions:
+- no new decisions
+
+Changed:
+- copilot-engine/package.json
+
+Blocked/uncertain:
+- none
+
+Next:
+- Bring #49, #50 and #51 up to date in order
+
+### 2026-11-01 23:33:17 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["copilot-engine/src/desk.ts"],"completed":["After merging main, a method name clashed and silently replaced main's new note(): the log appender is renamed and main's two log writes now use the capped appender"],"decisions":["no new decisions"],"evidence":["npm run check passes (the lint error found the clash)"],"next_action":"Bring #49, #50 and #51 up to date in order","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0040","timestamp":"2026-11-01T23:33:17Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"08a036d3e380606ff54f95d663a02717b484c49e13c0f0b3523e0d4ee3f0480d","request_id":"ab3f9bed395c43978a546c261fa56e5f","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0040"} -->
+
+Completed:
+- After merging main, a method name clashed and silently replaced main's new note(): the log appender is renamed and main's two log writes now use the capped appender
+
+Evidence:
+- npm run check passes (the lint error found the clash)
+
+Decisions:
+- no new decisions
+
+Changed:
+- copilot-engine/src/desk.ts
+
+Blocked/uncertain:
+- none
+
+Next:
+- Bring #49, #50 and #51 up to date in order
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.

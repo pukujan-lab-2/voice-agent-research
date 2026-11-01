@@ -511,7 +511,7 @@ export class Desk {
   }
 
   // Appends to the call log. A long call keeps its first entry (the opening line) and the latest ones.
-  private note(who: 'user' | 'agent', text: string) {
+  private logLine(who: 'user' | 'agent', text: string) {
     this.log.push({ who, text });
     if (this.log.length > 2 * LOG_KEEP) this.log.splice(1, this.log.length - LOG_KEEP - 1);
   }
@@ -527,7 +527,7 @@ export class Desk {
   start(): string {
     const f = this.field(this.current);
     const say = f ? `${this.flow.intro} ${f.question}` : this.flow.intro;
-    this.note('agent', say);
+    this.logLine('agent', say);
     return say;
   }
 
@@ -539,7 +539,7 @@ export class Desk {
     let say: string;
     if (this.allFilled()) { say = `${lead} ${this.finishLine()}`; this.complete = true; }
     else say = `${lead} ${this.field(this.current)!.question}`;
-    this.note('agent', say);
+    this.logLine('agent', say);
     return say;
   }
 
@@ -547,10 +547,10 @@ export class Desk {
     this.n++;
     this.lastUser = said;
     if (HURRY.test(said)) this.brisk = true;
-    this.note('user', said);
+    this.logLine('user', said);
     const memReply = await this.memoryTurn(said);
     if (memReply !== null) {
-      this.note('agent', memReply);
+      this.logLine('agent', memReply);
       this.remember(said, memReply);
       this.turns.push({ turn: this.n, said, reply: memReply, ms: 0, model: 'code', calls: [] });
       await this.save();
@@ -562,7 +562,7 @@ export class Desk {
       this.pendingLookup = null;
       if (clearYes(said)) {
         const out = await this.runLookup(waiting, true);
-        this.log.push({ who: 'agent', text: out });
+        this.logLine('agent', out);
         this.remember(said, out);
         this.turns.push({ turn: this.n, said, reply: out, ms: 0, model: 'code', calls: [waiting.name] });
         await this.save();
@@ -607,11 +607,20 @@ export class Desk {
       reply = await this.rulesTurn(said);
     }
     reply = reply.replace(/\s+/g, ' ').trim();
-    this.note('agent', reply);
+    this.logLine('agent', reply);
     this.remember(said, reply);
     this.turns.push({ turn: this.n, said, reply, ms: Date.now() - waited() - t0, model: modelName, calls, fallback });
     await this.save();
     return reply;
+  }
+
+  // A turn code answered without the model ("yeah", a clarifying question's answer): the model sees it in its history.
+  note(said: string, reply: string) {
+    this.n++;
+    this.acts = [];
+    this.logLine('user', said); this.logLine('agent', reply);
+    this.remember(said, reply);
+    this.turns.push({ turn: this.n, said, reply, ms: 0, model: 'code', calls: [] });
   }
 
   // ----- memory: call resume -----
@@ -645,7 +654,7 @@ export class Desk {
     if (this.pending) say += ` Before we got cut off I was checking this: ${this.pending.text}`;
     else if (this.allFilled()) say += ` ${this.finishLine()}`;
     else say += ` Next is the ${this.field(this.current)!.label}. ${this.field(this.current)!.question}`;
-    this.note('agent', say);
+    this.logLine('agent', say);
     this.hist.push({ role: 'assistant', content: say });
     this.events.push({ turn: this.n, type: 'resumed', detail: had.join(',') });
     return say;
@@ -794,6 +803,8 @@ How you work:
 - Greetings, thanks, small talk, and questions about you ("can I ask you about taxes?", "what can you do?", "are you a bot?"): answer briefly yourself, with no tool, from what you told the caller you can do. You are the ${this.flow.business} assistant, an AI; never name a model or the company that made it.
 - Anything unrelated to ${this.flow.business}: say kindly that you can only help with questions the ${docs} answer.
 - If the caller says goodbye or wants to stop, call end_call.
+- If you can't tell what the caller means, ask what they mean in one short sentence. Don't guess, and don't praise the question ("great question").
+- Never offer anything that isn't in what you told the caller you can do. Don't bring up verifying who they are unless they ask to check on their return.
 
 Examples:
 Caller: "Hi, can I ask you about taxes?" -> no tool; say "Of course, go ahead. What would you like to know?"
