@@ -7,7 +7,7 @@ import { octoSql } from './lib/corpus.ts';
 import { flagMarker, groupByRule, issueBody, titleFor, type Row } from './lib/patterns.ts';
 
 const arg = (k: string, d = '') => { const i = process.argv.indexOf(k); return i > 0 ? process.argv[i + 1] : d; };
-const repo = arg('--repo', 'Pukujan-lab/voice-agent-research'), dry = process.argv.includes('--dry-run');
+const repo = arg('--repo', 'pukujan-lab-2/voice-agent-research'), dry = process.argv.includes('--dry-run');
 const gh = (...a: string[]) => execFileSync('gh', a, { encoding: 'utf8' });
 
 const rows = (await octoSql(`select id, call_id, turn_n, rule, text, evidence, call_at::text from flagged_turns where last_seen > now() - ($1 || ' days')::interval order by last_seen desc limit 500`, [arg('--days', '7')])) as Row[];

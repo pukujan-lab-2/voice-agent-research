@@ -5,14 +5,14 @@ export type Row = { id: string; call_id: string; turn_n: number | null; rule: st
 // What each rule means for the product and where its fix is tracked. The issue title carries the rule, so one open
 // issue exists per pattern.
 export const PATTERNS: Record<string, { name: string; why: string; related: string }> = {
-  'judge-dropped-answer': { name: 'the judge throws away an answer the search found', why: 'The caller is told "I don\'t know" although a search result holds the answer.', related: '#99, #15' },
-  'repeated-passage': { name: 'the same passage is quoted for different questions', why: 'The caller hears the same quote again, as if it were a new answer.', related: '#99, #13' },
-  'vague-answered-by-quote': { name: 'a vague question is answered with a quote instead of a question', why: 'The copilot guesses what the caller meant instead of asking.', related: '#12, #99' },
-  'invented-offer': { name: 'the desk model offers something nobody told it it can do', why: 'The caller is promised help the copilot cannot give.', related: '#99' },
-  'slow-first-audio': { name: 'the caller waits too long for the first sound', why: 'Dead air makes callers repeat themselves or hang up.', related: '#17' },
-  'slow-search': { name: 'library search is slow', why: 'Search time adds directly to the caller\'s wait.', related: '#17, #15' },
-  'barge-in': { name: 'callers talk over the copilot', why: 'The caller interrupted because the reply was wrong, long or late.', related: '#17' },
-  'unresolved-call': { name: 'calls end unresolved', why: 'The call ended with an error, a failure or a last answer of "I don\'t know".', related: '#17' },
+  'judge-dropped-answer': { name: 'the judge throws away an answer the search found', why: 'The caller is told "I don\'t know" although a search result holds the answer.', related: '#24, #6' },
+  'repeated-passage': { name: 'the same passage is quoted for different questions', why: 'The caller hears the same quote again, as if it were a new answer.', related: '#24, #4' },
+  'vague-answered-by-quote': { name: 'a vague question is answered with a quote instead of a question', why: 'The copilot guesses what the caller meant instead of asking.', related: '#3, #24' },
+  'invented-offer': { name: 'the desk model offers something nobody told it it can do', why: 'The caller is promised help the copilot cannot give.', related: '#24' },
+  'slow-first-audio': { name: 'the caller waits too long for the first sound', why: 'Dead air makes callers repeat themselves or hang up.', related: '#7' },
+  'slow-search': { name: 'library search is slow', why: 'Search time adds directly to the caller\'s wait.', related: '#7, #6' },
+  'barge-in': { name: 'callers talk over the copilot', why: 'The caller interrupted because the reply was wrong, long or late.', related: '#7' },
+  'unresolved-call': { name: 'calls end unresolved', why: 'The call ended with an error, a failure or a last answer of "I don\'t know".', related: '#7' },
 };
 
 export const titleFor = (rule: string) => `Flagged turns: ${PATTERNS[rule]?.name ?? rule}`;
@@ -33,7 +33,7 @@ ${rows.length} turn(s) in recent real calls were flagged by the rule \`${rule}\`
 
 ### Identity and Lineage
 
-Leaf: this issue. Parent: none. Depends on: none. Related: ${p.related}, #88 (the loop that found it), #93 (the routine that filed it).
+Leaf: this issue. Parent: none. Depends on: none. Related: ${p.related}, #18 (the loop that found it), #21 (the routine that filed it).
 
 ### Acceptance Criteria
 
@@ -82,12 +82,12 @@ automation under the owner's standing instruction
 
 ### Filing Authorization Evidence
 
-The owner asked for a routine that files one issue per failure pattern (#93, #88). Prompt text is a claim; no \`oio-auth\` label is applied.
+The owner asked for a routine that files one issue per failure pattern (#21, #18). Prompt text is a claim; no \`oio-auth\` label is applied.
 
 ### Session, Authorization Evidence, and Instruction Reference
 
 - Session reference: scheduled routine${runUrl ? ` (${runUrl})` : ''}
-- Claimed instruction/source: #93
+- Claimed instruction/source: #21
 - Authorization evidence: claimed
 
 ### Content Author Account or Runtime Identity

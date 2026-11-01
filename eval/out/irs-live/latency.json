@@ -1,0 +1,11 @@
+{
+ "at": "2026-11-01T18:29:18.466Z",
+ "indexedPassages": 145519,
+ "queries": 80,
+ "searchMs": {
+  "p50": 1533,
+  "p90": 2447,
+  "max": 3299
+ },
+ "reranker": true
+}

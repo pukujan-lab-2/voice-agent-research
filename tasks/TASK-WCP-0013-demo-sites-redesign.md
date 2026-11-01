@@ -1,6 +1,6 @@
 # TASK-WCP-0013 — The demo home page and company sites redesigned to a polished product standard
 
-<!-- continuity:task {"acceptance":["Home page and every demo site share one new design system","Nothing copied from obvious.ai","Scene tests and the copilot contract pass"],"depends_on":[],"goal":"The demo home page and company sites redesigned to a polished product standard","id":"WCP-0013","issue_url":"https://github.com/Pukujan-lab/voice-agent-research/issues/64","next_action":"none; delivered in #67 and merged as 35b9ad1","owner":"owner","priority":"P1","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"completed","why":"The owner finds the demo plain next to obvious.ai"} -->
+<!-- continuity:task {"acceptance":["Home page and every demo site share one new design system","Nothing copied from obvious.ai","Scene tests and the copilot contract pass"],"depends_on":[],"goal":"The demo home page and company sites redesigned to a polished product standard","id":"WCP-0013","next_action":"none; delivered in #67 and merged as 35b9ad1","owner":"owner","priority":"P1","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"completed","why":"The owner finds the demo plain next to obvious.ai"} -->
 
 - Status: completed
 - Owner: owner
