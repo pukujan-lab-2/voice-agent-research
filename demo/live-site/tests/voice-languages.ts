@@ -72,7 +72,7 @@ await page.addInitScript(() => {
 });
 
 const snap = (): Promise<any> => page.evaluate(() => (window as any).copilot.getSnapshot());
-async function waitStatus(s: string, after: number, ms = 90_000): Promise<number> {
+async function waitStatus(s: string, after: number, ms = 240_000): Promise<number> {
   const until = Date.now() + ms;
   while (Date.now() < until) {
     const hit = ((await page.evaluate(() => (window as any).__log)) as { t: number; status: string }[]).find(e => e.t > after && e.status === s);

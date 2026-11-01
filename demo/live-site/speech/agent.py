@@ -92,8 +92,8 @@ class LocalSTT(stt.STT):
 
     def _timeout(self, conn_options: APIConnectOptions) -> float:
         # Whisper pads every clip to 30 s of audio and shares the GPU, so on a busy 8 GB laptop a turn can take
-        # well over LiveKit's default 10 s; dropping it would lose what the caller said.
-        return conn_options.timeout if self._voice.parts['listens'].startswith('parakeet') else max(conn_options.timeout, 30.0)
+        # well over LiveKit's default 10 s (34 s for one turn, seen with the machine in swap); dropping it would lose what the caller said.
+        return conn_options.timeout if self._voice.parts['listens'].startswith('parakeet') else max(conn_options.timeout, 60.0)
 
     async def _recognize_impl(self, buffer, *, language=None, conn_options: APIConnectOptions) -> stt.SpeechEvent:
         frame = rtc.combine_audio_frames(buffer)
