@@ -9,6 +9,7 @@ import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import { createTracer } from './tracing.ts';
+import { stackForLanguage } from './widget/voice-choice.ts';
 import { createApi, type ApiEnv, type NameMatcher } from './api.ts';
 import type { Passage } from '../../copilot-engine/src/guide.ts';
 
@@ -103,7 +104,7 @@ type Stacks = { default: string; stacks: Record<string, { label: string; languag
 const STACKS: Stacks = JSON.parse(fs.readFileSync(path.join(here, 'speech/stacks.json'), 'utf8'));
 type VoiceAsk = { stack?: unknown; language?: unknown; allowed?: unknown; default?: unknown };
 function pickStack(ask: VoiceAsk, owner = process.env.VOICE_STACK ?? ''): { stack: string; by: 'owner' | 'visitor' | 'business' | 'default'; allowed: string[] } {
-  const known = (s: unknown): s is string => typeof s === 'string' && s in STACKS.stacks;
+  const known = (s: unknown): s is string => typeof s === 'string' && Object.hasOwn(STACKS.stacks, s);
   const allowed = Array.isArray(ask.allowed) && ask.allowed.some(known) ? ask.allowed.filter(known) : [known(ask.default) ? ask.default : STACKS.default];
   if (known(owner)) return { stack: owner, by: 'owner', allowed: [owner] };
   if (known(ask.stack) && allowed.includes(ask.stack)) return { stack: ask.stack, by: 'visitor', allowed };
@@ -120,7 +121,10 @@ function voiceOptions(ask: VoiceAsk) {
 // A LiveKit access token (HS256 JWT) for one caller in a new room; the agent is dispatched to every new room. The call's
 // stack and the caller's language ride on the caller's attributes; the page may change its language mid-call.
 function voiceToken(ask: VoiceAsk = {}): { url: string; token: string; room: string; stack: string; language: string } {
-  const { stack } = pickStack(ask);
+  const picked = pickStack(ask);
+  const stack = typeof ask.language === 'string' && picked.by !== 'owner'
+    ? stackForLanguage(picked.allowed.map(id => ({ id, languages: STACKS.stacks[id].languages.map(code => ({ code })) })), picked.stack, ask.language)
+    : picked.stack;
   const language = typeof ask.language === 'string' && STACKS.stacks[stack].languages.includes(ask.language) ? ask.language : '';
   const room = `call-${crypto.randomUUID().slice(0, 8)}`;
   const now = Math.floor(Date.now() / 1000);

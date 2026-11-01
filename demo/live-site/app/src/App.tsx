@@ -1,6 +1,7 @@
 import { useEffect, type ReactNode } from "react";
 import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
 import Index from "./pages/Index";
+import VoiceLab from "./pages/VoiceLab";
 import Sent from "./pages/Sent";
 
 // Clinic
@@ -124,6 +125,7 @@ const App = () => (
     <CopilotNavigation>
       <Routes>
         <Route path="/" element={<Index />} />
+        <Route path="/voice-lab" element={<VoiceLab />} />
 
         {/* Clinic */}
         <Route path="/clinic" element={<ClinicHome />} />

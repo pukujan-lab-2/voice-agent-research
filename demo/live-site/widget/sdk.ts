@@ -24,6 +24,7 @@ import type { Flow, Model } from '../../../copilot-engine/src/types.ts';
 import { forDisplay, forSpeech } from '../../../copilot-engine/src/guard.ts';
 import { Verifier, WANTS_VERIFY, type ReturnCard } from '../../../copilot-engine/src/verify.ts';
 import { DomFiller } from './dom-filler.ts';
+import { stackForLanguage } from './voice-choice.ts';
 import { API_BASE } from './config.ts';
 import { callId, newCall, RemoteDeskModel, RemoteJudge, RemoteModel, RemoteRetriever, RemoteVerify, report, setReplyLanguage, toReplyLanguage, warmUp } from './remote.ts';
 import { beginCall, endCall, failure, happened, logTurn, markDesk, notePage, noteVoice, type DeskMark } from './calllog.ts';
@@ -277,7 +278,7 @@ async function startVoice() {
     const r = await fetch(`${API_BASE}/api/voice/token`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(voiceAsk()) });
     if (!r.ok) throw new Error(`token ${r.status}`);
     grant = await r.json();
-    set({ stack: grant.stack, language: grant.language, languages: stackLanguages(grant.stack), spokenLanguage: '' });
+    set({ stack: grant.stack, language: grant.language, languages: allLanguages(), spokenLanguage: '' });
     setReplyLanguage(languageName(grant.language) || 'English');
   } catch (e) {
     report('voice', (e as Error).message);
@@ -373,16 +374,24 @@ function askedLanguage(text: string): Language | null {
   return hit && t.split(/\s+/).length <= 8 ? hit : null;
 }
 function setLanguage(code: string) {
-  const language = snap.languages.some(l => l.code === code) ? code : '';
-  const stack = !language || snap.open || stackLanguages(snap.stack).some(l => l.code === language) ? snap.stack
-    : snap.voiceStacks.find(st => st.languages.some(l => l.code === language))?.id ?? snap.stack;
+  if (code && !allLanguages().some(l => l.code === code)) return;
+  const language = code;
+  const stack = stackForLanguage(snap.voiceStacks, snap.stack, language);
+  const reconnect = snap.open && snap.voice && stack !== snap.stack;
   set({ language, stack });
-  if (language) setReplyLanguage(languageName(language));
+  setReplyLanguage(languageName(language) || 'English');
+  // A different listener/voice needs a new room. Keep this call's engine, draft, transcript and timer.
+  if (reconnect) {
+    // Let an in-flight language-request RPC return before replacing its room.
+    setTimeout(() => { if (snap.open && snap.voice) { stopVoice(); void startVoice(); } }, 1000);
+    return;
+  }
   void room?.localParticipant.setAttributes({ 'copilot.language': language }).catch(e => report('voice', `language: ${(e as Error).message}`));
 }
 function setStack(id: string) {
   if (snap.open || !snap.voiceStacks.some(s => s.id === id)) return;
-  set({ stack: id, language: stackLanguages(id).some(l => l.code === snap.language) ? snap.language : '' });
+  const languages = stackLanguages(id);
+  set({ stack: id, language: languages.some(l => l.code === snap.language) ? snap.language : languages.length === 1 ? languages[0].code : '' });
 }
 // What the picker offers on this page: asked of the server, which knows the stacks and whether the owner forced one.
 async function loadVoiceOptions() {
@@ -392,7 +401,8 @@ async function loadVoiceOptions() {
     const o: { stack: string; stacks: VoiceStack[] } = await r.json();
     set({ voiceStacks: o.stacks, stack: o.stack });
     const languages = allLanguages();
-    set({ languages, language: languages.length === 1 ? languages[0].code : snap.language });
+    const current = stackLanguages(o.stack);
+    set({ languages, language: snap.language || (current.length === 1 ? current[0].code : '') });
   } catch { /* no voice options: the call still starts on the server's default */ }
 }
 
