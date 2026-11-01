@@ -1,8 +1,8 @@
 # TASK-WCP-0023 — Replay Cases
 
-<!-- continuity:task {"acceptance":["A case stores history, input and a code-checkable expectation in an Octo table","The five seed cases from session 7d689fcd are stored and fail on the current answer path where the owner saw the bad answer","`eval/replay.ts` prints pass or fail per case","`npm run check` passes"],"depends_on":["WCP-0022"],"goal":"Turn flagged turns into replay cases stored in Octo","id":"WCP-0023","next_action":"Define the case format and expectations","owner":"owner","priority":"P2","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"active","why":"A flagged turn can't be re-run, so a fix can't be proven (#90)"} -->
+<!-- continuity:task {"acceptance":["A case stores history, input and a code-checkable expectation in an Octo table","The five seed cases from session 7d689fcd are stored and fail on the current answer path where the owner saw the bad answer","`eval/replay.ts` prints pass or fail per case","`npm run check` passes"],"depends_on":["WCP-0022"],"goal":"Turn flagged turns into replay cases stored in Octo","id":"WCP-0023","next_action":"Define the case format and expectations","owner":"owner","priority":"P2","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"completed","why":"A flagged turn can't be re-run, so a fix can't be proven (#90)"} -->
 
-- Status: active
+- Status: completed
 - Owner: owner
 - Priority: P2
 - Depends on: WCP-0022 (#89)
@@ -57,7 +57,7 @@ Starting revision, material inputs/configuration, runtime, exact command or prom
 ## Related records
 
 - Leaf #90; parent #88; depends on WCP-0022 (#89); related #17, #12, #13, #15.
-- Primary writer / branch: claude-code / `task/WCP-0023-replay-cases`; source issue open as of 2026-11-01.
+- Primary writer / branch: claude-code / `task/WCP-0023-replay-cases`; merged in #96; issue #90 closed.
 - Related PR/CI evidence and push receipt: none yet.
 
 ## Checkpoint log

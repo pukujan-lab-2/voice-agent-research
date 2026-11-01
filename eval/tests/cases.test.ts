@@ -1,6 +1,10 @@
 // Replay cases built from the owner's recorded call, and what the shipped library path does with them. Needs no keys.
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 import { caseFromFlag, type Case } from '../lib/cases.ts';
 import { check } from '../lib/expect.ts';
@@ -42,4 +46,17 @@ test('the checks read plain text', () => {
   assert.equal(check({ kind: 'no-offer' }, { reply: 'Just say the word.', quoted: false }).pass, false);
   assert.equal(check({ kind: 'answers-from', ids: ['a'] }, { reply: 'It says yes.', cited: 'a', quoted: true }).pass, true);
   assert.equal(check({ kind: 'not-passage', id: 'a' }, { reply: 'x', cited: 'a', quoted: true }).pass, false);
+});
+
+test('the gate fails the run when a guarded case fails, and passes when only an open case does', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gate-'));
+  const gate = (status: 'open' | 'guarded') => {
+    const file = path.join(dir, `${status}.json`);
+    fs.writeFileSync(file, JSON.stringify([{ ...by('repeated-passage', 'Do you not have'), status }]));
+    return spawnSync('node', [fileURLToPath(new URL('../replay.ts', import.meta.url)), '--snapshot', file, '--gate'], { encoding: 'utf8' });
+  };
+  const bad = gate('guarded');
+  assert.equal(bad.status, 1);
+  assert.match(bad.stdout, /guarded case\(s\) regressed/);
+  assert.equal(gate('open').status, 0);
 });

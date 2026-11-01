@@ -489,8 +489,8 @@ export class Desk {
 
   constructor(flow: Flow, opts: { model?: ChatModel; heavy?: ChatModel; docs?: Docs; answer?: (question: string, filter?: SearchFilter) => Promise<string | null>; search?: SiteSearch; lookups?: Lookups; caller?: () => Caller; unknown?: string; finish?: string; hooks?: Partial<Hooks>; route?: (said: string, d: Desk) => boolean; sessions?: Store; customers?: Store; fullFormFields?: number; scope?: string } = {}) {
     this.flow = flow;
-    this.windowed = flow.fields.length > (opts.fullFormFields ?? FULL_FORM_FIELDS);
     this.scope = id(opts.scope ?? '');
+    this.windowed = flow.fields.length > (opts.fullFormFields ?? FULL_FORM_FIELDS);
     this.answer = opts.answer;
     this.unknown = opts.unknown ?? "I'm sorry, I don't have that information.";
     this.finish = opts.finish;
