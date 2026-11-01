@@ -87,6 +87,29 @@ Blocked/uncertain:
 Next:
 - Merge the pull request, then start the bounded-server-state leaf (#102)
 
+### 2026-11-01 23:28:21 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["copilot-engine/src/desk.ts, copilot-engine/package.json"],"completed":["The prompt-budget branch conflicted with main after the huge-site pull requests merged first; main is merged in and both sides kept"],"decisions":["no new decisions"],"evidence":["npm run check passes after the merge (desk-scale tests included alongside the search and lookup tests)"],"next_action":"Bring #49 (WCP-0041) up to date the same way, then #50 and #51","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0040","timestamp":"2026-11-01T23:28:21Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"7874840df24732281f488e75a0afe7cbce31f05bd11c994f8cedc5c4297648bb","request_id":"a8b33ab2b43f41f998c56bc7fe445b49","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0040"} -->
+
+Completed:
+- The prompt-budget branch conflicted with main after the huge-site pull requests merged first; main is merged in and both sides kept
+
+Evidence:
+- npm run check passes after the merge (desk-scale tests included alongside the search and lookup tests)
+
+Decisions:
+- no new decisions
+
+Changed:
+- copilot-engine/src/desk.ts, copilot-engine/package.json
+
+Blocked/uncertain:
+- none
+
+Next:
+- Bring #49 (WCP-0041) up to date the same way, then #50 and #51
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
