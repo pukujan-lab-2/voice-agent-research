@@ -40,6 +40,7 @@ function statusLabel(status: string): string {
   switch (status) {
     case "speaking": return "Speaking";
     case "listening": return "Listening";
+    case "waiting": return "Connecting…";
     case "thinking": return "Thinking";
     case "muted": return "Mic off";
     case "text": return "Text chat";
@@ -416,7 +417,7 @@ export function CopilotWidget() {
         >
           <div className="copilot-caption-text">
             {snapshot.heard ? (
-              <span className="copilot-caption-heard">{snapshot.heard}</span>
+              <span className="copilot-caption-heard">Heard: {snapshot.heard}</span>
             ) : lastBot ? (
               renderMessageText(captionOf(lastBot))
             ) : (
@@ -452,7 +453,7 @@ export function CopilotWidget() {
           </div>
         ))}
         {snapshot.heard && (
-          <div className="copilot-heard">{snapshot.heard}</div>
+          <div className="copilot-heard">Heard: {snapshot.heard}</div>
         )}
       </div>
 

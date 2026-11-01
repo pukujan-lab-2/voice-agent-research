@@ -40,6 +40,9 @@ for (const f of fs.readdirSync(path.join(here, 'widget')).filter(f => f.endsWith
   if (f === 'config.ts') js = `export const API_BASE = ${JSON.stringify((process.env.API_BASE ?? '').replace(/\/$/, ''))};\n`;
   fs.writeFileSync(path.join(dist, 'copilot', f.replace(/\.ts$/, '.js')), js);
 }
+// The LiveKit client (Apache-2.0), loaded by the widget only when a voice call starts. Its ESM build is self-contained.
+fs.mkdirSync(path.join(dist, 'copilot/vendor'), { recursive: true });
+fs.copyFileSync(path.join(here, 'node_modules/livekit-client/dist/livekit-client.esm.mjs'), path.join(dist, 'copilot/vendor/livekit-client.esm.mjs'));
 // Videos are not in git (demo/out/ is build output), so they are copied from VIDEO_DIR when present.
 const videos = process.env.VIDEO_DIR ?? path.join(here, '../out');
 for (const v of ['copilot-demo-720p.mp4', 'copilot-demo-vertical-720p.mp4']) {

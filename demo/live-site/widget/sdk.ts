@@ -1,7 +1,7 @@
 // The copilot a site adds with one script tag, with no UI of its own: the site draws the call panel and drives it
 // through window.copilot. The engine runs here in the page and makes every decision in code; the backend only lends it
-// Jev (is this answer on topic? which manual passage answers?) and Octo search. Voice uses the browser's own speech
-// recognition and synthesis; if there is no recognition or the mic is blocked, the same call carries on as text.
+// Jev (is this answer on topic? which manual passage answers?) and Octo search. Voice runs on LiveKit Agents with open
+// models on our server (speech/agent.py); browser speech is not used. If the mic is blocked, the call carries on as text.
 //
 //   copilot.mount(config)        on a page with a form or a manual, once it is on screen (config: see Config)
 //   copilot.unmount()            when leaving that page
@@ -21,6 +21,7 @@ import type { Flow, Model } from '../../../copilot-engine/src/types.ts';
 import { forDisplay, forSpeech } from '../../../copilot-engine/src/guard.ts';
 import { Verifier, WANTS_VERIFY, type ReturnCard } from '../../../copilot-engine/src/verify.ts';
 import { DomFiller } from './dom-filler.ts';
+import { API_BASE } from './config.ts';
 import { newCall, RemoteJudge, RemoteModel, RemoteRetriever, RemoteVerify, report, traceSpan, warmUp } from './remote.ts';
 
 export type Config = {
@@ -42,14 +43,15 @@ export type Config = {
 // The document an answer was quoted from, shown by the site's source viewer while snapshot.source is set. doc is the
 // library id (GET /api/library/doc?doc=…); page is the printed PDF's page (PDF sources), anchor the section (articles).
 export type Source = { label: string; title: string; credit: string; doc: string; page?: number; anchor?: string; href: string; quote: string[]; found: boolean | null };
-export type Status = 'idle' | 'speaking' | 'listening' | 'thinking' | 'muted' | 'text';
+// waiting: asking the caller for the microphone, or joining the call; nothing is said until they have answered
+export type Status = 'idle' | 'waiting' | 'speaking' | 'listening' | 'thinking' | 'muted' | 'text';
 // links: parts of the text to show as links (a manual page "(page 3)", a cited source, a booking page)
 export type Message = { id: number; who: 'bot' | 'user'; text: string; links: { text: string; href: string; page?: number }[]; source?: Source };
 export type Snapshot = {
   mounted: boolean;
   open: boolean;                       // a call is on
   voice: boolean;                      // speaking and listening (false: text chat)
-  mic: 'on' | 'off' | 'unavailable';   // unavailable: this browser has no speech recognition
+  mic: 'on' | 'off' | 'unavailable';   // unavailable: this browser can't use a microphone
   textInput: boolean;                  // show the text box
   status: Status;
   busy: boolean;
@@ -67,19 +69,18 @@ export type Snapshot = {
 };
 
 type Mode = 'form' | 'guide' | 'ask';
-const SR: any = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-const canSpeak = 'speechSynthesis' in window;
+const canHear = (): boolean => !!navigator.mediaDevices?.getUserMedia && typeof RTCPeerConnection !== 'undefined';
 
 let cfg: Config | null = null;
 let snap: Snapshot = blank();
 const subs = new Set<() => void>();
 function blank(): Snapshot {
-  return { mounted: false, open: false, voice: false, mic: SR ? 'off' : 'unavailable', textInput: false, status: 'idle', busy: false,
+  return { mounted: false, open: false, voice: false, mic: canHear() ? 'off' : 'unavailable', textInput: false, status: 'idle', busy: false,
     heard: '', mode: 'form', modes: [], business: '', can: [], large: false, messages: [], startedAt: 0, wait: null, source: null, account: null };
 }
 function set(p: Partial<Snapshot>) {
   snap = { ...snap, ...p };
-  snap.mic = !SR ? 'unavailable' : snap.voice && !muted ? 'on' : 'off';
+  snap.mic = !canHear() ? 'unavailable' : snap.voice && !muted ? 'on' : 'off';
   subs.forEach(f => { try { f(); } catch (e) { report('subscriber', (e as Error).message); } });
 }
 
@@ -98,105 +99,177 @@ function add(who: 'bot' | 'user', raw: string, say = true, extra: Message['links
   // The demo note is said once per call, inside the first greeting.
   if (who === 'bot' && cfg?.note && !noted) { noted = true; text = withNote(text, cfg.note); raw = withNote(raw, cfg.note); }
   set({ messages: [...snap.messages, { id: ++msgId, who, text, links: [...links, ...extra.filter(l => text.includes(l.text))], ...(source ? { source } : {}) }] });
-  if (who === 'bot' && snap.voice && say) void speakThenListen(forSpeech(raw));
+  if (who === 'bot' && snap.voice && say) spoken(raw);
+}
+// The first thing said on a call is one short line, about three seconds; the full greeting stays on screen.
+// "Hi, I'm Brindlewick's assistant, and this is a demo… Ask me… I can also…" -> "Hi, I'm Brindlewick's assistant. What can I help with?"
+let introSaid = false;
+function spokenPart(raw: string): string {
+  if (introSaid) return raw;
+  introSaid = true;
+  const sentences = raw.split(/(?<=[.!?])\s+/).filter(Boolean);
+  if (sentences.length <= 1 && raw.length < 90) return raw;
+  const first = sentences[0].replace(/,\s*and [^.?!]*/, '');
+  const last = sentences[sentences.length - 1];
+  const ask = sentences.length > 1 && /\?$/.test(last) && last.length < 80 ? last : 'What can I help with?';
+  return `${first.length < 60 ? first : `Hi, this is ${cfg?.business ?? 'the'} assistant.`} ${ask}`;
 }
 
-// ---- Voice: speak each reply, then listen for one answer. Never listens while speaking, so it can't hear itself.
+// ---- Voice, on LiveKit Agents (docs/decisions/0002). The page asks for the microphone first, then joins a LiveKit room
+// where our agent (speech/agent.py) listens and speaks with open models on our server. Silero VAD and the turn detector
+// end each turn; the caller can talk over the voice and it stops. Every reply is still decided here, by the engine: the
+// agent calls copilot.turn with what it heard and speaks what comes back.
+type LiveKit = typeof import('livekit-client');
 let muted = false;
-let rec: any = null;
-let quietTries = 0;
-let speechSeq = 0;
+let room: import('livekit-client').Room | null = null;
+let micTrack: import('livekit-client').LocalAudioTrack | null = null;
+let voiceSeq = 0;
+// While the agent waits on copilot.turn, what the copilot says is collected for the agent to speak, not said separately.
+let collect: string[] | null = null;
+let lastSearchMs: number | undefined;
 
-function speak(text: string): Promise<void> {
-  if (!canSpeak) return Promise.resolve();
-  return new Promise(resolve => {
-    // Cancelling an idle synthesizer right before speaking can drop the next utterance on iOS.
-    if (speechSynthesis.speaking || speechSynthesis.pending) speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text.replace(/·/g, ',').replace(/\s+/g, ' '));
-    u.lang = 'en-US';
-    u.rate = cfg?.large ? 0.92 : 1;
-    let started = false;
-    const at = Date.now();
-    const done = () => { clearTimeout(t); clearTimeout(s); traceSpan('text to speech', at, text, '', {}, !started); resolve(); };
-    // Some mobile browsers never fire onend, or never start at all; don't wait forever.
-    const t = setTimeout(done, 1500 + text.length * 80);
-    const s = setTimeout(() => { if (!started) { report('tts', 'speech never started'); done(); } }, 3000);
-    u.onstart = () => { started = true; };
-    u.onend = done;
-    u.onerror = (e: any) => { if (!['interrupted', 'canceled'].includes(e.error)) report('tts', e.error); done(); };
-    speechSynthesis.speak(u);
+const loadLiveKit = (): Promise<LiveKit> => import(/* @vite-ignore */ `${location.origin}/copilot/vendor/livekit-client.esm.mjs`) as Promise<LiveKit>;
+
+function spoken(raw: string) {
+  const text = forSpeech(spokenPart(raw)).replace(/·/g, ',').replace(/\s+/g, ' ').trim();
+  if (!text) return;
+  if (collect) { collect.push(text); return; }
+  // Said outside a turn (a form that opens after a page change, for one): the agent says it.
+  sayNow(text);
+}
+function sayNow(text: string) {
+  const agent = agentIdentity();
+  if (room && agent) void room.localParticipant.performRpc({ destinationIdentity: agent, method: 'agent.say', payload: JSON.stringify({ text }) }).catch(e => report('voice', `agent.say: ${(e as Error).message}`));
+}
+// A library search can take several seconds: on a call, the caller hears that it is looking rather than silence.
+async function searched(text: string) {
+  if (room && snap.voice) sayNow('Let me check the tax guides.');
+  const t0 = performance.now();
+  try { return await deskReply(text); } finally { lastSearchMs = Math.round(performance.now() - t0); }
+}
+
+function agentIdentity(): string {
+  for (const p of room?.remoteParticipants.values() ?? []) if (p.isAgent) return p.identity;
+  return '';
+}
+
+// The agent's own state (lk.agent.state) is what the call panel shows: Listening, Thinking, Speaking.
+function agentState(state: string | undefined) {
+  if (!snap.voice || !room) return;
+  if (muted) { set({ status: 'muted' }); return; }
+  const s: Status = state === 'speaking' ? 'speaking' : state === 'thinking' ? 'thinking' : state === 'listening' ? 'listening' : 'waiting';
+  set({ status: s, ...(s === 'speaking' ? { heard: '' } : {}) });
+}
+
+// Small talk is answered at once and never searched: "can you hear me", "hello?", "are you there", "sorry, what?",
+// "wait", "thanks". Every part of what was said has to be small talk, so "hello, how do I file an extension" is a question.
+const SMALL_TALK: [RegExp, string][] = [
+  [/^(hello|hallo|hi|hey|hey there|hi there|hello there|um|uh|hmm|testing|test|testing testing|mic check)$/, 'here'],
+  [/^(can|could|do|did) you (hear|here|understand) me( now| ok| okay| alright| at all)?$|^(are|r) you (there|still there|listening|hearing me|with me|on)$|^(is )?(anyone|anybody|somebody|someone) (there|home)$|^is (this|it) (working|on)$|^hello can you hear me$/, 'hear'],
+  [/^(sorry|pardon|pardon me|what|what was that|come again|say that again|say again|can you repeat that|could you repeat that|repeat that|repeat|huh|excuse me|i didn't catch that|i didnt catch that|sorry what)$/, 'repeat'],
+  [/^(wait|hold on|hang on|one sec|one second|one moment|just a sec|just a second|just a moment|give me a sec|give me a second|wait a second|wait a minute|hold on a sec|hold on a second|sorry wait)$/, 'wait'],
+  [/^(thanks|thank you|thank you so much|thanks so much|thanks a lot|thank you very much|cheers|ok thanks|okay thanks|ok thank you|okay thank you|great thanks|perfect thanks)$/, 'thanks'],
+];
+function smallTalk(text: string): string | null {
+  const parts = text.toLowerCase().replace(/’/g, "'").split(/[,.!?;]+/).map(p => p.replace(/[^a-z' ]/g, '').replace(/\s+/g, ' ').trim()).filter(Boolean);
+  if (!parts.length) return null;
+  const kinds = parts.map(p => SMALL_TALK.find(([re]) => re.test(p))?.[1]);
+  if (kinds.some(k => !k)) return null;
+  const lastBot = [...snap.messages].reverse().find(m => m.who === 'bot')?.text ?? '';
+  // What the copilot was waiting for: the open form question, or the last thing it asked.
+  const formOpen = snap.mode === 'form' && !!copilot && copilot.state !== 'done';
+  const asked = (formOpen ? currentAsk() : '') || ([...lastBot.split(/(?<=[.!?])\s+/)].reverse().find(x => /\?$/.test(x)) ?? '');
+  const ask = asked || (snap.mode === 'ask' ? "What's your question?" : 'What can I help with?');
+  if (kinds.includes('repeat')) return lastBot || ask;
+  if (kinds.includes('hear')) return `Yes, I can hear you. ${ask}`;
+  if (kinds.includes('wait')) return 'Sure, take your time.';
+  if (kinds.includes('thanks')) return formOpen ? `You're welcome. ${ask}` : "You're welcome. Anything else?";
+  return `Hi, I'm here. ${ask}`;
+}
+
+// From the caller's tap on "Start voice call": the microphone first, and nothing is said until they have answered.
+async function startVoice() {
+  const seq = ++voiceSeq;
+  set({ status: 'waiting' });
+  let lk: LiveKit;
+  try { lk = await loadLiveKit(); } catch (e) {
+    report('voice', `livekit-client: ${(e as Error).message}`);
+    toText("Voice isn't available right now, so let's carry on by typing. Your answers go in the box below.");
+    return;
+  }
+  try {
+    micTrack = await lk.createLocalAudioTrack({ echoCancellation: true, noiseSuppression: true, autoGainControl: true });
+  } catch (e) {
+    const name = (e as Error).name;
+    report('voice', `microphone: ${name}`);
+    toText(name === 'NotAllowedError' || name === 'SecurityError'
+      ? "The microphone is blocked, so I can't hear you. You can type below instead, or allow the microphone for this site and start the call again."
+      : "I can't find a microphone here, so let's carry on by typing. Your answers go in the box below.");
+    return;
+  }
+  if (seq !== voiceSeq || !snap.open) { micTrack.stop(); micTrack = null; return; }
+  let grant: { url: string; token: string };
+  try {
+    const r = await fetch(`${API_BASE}/api/voice/token`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
+    if (!r.ok) throw new Error(`token ${r.status}`);
+    grant = await r.json();
+  } catch (e) {
+    report('voice', (e as Error).message);
+    toText("Voice isn't available right now, so let's carry on by typing. Your answers go in the box below.");
+    return;
+  }
+  const rm = new lk.Room({ adaptiveStream: false, dynacast: false });
+  room = rm;
+  rm.registerRpcMethod('copilot.greet', async () => {
+    collect = [];
+    if (!snap.messages.length) setMode(snap.mode);
+    else { introSaid = false; spoken([...snap.messages].reverse().find(m => m.who === 'bot')?.text ?? ''); }
+    const say = collect.join(' '); collect = null;
+    return JSON.stringify({ say });
   });
-}
-
-async function speakThenListen(text: string) {
-  const seq = ++speechSeq;
-  stopListening();
-  set({ status: 'speaking' });
-  await speak(text);
-  if (seq !== speechSeq || !snap.voice) return;
-  listen();
-}
-
-function stopListening() {
-  if (rec) { rec.onend = null; rec.onresult = null; rec.onerror = null; try { rec.abort(); } catch { /* not started */ } rec = null; }
-}
-
-// fromTap: started by the person's own tap. Safari may refuse a microphone that wasn't, so then we ask for a tap.
-function listen(fromTap = false) {
-  if (!snap.voice || muted || snap.busy || !SR) { if (snap.voice) set({ status: muted ? 'muted' : 'idle' }); return; }
-  stopListening();
-  const r = new SR();
-  rec = r;
-  r.lang = 'en-US'; r.interimResults = true; r.continuous = false; r.maxAlternatives = 1;
-  let final = '', interim = '';
-  const at = Date.now();
-  r.onresult = (e: any) => {
-    // One utterance, one answer: iOS WebKit can send a second final result that re-recognises the same words
-    // ("Pooja Bajracharya" then "PUJANBAJRACHARYA"), so the first final is the answer and the rest is ignored.
-    if (final) return;
-    interim = '';
-    for (let i = e.resultIndex; i < e.results.length; i++) {
-      const t = e.results[i][0].transcript;
-      if (e.results[i].isFinal) { final = t; break; }
-      interim += t;
-    }
-    set({ heard: verifier?.secretOpen() ? '••••' : (final || interim).trim() });
-    if (final) { try { r.stop(); } catch { /* already stopping */ } }
-  };
-  r.onerror = (e: any) => {
-    if (e.error === 'no-speech' || e.error === 'aborted') return;
-    report('speech', `${e.error}${fromTap ? ' (after tap)' : ''}`);
-    if (e.error === 'not-allowed' && !fromTap) {
-      // Probably only because no tap started it: one tap on the mic starts it from a tap.
-      rec = null; muted = true; set({ textInput: true, status: 'muted' });
-      add('bot', 'Tap "Tap to talk" to answer by voice, or type your answer below.', false);
-      return;
-    }
-    if (['not-allowed', 'service-not-allowed', 'audio-capture', 'network', 'language-not-supported'].includes(e.error)) {
-      // Mic blocked, missing or unusable: keep the call going as text.
-      rec = null; toText("I can't use the microphone here, so let's carry on by typing. Your answers go in the box below.");
-    }
-  };
-  r.onend = () => {
-    if (rec !== r) return;
-    rec = null;
-    // Safari sometimes ends without marking the last result final; what it heard is still the answer.
-    const said = (final || interim).trim();
-    traceSpan('speech to text', at, '', said, {}, !said);
-    set({ heard: '' });
-    if (said) { quietTries = 0; void send(said); return; }
-    // Silence: listen again a couple of times, then wait for a tap on the mic.
-    if (snap.voice && !muted && ++quietTries < 3) listen();
-    else if (snap.voice) { muted = true; set({ status: 'muted' }); }
-  };
-  try { r.start(); set({ status: 'listening' }); } catch (e) {
-    report('speech', `start failed: ${(e as Error).message}`); rec = null; muted = true; set({ textInput: true, status: 'muted' });
+  rm.registerRpcMethod('copilot.turn', async data => {
+    const text = String(JSON.parse(data.payload || '{}').text ?? '');
+    collect = []; lastSearchMs = undefined;
+    const t0 = performance.now();
+    const kind = await send(text);
+    const say = collect.join(' '); collect = null;
+    return JSON.stringify({ say, kind, decideMs: Math.round(performance.now() - t0), searchMs: lastSearchMs });
+  });
+  rm.on(lk.RoomEvent.TrackSubscribed, track => {
+    if (track.kind !== lk.Track.Kind.Audio) return;
+    const el = track.attach();
+    el.dataset.copilotVoice = '1'; el.style.display = 'none';
+    document.body.appendChild(el);
+  });
+  rm.on(lk.RoomEvent.ParticipantAttributesChanged, (_changed, p) => { if (p.isAgent) agentState(p.attributes['lk.agent.state']); });
+  rm.on(lk.RoomEvent.Disconnected, () => { if (room === rm && snap.voice) toText("The voice line dropped, so let's carry on by typing."); });
+  // What the agent heard, live on screen ("heard: …"). A secret answer is never shown.
+  rm.registerTextStreamHandler('lk.transcription', async (reader, from) => {
+    if (from.identity !== rm.localParticipant.identity) return;
+    const text = await reader.readAll();
+    if (room === rm && snap.voice) set({ heard: verifier?.secretOpen() ? '••••' : text.trim() });
+  });
+  try {
+    await rm.connect(grant.url, grant.token);
+    await rm.localParticipant.publishTrack(micTrack, { source: lk.Track.Source.Microphone });
+    if (muted) await micTrack.mute();
+  } catch (e) {
+    report('voice', `connect: ${(e as Error).message}`);
+    toText("Voice isn't available right now, so let's carry on by typing. Your answers go in the box below.");
   }
 }
 
+function stopVoice() {
+  voiceSeq++;
+  const rm = room; room = null; collect = null;
+  void rm?.disconnect();
+  micTrack?.stop(); micTrack = null;
+  document.querySelectorAll('[data-copilot-voice]').forEach(e => e.remove());
+}
+
 function toText(msg?: string) {
-  stopListening(); if (canSpeak) speechSynthesis.cancel();
-  set({ voice: false, textInput: true, status: 'text' });
+  stopVoice();
+  set({ voice: false, textInput: true, status: 'text', heard: '' });
   if (msg) add('bot', msg);
 }
 
@@ -534,10 +607,8 @@ function showSource(id?: number) {
 // ---- Navigation: the copilot changes page with the site's own router, so the call stays connected.
 let navigateFn: ((path: string) => void) | null = null;
 let pendingAnchor = '';
-let navigated = false;
 function go(path: string) {
   closeSource();
-  navigated = true;
   const [p, hash] = path.split('#');
   pendingAnchor = hash ?? '';
   if (location.pathname + location.search === p) { scrollToAnchor(); return; }
@@ -693,11 +764,10 @@ async function navReply(text: string): Promise<string | null> {
 // Spoken questions come without a question mark, so a question word at the start counts too.
 const isQuestion = (t: string) => /\?\s*$/.test(t) || /^\s*(what|where|which|how|why|when|who|can i|could i|should i|do i|does|is there|is it|are there|will)\b/i.test(t);
 
-async function send(text: string) {
+async function send(text: string): Promise<string> {
   // Dictation adds a full stop ("SPF-204118."), which a page's own format check would refuse. A "?" stays: it marks a question.
   text = String(text ?? '').trim().replace(/[.!,;:]+$/, '').trim();
-  if (!cfg || snap.busy || !text) return;
-  stopListening();
+  if (!cfg || snap.busy || !text) return '';
   set({ busy: true, status: 'thinking' });
   const turnAt = Date.now();
   // a form still loading (see startForm) is read before this answer goes in
@@ -707,21 +777,27 @@ async function send(text: string) {
   let reply = '';
   let links: Message['links'] = [];
   let source: Source | undefined;
-  navigated = false;
+
+  let kind = 'form';
   try {
-    const ver = await verifyReply(text);
+    // "Can you hear me?", "hello?", "wait", "thanks": answered at once, never searched (not while a secret is asked).
+    const small = verifier?.secretOpen() ? null : smallTalk(text);
+    const ver = small === null ? await verifyReply(text) : null;
     const nav = ver === null ? await navReply(text) : null;
-    if (ver !== null) {
-      reply = ver;
+    if (small !== null) { reply = small; kind = 'small-talk'; } else if (ver !== null) {
+      reply = ver; kind = 'verify';
       if (verifier?.state === 'verified' && verifyBackend?.call && !location.pathname.startsWith('/tax/portal')) links = [{ text: 'Open your client portal', href: '/tax/portal' }];
-    } else if (nav !== null) reply = nav;
-    else if (snap.mode === 'ask') ({ reply, links, source } = await deskReply(text));
+    } else if (nav !== null) { reply = nav; kind = 'nav'; } else if (snap.mode === 'ask') {
+      ({ reply, links, source } = await searched(text));
+      kind = 'ask';
+    }
     else if (snap.mode === 'guide') reply = await guide!.turn(text);
     else if (!copilot) startForm();
     else if (copilot.state === 'done') reply = `I've handed the form back to you. Please check it and press ${form!.submit} yourself.`;
     // A side question during a form is answered from the manual (or "I don't know"); then the form carries on.
     else if (lookup && cfg.desk && (isQuestion(text) || ADVICE.test(text))) {
-      const r = await deskReply(text);
+      const r = await searched(text);
+      kind = 'ask';
       reply = `${r.reply} Back to the form: ${currentAsk()}`.trim(); links = r.links; source = r.source;
     } else if (lookup && isQuestion(text)) reply = `${await lookup.lookup(text)} Back to the form: ${currentAsk()}`.trim();
     else {
@@ -741,26 +817,26 @@ async function send(text: string) {
   }
   set({ busy: false, status: snap.voice ? snap.status : 'text' });
   traceSpan('turn', turnAt, text, reply, { mode: snap.mode, page: location.pathname }, !reply);
-  if (reply) add('bot', reply, true, links, source); else if (snap.voice && !navigated) listen();
+  if (reply) add('bot', reply, true, links, source);
   highlight();
+  return kind;
 }
 
 function start({ voice = false }: { voice?: boolean } = {}) {
   if (!cfg) return;
-  const v = voice && (canSpeak || !!SR);
-  muted = !SR;
+  const v = voice && canHear();
+  muted = false;
   if (!snap.open) newCall();
-  set({ open: true, voice: v, textInput: !v || !SR, status: v ? 'idle' : 'text', startedAt: snap.open ? snap.startedAt : Date.now() });
+  set({ open: true, voice: v, textInput: !v, status: v ? 'waiting' : 'text', startedAt: snap.open ? snap.startedAt : Date.now() });
   warm();
-  // Called from the tap itself, so mobile browsers allow the first spoken reply.
-  if (!snap.messages.length) setMode(snap.mode);
-  else if (v) void speakThenListen([...snap.messages].reverse().find(m => m.who === 'bot')?.text ?? '');
+  // A voice call asks for the microphone first; the greeting comes once the agent has joined (copilot.greet).
+  if (v) { introSaid = false; void startVoice(); } else if (!snap.messages.length) setMode(snap.mode);
   highlight();
 }
 
 function end() {
   if (snap.startedAt) traceSpan('call', snap.startedAt, '', '', { outcome: 'ended by caller', turns: snap.messages.filter(m => m.who === 'user').length, page: location.pathname });
-  stopListening(); if (canSpeak) speechSynthesis.cancel(); speechSeq++;
+  stopVoice();
   noted = false;
   verifier = null; verifyBackend = null; // a new call starts verification over (the server still counts failures per visitor)
   set({ account: null });
@@ -769,11 +845,12 @@ function end() {
 }
 
 function toggleMic() {
-  if (!SR || !snap.open) return;
-  if (!snap.voice) set({ voice: true, textInput: false });
-  muted = !muted; quietTries = 0;
+  if (!canHear() || !snap.open) return;
+  // From text chat, the mic button starts the voice call (it asks for the microphone first).
+  if (!snap.voice) { muted = false; set({ voice: true, textInput: false, status: 'waiting' }); void startVoice(); return; }
+  muted = !muted;
   set({});
-  if (muted) { stopListening(); set({ status: 'muted' }); } else { if (canSpeak) speechSynthesis.cancel(); listen(true); }
+  if (muted) { void micTrack?.mute(); set({ status: 'muted' }); } else { void micTrack?.unmute(); set({ status: 'listening' }); }
 }
 
 // A page change mid-call (the site's router unmounts one page and mounts the next) keeps the call: the old page's
@@ -819,7 +896,7 @@ function unmount(now = false) {
   clearTimeout(leaving); leaving = undefined;
   end();
   detach();
-  cfg = null; manual = null; lookup = null; muted = false; quietTries = 0;
+  cfg = null; manual = null; lookup = null; muted = false;
   set(blank());
 }
 

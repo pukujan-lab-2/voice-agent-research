@@ -1,0 +1,14 @@
+# Installed into speech/.venv (Python 3.12):  uv venv --python 3.12 .venv && uv pip install --python .venv/bin/python -r requirements.txt
+# Models (not in git): speech/models/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8 from
+#   https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8.tar.bz2
+# Pocket TTS downloads its own weights and voices from Hugging Face on first start.
+sherpa-onnx
+# The voice call's agent (speech/agent.py) on LiveKit Agents; its turn detector downloads with: agent.py download-files
+livekit-agents==1.8.8
+livekit-plugins-silero==1.8.8
+livekit-plugins-turn-detector==1.8.8
+aiohttp
+pocket-tts
+kokoro-onnx
+soundfile
+numpy

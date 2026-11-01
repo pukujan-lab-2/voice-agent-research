@@ -1,0 +1,6 @@
+speech.log
+turns.jsonl
+__pycache__/
+bin/
+models
+.venv

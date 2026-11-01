@@ -2,7 +2,8 @@
 // Keys come from the environment, or from ~/Documents/projects/.env (this Mac) / ~/.hack_env (the Pro), mapped to the
 // names the engine uses. Values are never printed.
 // Run: node build.ts && node server.ts [--offline]     (PORT=8787, HOST=127.0.0.1 by default)
-import { spawn, type ChildProcess } from 'node:child_process';
+import { execFile, spawn, type ChildProcess } from 'node:child_process';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import http from 'node:http';
 import os from 'node:os';
@@ -70,6 +71,38 @@ export function nameMatcher(): NameMatcher {
   });
 }
 
+// Voice runs on LiveKit Agents (docs/decisions/0002), all on this machine: the LiveKit server in dev mode (its built-in
+// devkey/secret, local only; docs/decisions/0007), speech/server.py (Parakeet STT, Pocket TTS) and speech/agent.py,
+// which joins each call's room. They are started once and left running, so restarting this server, or a test starting
+// its own, doesn't wait for the models to load again. The page gets a token for a fresh room from /api/voice/token.
+const SPEECH = process.env.SPEECH_URL || 'http://127.0.0.1:8799';
+const LIVEKIT = { url: process.env.LIVEKIT_URL || 'ws://127.0.0.1:7880', key: process.env.LIVEKIT_API_KEY || 'devkey', secret: process.env.LIVEKIT_API_SECRET || 'secret' };
+const up = (url: string) => fetch(url).then(r => r.ok, () => false);
+let voiceStarting: Promise<void> | null = null;
+function voiceUp(): Promise<void> {
+  voiceStarting ??= (async () => {
+    const py = path.join(here, 'speech/.venv/bin/python');
+    if (!fs.existsSync(py)) return;
+    const log = fs.openSync(path.join(here, 'speech/speech.log'), 'a');
+    const bg = (cmd: string, args: string[], env: Record<string, string> = {}) =>
+      spawn(cmd, args, { detached: true, stdio: ['ignore', log, log], env: { ...process.env, ...env } }).on('error', e => console.warn(`voice: ${cmd}: ${e.message}`)).unref();
+    if (!process.env.SPEECH_URL && !(await up(`${SPEECH}/health`))) bg(py, [path.join(here, 'speech/server.py')]);
+    if (!process.env.LIVEKIT_URL && !(await up(LIVEKIT.url.replace(/^ws/, 'http')))) bg('livekit-server', ['--dev', '--bind', '127.0.0.1']);
+    const agents = await new Promise<string>(r => execFile('pgrep', ['-f', 'speech/agent.py'], (_e, out) => r(String(out).trim())));
+    if (!agents) bg(py, [path.join(here, 'speech/agent.py'), 'start'], { LIVEKIT_URL: LIVEKIT.url, LIVEKIT_API_KEY: LIVEKIT.key, LIVEKIT_API_SECRET: LIVEKIT.secret });
+  })().finally(() => { voiceStarting = null; });
+  return voiceStarting;
+}
+// A LiveKit access token (HS256 JWT) for one caller in a new room; the agent is dispatched to every new room.
+function voiceToken(): { url: string; token: string; room: string } {
+  const room = `call-${crypto.randomUUID().slice(0, 8)}`;
+  const now = Math.floor(Date.now() / 1000);
+  const b64 = (o: object) => Buffer.from(JSON.stringify(o)).toString('base64url');
+  const body = `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64({ iss: LIVEKIT.key, sub: `caller-${crypto.randomUUID().slice(0, 8)}`, nbf: now - 5, exp: now + 3600,
+    video: { room, roomJoin: true, canPublish: true, canSubscribe: true, canPublishData: true } })}`;
+  return { url: LIVEKIT.url, room, token: `${body}.${crypto.createHmac('sha256', LIVEKIT.secret).update(body).digest('base64url')}` };
+}
+
 const HEADERS = { 'X-Robots-Tag': 'noindex, nofollow', 'Referrer-Policy': 'no-referrer', 'X-Frame-Options': 'DENY',
   'X-Content-Type-Options': 'nosniff', 'Permissions-Policy': 'camera=(), microphone=(self), geolocation=()' };
 const TYPES: Record<string, string> = { '.mp4': 'video/mp4', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.ico': 'image/x-icon', '.woff2': 'font/woff2', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
@@ -87,9 +120,14 @@ export async function start(opts: { port?: number; host?: string; offline?: bool
   if (opts.offline) env.OFFLINE = '1';
   const api = createApi(env, { offlinePassages: offlinePassages(), matchNames: nameMatcher(), trace: opts.offline ? undefined : createTracer(env) });
   const dist = path.join(here, 'dist');
+  void voiceUp();
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url ?? '/', 'http://local');
     for (const [k, v] of Object.entries(HEADERS)) res.setHeader(k, v);
+    if (req.method === 'POST' && url.pathname === '/api/voice/token') {
+      void voiceUp();
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(voiceToken())); return;
+    }
     if (url.pathname.startsWith('/api/')) {
       const chunks: Buffer[] = [];
       for await (const c of req) chunks.push(c as Buffer);

@@ -6,6 +6,7 @@
 
 export type CopilotStatus =
   | "idle"
+  | "waiting"
   | "speaking"
   | "listening"
   | "thinking"
