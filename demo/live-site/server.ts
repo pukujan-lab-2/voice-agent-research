@@ -6,6 +6,7 @@ import { execFile, spawn, type ChildProcess } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import http from 'node:http';
+import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { createTracer } from './tracing.ts';
@@ -75,11 +76,14 @@ export function nameMatcher(): NameMatcher {
 }
 
 // Voice runs on LiveKit Agents (docs/decisions/0002), all on this machine: the LiveKit server in dev mode (its built-in
-// devkey/secret, local only; docs/decisions/0007), speech/server.py (Parakeet STT, Pocket TTS) and speech/agent.py,
+// devkey/secret, for local runs; deployed, deploy/ gives it real keys), speech/server.py (Parakeet STT, Pocket TTS) and speech/agent.py,
 // which joins each call's room. They are started once and left running, so restarting this server, or a test starting
 // its own, doesn't wait for the models to load again. The page gets a token for a fresh room from /api/voice/token.
 const SPEECH = process.env.SPEECH_URL || 'http://127.0.0.1:8799';
 const LIVEKIT = { url: process.env.LIVEKIT_URL || 'ws://127.0.0.1:7880', key: process.env.LIVEKIT_API_KEY || 'devkey', secret: process.env.LIVEKIT_API_SECRET || 'secret' };
+// Deployed (deploy/README.md), the page reaches LiveKit's signalling through this server's own hostname: LIVEKIT_PUBLIC_URL
+// is what the page is told, and /rtc is passed through to LIVEKIT_URL. Call audio goes to LiveKit directly, not through here.
+const LIVEKIT_PUBLIC = process.env.LIVEKIT_PUBLIC_URL || '';
 const up = (url: string) => fetch(url).then(r => r.ok, () => false);
 let voiceStarting: Promise<void> | null = null;
 // Octo's settings for the agent's own spans (speech/telemetry.py): the same Phoenix project as tracing.ts. Set by start().
@@ -134,7 +138,29 @@ function voiceToken(ask: VoiceAsk = {}): { url: string; token: string; room: str
   const body = `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64({ iss: LIVEKIT.key, sub: `caller-${crypto.randomUUID().slice(0, 8)}`, nbf: now - 5, exp: now + 3600,
     attributes: { 'copilot.stack': stack, 'copilot.language': language },
     video: { room, roomJoin: true, canPublish: true, canSubscribe: true, canPublishData: true, canUpdateOwnMetadata: true } })}`;
-  return { url: LIVEKIT.url, room, stack, language, token: `${body}.${crypto.createHmac('sha256', LIVEKIT.secret).update(body).digest('base64url')}` };
+  return { url: LIVEKIT_PUBLIC || LIVEKIT.url, room, stack, language, token: `${body}.${crypto.createHmac('sha256', LIVEKIT.secret).update(body).digest('base64url')}` };
+}
+
+// /rtc on this server to LiveKit (LIVEKIT_PUBLIC_URL set): plain requests and the signalling WebSocket, passed as they are.
+const lk = new URL(LIVEKIT.url.replace(/^ws/, 'http'));
+function rtcRequest(req: http.IncomingMessage, res: http.ServerResponse) {
+  const up = http.request({ host: lk.hostname, port: Number(lk.port) || 80, method: req.method, path: req.url, headers: { ...req.headers, host: lk.host } },
+    r => { res.writeHead(r.statusCode ?? 502, r.headers); r.pipe(res); });
+  up.on('error', () => { if (!res.headersSent) res.writeHead(502); res.end(); });
+  req.pipe(up);
+}
+function rtcUpgrade(req: http.IncomingMessage, socket: net.Socket, head: Buffer) {
+  if (!req.url?.startsWith('/rtc')) { socket.destroy(); return; }
+  const up = net.connect(Number(lk.port) || 80, lk.hostname, () => {
+    const lines = [`${req.method} ${req.url} HTTP/1.1`];
+    for (let i = 0; i < req.rawHeaders.length; i += 2)
+      lines.push(`${req.rawHeaders[i]}: ${req.rawHeaders[i].toLowerCase() === 'host' ? lk.host : req.rawHeaders[i + 1]}`);
+    up.write(`${lines.join('\r\n')}\r\n\r\n`);
+    if (head.length) up.write(head);
+    socket.pipe(up).pipe(socket);
+  });
+  up.on('error', () => socket.destroy());
+  socket.on('error', () => up.destroy());
 }
 
 const HEADERS = { 'X-Robots-Tag': 'noindex, nofollow', 'Referrer-Policy': 'no-referrer', 'X-Frame-Options': 'DENY',
@@ -142,9 +168,10 @@ const HEADERS = { 'X-Robots-Tag': 'noindex, nofollow', 'Referrer-Policy': 'no-re
 const TYPES: Record<string, string> = { '.mp4': 'video/mp4', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.ico': 'image/x-icon', '.woff2': 'font/woff2', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
   '.json': 'application/json', '.txt': 'text/plain; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png' };
 
-// Behind the Cloudflare Tunnel every request comes from localhost; the visitor's address is in CF-Connecting-IP.
+// Behind the Cloudflare Tunnel every request comes from localhost (or, deployed, from the tunnel's container: TRUST_PROXY=1);
+// the visitor's address is in CF-Connecting-IP.
 function visitor(req: http.IncomingMessage): string {
-  const local = ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress ?? '');
+  const local = process.env.TRUST_PROXY === '1' || ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress ?? '');
   const cf = req.headers['cf-connecting-ip'];
   return local && typeof cf === 'string' ? cf : req.socket.remoteAddress ?? '';
 }
@@ -170,6 +197,7 @@ export async function start(opts: { port?: number; host?: string; offline?: bool
       res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
       res.end(JSON.stringify(url.pathname === '/api/voice/token' ? voiceToken(ask) : voiceOptions(ask))); return;
     }
+    if (LIVEKIT_PUBLIC && url.pathname.startsWith('/rtc')) { rtcRequest(req, res); return; }
     if (url.pathname.startsWith('/api/')) {
       const chunks: Buffer[] = [];
       for await (const c of req) chunks.push(c as Buffer);
@@ -204,6 +232,7 @@ export async function start(opts: { port?: number; host?: string; offline?: bool
     if (req.method === 'HEAD') { res.end(); return; }
     fs.createReadStream(file).pipe(res);
   });
+  if (LIVEKIT_PUBLIC) server.on('upgrade', rtcUpgrade);
   await new Promise<void>(r => server.listen(opts.port ?? 0, opts.host ?? '127.0.0.1', r));
   const url = `http://${opts.host ?? '127.0.0.1'}:${(server.address() as { port: number }).port}`;
   return { url, mode: api.mode, close: () => new Promise<void>(r => { server.closeAllConnections(); server.close(() => r()); }).then(() => tracing?.flush()) };

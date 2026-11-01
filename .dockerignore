@@ -1,0 +1,9 @@
+# The deploy images (deploy/) build from the repo root; leave out what each build makes again or never needs.
+.git
+**/node_modules
+**/dist
+**/.venv
+demo/live-site/speech/models
+demo/out
+eval
+checkpoints

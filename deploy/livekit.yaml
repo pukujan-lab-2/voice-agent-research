@@ -1,0 +1,10 @@
+# LiveKit server on the VPS (deploy/docker-compose.vps.yml). Keys come from LIVEKIT_KEYS in the env file; the public
+# address is given with --node-ip. Signalling (7880) stays inside Docker and reaches the page through server.ts's /rtc;
+# call audio uses one TCP and one UDP port on the VPS's public address.
+port: 7880
+rtc:
+  tcp_port: 7881
+  udp_port: 7882
+  use_external_ip: false
+logging:
+  level: info

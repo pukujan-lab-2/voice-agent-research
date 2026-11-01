@@ -1,0 +1,87 @@
+# The copilot lab on the VPS: the site and its backend, the LiveKit server and the voice agent. See deploy/README.md.
+# Komodo's `copilot` stack deploys it (deploy/vps/autodeploy.sh) when GitHub's `production` branch moves.
+# The site binds loopback on 127.0.0.1:18787 and joins study-os_edge, where Cloudflare tunnel A reaches it as
+# copilot-web:8787 (copilot.design-bakery.com). Models stay on the MacBook Pro, reached through reverse SSH tunnels to
+# this host's loopback that the bridges below re-offer on the Docker gateway (containers can't reach the host's loopback):
+#   18099  LFM3 text model         nyc-map-agent's lfm3-bridge (that stack owns it)
+#   18799  speech/server.py        speech-bridge
+#   18798  LFM3-Audio's llama.cpp  audio-bridge
+name: copilot
+
+x-env: &env
+  env_file:
+    - path: ${COPILOT_ENV_FILE:-../../copilot.env}
+      required: false
+  extra_hosts:
+    - host.docker.internal:host-gateway
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "3" }
+
+services:
+  web:
+    <<: *env
+    container_name: copilot-web
+    image: ${COPILOT_WEB_IMAGE:-copilot-web:local}
+    build:
+      context: ..
+      dockerfile: deploy/web.Dockerfile
+    environment:
+      LIVEKIT_URL: ws://copilot-livekit:7880
+      LIVEKIT_PUBLIC_URL: ${LIVEKIT_PUBLIC_URL:-wss://copilot.design-bakery.com}
+      SPEECH_URL: http://host.docker.internal:18799
+      LLAMA_URL: http://host.docker.internal:18099
+      LFM3_AUDIO_URL: http://host.docker.internal:18798
+    ports:
+      - 127.0.0.1:18787:8787
+    networks: [default, edge]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8787/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  agent:
+    <<: *env
+    container_name: copilot-agent
+    image: ${COPILOT_AGENT_IMAGE:-copilot-agent:local}
+    build:
+      context: ..
+      dockerfile: deploy/agent.Dockerfile
+    environment:
+      LIVEKIT_URL: ws://copilot-livekit:7880
+      SPEECH_URL: http://host.docker.internal:18799
+    depends_on: [livekit]
+
+  livekit:
+    <<: *env
+    container_name: copilot-livekit
+    image: livekit/livekit-server:v1.13.10
+    command: ["--config", "/etc/livekit.yaml", "--node-ip", "${LIVEKIT_NODE_IP:-51.79.81.162}"]
+    volumes:
+      - ./livekit.yaml:/etc/livekit.yaml:ro
+    # Call audio: one TCP and one UDP port on the public address. Signalling (7880) stays on the compose network.
+    ports:
+      - 7881:7881/tcp
+      - 7882:7882/udp
+
+  speech-bridge:
+    <<: *env
+    container_name: copilot-speech-bridge
+    image: alpine/socat:1.8.0.3
+    network_mode: host
+    command: ["TCP-LISTEN:18799,bind=172.17.0.1,fork,reuseaddr,range=172.16.0.0/12", "TCP:127.0.0.1:18799"]
+
+  audio-bridge:
+    <<: *env
+    container_name: copilot-audio-bridge
+    image: alpine/socat:1.8.0.3
+    network_mode: host
+    command: ["TCP-LISTEN:18798,bind=172.17.0.1,fork,reuseaddr,range=172.16.0.0/12", "TCP:127.0.0.1:18798"]
+
+networks:
+  edge:
+    name: study-os_edge
+    external: true

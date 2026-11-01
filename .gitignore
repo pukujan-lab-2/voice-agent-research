@@ -2,3 +2,6 @@
 .env
 .env.*
 node_modules/
+
+# deploy/vps/autodeploy.sh remembers a commit that failed to deploy here
+.deploy-failed

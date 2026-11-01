@@ -48,7 +48,7 @@ A visitor opens the copilot on a site and talks to it. The copilot can:
 7. **Demo sites are original.** Popular sites can be references, never copies of a real brand.
 8. **Every module is swappable.** No model or module is hard-wired. Each one is a named option with versions that the owner, a business (from its allowed list and default) or a visitor picks per task, as [decision 0012](docs/decisions/0012-swappable-voice-stacks.md) does for voice. Only the models the active config picks are loaded; changing the config swaps them out, so the lab never runs every option at once. Decision models are #74; vision, video and audio understanding is #73.
 
-## Status (2026-10-31)
+## Status (2026-11-01)
 
 | Area | State |
 |---|---|
@@ -56,7 +56,7 @@ A visitor opens the copilot on a site and talks to it. The copilot can:
 | Grounded answers on the IRS library | 100% of cited quotes real; vague questions are not clarified yet (0/100) |
 | Caller verification | 24/24 scenarios, no impostor verified, no leaks |
 | Voice | Uses browser speech today, which breaks the in-house rule. Being rebuilt on LiveKit Agents |
-| Hosting | Local only. Not hosted yet, by the owner's choice |
+| Hosting | https://copilot.design-bakery.com, deployed when `production` moves (decision 0015, `deploy/`) |
 | Phone calls | Planned (LiveKit SIP) |
 | Multi-language | Voice: English on the default stack; English, Spanish, French, Italian, Portuguese, Hindi and Chinese on the `multilingual` stack (decision 0012); English on the one-model `lfm3-audio` stack (decision 0013). Text chat passes the visitor's words through |
 

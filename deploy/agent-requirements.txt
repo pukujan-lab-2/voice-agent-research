@@ -1,0 +1,8 @@
+# What speech/agent.py needs in its own image (deploy/agent.Dockerfile); the versions speech/requirements.txt resolves to.
+livekit-agents==1.8.8
+livekit-plugins-silero==1.8.8
+livekit-plugins-turn-detector==1.8.8
+aiohttp==3.14.5
+numpy==2.5.4
+opentelemetry-sdk==1.45.2
+opentelemetry-exporter-otlp-proto-http==1.45.2

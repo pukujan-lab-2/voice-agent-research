@@ -1,6 +1,6 @@
 # 0007. Not hosted yet
 
-**Status:** Accepted · **Date:** 2026-10-31
+**Status:** Replaced by [0015](0015-production-branch-deploys.md) · **Date:** 2026-10-31
 
 ## Decision
 
