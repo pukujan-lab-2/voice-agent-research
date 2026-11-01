@@ -56,6 +56,29 @@ Starting revision, material inputs/configuration, runtime, exact command or prom
 
 No checkpoints yet.
 
+### 2026-11-01 18:23:32 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["copilot-engine/src/site-config.ts, demo/live-site/api.ts, widget/sdk.ts, widget/remote.ts, tools/site-config.ts, tests, docs/scaling-limits.md"],"completed":["A business's pages, voice stacks and desk settings now live in Octo by business, so a large site sends only its id and the server holds each call to the stacks that business allows"],"decisions":["no new decisions"],"evidence":["npm run check passes; 4 new config tests on a real Postgres engine and 3 new API tests; SiteConfigs smoke-tested against the live Octo workspace; the widget bundle build fails in this worktree on an existing stylesheet error (::highlight) that this change does not touch"],"next_action":"Merge the pull request, then start the large-site form index (#104)","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0042","timestamp":"2026-11-01T18:23:32Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"4ad6c038ce8940471c2806268f701dae55acd1372fc316d748185bae60f57921","request_id":"a36d5cba484e4c4c9cc57db5fb42b5c6","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0042"} -->
+
+Completed:
+- A business's pages, voice stacks and desk settings now live in Octo by business, so a large site sends only its id and the server holds each call to the stacks that business allows
+
+Evidence:
+- npm run check passes; 4 new config tests on a real Postgres engine and 3 new API tests; SiteConfigs smoke-tested against the live Octo workspace; the widget bundle build fails in this worktree on an existing stylesheet error (::highlight) that this change does not touch
+
+Decisions:
+- no new decisions
+
+Changed:
+- copilot-engine/src/site-config.ts, demo/live-site/api.ts, widget/sdk.ts, widget/remote.ts, tools/site-config.ts, tests, docs/scaling-limits.md
+
+Blocked/uncertain:
+- none
+
+Next:
+- Merge the pull request, then start the large-site form index (#104)
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
