@@ -1062,6 +1062,7 @@ Caller: "Thanks, that helps." -> no tool; say "You're welcome. Anything else?"`;
         tails.push(p ? p.text : this.unknown);
       } else if (this.lookups && c.name.startsWith('lookup_')) {
         acted = true; answered = true;
+        if (++this.lookupsThisTurn > 3) { ev({ type: 'lookup_limit' }); rec(c, 'Too many lookups this turn.'); continue; } // the cap is shared with answer_question
         const text = await this.runLookup(c, false);
         rec(c, text); tails.push(text);
       } else if (c.name === 'end_call') {

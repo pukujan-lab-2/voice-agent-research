@@ -40,7 +40,11 @@ One command shows whether the huge-site layer still answers with a real citation
 
 ## Evidence and sources
 
-Link repository state at a revision and cite external factual claims directly. Record commands and results for claims that need verification.
+Observed on branch `task/WCP-0074-hugesite-evals` (stacked on #108 to #111):
+
+- `node eval/hugesite.ts` passes at 3,000 passages (3,750 with the second business, 94 callers, under 1 s) and at 20,000 (25,000 with the second business, 7.8 s): 40 fact callers (gold passage cited 100%), 20 vague, 10 unanswerable (the configured "I don't know"), 12 record callers in eight shapes, 12 hostile-model callers over 7 turns each.
+- `npm run check` passes, with 5 new eval tests; 4 are negative controls: a private column that reaches the caller, tables shared with no business column, and an unreachable pass mark each make the run fail, and the same seed gives the same report.
+- Limits of what this shows: the retriever here is a word-overlap stand-in for Octo and the judge is the word-overlap judge, so the numbers prove the guarantees (citation, quote, scope, caps), not retrieval quality; that is eval/size and the IRS figures in docs/retrieval-limits.md.
 
 ## Reproduction details (only when needed)
 
