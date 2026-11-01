@@ -5,3 +5,9 @@ node_modules/
 
 # deploy/vps/autodeploy.sh remembers a commit that failed to deploy here
 .deploy-failed
+
+# Python
+__pycache__/
+.pytest_cache/
+.venv/
+.ruff_cache/
