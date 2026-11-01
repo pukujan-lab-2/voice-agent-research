@@ -403,6 +403,19 @@ function defaultRisk(f: Field): number {
 }
 const riskRule = (r: number) => RISK_BANDS.find(b => r <= b.upTo)!.rule;
 
+// ---------- prompt budget (#101) ----------
+// The model never holds the form; code does. A form of up to FULL_FORM_FIELDS fields is listed to the model in full, as
+// it always was. A bigger one shows the model only a window of it, so the prompt stays one size however many fields the
+// form has: the open field, the read-back waiting, where to return to, the next few empty fields, the last few filled,
+// and any field the caller just named. Everything else stays in `values` and is only counted.
+const FULL_FORM_FIELDS = 24;
+const WINDOW_AHEAD = 4;    // empty fields after the open one
+const WINDOW_RECENT = 3;   // most recently filled fields, so "change that" has something to point at
+const WINDOW_NAMED = 3;    // fields the caller's words name
+const WINDOW_MAX = 14;     // hard cap on the window
+const OPTIONS_SHOWN = 12;  // a choice with more options shows this many and a count
+const LOG_KEEP = 40;       // entries kept at each end of a long call's log (the first and the latest)
+
 // A real question sentence anywhere in the turn (not a meta one like "can we move on?").
 const ASKED_Q = /\b(what|where|which|how|why|when|can i|do i|do you|does|is there|is it|are there|should i|will it)\b(?![^.?!]*\b(move on|speed|hurry|hear me|still there|get that|got that)\b)[^.?!]*\?/i;
 const QUESTION = /\?\s*$|^\s*(what|where|which|how|why|when|can you|could you|do you|does|is there|are you|will|would you)\b/i;
@@ -441,6 +454,7 @@ export class Desk {
   private maxModel = 220;
   private toolsSpec: unknown[];
   private system: string;
+  private windowed: boolean;
   // The prompt version the traces record: a short hash of the system prompt and the tools, so a change to either shows.
   get promptVersion(): string {
     let h = 0x811c9dc5;
@@ -472,8 +486,9 @@ export class Desk {
   private unknown: string;
   private finish?: string;
 
-  constructor(flow: Flow, opts: { model?: ChatModel; heavy?: ChatModel; docs?: Docs; answer?: (question: string, filter?: SearchFilter) => Promise<string | null>; search?: SiteSearch; lookups?: Lookups; caller?: () => Caller; unknown?: string; finish?: string; hooks?: Partial<Hooks>; route?: (said: string, d: Desk) => boolean; sessions?: Store; customers?: Store } = {}) {
+  constructor(flow: Flow, opts: { model?: ChatModel; heavy?: ChatModel; docs?: Docs; answer?: (question: string, filter?: SearchFilter) => Promise<string | null>; search?: SiteSearch; lookups?: Lookups; caller?: () => Caller; unknown?: string; finish?: string; hooks?: Partial<Hooks>; route?: (said: string, d: Desk) => boolean; sessions?: Store; customers?: Store; fullFormFields?: number } = {}) {
     this.flow = flow;
+    this.windowed = flow.fields.length > (opts.fullFormFields ?? FULL_FORM_FIELDS);
     this.answer = opts.answer;
     this.unknown = opts.unknown ?? "I'm sorry, I don't have that information.";
     this.finish = opts.finish;
@@ -493,6 +508,12 @@ export class Desk {
     this.system = this.systemPrompt() + (this.search ? SEARCH_HINT : '') + (this.lookups ? LOOKUP_HINT : '');
   }
 
+  // Appends to the call log. A long call keeps its first entry (the opening line) and the latest ones.
+  private logLine(who: 'user' | 'agent', text: string) {
+    this.log.push({ who, text });
+    if (this.log.length > 2 * LOG_KEEP) this.log.splice(1, this.log.length - LOG_KEEP - 1);
+  }
+
   field(name: string): Field | undefined {
     const n = String(name ?? '').trim().toLowerCase();
     return this.flow.fields.find(f => f.name.toLowerCase() === n) ?? this.flow.fields.find(f => f.label.toLowerCase() === n || (f.aliases ?? []).includes(n));
@@ -504,7 +525,7 @@ export class Desk {
   start(): string {
     const f = this.field(this.current);
     const say = f ? `${this.flow.intro} ${f.question}` : this.flow.intro;
-    this.log.push({ who: 'agent', text: say });
+    this.logLine('agent', say);
     return say;
   }
 
@@ -516,7 +537,7 @@ export class Desk {
     let say: string;
     if (this.allFilled()) { say = `${lead} ${this.finishLine()}`; this.complete = true; }
     else say = `${lead} ${this.field(this.current)!.question}`;
-    this.log.push({ who: 'agent', text: say });
+    this.logLine('agent', say);
     return say;
   }
 
@@ -524,10 +545,10 @@ export class Desk {
     this.n++;
     this.lastUser = said;
     if (HURRY.test(said)) this.brisk = true;
-    this.log.push({ who: 'user', text: said });
+    this.logLine('user', said);
     const memReply = await this.memoryTurn(said);
     if (memReply !== null) {
-      this.log.push({ who: 'agent', text: memReply });
+      this.logLine('agent', memReply);
       this.remember(said, memReply);
       this.turns.push({ turn: this.n, said, reply: memReply, ms: 0, model: 'code', calls: [] });
       await this.save();
@@ -539,7 +560,7 @@ export class Desk {
       this.pendingLookup = null;
       if (clearYes(said)) {
         const out = await this.runLookup(waiting, true);
-        this.log.push({ who: 'agent', text: out });
+        this.logLine('agent', out);
         this.remember(said, out);
         this.turns.push({ turn: this.n, said, reply: out, ms: 0, model: 'code', calls: [waiting.name] });
         await this.save();
@@ -584,7 +605,7 @@ export class Desk {
       reply = await this.rulesTurn(said);
     }
     reply = reply.replace(/\s+/g, ' ').trim();
-    this.log.push({ who: 'agent', text: reply });
+    this.logLine('agent', reply);
     this.remember(said, reply);
     this.turns.push({ turn: this.n, said, reply, ms: Date.now() - waited() - t0, model: modelName, calls, fallback });
     await this.save();
@@ -595,7 +616,7 @@ export class Desk {
   note(said: string, reply: string) {
     this.n++;
     this.acts = [];
-    this.log.push({ who: 'user', text: said }, { who: 'agent', text: reply });
+    this.logLine('user', said); this.logLine('agent', reply);
     this.remember(said, reply);
     this.turns.push({ turn: this.n, said, reply, ms: 0, model: 'code', calls: [] });
   }
@@ -629,7 +650,7 @@ export class Desk {
     if (this.pending) say += ` Before we got cut off I was checking this: ${this.pending.text}`;
     else if (this.allFilled()) say += ` ${this.finishLine()}`;
     else say += ` Next is the ${this.field(this.current)!.label}. ${this.field(this.current)!.question}`;
-    this.log.push({ who: 'agent', text: say });
+    this.logLine('agent', say);
     this.hist.push({ role: 'assistant', content: say });
     this.events.push({ turn: this.n, type: 'resumed', detail: had.join(',') });
     return say;
@@ -736,13 +757,14 @@ export class Desk {
   // ----- prompts -----
   private systemPrompt(): string {
     if (this.answerOnly) return this.askPrompt();
-    const fields = this.flow.fields.map(f => `- ${f.name}: ${f.label} (${f.kind}${f.options ? `; one of: ${f.options.join(' | ')}` : ''}${f.optional ? '; optional, the customer may say none' : ''}; risk ${this.risk(f)}: ${riskRule(this.risk(f))})${f.hint ? `. ${f.hint}` : ''}`).join('\n');
+    const form = this.windowed
+      ? `The form has ${this.flow.fields.length} fields, asked in order. Each message ends with the fields to work on now (the open one, the next few and any the customer just named), each with its rule and its answer so far, and a count of the rest. Code keeps every answer. Work only on the fields listed; never guess a field's name.`
+      : `Form fields, in order:\n${this.flow.fields.map(f => this.fieldLine(f)).join('\n')}`;
     return `You are the front-desk receptionist at ${this.flow.business}, on a voice call. You fill in the online form for the customer while you talk. You cannot see or press the Submit button; the customer presses it at the end.
 
 How you sound: warm, calm and professional, like an experienced receptionist. Spoken English, 1 or 2 short sentences. No lists, no markdown, no emojis. A little small talk is fine, then gently steer back. Ask for one thing at a time.
 
-Form fields, in order:
-${fields}
+${form}
 
 How you work. The form changes ONLY through your tools:
 - The customer gives a value for any field (even out of order, or several at once): call propose_value for each, with the value cleaned up (no "my name is", digits for numbers, lower-case email). Code reads it back to them word for word, spelling names and grouping numbers. Do not read values back yourself and never say anything is saved.
@@ -786,16 +808,56 @@ Caller: "How long do I have to file an amended return?" -> answer_question("How 
 Caller: "Thanks, that helps." -> no tool; say "You're welcome. Anything else?"`;
   }
 
-  private stateNote(): string {
-    const lines = this.flow.fields.map(f => {
-      const v = this.values[f.name];
-      const g = this.pending?.group?.find(x => x.field === f.name);
-      const tag = this.pending?.field === f.name ? ` (waiting for yes/no on: "${this.pending.value}")` : g ? ` (waiting for yes/no on: "${g.value}")` : '';
-      return `${f.name}: ${v !== undefined ? `"${v}"` : 'empty'}${tag}${f.name === this.current && !this.pending ? '  <- asking now' : ''}`;
-    });
+  // One field as the model is told about it: name, label, kind, options, how it is confirmed.
+  private fieldLine(f: Field): string {
+    const shown = !f.options ? undefined : this.windowed && f.options.length > OPTIONS_SHOWN ? `${f.options.slice(0, OPTIONS_SHOWN).join(' | ')} | (${f.options.length - OPTIONS_SHOWN} more; code checks the answer)` : f.options.join(' | ');
+    const hint = f.hint && this.windowed ? f.hint.slice(0, 160) : f.hint;
+    return `- ${f.name}: ${f.label} (${f.kind}${shown !== undefined ? `; one of: ${shown}` : ''}${f.optional ? '; optional, the customer may say none' : ''}; risk ${this.risk(f)}: ${riskRule(this.risk(f))})${hint ? `. ${hint}` : ''}`;
+  }
+
+  // One field's answer so far, and whether it is open or waiting for a yes.
+  private valueTag(f: Field): string {
+    const v = this.values[f.name];
+    const g = this.pending?.group?.find(x => x.field === f.name);
+    const tag = this.pending?.field === f.name ? ` (waiting for yes/no on: "${this.pending.value}")` : g ? ` (waiting for yes/no on: "${g.value}")` : '';
+    return `${v !== undefined ? `"${v}"` : 'empty'}${tag}${f.name === this.current && !this.pending ? '  <- asking now' : ''}`;
+  }
+
+  // Fields whose label the caller's words name ("change my favourite colour"), best match first.
+  private named(said: string): Field[] {
+    const have = new Set(docWords(said));
+    if (!have.size) return [];
+    return this.flow.fields.map(f => ({ f, w: docWords(f.label) })).filter(x => x.w.length && x.w.every(w => have.has(w)))
+      .sort((a, b) => b.w.length - a.w.length).slice(0, WINDOW_NAMED).map(x => x.f);
+  }
+
+  // The fields a large form shows the model this turn, most important first, at most WINDOW_MAX.
+  private windowFields(said: string): Field[] {
+    const out: Field[] = [], seen = new Set<string>();
+    const add = (f?: Field) => { if (f && !seen.has(f.name)) { seen.add(f.name); out.push(f); } };
+    if (this.pending) { add(this.field(this.pending.field)); for (const g of this.pending.group ?? []) add(this.field(g.field)); }
+    add(this.field(this.current));
+    if (this.returnTo.length) add(this.field(this.returnTo[this.returnTo.length - 1]));
+    for (const q of this.queue) add(this.field(q.field));
+    for (const f of this.named(said)) add(f);
+    const fields = this.flow.fields;
+    for (let k = fields.findIndex(f => f.name === this.current) + 1, ahead = 0; k < fields.length && ahead < WINDOW_AHEAD; k++) {
+      if (this.values[fields[k].name] === undefined) { add(fields[k]); ahead++; }
+    }
+    for (let k = this.fills.length - 1, got = 0; k >= 0 && got < WINDOW_RECENT; k--) {
+      const f = this.field(this.fills[k].field);
+      if (f && this.values[f.name] !== undefined && !seen.has(f.name)) { add(f); got++; }
+    }
+    return out.slice(0, WINDOW_MAX);
+  }
+
+  private stateNote(said: string): string {
     const back = this.returnTo.length ? `\nAfter this, return to: ${this.returnTo[this.returnTo.length - 1]}` : '';
     const misheard = this.misheard ? `\nA value was misheard earlier: every risk is now ${RISK_MISHEARD} higher, so read back even short picks.` : '';
-    return `[Form state, not said by the customer]\n${lines.join('\n')}${back}${misheard}`;
+    if (!this.windowed) return `[Form state, not said by the customer]\n${this.flow.fields.map(f => `${f.name}: ${this.valueTag(f)}`).join('\n')}${back}${misheard}`;
+    const win = this.windowFields(said);
+    const total = this.flow.fields.length, filled = this.flow.fields.filter(f => this.values[f.name] !== undefined).length;
+    return `[Form state, not said by the customer]\n${filled} of ${total} fields filled. Fields to work on now:\n${win.map(f => `${this.fieldLine(f)} => ${this.valueTag(f)}`).join('\n')}\n${total - win.length} other fields are not shown; code keeps their answers.${back}${misheard}`;
   }
 
   // Past turns keep their tool calls (including the ones code made for the model), so the model sees how the form is
@@ -830,7 +892,7 @@ Caller: "Thanks, that helps." -> no tool; say "You're welcome. Anything else?"`;
     const starts = h.map((m, i) => (m.role === 'user' ? i : -1)).filter(i => i >= 0);
     if (starts.length > this.histTurns) h = h.slice(starts[starts.length - this.histTurns]);
     const opening: ChatMsg[] = h === this.hist ? [{ role: 'user', content: '(call connected)' }, { role: 'assistant', content: this.log[0]?.text ?? '' }] : [];
-    return [{ role: 'system', content: this.system }, ...opening, ...h, { role: 'user', content: this.answerOnly ? said : `${said}\n\n${this.stateNote()}` }];
+    return [{ role: 'system', content: this.system }, ...opening, ...h, { role: 'user', content: this.answerOnly ? said : `${said}\n\n${this.stateNote(said)}` }];
   }
 
   private remember(said: string, reply: string) {
@@ -841,6 +903,15 @@ Caller: "Thanks, that helps." -> no tool; say "You're welcome. Anything else?"`;
       this.acts.forEach((a, i) => this.hist.push({ role: 'tool', tool_call_id: ids[i], content: a.result }));
     }
     this.hist.push({ role: 'assistant', content: reply });
+    // Only the last histTurns user turns are ever sent, so a long call keeps twice that and drops the rest.
+    const starts = this.hist.flatMap((m, i) => (m.role === 'user' ? [i] : []));
+    const keep = Math.max(12, this.histTurns * 2);
+    if (starts.length > keep) this.hist = this.hist.slice(starts[starts.length - keep]);
+  }
+
+  // A small form lets the model pick a field name from a list; a large form does not (the list would be the form).
+  private fieldParam(names: string[]): Record<string, unknown> {
+    return this.windowed ? { type: 'string', description: 'The name of a field listed in the message' } : { type: 'string', enum: names };
   }
 
   private tools(): unknown[] {
@@ -854,10 +925,10 @@ Caller: "Thanks, that helps." -> no tool; say "You're welcome. Anything else?"`;
     if (this.answerOnly) return ask;
     return [
       fn('propose_value', 'Propose a value for a form field. Code reads it back to the customer; it is only filled after they say yes.',
-        { field: { type: 'string', enum: names }, value: { type: 'string', description: 'The cleaned-up value' } }, ['field', 'value']),
+        { field: this.fieldParam(names), value: { type: 'string', description: 'The cleaned-up value' } }, ['field', 'value']),
       fn('confirm_pending', 'The customer clearly said yes to the read-back: fill the field.'),
       fn('reject_pending', 'The customer said the read-back is wrong and gave no new value.'),
-      fn('go_to_field', 'Go back (or forward) to a field the customer wants to change; the form returns to where it was afterwards.', { field: { type: 'string', enum: names } }, ['field']),
+      fn('go_to_field', 'Go back (or forward) to a field the customer wants to change; the form returns to where it was afterwards.', { field: this.fieldParam(names) }, ['field']),
       fn('answer_question', `Look up the answer to a question about ${this.flow.business} in its own documents.`, { question: { type: 'string' } }, ['question']),
       fn('end_call', 'The customer says goodbye or wants to stop.', { reason: { type: 'string' } }),
     ];
