@@ -2148,3 +2148,197 @@
 {"ts":"2026-11-01T06:53:00.053Z","engine":"0.1.0","model":"rules","scenario":"5b wait at the card submits nothing and offers changes","pass":true,"detail":""}
 {"ts":"2026-11-01T06:53:00.079Z","engine":"0.1.0","model":"rules","scenario":"5c a change request at the card re-asks only that field","pass":true,"detail":""}
 {"ts":"2026-11-01T06:53:00.092Z","engine":"0.1.0","model":"rules","scenario":"6 every answer needs a yes; going back two questions returns to the open one","pass":true,"detail":""}
+{"ts":"2026-11-01T07:08:10.785Z","engine":"0.1.0","model":"rules","scenario":"1 serial read-back, mishear, correction","pass":true,"detail":""}
+{"ts":"2026-11-01T07:08:10.809Z","engine":"0.1.0","model":"rules","scenario":"2 off-scope is declined, then the task resumes","pass":true,"detail":""}
+{"ts":"2026-11-01T07:08:10.817Z","engine":"0.1.0","model":"rules","scenario":"3 changing an earlier answer changes only that field","pass":true,"detail":""}
+{"ts":"2026-11-01T07:08:10.824Z","engine":"0.1.0","model":"rules","scenario":"4 a yes before the confirm card submits nothing","pass":true,"detail":""}
+{"ts":"2026-11-01T07:08:10.832Z","engine":"0.1.0","model":"rules","scenario":"5 silence, maybe and wait never submit; a clear yes does","pass":true,"detail":""}
+{"ts":"2026-11-01T07:08:10.840Z","engine":"0.1.0","model":"rules","scenario":"5b wait at the card submits nothing and offers changes","pass":true,"detail":""}
+{"ts":"2026-11-01T07:08:10.847Z","engine":"0.1.0","model":"rules","scenario":"5c a change request at the card re-asks only that field","pass":true,"detail":""}
+{"ts":"2026-11-01T07:08:10.854Z","engine":"0.1.0","model":"rules","scenario":"6 every answer needs a yes; going back two questions returns to the open one","pass":true,"detail":""}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"keys: no key appears in any file served to the browser","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"clinic: page carries the fictional-company banner and noindex","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"clinic: opens on the booking form and asks for the child","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"clinic: child's name: read back before it is typed in","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"clinic: child's name: typed in after the yes","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"clinic: \"checkup\" picks Well-child checkup: typed in and said in passing","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"clinic: hands step 1 back: press Next yourself","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"clinic: next step starts by itself: Mornings or afternoons","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"clinic: morning: typed in and said in passing","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"clinic: Tuesday slot: typed in and said in passing","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"clinic: next step starts by itself: parent or guardian","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"clinic: parent name: read back before it is typed in","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"clinic: parent name: typed in after the yes","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"clinic: phone read back in digit groups before it is kept","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"clinic: email: read back before it is typed in","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"clinic: email: typed in after the yes","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"clinic: final hand-back names Book visit and the reminder box","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"clinic: all step-3 fields filled, reminder untouched","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"clinic: copilot sent nothing and never left the page","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"clinic: the panel shows every copilot message","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"clinic: pressing the button shows \"Demo: nothing was sent\", and no POST left the browser","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"appliance: page carries the fictional-company banner and noindex","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"appliance: the call opens as a compact bar","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"appliance: walk-through starts at step 1 of the E24 fix","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"appliance: E24 answered from the manual with a page","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"appliance: the citation links to that page of the manual","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"appliance: \"next\" moves to step 2","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"appliance: warranty answered with page 8","pass":false}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"appliance: outside the manual: \"I don't know\"","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"appliance: side question during the form is answered from the manual, nothing typed","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"appliance: a spaced, short serial says what was heard and what is wrong","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"appliance: no keyboard offer while typing","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"appliance: serial read back","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"appliance: a \"no\" asks again and keeps nothing","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"appliance: serial (\"L as in Lima\"): read back before it is typed in","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"appliance: serial (\"L as in Lima\"): typed in after the yes","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"appliance: error code E24: read back before it is typed in","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"appliance: error code E24: typed in after the yes","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"appliance: name: read back before it is typed in","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"appliance: name: typed in after the yes","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"appliance: email: read back before it is typed in","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"appliance: email: typed in after the yes","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"appliance: description: read back before it is typed in","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"appliance: description: typed in after the yes","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"appliance: hand-back: press Request visit yourself","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"appliance: copilot sent nothing and never left the page","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"appliance: the panel shows every copilot message","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"appliance: pressing the button shows \"Demo: nothing was sent\", and no POST left the browser","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"pricing: page carries the fictional-company banner and noindex","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"pricing: business name: read back before it is typed in","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"pricing: business name: typed in after the yes","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"pricing: contact: read back before it is typed in","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"pricing: contact: typed in after the yes","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"pricing: email: read back before it is typed in","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"pricing: email: typed in after the yes","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"pricing: Growth plan: typed in and said in passing","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"pricing: budget $1,000 to $3,000: typed in and said in passing","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"pricing: needs: read back before it is typed in","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"pricing: needs: typed in after the yes","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"pricing: hand-back: press Request a quote yourself","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"pricing: copilot sent nothing and never left the page","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"pricing: the panel shows every copilot message","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"pricing: pressing the button shows \"Demo: nothing was sent\", and no POST left the browser","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"itdesk: page carries the fictional-company banner and noindex","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"itdesk: category Network: typed in and said in passing","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"itdesk: service VPN: typed in and said in passing","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"itdesk: the page's own pattern rejects a bad asset tag, and the copilot asks again","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"itdesk: asset tag: read back before it is typed in","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"itdesk: asset tag: typed in after the yes","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"itdesk: impact: just me: typed in and said in passing","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"itdesk: urgency High: typed in and said in passing","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"itdesk: off-topic request is turned down and nothing is typed","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"itdesk: description: read back before it is typed in","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"itdesk: description: typed in after the yes","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"itdesk: email: read back before it is typed in","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"itdesk: email: typed in after the yes","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"itdesk: hand-back: press Submit ticket yourself","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"itdesk: copilot sent nothing and never left the page","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"itdesk: the panel shows every copilot message","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"itdesk: pressing the button shows \"Demo: nothing was sent\", and no POST left the browser","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"pension: page carries the fictional-company banner and noindex","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"pension: member number, despite the full stop dictation adds: read back before it is typed in","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"pension: member number, despite the full stop dictation adds: typed in after the yes","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"pension: first name: read back before it is typed in","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"pension: first name: typed in after the yes","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"pension: last name: read back before it is typed in","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"pension: last name: typed in after the yes","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"pension: payee code explained from the R-17 guide, page 3","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"pension: processing time answered with page 4","pass":false}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"pension: not in the guide: \"I don't know\", no made-up number","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"pension: \"my son\" picks payee code C: typed in and said in passing","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"pension: share 100: read back before it is typed in","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"pension: share 100: typed in after the yes","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"pension: primary: typed in and said in passing","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"pension: hand-back names the button and the box to tick","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"pension: consent box left for the person","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"pension: copilot sent nothing and never left the page","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"pension: the panel shows every copilot message","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"pension: pressing the button shows \"Demo: nothing was sent\", and no POST left the browser","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"layout: 390x664 /clinic/book: typing: no sideways scroll, every call control on screen, bar under a third of the screen","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"layout: 390x664 /appliance/support: typing: no sideways scroll, every call control on screen, bar under a third of the screen","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"layout: 390x664 /pricing/quote: typing: no sideways scroll, every call control on screen, bar under a third of the screen","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"layout: 390x664 /itdesk/new: typing: no sideways scroll, every call control on screen, bar under a third of the screen","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"layout: 390x664 /pension/forms/r17: typing: no sideways scroll, every call control on screen, bar under a third of the screen","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"layout: 390x664 call bar: Mute, Keyboard and End are on screen","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"layout: 390x664 call bar: the page still scrolls behind the bar","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"layout: 390x664 call bar: tapping the caption opens the conversation","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"layout: 390x664 call bar: dragging the handle down closes it again","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"layout: 390x664 call bar: dragging the handle up opens it","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"layout: 375x560 /clinic/book: typing: no sideways scroll, every call control on screen, bar under a third of the screen","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"layout: 375x560 /appliance/support: typing: no sideways scroll, every call control on screen, bar under a third of the screen","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"layout: 375x560 /pricing/quote: typing: no sideways scroll, every call control on screen, bar under a third of the screen","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"layout: 375x560 /itdesk/new: typing: no sideways scroll, every call control on screen, bar under a third of the screen","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"layout: 375x560 /pension/forms/r17: typing: no sideways scroll, every call control on screen, bar under a third of the screen","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"layout: 375x560 call bar: Mute, Keyboard and End are on screen","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"layout: 375x560 call bar: the page still scrolls behind the bar","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"layout: 375x560 call bar: tapping the caption opens the conversation","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"layout: 375x560 call bar: dragging the handle down closes it again","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"layout: 375x560 call bar: dragging the handle up opens it","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"layout: 360x640 /clinic/book: typing: no sideways scroll, every call control on screen, bar under a third of the screen","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"layout: 360x640 /appliance/support: typing: no sideways scroll, every call control on screen, bar under a third of the screen","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"layout: 360x640 /pricing/quote: typing: no sideways scroll, every call control on screen, bar under a third of the screen","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"layout: 360x640 /itdesk/new: typing: no sideways scroll, every call control on screen, bar under a third of the screen","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"layout: 360x640 /pension/forms/r17: typing: no sideways scroll, every call control on screen, bar under a third of the screen","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"layout: 360x640 call bar: Mute, Keyboard and End are on screen","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"layout: 360x640 call bar: the page still scrolls behind the bar","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"layout: 360x640 call bar: tapping the caption opens the conversation","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"layout: 360x640 call bar: dragging the handle down closes it again","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"layout: 360x640 call bar: dragging the handle up opens it","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"layout: desktop: compact corner window","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"layout: desktop: the handle opens the conversation","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"tax-book: page carries the fictional-company banner and noindex","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"tax-book: opens on the intake form and asks for the full name","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"tax-book: the name is read back spelled out before it is typed in","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"tax-book: name typed in after the yes","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"tax-book: phone: read back before it is typed in","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"tax-book: phone: typed in after the yes","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"tax-book: email: read back before it is typed in","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"tax-book: email: typed in after the yes","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"tax-book: a personal-advice question is offered a consultation, nothing typed","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"tax-book: filing status: typed in and said in passing","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"tax-book: tax years: read back before it is typed in","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"tax-book: tax years: typed in after the yes","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"tax-book: service: typed in and said in passing","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"tax-book: notice: yes: typed in and said in passing","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"tax-book: the notice code is read back letter by letter","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"tax-book: notice code typed in","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"tax-book: day: Monday, November 2: typed in and said in passing","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"tax-book: slot: typed in and said in passing","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"tax-book: \"none\" leaves the optional notes blank","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"tax-book: hands the form back: press Request consultation yourself","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"tax-book: copilot sent nothing and never left the page","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"tax-book: the panel shows every copilot message","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"tax-book: pressing the button shows \"Demo: nothing was sent\", and no POST left the browser","pass":false}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"tax-desk: demo bar, footer notice and noindex","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"tax-desk: suggested questions are IRS FAQ questions, word for word","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"tax-desk: a chip asks the assistant; the answer quotes an IRS source or says it does not know","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"tax-desk: the citation links to irs.gov","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"tax-desk: a question about the assistant is answered by it, with no IRS quote","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"tax-desk: personal advice: a preparer will review it at a consultation, with the booking link","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"tax-desk: off-library question: \"I don't know\" or a polite no, never a made-up answer","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"tax-desk: the desk sent nothing and never left the page","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"tax-phone: /tax: no sideways scroll at 375 px","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"tax-phone: /tax/services: no sideways scroll at 375 px","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"tax-phone: /tax/pricing: no sideways scroll at 375 px","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"tax-phone: /tax/team: no sideways scroll at 375 px","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"tax-phone: /tax/guides: no sideways scroll at 375 px","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"tax-phone: /tax/guides/publications-p17: no sideways scroll at 375 px","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"tax-phone: /tax/faq: no sideways scroll at 375 px","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"tax-phone: /tax/about: no sideways scroll at 375 px","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"tax-phone: /tax/book: no sideways scroll at 375 px","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"tax-phone: the FAQ page lists the IRS questions","pass":false}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"wait: the call start sends one warm-up ping","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"wait: the call timer shows m:ss and ticks","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"wait: a slow first answer shows \"Warming up the assistant… about 2 s\"","pass":false}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"wait: the wait line goes away with the answer","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"wait: quick answers show no wait line","pass":true}
+{"ts":"2026-11-01T07:15:59.376Z","set":"live-site","backend":"offline","scenario":"wait: a slow answer once warm shows \"Thinking… about 3 s\"","pass":false}
+{"ts":"2026-11-01T07:16:46.873Z","engine":"0.1.0","model":"rules","scenario":"1 serial read-back, mishear, correction","pass":true,"detail":""}
+{"ts":"2026-11-01T07:16:46.887Z","engine":"0.1.0","model":"rules","scenario":"2 off-scope is declined, then the task resumes","pass":true,"detail":""}
+{"ts":"2026-11-01T07:16:46.893Z","engine":"0.1.0","model":"rules","scenario":"3 changing an earlier answer changes only that field","pass":true,"detail":""}
+{"ts":"2026-11-01T07:16:46.899Z","engine":"0.1.0","model":"rules","scenario":"4 a yes before the confirm card submits nothing","pass":true,"detail":""}
+{"ts":"2026-11-01T07:16:46.906Z","engine":"0.1.0","model":"rules","scenario":"5 silence, maybe and wait never submit; a clear yes does","pass":true,"detail":""}
+{"ts":"2026-11-01T07:16:46.911Z","engine":"0.1.0","model":"rules","scenario":"5b wait at the card submits nothing and offers changes","pass":true,"detail":""}
+{"ts":"2026-11-01T07:16:46.916Z","engine":"0.1.0","model":"rules","scenario":"5c a change request at the card re-asks only that field","pass":true,"detail":""}
+{"ts":"2026-11-01T07:16:46.922Z","engine":"0.1.0","model":"rules","scenario":"6 every answer needs a yes; going back two questions returns to the open one","pass":true,"detail":""}
