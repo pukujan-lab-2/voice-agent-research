@@ -1,11 +1,11 @@
 # TASK-WCP-0071 — Retrieval At Size
 
-<!-- continuity:task {"acceptance":["A filter never returns a passage outside it (tests)","recall@5/10, MRR and latency reported at each size for the synthetic site and the IRS library","What is slow is filed in the Octo repo with measurements"],"depends_on":["WCP-0050"],"goal":"Search narrows by section, page type and language and holds up at 200,000 passages, with measured figures","id":"WCP-0071","issue_url":"https://github.com/Pukujan-lab/voice-agent-research/issues/109","next_action":"Start the leaf on its task branch","owner":"owner","priority":"P2","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"active","why":"Search has no filters and nobody has measured it beyond 133,000 passages (#109)"} -->
+<!-- continuity:task {"acceptance":["A filter never returns a passage outside it (tests)","recall@5/10, MRR and latency reported at each size for the synthetic site and the IRS library","What is slow is filed in the Octo repo with measurements"],"depends_on":["WCP-0070"],"goal":"Search narrows by section, page type and language and holds up at 200,000 passages, with measured figures","id":"WCP-0071","issue_url":"https://github.com/Pukujan-lab/voice-agent-research/issues/109","next_action":"Start the leaf on its task branch","owner":"owner","priority":"P2","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"active","why":"Search has no filters and nobody has measured it beyond 133,000 passages (#109)"} -->
 
 - Status: active
 - Owner: owner
 - Priority: P2
-- Depends on: WCP-0050
+- Depends on: WCP-0070
 
 ## Goal
 
@@ -31,7 +31,7 @@ A visitor's question can be narrowed to a section, page type or language, and th
 
 - In scope: filters by section, page type and language; a synthetic site generator; recall@5/10, MRR and latency at 10k, 50k and 200k passages and on the IRS library; Octo issues for what is slow.
 - Out of scope: changing Octo itself; a local copy of the data.
-- Dependencies/uncertainty: builds on WCP-0050. Octo's RAG has no metadata filter; title paths and an Octo table stand in until Octo adds one.
+- Dependencies/uncertainty: builds on WCP-0070. Octo's RAG has no metadata filter; title paths and an Octo table stand in until Octo adds one.
 
 ## Acceptance criteria
 
@@ -49,7 +49,7 @@ Starting revision, material inputs/configuration, runtime, exact command or prom
 
 ## Related records
 
-- Leaf #109; parent #107; depends on WCP-0050.
+- Leaf #109; parent #107; depends on WCP-0070.
 - Primary writer claude-code / `task/WCP-0071-*`; source issue open as of 2026-11-01.
 - PR/CI evidence: pending.
 
