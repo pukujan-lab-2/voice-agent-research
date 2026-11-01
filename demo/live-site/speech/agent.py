@@ -90,13 +90,18 @@ class LocalSTT(stt.STT):
         except aiohttp.ClientError:
             pass
 
+    def _timeout(self, conn_options: APIConnectOptions) -> float:
+        # Whisper pads every clip to 30 s of audio and shares the GPU, so on a busy 8 GB laptop a turn can take
+        # well over LiveKit's default 10 s; dropping it would lose what the caller said.
+        return conn_options.timeout if self._voice.parts['listens'].startswith('parakeet') else max(conn_options.timeout, 30.0)
+
     async def _recognize_impl(self, buffer, *, language=None, conn_options: APIConnectOptions) -> stt.SpeechEvent:
         frame = rtc.combine_audio_frames(buffer)
         t = time.perf_counter()
         v = self._voice
         async with self._http.post(f'{SPEECH}/stt', params={'sr': frame.sample_rate, 'stack': v.stack, 'lang': v.picked}, data=_pcm_float(frame),
                                    headers={'content-type': 'application/octet-stream'},
-                                   timeout=aiohttp.ClientTimeout(total=conn_options.timeout)) as r:
+                                   timeout=aiohttp.ClientTimeout(total=self._timeout(conn_options))) as r:
             r.raise_for_status()
             j = await r.json()
         text = j.get('text', '')
