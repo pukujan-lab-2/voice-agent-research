@@ -40,7 +40,14 @@ A vague or two-part question can be refined by the model without losing the cita
 
 ## Evidence and sources
 
-Link repository state at a revision and cite external factual claims directly. Record commands and results for claims that need verification.
+Observed on branch `task/WCP-0072-search-site-tool` (stacked on #108 and #109):
+
+- `npm run check` passes; 15 new tests in `copilot-engine/tests/search-site.test.ts` (75 engine tests in all at that point).
+- A call returns at most 4 passages of at most 400 characters; with a 50-passage site of 5,000-character passages the model-facing text stayed under 2,600 characters.
+- The fourth search in a turn is refused with a note; a model that searches every round gets 3 searches and at most 4 trips to the model, then its answer is used.
+- A section or page type that finds nothing is dropped once and the model is told; `answer_question` does the same, so a wrong guess at a section is not an "I don't know".
+- Quote-only is unchanged: replies in the tests are a stored passage or the same unknown line; a search alone never speaks. At most 3 `answer_question` lookups per turn.
+- Not wired into the live site: `demo/live-site/api.ts` builds the retriever per business, which belongs to the per-business config work (#103).
 
 ## Reproduction details (only when needed)
 
