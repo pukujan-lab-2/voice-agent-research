@@ -1,9 +1,8 @@
 name: CI
 
 # One required check, "gates", runs the same steps as `npm run check` plus Python lint and the ACS train check.
-# Runner: the VPS runner pool (label `org-pool`, see vps/gh-runners in Pukujan-lab/server-management), because the
-# repository is private and GitHub-hosted minutes are budget-capped. Never run this on a self-hosted runner if the repository goes public:
-# that would run code from anyone's pull request on our machine.
+# Runner: GitHub-hosted (docs/decisions/0010). The repository is public, so hosted minutes are free. Never run this on a
+# self-hosted runner while the repository is public: that would run code from anyone's pull request on our machine.
 
 on:
   pull_request:
@@ -19,7 +18,7 @@ concurrency:
 
 jobs:
   gates:
-    runs-on: [self-hosted, org-pool]
+    runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -54,4 +53,4 @@ jobs:
     uses: Pukujan/agent-stack-train/.github/workflows/check-adopter.yml@main
     with:
       manifest: stack-manifest.json
-      runs_on: '["self-hosted","org-pool"]'
+      runs_on: '["ubuntu-latest"]'

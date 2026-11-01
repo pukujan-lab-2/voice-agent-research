@@ -1,6 +1,6 @@
 # 0008. Repository checks, CI and ACS
 
-**Status:** Accepted · **Date:** 2026-10-31
+**Status:** Replaced by [0010](0010-ci-on-hosted-runners.md) · **Date:** 2026-10-31
 
 ## Decision
 
