@@ -64,6 +64,29 @@ Starting revision, material inputs/configuration, runtime, exact command or prom
 
 No checkpoints yet.
 
+### 2026-11-01 17:59:02 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["copilot-engine/src/desk.ts, copilot-engine/tests/desk-scale.test.ts, scale-flow.ts, scale-report.ts, docs/scaling-limits.md"],"completed":["A form with 300 fields no longer puts all 300 in the model's prompt: forms over 24 fields show a window of 14 and a count, and a long call keeps a bounded log and history"],"decisions":["no new decisions"],"evidence":["npm run check passes (6 new tests); largest request while filling a whole form: 9,018 characters at 100 fields and 9,097 at 300, was 37,133 and 101,072"],"next_action":"Merge the pull request, then start the bounded-server-state leaf (#102)","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0040","timestamp":"2026-11-01T17:59:02Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"8fb256a8ee39693666d5b004ead1fb629022b4f5768c9cc380e931df5baa7495","request_id":"96810948d70f42c7ac861c34fe1c51c3","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0040"} -->
+
+Completed:
+- A form with 300 fields no longer puts all 300 in the model's prompt: forms over 24 fields show a window of 14 and a count, and a long call keeps a bounded log and history
+
+Evidence:
+- npm run check passes (6 new tests); largest request while filling a whole form: 9,018 characters at 100 fields and 9,097 at 300, was 37,133 and 101,072
+
+Decisions:
+- no new decisions
+
+Changed:
+- copilot-engine/src/desk.ts, copilot-engine/tests/desk-scale.test.ts, scale-flow.ts, scale-report.ts, docs/scaling-limits.md
+
+Blocked/uncertain:
+- none
+
+Next:
+- Merge the pull request, then start the bounded-server-state leaf (#102)
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
