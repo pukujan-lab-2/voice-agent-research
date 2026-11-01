@@ -169,6 +169,7 @@ type Row = { stack: string; lang: string; hearWer: number; hearMs: number; speak
 const rows: Row[] = [], toolRows: { stack: string; tools: string; outcomes: string }[] = [], spoken: { stack: string; lang: string; text: string; wav: Buffer; span: SpanSpec; fileId: string }[] = [];
 const root: SpanSpec = { name: 'voice.matrix', kind: 'CHAIN', start: Date.now(), end: 0, attributes: { 'run.id': RUN, 'matrix.stacks': stacks.join(','), 'matrix.judge': JUDGE }, children: [] };
 const clips: Record<string, Clip[]> = {};
+const skipped: Record<string, string> = {};
 
 console.log(`== voice matrix ${RUN}: ${stacks.join(', ')}; judge ${JUDGE}; ${CLIPS} clips per language${upload ? '; audio and traces to Octo' : ''}`);
 for (const stack of stacks) {
@@ -177,7 +178,14 @@ for (const stack of stacks) {
   root.children!.push(span);
   console.log(`\n-- ${stack} (${s.label})`);
   for (const lang of s.languages.filter(l => !langs || langs.includes(l))) {
-    clips[lang] ??= await clipsFor(lang);
+    // A dataset that won't load (Hugging Face's row service errors now and then) skips that language, and the report says so.
+    if (!clips[lang] && !skipped[lang]) {
+      for (let attempt = 1; attempt <= 3 && !clips[lang] && !skipped[lang]; attempt++) {
+        try { clips[lang] = await clipsFor(lang); }
+        catch (e) { if (attempt === 3) skipped[lang] = (e as Error).message; else await new Promise(r => setTimeout(r, 5000 * attempt)); }
+      }
+    }
+    if (skipped[lang]) { console.log(`  skipping ${lang}: ${skipped[lang]}`); continue; }
     const row: Row = { stack, lang, hearWer: 0, hearMs: 0, speakWer: NaN, firstMs: 0, clips: clips[lang].length };
     for (const c of clips[lang]) {
       const start = Date.now();
@@ -236,6 +244,7 @@ const md = [`# Voice matrix ${RUN}`, '', `Stacks: ${stacks.join(', ')}. Judge fo
   '| Stack | Language | Hears: error rate | Hears: ms per clip | Speaks: error rate heard back | Speaks: first sound ms |', '|---|---|---|---|---|---|',
   ...rows.map(r => `| ${r.stack} | ${conf.languages[r.lang]?.name ?? r.lang} | ${pct(r.hearWer)} | ${Math.round(r.hearMs)} | ${pct(r.speakWer)} | ${Math.round(r.firstMs)} |`)];
 if (toolRows.length) md.push('', '| Stack | Tool calls right | Form outcomes right |', '|---|---|---|', ...toolRows.map(t => `| ${t.stack} | ${t.tools} | ${t.outcomes} |`));
+if (Object.keys(skipped).length) md.push('', `Not scored, because the reference speech would not load: ${Object.entries(skipped).map(([l, why]) => `${conf.languages[l]?.name ?? l} (${why})`).join('; ')}.`);
 const report = md.join('\n');
 const reportId = await store(`${RUN}-report.md`, 'text/markdown', Buffer.from(report), { kind: 'report' });
 root.attributes!['report.file_id'] = reportId;
