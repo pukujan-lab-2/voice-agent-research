@@ -14,11 +14,12 @@
 
 Every turn goes to Phoenix through Octo (speech/telemetry.py), in the page's call session: what was heard, and from the
 moment the caller stops talking, the end-of-turn wait (VAD and turn detector), STT, the engine's decision (which includes
-any library search) and the voice's first audio; barge-ins, failed RPC calls and speech errors too.
+any library search) and the voice's first audio; barge-ins, failed RPC calls and speech errors too. A watchdog
+(stall_watchdog.py) logs a stall (the caller spoke and no turn came of it) as an error span and starts the turn over.
 
 Run: speech/.venv/bin/python speech/agent.py dev    (server.ts starts it with the speech server)
 """
-import asyncio, json, os, time, uuid
+import asyncio, contextlib, inspect, json, os, time, uuid
 
 import aiohttp
 from livekit import rtc
@@ -29,6 +30,7 @@ from livekit.agents.types import DEFAULT_API_CONNECT_OPTIONS
 from livekit.plugins import silero
 from livekit.plugins.turn_detector.english import EnglishModel
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
+from stall_watchdog import StallWatchdog
 from telemetry import CallTelemetry
 
 SPEECH = os.environ.get('SPEECH_URL', 'http://127.0.0.1:8799')
@@ -64,6 +66,7 @@ class LocalSTT(stt.STT):
         self.last_ms = 0
         self.last_confidence: float | None = None  # the model's mean token probability for the last turn, 0 to 1
         self.last_language = 'en'
+        self.on_request = lambda: None  # told when a turn's audio reaches the recogniser (the stall watchdog)
 
     @property
     def model(self) -> str:
@@ -92,6 +95,7 @@ class LocalSTT(stt.STT):
         return conn_options.timeout if self._voice.parts['listens'].startswith('parakeet') else max(conn_options.timeout, 60.0)
 
     async def _recognize_impl(self, buffer, *, language=None, conn_options: APIConnectOptions) -> stt.SpeechEvent:
+        self.on_request()
         frame = rtc.combine_audio_frames(buffer)
         t = time.perf_counter()
         v = self._voice
@@ -200,6 +204,9 @@ class Copilot(Agent):
         if r.get('say'):
             self._tts.first_ms = None
             self.session.say(r['say'], allow_interruptions=True)
+        else:  # nothing to say, so no first audio will close this turn's span: record it now
+            self._tel.turn({**self.turn, 'total_ms': round((time.perf_counter() - t) * 1000), 'end_of_turn_ms': 0}, time.time() - (time.perf_counter() - t), time.time())
+            self.turn = {}
         # The engine's reply is the whole response: no LLM runs after it.
         raise StopResponse()
 
@@ -268,13 +275,18 @@ async def entrypoint(ctx: JobContext):
     )
 
     pending: dict = {}
+    dog = StallWatchdog()
+    stt_.on_request = dog.recognising
 
     # A turn's total: from the moment the caller stopped talking to the moment the copilot's voice started.
     @session.on('user_state_changed')
     def _user(ev):
-        if ev.new_state == 'speaking' and session.agent_state == 'speaking':
-            tel.barge_in()  # the caller talked over the copilot's voice
+        if ev.new_state == 'speaking':
+            dog.speech_started()
+            if session.agent_state == 'speaking':
+                tel.barge_in()  # the caller talked over the copilot's voice
         if ev.old_state == 'speaking' and ev.new_state != 'speaking':
+            dog.speech_ended()
             pending['stopped_at'] = ev.created_at
 
     @session.on('agent_state_changed')
@@ -311,6 +323,36 @@ async def entrypoint(ctx: JobContext):
     @session.on('close')
     def _close(ev):
         closed['reason'] = str(getattr(ev.reason, 'value', ev.reason)) + (f': {ev.error}' if ev.error else '')
+
+    # The caller spoke and no turn came of it (stall_watchdog.py): the call is not left deaf. Say so in Phoenix, drop the
+    # half-made turn and the voice, and listen from the start. The call that stopped hearing its caller looked like this.
+    async def watch_for_stalls():
+        while True:
+            await asyncio.sleep(1)
+            try:
+                hit = dog.check()
+                if not hit:
+                    continue
+                kind, seen = hit
+                print('stall', kind, round(seen, 1), 's; starting the turn over', flush=True)
+                tel.failure('stall', f'{kind}: {seen:.0f} s', stall=kind, seconds=round(seen, 1), user_state=str(session.user_state), agent_state=str(session.agent_state))
+                agent.turn = {}
+                pending.clear()
+                # A detector stuck on speech also cuts the voice; a lost turn leaves a reply that is playing alone.
+                for reset in ((session.interrupt, session.clear_user_turn) if kind == 'speech-without-end' else (session.clear_user_turn,)):
+                    with contextlib.suppress(Exception):
+                        done = reset()
+                        if inspect.isawaitable(done):
+                            await asyncio.wait_for(done, 5)
+            except Exception as e:  # noqa: BLE001 - the watchdog must outlive whatever it finds
+                print('stall watchdog:', e, flush=True)
+
+    watcher = asyncio.create_task(watch_for_stalls())
+
+    async def _stop_watching():
+        watcher.cancel()
+
+    ctx.add_shutdown_callback(_stop_watching)
 
     ctx.room.local_participant.register_rpc_method('agent.say', agent_say)
 

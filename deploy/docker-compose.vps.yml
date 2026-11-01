@@ -53,6 +53,9 @@ services:
     environment:
       LIVEKIT_URL: ws://copilot-livekit:7880
       SPEECH_URL: http://host.docker.internal:18799
+    # A stop gives the agent time to send the spans of the call it is on (telemetry.py) before Docker's kill; autodeploy.sh
+    # already waits for open calls before it replaces this container (#67).
+    stop_grace_period: 30s
     depends_on: [livekit]
 
   livekit:

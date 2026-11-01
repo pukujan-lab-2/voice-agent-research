@@ -50,6 +50,8 @@ jobs:
       - uses: astral-sh/setup-uv@v6
       - name: Ingestion tests (Python)
         run: npm run test:py
+      - name: Voice agent stall watchdog tests (Python)
+        run: npm run test:speech
       - name: Lint Python (Ruff)
         run: uvx ruff@0.14.0 check .
 
