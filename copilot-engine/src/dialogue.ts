@@ -27,6 +27,9 @@ const DANGLING = /\b(it|that|those|these|this|they|them|there)\b/;
 const TIME = /\b(how long|take long|taking long|how fast|how soon|how quickly|long will|long does|long is|long would)\b/;
 const COST = /\b(how much|cost|price|fee|expensive|charge|pay for)\b/;
 const ASKING = /\?\s*$|^\s*(what|where|which|how|why|when|can|could|should|is|are|do|does|will|would)\b/i;
+const GUIDE = /\b(from here|on (this|your) (site|page|website)|guide me|walk me through|help me (to )?(file|fill)|do (it|that) for me|can you (file|fill|do|prepare)|start (it|filing|my (return|taxes)))\b/;
+const ASKS_TO_DO = /^(how|can|could|where|help|i (want|need|would like)|let'?s|please)\b/;
+const DATE_Q = /\b(deadline|due date|last day|what month|which month|when)\b/;
 const DOING = /\b(file|filing|fill|start|apply|submit|sign up|prepare|do my|pay|set up|request|change|send|get my|amend|register|enroll)\b/;
 
 // Tax questions that look specific but are not: asked back with the readings a person would give. Each ask is one
@@ -105,6 +108,11 @@ export class Dialogue {
         }
       }
     }
+    // "Can I file it from here?", "guide me": the site's own form is the answer to doing it here, and a yes opens it
+    if (GUIDE.test(t)) {
+      const o = this.offers.find(x => new RegExp(x.when, 'i').test(t));
+      if (o) { this.pending = { kind: 'offer', offer: o }; return { reply: o.say }; }
+    }
     if (YES.test(t) || NO.test(t)) return { reply: this.afterFiller(YES.test(t)) };
     // a short fragment after a question ("for each year") belongs to that question; it is never searched alone
     const bare = stripFillers(said);
@@ -149,6 +157,7 @@ export class Dialogue {
     if (this.skipClarify) return null;
     const t = norm(q);
     const words = t.split(' ').filter(Boolean);
+    if (this.offers.some(o => new RegExp(o.when, 'i').test(t))) return null; // a topic the site has a form for is not vague
     let vague = words.length <= 9 ? VAGUE.find(v => v.when.test(t)) : undefined;
     // a question with nothing to look up: three words or fewer, or a pronoun for something never named
     if (!vague && !ANCHOR.test(t) && (words.length <= SHORT || (DANGLING.test(t) && words.length <= 8 && !this.topic))) {
@@ -230,7 +239,7 @@ export class Dialogue {
     const q = norm(question);
     const hit = this.offers.find(o => new RegExp(o.when, 'i').test(q));
     if (hit) return hit;
-    if (DOING.test(q) && this.book) return { when: '', href: this.book.href, label: this.book.text, say: 'I can\'t do that for you from here, but a preparer can. Want me to open the booking form and fill it in with you?' };
+    if (DOING.test(q) && ASKS_TO_DO.test(q) && !DATE_Q.test(q) && this.book) return { when: '', href: this.book.href, label: this.book.text, say: 'I can\'t do that for you from here, but a preparer can. Want me to open the booking form and fill it in with you?' };
     return null;
   }
 
