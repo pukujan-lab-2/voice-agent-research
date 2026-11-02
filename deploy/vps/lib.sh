@@ -98,13 +98,15 @@ start_agent() {
   return 1
 }
 
-# drain_old_agents <tag>   Every running agent that is not release <tag> stops taking calls and exits when its calls end.
+# drain_old_agents <tag>   Every running agent that is not release <tag> and not already draining stops taking calls and exits when its calls end.
 # Not waited for: the script goes on, and reap_agents removes the container on a later deploy.
 drain_old_agents() {
   local tag="$1" c
   DRAINED=0
   for c in $(agent_containers running); do
     [ "$(agent_tag_of "$c")" = "$tag" ] && continue
+    # Already told to stop (its restart policy is off): a second SIGTERM makes LiveKit Agents exit at once, with its calls (cli.py `_force_exit`).
+    [ "$(docker inspect "$c" --format '{{.HostConfig.RestartPolicy.Name}}' 2>/dev/null)" = no ] && continue
     docker update --restart=no "$c" >/dev/null && docker kill --signal=SIGTERM "$c" >/dev/null
     DRAINED=$((DRAINED + 1)); log "draining agent $c (it keeps its calls, up to the agent's AGENT_DRAIN_S)"
   done

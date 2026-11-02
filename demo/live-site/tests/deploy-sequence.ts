@@ -9,6 +9,7 @@
 //   2. push release two and deploy while the call is open: the deploy waits the bound (20 s here), then goes on; the call is
 //      still heard by release one afterwards; release one is draining, release two has registered with LiveKit
 //   3. a second call starts: it goes to release two
+//   3b. another deploy while both calls are open: the agent that is already draining is not signalled again
 //   4. the first call ends: release one's container exits by itself, with code 0
 //   5. a deploy with no call open does not wait, and removes the finished container
 // Needs Docker (it pulls python:3.12-slim and LiveKit's image and installs livekit-agents on the first run, a few minutes) and
@@ -135,7 +136,7 @@ try {
   check('its agent is running and registered with LiveKit', docker('inspect', a1, '--format', '{{.State.Status}}') === 'running' && /registered worker/.test(docker('logs', a1)));
 
   // a call on release one
-  startCall(`${P}-caller1`, `copilot-agent:${t1}`, 150);
+  startCall(`${P}-caller1`, `copilot-agent:${t1}`, 300);
   const heard1 = await until('release one hearing the caller', 60, () => (last(`${P}-caller1`)?.release === 'release-1' && (last(`${P}-caller1`)?.heard ?? 0) > 0) && last(`${P}-caller1`));
   check('the first call is heard by release one', !!heard1);
 
@@ -158,9 +159,20 @@ try {
   check('the first call is still heard by release one after the deploy', mid?.release === 'release-1' && (after?.heard ?? 0) > (mid?.heard ?? 0) && (mid?.heard ?? 0) > before, JSON.stringify({ before, mid, after }));
 
   // 3. a new call goes to release two
-  startCall(`${P}-caller2`, `copilot-agent:${t2}`, 150);
+  startCall(`${P}-caller2`, `copilot-agent:${t2}`, 300);
   const heard2 = await until('release two hearing the second caller', 60, () => (last(`${P}-caller2`)?.release === 'release-2' && (last(`${P}-caller2`)?.heard ?? 0) > 0) && last(`${P}-caller2`));
   check('the next call goes to the new container and is heard', !!heard2, JSON.stringify(last(`${P}-caller2`)));
+
+  // 3b. another deploy while both calls are open: release one is already draining and must not be signalled again (a second
+  // SIGTERM makes LiveKit Agents exit at once, with its call); release two, now old, starts to drain
+  const t2b = commit(); remember(t2b);
+  d = await deployNow();
+  check('a deploy while an agent is already draining goes through', d.code === 0 && /deployed /.test(d.out), d.out.slice(-600));
+  const mid2 = last(`${P}-caller1`);
+  await sleep(5000);
+  check('the draining agent was not signalled again: it is still running and its call still heard',
+    docker('inspect', a1, '--format', '{{.State.Status}}') === 'running' && (last(`${P}-caller1`)?.heard ?? 0) > (mid2?.heard ?? 0), JSON.stringify({ mid2, now: last(`${P}-caller1`) }));
+  check('release two, with a call, drains too and keeps it', docker('inspect', a2, '--format', '{{.State.Status}} {{.HostConfig.RestartPolicy.Name}}') === 'running no' && last(`${P}-caller2`)?.release === 'release-2');
 
   // 4. the first call ends; release one leaves by itself
   docker('stop', '-t', '15', `${P}-caller1`);
@@ -168,6 +180,8 @@ try {
   check('when its call ended, release one exited by itself', !!gone && docker('inspect', a1, '--format', '{{.State.ExitCode}}') === '0', docker('logs', '--tail', '8', a1));
   check('the second call was not touched', last(`${P}-caller2`)?.release === 'release-2');
   docker('stop', '-t', '15', `${P}-caller2`);
+  const gone2 = await until('release two to exit', 60, () => docker('inspect', a2, '--format', '{{.State.Status}}') === 'exited' && 'exited');
+  check('release two, drained, exited by itself when its call ended', !!gone2 && docker('inspect', a2, '--format', '{{.State.ExitCode}}') === '0');
 
   // 5. a deploy with no call open
   const t3 = commit(); remember(t3);
