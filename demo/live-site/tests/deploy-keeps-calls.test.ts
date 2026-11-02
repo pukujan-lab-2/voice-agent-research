@@ -124,17 +124,18 @@ test('a count that fails in the middle of a wait does not end it', () => {
 });
 
 // `docker` stand-in: two release containers, aaa (old, running) and bbb (new, running). Everything it is asked is recorded.
-function fakeDocker(body: string) {
+function fakeDocker(body: string, extra: Record<string, string> = {}) {
   const calls = path.join(tmp, `docker-${Math.random().toString(36).slice(2)}.calls`);
   const out = bash(`. "${root}/deploy/vps/lib.sh"
     docker() { echo "docker $*" >> "${calls}"; case "$1" in
       ps) printf 'copilot-agent-aaa\\ncopilot-agent-bbb\\ncopilot-agent-old\\n' ;;
       inspect) case "$*" in
         *copilot.tag*) case "$2" in copilot-agent-aaa) echo aaa ;; copilot-agent-old) echo old ;; *) echo bbb ;; esac ;;
+        *State.Status*) echo exited ;;
         *RestartPolicy*) case "$2" in copilot-agent-old) echo no ;; *) echo unless-stopped ;; esac ;;
       esac ;;
     esac; }
-    ${body}`, { DEPLOY_LOG: path.join(tmp, 'x.log') });
+    ${body}`, { DEPLOY_LOG: path.join(tmp, 'x.log'), ...extra });
   return { out, calls: fs.existsSync(calls) ? fs.readFileSync(calls, 'utf8').split('\n').filter(Boolean) : [] };
 }
 
@@ -146,6 +147,16 @@ test('drain_old_agents turns the restart off and sends SIGTERM to every agent bu
   assert.ok(update >= 0 && kill > update, `restart off, then SIGTERM: ${calls.join(' | ')}`);
   assert.equal(calls.filter(c => /^docker (kill|update|stop|rm)/.test(c) && /agent-bbb/.test(c)).length, 0, 'the new release is left alone');
   assert.equal(calls.filter(c => /^docker (kill|update|stop|rm)/.test(c) && /agent-old/.test(c)).length, 0, 'an agent that is already draining gets no second signal: LiveKit Agents exits at once on it');
+});
+
+test('reap_agents saves a finished agent\'s log before it removes the container, and keeps only the last few', () => {
+  const keep = fs.mkdtempSync(path.join(tmp, 'agent-logs-'));
+  for (const n of ['1', '2', '3']) fs.writeFileSync(path.join(keep, `copilot-agent-old${n}.log`), 'old\n');
+  const { calls } = fakeDocker('AGENT_LOGS_KEPT=2 reap_agents; true', { AGENT_LOG_DIR: keep });
+  const logs = calls.findIndex(c => /^docker logs .*copilot-agent-aaa/.test(c));
+  const rm = calls.findIndex(c => c === 'docker rm copilot-agent-aaa');
+  assert.ok(logs >= 0 && rm > logs, `logs saved, then removed: ${calls.join(' | ')}`);
+  assert.equal(fs.readdirSync(keep).filter(f => f.endsWith('.log')).length, 2, 'only the last two are kept');
 });
 
 test('start_agent does not start a second agent for a release that already runs', () => {

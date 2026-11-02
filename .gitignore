@@ -16,3 +16,6 @@ __pycache__/
 
 # deploy/vps/lib.sh writes what each deploy waited for here
 deploy/deploy.log
+
+# deploy/vps/lib.sh keeps the end of each finished agent's log here before it removes the container
+deploy/agent-logs/

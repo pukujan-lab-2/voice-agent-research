@@ -73,12 +73,19 @@ agent_containers() {
 agent_tag_of() { docker inspect "$1" --format '{{index .Config.Labels "copilot.tag"}}' 2>/dev/null || true; }
 agent_running_for() { local c; for c in $(agent_containers running); do [ "$(agent_tag_of "$c")" = "$1" ] && return 0; done; return 1; }
 
-# Remove agents that have finished draining (they stay stopped: drain_old_agents turned their restart off).
+# Remove agents that have finished draining (they stay stopped: drain_old_agents turned their restart off). The end of each one's
+# log is saved first, in deploy/agent-logs (the last AGENT_LOGS_KEPT), because a removed container takes its log with it and a
+# call that went wrong (#93) needs the agent's side of the story.
 reap_agents() {
-  local c
+  local c keep="${AGENT_LOG_DIR:-$DEPLOY_DIR/agent-logs}" f
   for c in $(agent_containers all); do
-    [ "$(docker inspect "$c" --format '{{.State.Status}}')" = running ] || { docker rm "$c" >/dev/null 2>&1 && log "removed finished agent $c"; }
+    [ "$(docker inspect "$c" --format '{{.State.Status}}')" = running ] && continue
+    mkdir -p "$keep" && docker logs --tail 3000 "$c" > "$keep/$c.log" 2>&1 || true
+    docker rm "$c" >/dev/null 2>&1 && log "removed finished agent $c (log kept in agent-logs/$c.log)"
   done
+  # shellcheck disable=SC2012  # file names here are container names
+  ls -t "$keep"/*.log 2>/dev/null | tail -n +"$((${AGENT_LOGS_KEPT:-20} + 1))" | while read -r f; do rm -f "$f"; done
+  return 0
 }
 
 # start_agent <tag>   The agent of release <tag> beside whatever agents run. 0 when it registered with LiveKit.
