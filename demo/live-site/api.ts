@@ -383,21 +383,48 @@ export function createApi(env: ApiEnv, opts: { slots?: Slots; offlinePassages?: 
       if (!await ownerTries(ip)) return json({ error: 'slow down' }, 429);
       return smart.ownerSession(b.token);
     }
+    // What the Brain picker offers on this page (#97): built from the `desk` slot for this request's scope, so a visitor is
+    // offered the local model only, and the smart options exist at all only when the server's switches put them in scope.
+    // The list says model names, never keys (the key stays named by the slot, decision 0017).
+    if (path === '/api/brain/options') {
+      const gate = smart.check('desk', scope);
+      const pick = gate.ok && b.brain === 'smart' || b.brain === 'smart-always' ? String(b.brain) : 'local';
+      return json({
+        scope: scope ?? 'visitor',
+        pick,
+        options: [
+          { id: 'local', label: 'LFM3 (local, default)', smart: false },
+          ...(gate.ok ? [
+            { id: 'smart', label: `Smart: ${slots.desk.model} (hard turns)`, smart: true },
+            { id: 'smart-always', label: `Smart always: ${slots.desk.model} (every turn, capped)`, smart: true },
+          ] : []),
+        ],
+      });
+    }
     if (path === '/api/desk') {
       const messages = deskMessages(b.messages), tools = deskTools(b.tools ?? []);
       const o = { maxTokens: Math.min(Math.max(Number(b.max_tokens) || 220, 1), 220), temperature: Math.min(Math.max(Number(b.temperature) || 0, 0), 1) };
       // The desk's escalation of a hard turn to the `desk` slot's smart model. Out of scope, over the cap, off or failing: a refusal
       // the page answers by keeping the local model's answer, which it already has. The slot and model are on the span either way.
-      if (b.smart === true) {
+      // The Brain picker's pick rides here (#97): `smart` (hard turns) or `smart-always` (every turn). The server enforces scope:
+      // a picked brain without scope or one that fails falls back to the local model, which answers as it always has; the old
+      // `smart: true` escalation keeps its contract (a 409 the page already handles).
+      const pickedBrain = b.brain === 'smart' || b.brain === 'smart-always' ? (b.brain as string) : null;
+      const wantSmart = b.smart === true || !!pickedBrain;
+      if (wantSmart) {
         const gate = smart.check('desk', scope);
-        if (!gate.ok) return json({ error: 'smart unavailable', reason: gate.reason, slot: 'desk', provider: slots.desk.provider }, 409);
-        if (!messages || !tools) return json({ error: 'bad desk request' }, 400);
-        try {
-          const r = await smart.call('desk', messages, tools, o);
-          return json({ content: r.content, calls: r.calls.filter(c => DESK_TOOLS.has(c.name)), model: r.model, slot: 'desk', provider: slots.desk.provider, tried: r.tried, smart: smart.check('desk', scope).ok });
-        } catch (e) {
-          const se = e instanceof SmartError ? e : null;
-          return json({ error: 'smart failed', reason: se?.reason ?? 'error', slot: 'desk', provider: slots.desk.provider, model: slots.desk.model, tried: se?.tried ?? [] }, 409);
+        const keepLocal = !!pickedBrain; // a picked brain never errors the turn: the local model answers
+        if (!gate.ok) {
+          if (!keepLocal) return json({ error: 'smart unavailable', reason: gate.reason, slot: 'desk', provider: slots.desk.provider }, 409);
+        } else {
+          if (!messages || !tools) return json({ error: 'bad desk request' }, 400);
+          try {
+            const r = await smart.call('desk', messages, tools, o);
+            return json({ content: r.content, calls: r.calls.filter(c => DESK_TOOLS.has(c.name)), model: r.model, slot: 'desk', provider: slots.desk.provider, tried: r.tried, smart: smart.check('desk', scope).ok });
+          } catch (e) {
+            const se = e instanceof SmartError ? e : null;
+            if (!keepLocal) return json({ error: 'smart failed', reason: se?.reason ?? 'error', slot: 'desk', provider: slots.desk.provider, model: slots.desk.model, tried: se?.tried ?? [] }, 409);
+          }
         }
       }
       const model = clip(b.stack, 40) === 'lfm3-audio' ? audioDeskModel : deskModel;
@@ -504,6 +531,9 @@ export function createApi(env: ApiEnv, opts: { slots?: Slots; offlinePassages?: 
       attributes['copilot.provider'] = clip(o.provider, 30) || 'local';
       attributes['copilot.scope'] = scope ?? 'visitor';
       if (b.smart === true) { attributes['copilot.escalation'] = 'smart'; if (o.reason) attributes['copilot.smart_refused'] = clip(o.reason, 20); if (o.tried?.length) attributes['copilot.smart_tried'] = clip(o.tried.map((t: any) => `${t.model}:${t.why}`).join(', '), 300); }
+      // The Brain picker's pick on this turn (#97): the id the page asked for (the span keeps it even when scope refused it —
+      // `llm.model_name` above still says what really answered).
+      if (b.brain) attributes['copilot.brain'] = clip(String(b.brain), 20);
     }
     if (path === '/api/judge') {
       attributes['judge.rule'] = clip(o.rule, 20);
