@@ -229,7 +229,7 @@ function agentState(state: string | undefined) {
 // Small talk is answered at once and never searched: "can you hear me", "hello?", "are you there", "sorry, what?",
 // "wait", "thanks", "can I ask you about taxes?", "what can you help with?". Every part of what was said has to be small talk, so "hello, how do I file an extension" is a question.
 const SMALL_TALK: [RegExp, string][] = [
-  [/^(hello|hallo|hi|hey|hey there|hi there|hello there|um|uh|hmm|testing|test|testing testing|mic check)$/, 'here'],
+  [/^(hello|hallo|hi|hey|hey there|hi there|hello there|testing|test|testing testing|mic check)$/, 'here'],
   [/^(can|could|do|did) you (hear|here|understand) me( now| ok| okay| alright| at all)?$|^(are|r) you (there|still there|listening|hearing me|with me|on)$|^(is )?(anyone|anybody|somebody|someone) (there|home)$|^is (this|it) (working|on)$|^hello can you hear me$/, 'hear'],
   [/^(sorry|pardon|pardon me|what|what was that|come again|say that again|say again|can you repeat that|could you repeat that|repeat that|repeat|huh|excuse me|i didn't catch that|i didnt catch that|sorry what)$/, 'repeat'],
   [/^(wait|hold on|hang on|one sec|one second|one moment|just a sec|just a second|just a moment|give me a sec|give me a second|wait a second|wait a minute|hold on a sec|hold on a second|sorry wait)$/, 'wait'],

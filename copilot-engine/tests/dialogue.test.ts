@@ -33,7 +33,10 @@ test('a free-text answer to a clarifying question is joined to the original; a n
   assert.equal(d.before('home office deduction')?.ask, 'what is the limit: home office deduction');
   const e = make();
   e.clarify('How do I find my taxes?');
-  assert.equal(e.before('Can I file my tax return from here?'), null, 'goes on to the model as a new question');
+  assert.equal(e.before('Can I file my tax return from here?')?.ask, undefined, 'a new question is not taken as the answer to ours');
+  const f = make();
+  f.clarify('How do I find my taxes?');
+  assert.equal(f.before('What is the deadline to file an extension for my tax return?'), null, 'goes on to the model as a new question');
 });
 
 test('"yeah" to an either-or question asks which one, and keeps waiting for it', () => {
@@ -155,4 +158,27 @@ test('two passages nearly as likely to answer a short question: ask which, namin
   e.splitAsk('what is the home office limit?', { a, b });
   e.before('simplified');
   assert.equal(e.splitAsk('what is the home office limit: Simplified Method', { a, b }), null);
+});
+
+test('"Can I file it from here?" is answered with the site\'s form, and a yes opens it (live replay of call 7d689fcd)', () => {
+  const d = make();
+  const r = d.before('You guide me how to file it. Can I file it from here?')!;
+  assert.match(r.reply!, /new-client form/);
+  assert.equal(questions(r.reply!), 1);
+  assert.equal(d.before('Yeah, go ahead')?.go, '/tax/start');
+  // not for a plain question about filing
+  assert.equal(make().before('How do I file an extension?'), null);
+});
+
+test('a date question gets no booking offer; a how-do-I-do-it question still does (live replay of call 75aeb0b4)', () => {
+  const d = make();
+  assert.doesNotMatch(d.phrase(said('IRS Topic 301', '"The due date is April 15."', 'What is the best month to file taxes?')), /booking form/);
+  assert.doesNotMatch(d.phrase(said('IRS Topic 301', '"The due date is April 15."', 'When should I file my return?')), /booking form/);
+  assert.match(make().phrase(said('IRS Pub 17', '"x"', 'How do I request an installment agreement?')), /booking form/);
+});
+
+test('a topic the site has a form for is not vague: "can I get a payment plan?" is looked up', () => {
+  const pay: Offer = { when: 'payment plan|installment', href: '/tax/payment-plan', label: 'the payment plan request', say: 'I can open the payment plan request. Want me to?' };
+  assert.equal(new Dialogue({ offers: [pay] }).clarify('Can I get a payment plan?'), null);
+  assert.notEqual(new Dialogue().clarify('Can I get a plan?'), null, 'without a form for it, a short question with no topic is still asked back');
 });
