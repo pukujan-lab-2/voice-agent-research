@@ -26,6 +26,15 @@ test('a file names a hosted model per slot; the key is only named, never held', 
   assert.ok(!JSON.stringify(s).includes('Bearer'));
 });
 
+test('inferhub takes only DeepSeek or Qwen routes, with its key named and its URL overridable', () => {
+  const s = loadSlots(file({ desk: { provider: 'inferhub', model: 'cb/deepseek-v4.1-flash' }, eval: { provider: 'inferhub', model: 'ali/qwen3.8-max' } }), {});
+  assert.equal(s.desk.url, 'https://api.inferhub.dev/v1'); assert.equal(s.desk.keyName, 'INFERHUB_API_KEY'); assert.equal(s.desk.smart, true); assert.equal(s.eval.model, 'ali/qwen3.8-max');
+  assert.equal(loadSlots(file({ desk: { provider: 'inferhub', model: 'ocg/qwen3.8-flash' } }), { INFERHUB_URL: 'http://127.0.0.1:1/v1/' }).desk.url, 'http://127.0.0.1:1/v1');
+  bad(file({ desk: { provider: 'inferhub', model: 'cb/gpt-5.6-luna' } }), {}, /"desk".*DeepSeek or Qwen/);
+  bad(file({ desk: { provider: 'inferhub', model: 'cb/claude-sonnet-5-5' } }), {}, /"desk".*not allowed/);
+  bad(file({ desk: { provider: 'inferhub' } }), {}, /"desk".*needs a model/);
+});
+
 test('the gateway URL can be overridden by env', () => {
   assert.equal(loadSlots(file({ desk: { provider: 'litellm', model: 'ih/ali/qwen3.8-flash' } }), { LITELLM_URL: 'http://127.0.0.1:4001/v1/' }).desk.url, 'http://127.0.0.1:4001/v1');
 });

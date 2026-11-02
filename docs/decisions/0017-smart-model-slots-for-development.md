@@ -4,7 +4,7 @@
 
 ## Decision
 
-Each task a model does has a named slot: `desk` (tool and form decisions), `reply` (the spoken reply), `rewrite` (question rewrite and clarifying questions), `judge2` (a second opinion only where Jev is tied) and `eval` (test generation and simulated callers). Every slot defaults to `local`, which is LFM3 on our own server. A slot can instead name a smart hosted model, from one of three providers: `litellm` (the VPS gateway, through a budgeted virtual key), `openrouter-free` (named `:free` models only) or `workbuddy` (through the Octo vault proxy).
+Each task a model does has a named slot: `desk` (tool and form decisions), `reply` (the spoken reply), `rewrite` (question rewrite and clarifying questions), `judge2` (a second opinion only where Jev is tied) and `eval` (test generation and simulated callers). Every slot defaults to `local`, which is LFM3 on our own server. A slot can instead name a smart hosted model, from one of these providers: `inferhub` (InferHub's own API with the seat key, DeepSeek and Qwen routes only), `openrouter-free` (named `:free` models only), `workbuddy` (through the Octo vault proxy) or `litellm` (a LiteLLM gateway, generic and unused today).
 
 A smart slot takes effect only in development:
 
@@ -25,4 +25,4 @@ The owner wants to see what smart hosted models make of the copilot while buildi
 - With no slot file entry and no env, production behaves exactly as before; the shipped `demo/live-site/model-slots.json` names `local` for every slot.
 - Decision 0009 stands: LFM3 writes replies and makes the per-turn form decision, Jev makes passage-pick decisions. No model comparisons come out of this; the smart slots are there to help build and test, not to pick a winner.
 - Decision 0001 stands for the product: a smart slot is an owner's development tool, and Claude and Gemma are rejected by name wherever a model is named.
-- The key for `litellm` is `LITELLM_COPILOT_KEY` in `~/apps/copilot.env` on the VPS, with a budget and a model list on the gateway; how to rotate it is in [deploy/README.md](../../deploy/README.md).
+- Keys are only named, never held in a file: `INFERHUB_API_KEY`, `OPENROUTER_FREE_KEY`, `WORKBUDDY_KEY` in `~/apps/copilot.env` on the VPS (mode 600). A direct InferHub call has no budget of ours: the limits are the copilot's own daily cap and timeout, plus whatever budget the owner sets in InferHub's dashboard. The owner chose this on 2026-11-02 over a second dedicated LiteLLM gateway, because the shared VPS gateway has no master key or database and so cannot make a budgeted virtual key ([#80](https://github.com/pukujan-lab-2/voice-agent-research/issues/80)).

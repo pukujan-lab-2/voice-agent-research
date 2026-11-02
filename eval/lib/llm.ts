@@ -3,6 +3,7 @@
 //   openrouter-free  a named free model on the free-only OpenRouter key (never the openrouter/free router)
 //   workbuddy        WorkBuddy (DeepSeek, Qwen) through the Octo vault proxy; key in WORKBUDDY_KEY (a lease, never minted here)
 //   llama            any OpenAI-compatible server (llama.cpp), no key
+//   inferhub         InferHub directly (INFERHUB_API_KEY); only through the `eval` slot
 //   litellm          the VPS gateway with the copilot's virtual key (LITELLM_COPILOT_KEY, LITELLM_URL); only through the `eval` slot
 // The `eval` model slot (decision 0017, demo/live-site/model-slots.json) can replace the corpus config's model for the generator and
 // the simulated callers; with the slot on `local` the config decides, as before. A model named claude, gemma or openrouter/free is refused.
@@ -11,7 +12,7 @@ import fs from 'node:fs';
 import { bannedModelReason, loadSlots, type Slot } from '../../copilot-engine/src/slots.ts';
 import { key } from './env.ts';
 
-export type ChatCfg = { provider: 'openrouter-free' | 'workbuddy' | 'llama' | 'litellm'; model: string; url?: string; temperature?: number };
+export type ChatCfg = { provider: 'openrouter-free' | 'workbuddy' | 'llama' | 'litellm' | 'inferhub'; model: string; url?: string; temperature?: number };
 export type Msg = { role: 'system' | 'user' | 'assistant'; content: string };
 
 // The eval slot: the file next to the backend's (MODEL_SLOTS_FILE names another) with env overrides. Read once.
@@ -52,10 +53,10 @@ export async function chat(cfg: ChatCfg, messages: Msg[], opts: { what: string; 
   if (cfg.provider === 'litellm' && !process.env.LITELLM_URL) throw new Error('litellm needs LITELLM_URL: the gateway listens on the VPS loopback (ssh -L 4001:127.0.0.1:4001 vps, then LITELLM_URL=http://127.0.0.1:4001/v1)');
   const wb = cfg.provider === 'workbuddy';
   const url = cfg.provider === 'llama' ? `${cfg.url}/v1/chat/completions`
-    : cfg.provider === 'litellm' ? `${cfg.url}/chat/completions`
+    : cfg.provider === 'litellm' || cfg.provider === 'inferhub' ? `${cfg.url}/chat/completions`
     : wb ? `${cfg.url ?? 'https://octodb.design-bakery.com/api/vault/proxy/https://www.workbuddy.ai/v2'}/chat/completions`
     : 'https://openrouter.ai/api/v1/chat/completions';
-  const auth = cfg.provider === 'llama' ? undefined : cfg.provider === 'litellm' ? key('LITELLM_COPILOT_KEY') : wb ? key('WORKBUDDY_KEY') : key('openrouter_free_only', 'OPENROUTER_FREE_KEY');
+  const auth = cfg.provider === 'llama' ? undefined : cfg.provider === 'litellm' ? key('LITELLM_COPILOT_KEY') : cfg.provider === 'inferhub' ? key('INFERHUB_API_KEY') : wb ? key('WORKBUDDY_KEY') : key('openrouter_free_only', 'OPENROUTER_FREE_KEY');
   if (cfg.provider !== 'llama' && !auth) throw new Error(`no key for ${cfg.provider}`);
   if (cfg.provider === 'openrouter-free' && !cfg.model.endsWith(':free')) throw new Error('openrouter-free needs a named :free model');
   // WorkBuddy's proxy wants a system message first and a streamed reply.
