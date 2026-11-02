@@ -1,14 +1,15 @@
-// Smart model slots on the live backend (decision 0017). LFM3 answers every desk turn; for a hard turn the desk may ask
-// the `desk` slot's smart hosted model, and only here is that allowed, with these limits:
-//   scope     only a request from a development host or carrying the owner's token (never an ordinary visitor of a business)
-//   switch    DESK_HYBRID=1 on the server, and for the owner path SMART_OWNER=1 with OWNER_TOKEN set
-//   cap       a call count per slot per UTC day (like JEV_DAILY_CAP)
+// Smart model slots on the live backend. LFM3 answers every desk turn; for a hard turn the desk asks the `desk` slot's
+// smart hosted model — by default now, for every visitor (owner direction 2026-11-02, superseding decision 0017's dev-only
+// rule; #101). The limits that stay:
+//   switch    DESK_HYBRID=0 turns the escalation off explicitly; anything else (unset included) leaves it on
+//   cap       a call count per slot per UTC day (like JEV_DAILY_CAP); past it the local answer stands
 //   routes    InferHub's vendor routes of the one allowed model are tried in order after a 402, 429, 5xx or a timeout, inside the slot's
 //             total time budget; after the last one the local model's own answer, which the caller already holds, stands
 //   key       no key keeps the slot off (a log line at start); a 401 or 403 (a rejected or expired vault lease) switches it off for
 //             10 minutes with a log line, and the span of that request is an error span saying why
 //   names     a model whose name (or the name the gateway reports) contains claude, gemma or openrouter/free never answers
-// Nothing here picks a model for production: with no smart slot every check says "off" and no request leaves the server.
+//   scope     only "smart always" (every turn, not just hard ones) still needs a development host or the owner's token
+// With no smart slot configured every check says "off" and no request leaves the server.
 import { OpenAIChat, type ChatMsg, type ChatResult } from '../../copilot-engine/src/desk.ts';
 import { reportedModelOk, type Slot, type SlotName, type Slots } from '../../copilot-engine/src/slots.ts';
 
@@ -57,8 +58,8 @@ export function createSmart(env: Env, slots: Slots, opts: { log?: (m: string) =>
   const today = () => new Date(now()).toISOString().slice(0, 10);
   const count = (name: SlotName) => { const u = used[name]; return u && u.day === today() ? u.n : 0; };
   const authOffUntil: Partial<Record<SlotName, number>> = {};
-  // A smart slot with no key stays off, and the log says why once at start.
-  if (env.DESK_HYBRID === '1') for (const slot of Object.values(slots)) if (slot.smart && slot.keyName && !env[slot.keyName]) log(`smart ${slot.name}: ${slot.provider} needs ${slot.keyName}, which is not set; the local model answers (deploy/README.md)`);
+  // A smart slot with no key stays off, and the log says why once at start (the escalation is on unless explicitly disabled).
+  if (env.DESK_HYBRID !== '0') for (const slot of Object.values(slots)) if (slot.smart && slot.keyName && !env[slot.keyName]) log(`smart ${slot.name}: ${slot.provider} needs ${slot.keyName}, which is not set; the local model answers (deploy/README.md)`);
 
   return {
     // Who this request is: a development host (the request's own host name, which server.ts only passes on when it is not
@@ -70,11 +71,13 @@ export function createSmart(env: Env, slots: Slots, opts: { log?: (m: string) =>
       const t = req.headers.get('x-owner-token') || cookieOf(req);
       return t && sameSecret(t, env.OWNER_TOKEN!) ? 'owner' : null;
     },
-    // Whether a smart model may answer this request's turn now (does not use up a call).
-    check(name: SlotName, scope: Scope): Gate {
+    // Whether a smart model may answer this request's turn now (does not use up a call). The hard-turn escalation is the
+    // default for everyone (#101): scope gates only a request that wants a smart model for every turn (`smartAlways`), not
+    // the ordinary one. `DESK_HYBRID=0` turns the escalation off explicitly.
+    check(name: SlotName, scope: Scope, smartAlways = false): Gate {
       const slot = slots[name];
-      if (env.DESK_HYBRID !== '1' || !slot.smart) return { ok: false, reason: 'off' };
-      if (!scope) return { ok: false, reason: 'scope' };
+      if (env.DESK_HYBRID === '0' || !slot.smart) return { ok: false, reason: 'off' };
+      if (smartAlways && !scope) return { ok: false, reason: 'scope' };
       if (!slot.keyName || !env[slot.keyName]) return { ok: false, reason: 'no-key' };
       if ((authOffUntil[name] ?? 0) > now()) return { ok: false, reason: 'auth' };
       if (count(name) >= slot.dailyCap) return { ok: false, reason: 'cap' };

@@ -60,13 +60,13 @@ The containers read `~/apps/copilot.env` on the VPS (mode 600, never in git):
 | `SIGNING_SECRET` | random, made on the VPS |
 | `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `LIVEKIT_KEYS` | random, made on the VPS; `LIVEKIT_KEYS` is `key: secret` |
 
-## Model slots (development only)
+## Model slots (the desk hybrid is the default)
 
-[Decision 0017](../docs/decisions/0017-smart-model-slots-for-development.md): LFM3 on the Pro is the default of every task, and a smart hosted model is an opt-in for development. [`demo/live-site/model-slots.json`](../demo/live-site/model-slots.json) names, per slot, a provider and a model. The server validates it when it starts and stops with a message naming the slot if something is wrong. The shipped file names `local` for every slot, which changes nothing.
+[Decision 0017](../docs/decisions/0017-smart-model-slots-for-development.md) as amended (2026-11-02, #101): LFM3 answers every ordinary turn and does the talking; a hard desk turn escalates to the slot's smart hosted model **by default, for every visitor** — no sign-in, no opt-in. `DESK_HYBRID=0` turns the escalation off. "Smart always" (every turn) still needs a development host or the owner's token. [`demo/live-site/model-slots.json`](../demo/live-site/model-slots.json) names, per slot, a provider and a model. The server validates it when it starts and stops with a message naming the slot if something is wrong. The shipped file names `local` for every slot, which keeps everything on LFM3; the VPS env sets the `desk` slot.
 
 | Slot | What it decides |
 |---|---|
-| `desk` | tool and form decisions (the smart model is asked only on a hard turn) |
+| `desk` | tool and form decisions (the smart model takes a hard turn, by default) |
 | `reply` | the spoken reply |
 | `rewrite` | question rewrite and clarifying questions |
 | `judge2` | a second opinion only where Jev is tied |
@@ -99,22 +99,22 @@ The owner limited `inferhub` to **`deepseek-v4.1-flash`** (decision 0017). A slo
 
 **Spend.** Our own limits are the daily cap (`SMART_DAILY_CAP`, `SLOT_DESK_DAILY_CAP`) and the owner scope; InferHub's own limits belong to the seat behind the vault item. InferHub bills each request at least $0.00001 and returns the charge as `usage.cost` in the response; the account's balance and usage are on its dashboard at https://inferhub.dev (Dashboard). Phoenix shows the model and the routes tried on each span (`llm.model_name`, `copilot.smart_tried`), not the cost.
 
-### Smart desk turns (development only)
+### Smart desk turns (the default hybrid)
 
-With the `desk` slot on a hosted model, the page's desk asks it only for a hard turn: the local model's answer was rejected by code (a field that does not exist, a value that fails its check), or it did nothing when the caller said something. Every other turn, and every turn of an ordinary visitor, stays on LFM3.
+With the `desk` slot on a hosted model, the desk asks it only for a hard turn: the local model's answer was rejected by code (a field that does not exist, a value that fails its check), or it did nothing when the caller said something. Every other turn, and every turn of the voice stacks, stays on LFM3. This is the default for every visitor now (#101); `DESK_HYBRID=0` turns it off.
 
 | Setting | What it does |
 |---|---|
-| `DESK_HYBRID=1` | the master switch; without it no request ever goes to a hosted model |
+| `DESK_HYBRID=0` | turns the escalation off explicitly; anything else (unset included) leaves it on |
 | `DESK_KEY` | bearer key for the local model's server, when it needs one |
 | `SMART_DAILY_CAP` / `SLOT_DESK_DAILY_CAP` | smart calls per UTC day (default 300); past it the page keeps the local answer |
 | `SLOT_DESK_TIMEOUT_MS` | how long the hosted model gets for the whole walk down its routes (default 8000); past it the local answer stands |
 | `SMART_DEV_HOSTS` | extra host names counted as development hosts (the built-in ones are `localhost`, `127.0.0.1`, `::1`, `*.localhost`, `*.test`) |
 | `SMART_OWNER=1`, `OWNER_TOKEN` | the owner switch: a request carrying the token in the `x-owner-token` header or the `copilot_owner` cookie is in scope |
 
-A request is in scope only from a development host (the server passes the request's host name on only when nothing proxied it, so on the VPS it never is one) or with the owner's token. The owner signs in once per browser: `curl -X POST https://copilot.design-bakery.com/api/owner -H 'content-type: application/json' -c jar -d '{"token":"<OWNER_TOKEN>"}'` sets the cookie, or send the same JSON from the page's console with `fetch('/api/owner', {method: 'POST', body: JSON.stringify({token})})`; posting an empty token signs out. Wrong tokens are limited to 10 an hour per visitor. If a gateway reports back a model whose name contains `claude` or `gemma`, the answer is dropped.
+Scope now gates only "smart always" (a smart model for every turn, not just hard ones): a development host (the server passes the request's host name on only when nothing proxied it, so on the VPS it never is one) or the owner's token. The owner signs in once per browser — on the page (below), or `curl -X POST https://copilot.design-bakery.com/api/owner -H 'content-type: application/json' -c jar -d '{"token":"<OWNER_TOKEN>"}'`; posting an empty token signs out. Wrong tokens are limited to 10 an hour per visitor. If a gateway reports back a model whose name contains `claude` or `gemma`, the answer is dropped.
 
-**On the page (#97).** The call controls have a **Brain** picker beside the voice and language pickers, and the call panel a small owner sign-in at the bottom. Everyone sees `LFM3 (local, default)`; a request in scope also sees `Smart: deepseek-v4.1-flash (hard turns)` and `Smart always: … (every turn, capped)`. `POST /api/brain/options` builds the list for that request's scope from the `desk` slot, so a change in the slot config shows up with no page change. The pick rides on each `/api/desk` request as `brain` (like the voice stack); the server, not the page, enforces scope — a smart pick out of scope or one whose call fails falls back to the local model, which answers as usual. The span keeps the pick in `copilot.brain`. The sign-in field POSTs the typed token to `/api/owner` once and keeps only the cookie it sets; the token is never in page source, a URL, localStorage or the snapshot.
+**On the page (#97).** The call controls have a **Brain** picker beside the voice and language pickers, and the call panel a small owner sign-in at the bottom. Everyone sees `LFM3 (local, fallback)` and `Hybrid: deepseek-v4.1-flash takes hard turns (default)`; a request in scope also sees `Smart always: … (every turn, capped)`. `POST /api/brain/options` builds the list for that request's scope from the `desk` slot, so a change in the slot config shows up with no page change. The pick rides on each `/api/desk` request as `brain` (like the voice stack); the server, not the page, enforces scope — a smart-always pick out of scope or one whose call fails falls back to the local model, which answers as usual. The span keeps the pick in `copilot.brain`. The sign-in field POSTs the typed token to `/api/owner` once and keeps only the cookie it sets; the token is never in page source, a URL, localStorage or the snapshot.
 
 Every `/api/desk` span in Phoenix carries `llm.model_name` (the model that answered), `copilot.slot`, `copilot.provider` and `copilot.scope` (`dev-host`, `owner` or `visitor`); an escalation also has `copilot.escalation` = `smart` and, when routes were passed over, `copilot.smart_tried`; a refused one has `copilot.smart_refused` with the reason (`off`, `scope`, `no-key`, `cap`, `auth`, or `timeout`, `exhausted`, `error`, `banned-model` for a failed call); and a picked brain is on `copilot.brain` (`smart`, `smart-always`).
 

@@ -383,36 +383,36 @@ export function createApi(env: ApiEnv, opts: { slots?: Slots; offlinePassages?: 
       if (!await ownerTries(ip)) return json({ error: 'slow down' }, 429);
       return smart.ownerSession(b.token);
     }
-    // What the Brain picker offers on this page (#97): built from the `desk` slot for this request's scope, so a visitor is
-    // offered the local model only, and the smart options exist at all only when the server's switches put them in scope.
-    // The list says model names, never keys (the key stays named by the slot, decision 0017).
+    // What the Brain picker offers on this page (#97, default amended by #101): the hybrid is the default for everyone, so
+    // the list reflects what is actually on. `smart` (hard turns) is offered whenever the escalation is on at all; `smart-always`
+    // (every turn) still needs a development host or the owner's token. The list says model names, never keys.
     if (path === '/api/brain/options') {
       const gate = smart.check('desk', scope);
-      const pick = gate.ok && b.brain === 'smart' || b.brain === 'smart-always' ? String(b.brain) : 'local';
+      const alwaysGate = smart.check('desk', scope, true);
+      const pick = b.brain === 'smart' && gate.ok || b.brain === 'smart-always' && alwaysGate.ok ? String(b.brain) : 'local';
       return json({
         scope: scope ?? 'visitor',
         pick,
         options: [
-          { id: 'local', label: 'LFM3 (local, default)', smart: false },
-          ...(gate.ok ? [
-            { id: 'smart', label: `Smart: ${slots.desk.model} (hard turns)`, smart: true },
-            { id: 'smart-always', label: `Smart always: ${slots.desk.model} (every turn, capped)`, smart: true },
-          ] : []),
+          { id: 'local', label: 'LFM3 (local, fallback)', smart: false },
+          ...(gate.ok ? [{ id: 'smart', label: `Hybrid: ${slots.desk.model} takes hard turns (default)`, smart: true }] : []),
+          ...(alwaysGate.ok ? [{ id: 'smart-always', label: `Smart always: ${slots.desk.model} (every turn, capped)`, smart: true }] : []),
         ],
       });
     }
     if (path === '/api/desk') {
       const messages = deskMessages(b.messages), tools = deskTools(b.tools ?? []);
       const o = { maxTokens: Math.min(Math.max(Number(b.max_tokens) || 220, 1), 220), temperature: Math.min(Math.max(Number(b.temperature) || 0, 0), 1) };
-      // The desk's escalation of a hard turn to the `desk` slot's smart model. Out of scope, over the cap, off or failing: a refusal
-      // the page answers by keeping the local model's answer, which it already has. The slot and model are on the span either way.
-      // The Brain picker's pick rides here (#97): `smart` (hard turns) or `smart-always` (every turn). The server enforces scope:
-      // a picked brain without scope or one that fails falls back to the local model, which answers as it always has; the old
-      // `smart: true` escalation keeps its contract (a 409 the page already handles).
+      // The desk's escalation of a hard turn to the `desk` slot's smart model — the default for every visitor now (#101):
+      // over the cap, out of lease or failing, the local model's answer, which the page already holds, stands. The slot and
+      // model are on the span either way. The Brain picker's pick rides here (#97): `smart` (the hybrid default) or
+      // `smart-always` (every turn, still scope-gated). A picked brain without scope or one that fails falls back to the
+      // local model, which answers as it always has; the old `smart: true` escalation keeps its contract (a 409 the page
+      // already handles). With no smart slot configured none of this arms.
       const pickedBrain = b.brain === 'smart' || b.brain === 'smart-always' ? (b.brain as string) : null;
       const wantSmart = b.smart === true || !!pickedBrain;
       if (wantSmart) {
-        const gate = smart.check('desk', scope);
+        const gate = smart.check('desk', scope, pickedBrain === 'smart-always');
         const keepLocal = !!pickedBrain; // a picked brain never errors the turn: the local model answers
         if (!gate.ok) {
           if (!keepLocal) return json({ error: 'smart unavailable', reason: gate.reason, slot: 'desk', provider: slots.desk.provider }, 409);
@@ -431,7 +431,7 @@ export function createApi(env: ApiEnv, opts: { slots?: Slots; offlinePassages?: 
       if (!model) return json({ error: 'no desk model' }, 503);
       if (!messages || !tools) return json({ error: 'bad desk request' }, 400);
       const r = await model.chat(messages, tools, o);
-      // `smart` tells the page whether a smart model may answer its hard turns now, so an ordinary visitor's page never asks.
+      // `smart` tells the page whether a smart model may answer its hard turns now (the hybrid default, #101).
       return json({ content: r.content, calls: r.calls.filter(c => DESK_TOOLS.has(c.name)), model: r.model, slot: 'desk', provider: 'local', smart: smart.check('desk', scope).ok });
     }
     if (path === '/api/search') {

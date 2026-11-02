@@ -108,9 +108,9 @@ export async function toReplyLanguage(text: string): Promise<string> {
   }
 }
 
-// The server's smart model for the hard turns of a development call (decision 0017). The page never decides who may use it: every
-// local answer from /api/desk says whether a smart model may answer now (a development host or the owner, under the cap), and
-// until it says so this model is unavailable, so the desk runs exactly as it did before and an ordinary visitor's page never asks.
+// The server's smart model for the hard turns of any call — the hybrid is the default now (#101). The page never decides who
+// may use it: every local answer from /api/desk says whether a smart model may answer now (on unless DESK_HYBRID=0, under the
+// cap, with the key healthy), and until it says so this model is unavailable, so the desk runs exactly as before.
 export class RemoteSmartModel implements ChatModel {
   name = 'smart';
   available = false;
