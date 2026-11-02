@@ -1,5 +1,6 @@
-# The copilot lab on the VPS: the site and its backend, the LiveKit server and the voice agent. See deploy/README.md.
-# Komodo's `copilot` stack deploys it (deploy/vps/autodeploy.sh) when GitHub's `production` branch moves.
+# The copilot lab on the VPS: the site and its backend and the LiveKit server. See deploy/README.md. Komodo's `copilot` stack
+# deploys it (deploy/vps/autodeploy.sh) when GitHub's `production` branch moves. The voice agent is not here: it has its own
+# compose file (docker-compose.agent.yml), one project per release, so a deploy never replaces an agent that is on a call.
 # The site binds loopback on 127.0.0.1:18787 and joins study-os_edge, where Cloudflare tunnel A reaches it as
 # copilot-web:8787 (copilot.design-bakery.com). Models stay on the MacBook Pro, reached through reverse SSH tunnels to
 # this host's loopback that the bridges below re-offer on the Docker gateway (containers can't reach the host's loopback):
@@ -42,21 +43,6 @@ services:
       timeout: 5s
       retries: 3
       start_period: 20s
-
-  agent:
-    <<: *env
-    container_name: copilot-agent
-    image: ${COPILOT_AGENT_IMAGE:-copilot-agent:local}
-    build:
-      context: ..
-      dockerfile: deploy/agent.Dockerfile
-    environment:
-      LIVEKIT_URL: ws://copilot-livekit:7880
-      SPEECH_URL: http://host.docker.internal:18799
-    # A stop gives the agent time to send the spans of the call it is on (telemetry.py) before Docker's kill; autodeploy.sh
-    # already waits for open calls before it replaces this container (#67).
-    stop_grace_period: 30s
-    depends_on: [livekit]
 
   livekit:
     <<: *env

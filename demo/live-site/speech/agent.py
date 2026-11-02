@@ -227,7 +227,11 @@ class Copilot(Agent):
 
 # One local caller at a time on a busy laptop: the machine's CPU load (a library load, the LiveKit VM) must not make the
 # worker turn calls away, so it is always available. Modules the agent loop would otherwise import mid-call are loaded first.
-server = AgentServer(num_idle_processes=1, load_fnc=lambda: 0.0, load_threshold=1.0, preload_modules=['filelock', 'numpy'])
+# A stop (docker stop, SIGTERM) drains instead of killing: LiveKit Agents 1.8.8 marks the worker full, so new calls go to a newer
+# worker, and waits for the calls it holds to end (cli/cli.py runs worker.drain() on the first TERM or INT in `start` mode). Its
+# default wait is an hour; this one is shorter, and docker-compose.agent.yml's stop_grace_period must stay longer than it.
+server = AgentServer(num_idle_processes=1, load_fnc=lambda: 0.0, load_threshold=1.0, preload_modules=['filelock', 'numpy'],
+                     drain_timeout=int(os.environ.get('AGENT_DRAIN_S', 1200)))
 
 
 def prewarm(proc: JobProcess):
