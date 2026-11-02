@@ -61,6 +61,29 @@ Starting revision, material inputs/configuration, runtime, exact command or prom
 
 No checkpoints yet.
 
+### 2026-11-02 00:27:36 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["copilot-engine/src/slots.ts, tests, demo/live-site/model-slots.json, decision 0017, deploy/README.md, task record"],"completed":["The model-slot file, its validation and allow-list, decision 0017 and the deploy README section are in; every slot defaults to the local model"],"decisions":["Decision 0017: LFM3 stays the default, smart slots are opt-in for development"],"evidence":["11 slot tests pass; npm run check exit 0 (replay gate ok) at 9a54f98"],"next_action":"Merge #78, then build the live wiring (#79) from main","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0083","timestamp":"2026-11-02T00:27:36Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"8e36d0f63e93eb4963a5736905f561a42685ced595f4a353e458db914cb22c48","request_id":"5e640f2697c24da8aba892b6cb55bd25","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0083"} -->
+
+Completed:
+- The model-slot file, its validation and allow-list, decision 0017 and the deploy README section are in; every slot defaults to the local model
+
+Evidence:
+- 11 slot tests pass; npm run check exit 0 (replay gate ok) at 9a54f98
+
+Decisions:
+- Decision 0017: LFM3 stays the default, smart slots are opt-in for development
+
+Changed:
+- copilot-engine/src/slots.ts, tests, demo/live-site/model-slots.json, decision 0017, deploy/README.md, task record
+
+Blocked/uncertain:
+- none
+
+Next:
+- Merge #78, then build the live wiring (#79) from main
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
