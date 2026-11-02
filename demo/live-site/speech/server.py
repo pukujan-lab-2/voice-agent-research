@@ -5,7 +5,7 @@
   POST /tts   {"text", "stack", "lang"}  ->  streamed 16-bit PCM at X-Sample-Rate Hz, first sound as soon as it is made
   POST /log   one JSON line per call turn (the widget's timings), appended to speech/turns.jsonl
   POST /load?stack=        swap a stack's models in (and the others' out) ahead of its first request
-  GET  /health             which stack is resident and what it loaded
+  GET  /health             which stack is resident and what it loaded, and whether a request is in flight (inflight, idle_s)
 
 STT is NVIDIA Parakeet TDT 0.6B v2 (CC-BY-4.0, sherpa-onnx int8; docs/decisions/0002): about 0.4-1 s for a sentence
 on an M1, against 3-4 s for faster-whisper small.en, which pads every clip to 30 s. TTS is Kyutai's Pocket TTS (CPU, streams its first audio in about 0.2-0.5 s);
@@ -31,6 +31,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import numpy as np
 import soundfile as sf
 
+from activity import Activity
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 MODELS = os.path.join(HERE, 'models')
 PARAKEET = os.path.join(MODELS, 'sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8')
@@ -40,6 +42,7 @@ LFM3_AUDIO_PORT = int(os.environ.get('LFM3_AUDIO_PORT', 8798))
 LFM3_AUDIO_URL = os.environ.get('LFM3_AUDIO_URL', '')  # a llama.cpp server already running; left out, one is started from models/lfm3-audio
 with open(os.path.join(HERE, 'stacks.json')) as f:
     STACKS = json.load(f)
+ACTIVITY = Activity()  # deploy/pro/update.sh asks /health before it restarts this server (#76)
 
 
 def log(*a):
@@ -408,10 +411,14 @@ def handler(stacks: Stacks, turns_path: str):
                 parts = STACKS['stacks'][stacks.active or STACKS['default']]
                 return self.json(200, {'ok': True, 'stt': parts['listens'], 'tts': parts['speaks'], 'rate': 24000, 'active': stacks.active,
                                        'loaded': sorted(stacks.made), 'last_swap': stacks.last_swap,
-                                       'rates': {'kokoro': 24000, 'pocket-tts': 24000, 'lfm3-audio': 24000}})
+                                       'rates': {'kokoro': 24000, 'pocket-tts': 24000, 'lfm3-audio': 24000}, **ACTIVITY.snapshot()})
             self.json(404, {'error': 'not found'})
 
         def do_POST(self):
+            with ACTIVITY.request():
+                self.handle_post()
+
+        def handle_post(self):
             path, _, query = self.path.partition('?')
             q = dict(p.split('=', 1) for p in query.split('&') if '=' in p)
             if path == '/stt':

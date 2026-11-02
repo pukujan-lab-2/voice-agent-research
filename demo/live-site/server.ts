@@ -141,6 +141,22 @@ function voiceToken(ask: VoiceAsk = {}): { url: string; token: string; room: str
   return { url: LIVEKIT_PUBLIC || LIVEKIT.url, room, stack, language, token: `${body}.${crypto.createHmac('sha256', LIVEKIT.secret).update(body).digest('base64url')}` };
 }
 
+// How many calls are open: LiveKit rooms that hold anyone. deploy/pro/update.sh asks before it restarts the speech server (#76).
+// An agent alone in a room for the few seconds after its caller left counts too, which errs towards waiting. null when LiveKit can't be asked.
+async function openCalls(): Promise<number | null> {
+  const now = Math.floor(Date.now() / 1000);
+  const b64 = (o: object) => Buffer.from(JSON.stringify(o)).toString('base64url');
+  const body = `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64({ iss: LIVEKIT.key, nbf: now - 5, exp: now + 60, video: { roomList: true } })}`;
+  const jwt = `${body}.${crypto.createHmac('sha256', LIVEKIT.secret).update(body).digest('base64url')}`;
+  try {
+    const r = await fetch(`${LIVEKIT.url.replace(/^ws/, 'http')}/twirp/livekit.RoomService/ListRooms`, {
+      method: 'POST', headers: { authorization: `Bearer ${jwt}`, 'content-type': 'application/json' }, body: '{}', signal: AbortSignal.timeout(3000) });
+    if (!r.ok) return null;
+    const { rooms = [] } = await r.json() as { rooms?: { numParticipants?: number; num_participants?: number }[] };
+    return rooms.filter(room => (room.numParticipants ?? room.num_participants ?? 0) > 0).length;
+  } catch { return null; }
+}
+
 // /rtc on this server to LiveKit (LIVEKIT_PUBLIC_URL set): plain requests and the signalling WebSocket, passed as they are.
 const lk = new URL(LIVEKIT.url.replace(/^ws/, 'http'));
 function rtcRequest(req: http.IncomingMessage, res: http.ServerResponse) {
@@ -196,6 +212,10 @@ export async function start(opts: { port?: number; host?: string; offline?: bool
       if (url.pathname === '/api/voice/token') void voiceUp();
       res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
       res.end(JSON.stringify(url.pathname === '/api/voice/token' ? voiceToken(ask) : voiceOptions(ask))); return;
+    }
+    if (req.method === 'GET' && url.pathname === '/api/voice/calls') {
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+      res.end(JSON.stringify({ calls: await openCalls() })); return;
     }
     if (LIVEKIT_PUBLIC && url.pathname.startsWith('/rtc')) { rtcRequest(req, res); return; }
     if (url.pathname.startsWith('/api/')) {

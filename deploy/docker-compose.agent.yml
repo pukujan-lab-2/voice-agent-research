@@ -1,0 +1,39 @@
+# The voice agent, one compose project per release (deploy/vps/lib.sh starts it as `-p copilot-agent-<tag>`), so the new agent
+# starts while the old one is still on its calls. A fixed container name or one project would make compose replace the old
+# agent, and a replaced agent drops its calls (#67, #76). The old release gets SIGTERM instead: LiveKit Agents (speech/agent.py)
+# then takes no new calls and exits when its calls end, or after AGENT_DRAIN_S (default 1200 s).
+# The agent joins the LiveKit server of the main stack (docker-compose.vps.yml) through its network. See deploy/README.md.
+name: copilot-agent
+
+services:
+  agent:
+    container_name: ${COPILOT_PREFIX:-copilot}-agent-${AGENT_TAG:-local}
+    image: ${COPILOT_AGENT_IMAGE:-copilot-agent:local}
+    build:
+      context: ..
+      dockerfile: deploy/agent.Dockerfile
+    env_file:
+      - path: ${COPILOT_ENV_FILE:-../../copilot.env}
+        required: false
+    environment:
+      LIVEKIT_URL: ws://${LIVEKIT_HOST:-copilot-livekit}:7880
+      SPEECH_URL: ${SPEECH_URL:-http://host.docker.internal:18799}
+      AGENT_DRAIN_S: ${AGENT_DRAIN_S:-1200}
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    labels:
+      copilot.role: agent
+      copilot.prefix: ${COPILOT_PREFIX:-copilot}
+      copilot.tag: ${AGENT_TAG:-local}
+    # Longer than AGENT_DRAIN_S, so a plain `docker stop` also lets the calls finish; the spans of the last turns need a few more.
+    stop_grace_period: 1230s
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+    networks: [lk]
+
+networks:
+  lk:
+    name: ${COPILOT_NETWORK:-copilot_default}
+    external: true

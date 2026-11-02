@@ -13,3 +13,6 @@ __pycache__/
 .pytest_cache/
 .venv/
 .ruff_cache/
+
+# deploy/vps/lib.sh writes what each deploy waited for here
+deploy/deploy.log
