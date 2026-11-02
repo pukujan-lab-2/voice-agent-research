@@ -61,6 +61,29 @@ The owner sees and changes which model answers, on the page, without curl; a vis
 
 No checkpoints yet.
 
+### 2026-11-02 03:16:27 UTC — workbuddy
+
+<!-- continuity:checkpoint {"agent":"workbuddy","blocked":[],"changed":["none"],"completed":["The Brain picker is on the page beside the voice and language pickers: POST /api/brain/options builds the list from the desk slot per request scope, the pick rides on /api/desk with the server enforcing scope, and the owner signs in on the page (typed token, only the cookie kept). A visitor sees the local model only"],"decisions":["no new decisions"],"evidence":["8 new brain-picker tests pass and 20 smart-desk tests pass; lint and typecheck clean on changed files; check steps show only pre-existing machine findings identical to main (pglite, replay gate ok)"],"next_action":"Push the branch, open the pull request with Refs #97, and check the picker at phone and desktop widths","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0089","timestamp":"2026-11-02T03:16:27Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"22c1cc218fec19c137da559f9bb39efe26050f13a9fe056424e67b63af517041","request_id":"a10fecbb098246cda0de85f8320556ac","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0089"} -->
+
+Completed:
+- The Brain picker is on the page beside the voice and language pickers: POST /api/brain/options builds the list from the desk slot per request scope, the pick rides on /api/desk with the server enforcing scope, and the owner signs in on the page (typed token, only the cookie kept). A visitor sees the local model only
+
+Evidence:
+- 8 new brain-picker tests pass and 20 smart-desk tests pass; lint and typecheck clean on changed files; check steps show only pre-existing machine findings identical to main (pglite, replay gate ok)
+
+Decisions:
+- no new decisions
+
+Changed:
+- none
+
+Blocked/uncertain:
+- none
+
+Next:
+- Push the branch, open the pull request with Refs #97, and check the picker at phone and desktop widths
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
