@@ -83,6 +83,29 @@ Blocked/uncertain:
 Next:
 - Open the pull request with Closes #76, wait for gates, then run a live test call across a deploy and post the evidence on #76
 
+### 2026-11-02 00:40:51 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["demo/live-site/tests/voice-hold.ts, deploy/README.md"],"completed":["The first deploy with the new scripts ran on the VPS and moved the voice agent without cutting anything: a new copilot-agent-<sha> registered with LiveKit after 8 s, the old fixed-name agent was told to stop, exited with code 0 and its restart policy is off; a call-hold script for the live check is added"],"decisions":["no new decisions"],"evidence":["VPS deploy.log 2026-11-02T00:37:13Z: deploy 7e5682780b04 wait=none waited=0s calls_at_start=0 agent=started drained=1 took=87s; docker ps shows copilot-agent-7e5682780b04 Up and copilot-agent Exited (0); npm run check passes"],"next_action":"After this merges, hold a live call with voice-hold.ts across its deploy and post the deploy.log and agent logs on #76","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0082","timestamp":"2026-11-02T00:40:51Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"4fbf733166c908f57b845177fc87566f49720dd4286c1cd2653c2df3469ede29","request_id":"0c488a8120f74ba48c3d71226cd72df0","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0082"} -->
+
+Completed:
+- The first deploy with the new scripts ran on the VPS and moved the voice agent without cutting anything: a new copilot-agent-<sha> registered with LiveKit after 8 s, the old fixed-name agent was told to stop, exited with code 0 and its restart policy is off; a call-hold script for the live check is added
+
+Evidence:
+- VPS deploy.log 2026-11-02T00:37:13Z: deploy 7e5682780b04 wait=none waited=0s calls_at_start=0 agent=started drained=1 took=87s; docker ps shows copilot-agent-7e5682780b04 Up and copilot-agent Exited (0); npm run check passes
+
+Decisions:
+- no new decisions
+
+Changed:
+- demo/live-site/tests/voice-hold.ts, deploy/README.md
+
+Blocked/uncertain:
+- none
+
+Next:
+- After this merges, hold a live call with voice-hold.ts across its deploy and post the deploy.log and agent logs on #76
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
