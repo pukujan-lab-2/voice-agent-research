@@ -54,6 +54,29 @@ Starting revision, material inputs/configuration, runtime, exact command or prom
 
 No checkpoints yet.
 
+### 2026-11-02 00:00:06 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":[".github/workflows/{replay-live,after-deploy}.yml, task record"],"completed":["The two replay workflows now write their result file in the workspace, where the step condition can see it"],"decisions":["no new decisions"],"evidence":["First runs of both passed their replay step and skipped their post step (runs 41364651415 and 41364653860); not yet re-run"],"next_action":"Merge, then dispatch both workflows again","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0082","timestamp":"2026-11-02T00:00:06Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"4f51820aeb8d289c403762e85a3ad4f0d24a1e8f036aa31faf1afda21e804154","request_id":"784e3210c565484fbbed29b137a5f93e","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0082"} -->
+
+Completed:
+- The two replay workflows now write their result file in the workspace, where the step condition can see it
+
+Evidence:
+- First runs of both passed their replay step and skipped their post step (runs 41364651415 and 41364653860); not yet re-run
+
+Decisions:
+- no new decisions
+
+Changed:
+- .github/workflows/{replay-live,after-deploy}.yml, task record
+
+Blocked/uncertain:
+- none
+
+Next:
+- Merge, then dispatch both workflows again
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
