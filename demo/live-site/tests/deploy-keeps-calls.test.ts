@@ -128,8 +128,11 @@ function fakeDocker(body: string) {
   const calls = path.join(tmp, `docker-${Math.random().toString(36).slice(2)}.calls`);
   const out = bash(`. "${root}/deploy/vps/lib.sh"
     docker() { echo "docker $*" >> "${calls}"; case "$1" in
-      ps) printf 'copilot-agent-aaa\\ncopilot-agent-bbb\\n' ;;
-      inspect) case "$*" in *copilot.tag*) case "$2" in copilot-agent-aaa) echo aaa ;; *) echo bbb ;; esac ;; esac ;;
+      ps) printf 'copilot-agent-aaa\\ncopilot-agent-bbb\\ncopilot-agent-old\\n' ;;
+      inspect) case "$*" in
+        *copilot.tag*) case "$2" in copilot-agent-aaa) echo aaa ;; copilot-agent-old) echo old ;; *) echo bbb ;; esac ;;
+        *RestartPolicy*) case "$2" in copilot-agent-old) echo no ;; *) echo unless-stopped ;; esac ;;
+      esac ;;
     esac; }
     ${body}`, { DEPLOY_LOG: path.join(tmp, 'x.log') });
   return { out, calls: fs.existsSync(calls) ? fs.readFileSync(calls, 'utf8').split('\n').filter(Boolean) : [] };
@@ -142,6 +145,7 @@ test('drain_old_agents turns the restart off and sends SIGTERM to every agent bu
   const kill = calls.indexOf('docker kill --signal=SIGTERM copilot-agent-aaa');
   assert.ok(update >= 0 && kill > update, `restart off, then SIGTERM: ${calls.join(' | ')}`);
   assert.equal(calls.filter(c => /^docker (kill|update|stop|rm)/.test(c) && /agent-bbb/.test(c)).length, 0, 'the new release is left alone');
+  assert.equal(calls.filter(c => /^docker (kill|update|stop|rm)/.test(c) && /agent-old/.test(c)).length, 0, 'an agent that is already draining gets no second signal: LiveKit Agents exits at once on it');
 });
 
 test('start_agent does not start a second agent for a release that already runs', () => {

@@ -106,6 +106,29 @@ Blocked/uncertain:
 Next:
 - After this merges, hold a live call with voice-hold.ts across its deploy and post the deploy.log and agent logs on #76
 
+### 2026-11-02 01:15:58 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":["The live call lost its rooms about every minute before the deploy touched anything (agent job exits after a stall line; the page's two rejoins ran out); cause not found"],"changed":["deploy/vps/lib.sh, tests/deploy-keeps-calls.test.ts, tests/deploy-sequence.ts"],"completed":["A live call held across a deploy did not prove the fix: the deploy waited 135 s for the call, but the call was cut by something else, and a second deploy signalled an agent that was already draining, which makes LiveKit Agents exit at once; the second signal is now skipped"],"decisions":["Issue #76 reopened until a live call survives a deploy"],"evidence":["VPS deploy.log 00:46:06 waiting, 00:48:54 calls ended after 135s; copilot-agent-7e5682780b04 Exited (1) after the third deploy's SIGTERM; deploy-sequence.ts 19 of 19 with a new step that deploys while an agent drains; deploy-keeps-calls 21 of 21; npm run check passes"],"next_action":"Merge this, hold another live call across its deploy, and look at why the call's jobs exit","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0082","timestamp":"2026-11-02T01:15:58Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"a8fa97290c0d5106dc749fc6d3c501ac4efd4c381000b821c0f9fae5b4bc0301","request_id":"22d82558f70940888d00f05b8df5904c","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0082"} -->
+
+Completed:
+- A live call held across a deploy did not prove the fix: the deploy waited 135 s for the call, but the call was cut by something else, and a second deploy signalled an agent that was already draining, which makes LiveKit Agents exit at once; the second signal is now skipped
+
+Evidence:
+- VPS deploy.log 00:46:06 waiting, 00:48:54 calls ended after 135s; copilot-agent-7e5682780b04 Exited (1) after the third deploy's SIGTERM; deploy-sequence.ts 19 of 19 with a new step that deploys while an agent drains; deploy-keeps-calls 21 of 21; npm run check passes
+
+Decisions:
+- Issue #76 reopened until a live call survives a deploy
+
+Changed:
+- deploy/vps/lib.sh, tests/deploy-keeps-calls.test.ts, tests/deploy-sequence.ts
+
+Blocked/uncertain:
+- The live call lost its rooms about every minute before the deploy touched anything (agent job exits after a stall line; the page's two rejoins ran out); cause not found
+
+Next:
+- Merge this, hold another live call across its deploy, and look at why the call's jobs exit
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
