@@ -19,7 +19,9 @@ const ENV: Record<string, string | undefined> = (globalThis as { process?: { env
 export type ToolCall = { name: string; args: Record<string, unknown> };
 export type ChatMsg = { role: 'system' | 'user' | 'assistant' | 'tool'; content: string | null; tool_calls?: unknown[]; tool_call_id?: string };
 export type ChatResult = { content: string; calls: ToolCall[]; ms: number; model: string };
-export interface ChatModel { name: string; chat(messages: ChatMsg[], tools: unknown[], opts?: { maxTokens?: number; temperature?: number; json?: boolean }): Promise<ChatResult> }
+// unavailable (optional): a hosted model that knows it cannot answer right now (out of scope, over its cap) says so, and the desk
+// then runs exactly as if it had no hosted model.
+export interface ChatModel { name: string; unavailable?(): boolean; chat(messages: ChatMsg[], tools: unknown[], opts?: { maxTokens?: number; temperature?: number; json?: boolean }): Promise<ChatResult> }
 
 export class OpenAIChat implements ChatModel {
   name: string;
@@ -489,7 +491,7 @@ export class Desk {
   private unknown: string;
   private finish?: string;
 
-  constructor(flow: Flow, opts: { model?: ChatModel; heavy?: ChatModel; docs?: Docs; answer?: (question: string, filter?: SearchFilter) => Promise<string | null>; search?: SiteSearch; lookups?: Lookups; caller?: () => Caller; unknown?: string; finish?: string; hooks?: Partial<Hooks>; route?: (said: string, d: Desk) => boolean; sessions?: Store; customers?: Store; fullFormFields?: number; scope?: string } = {}) {
+  constructor(flow: Flow, opts: { model?: ChatModel; heavy?: ChatModel; hybrid?: boolean; docs?: Docs; answer?: (question: string, filter?: SearchFilter) => Promise<string | null>; search?: SiteSearch; lookups?: Lookups; caller?: () => Caller; unknown?: string; finish?: string; hooks?: Partial<Hooks>; route?: (said: string, d: Desk) => boolean; sessions?: Store; customers?: Store; fullFormFields?: number; scope?: string } = {}) {
     this.flow = flow;
     this.scope = id(opts.scope ?? '');
     this.windowed = flow.fields.length > (opts.fullFormFields ?? FULL_FORM_FIELDS);
@@ -499,8 +501,9 @@ export class Desk {
     this.sessions = opts.sessions;
     this.customers = opts.customers;
     this.chatModel = opts.model;
-    // Hybrid (a hosted model for hard turns) is off unless DESK_HYBRID=1: the default path is the local model only.
-    this.heavy = ENV.DESK_HYBRID === '1' ? opts.heavy : undefined;
+    // Hybrid (a hosted model for hard turns) is off unless DESK_HYBRID=1 or the caller says so (the page, which has no env, and
+    // only for a model it knows is allowed): the default path is the local model only.
+    this.heavy = (opts.hybrid ?? ENV.DESK_HYBRID === '1') ? opts.heavy : undefined;
     this.docs = opts.docs;
     this.hooks = opts.hooks ?? {};
     if (opts.route) this.route = opts.route;
@@ -576,8 +579,9 @@ export class Desk {
     this.acts = [];
     this.lookupsThisTurn = 0;
     let reply = '', modelName = 'rules', calls: string[] = [], fallback: string | undefined;
-    const useHeavy = !!this.heavy && this.route(said, this);
-    const first = useHeavy ? this.heavy : this.chatModel;
+    const heavy = this.heavy && !this.heavy.unavailable?.() ? this.heavy : undefined; // a hosted model that cannot answer now is not used
+    const useHeavy = !!heavy && this.route(said, this);
+    const first = useHeavy ? heavy : this.chatModel;
     try {
       if (!first) throw new Error('no model');
       let r: ChatResult;
@@ -590,15 +594,15 @@ export class Desk {
       }
       modelName = r.model;
       // Escalate a turn the small model got wrong (a value code rejects, or nothing done when something was said).
-      if (this.heavy && first !== this.heavy && this.needsEscalation(r, said)) {
-        try { r = await this.heavy.chat(this.messages(said), this.toolsSpec); modelName = `${modelName}>${r.model}`; } catch { /* keep the small model's answer */ }
+      if (heavy && first !== heavy && this.needsEscalation(r, said)) {
+        try { r = await heavy.chat(this.messages(said), this.toolsSpec); modelName = `${modelName}>${r.model}`; } catch { /* keep the small model's answer */ }
       }
       // No tool call on a turn where the customer said something substantive: remind the model once.
       if (!r.calls.length && this.nudgeWorthy(said)) {
         try {
           const m = this.messages(said);
           m[m.length - 1] = { role: 'user', content: `${m[m.length - 1].content}\n[Reminder: if the customer gave or corrected ANY field value, call propose_value now (one call per value); if they said yes to the read-back, call confirm_pending; if they asked about the business, call answer_question.]` };
-          const r2 = await (useHeavy || !this.heavy ? first : this.heavy).chat(m, this.toolsSpec);
+          const r2 = await (useHeavy || !heavy ? first : heavy).chat(m, this.toolsSpec);
           if (r2.calls.length) { r = r2; modelName = `${modelName}+nudge`; }
         } catch { /* keep the first answer */ }
       }

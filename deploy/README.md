@@ -81,6 +81,23 @@ Env overrides, validated by the same rules: `SLOT_<NAME>_PROVIDER`, `SLOT_<NAME>
 
 The allow-list rejects any model name containing `claude`, `gemma` or `openrouter/free`, whatever the provider. `openrouter-free` needs a `:free` model and `litellm` needs an `ih/` name, so a gateway alias such as `sonnet` is not used.
 
+### Smart desk turns (development only)
+
+With the `desk` slot on a hosted model, the page's desk asks it only for a hard turn: the local model's answer was rejected by code (a field that does not exist, a value that fails its check), or it did nothing when the caller said something. Every other turn, and every turn of an ordinary visitor, stays on LFM3.
+
+| Setting | What it does |
+|---|---|
+| `DESK_HYBRID=1` | the master switch; without it no request ever goes to a hosted model |
+| `DESK_KEY` | bearer key for the local model's server, when it needs one |
+| `SMART_DAILY_CAP` / `SLOT_DESK_DAILY_CAP` | smart calls per UTC day (default 300); past it the page keeps the local answer |
+| `SLOT_DESK_TIMEOUT_MS` | how long the hosted model gets (default 8000); past it the local answer stands |
+| `SMART_DEV_HOSTS` | extra host names counted as development hosts (the built-in ones are `localhost`, `127.0.0.1`, `::1`, `*.localhost`, `*.test`) |
+| `SMART_OWNER=1`, `OWNER_TOKEN` | the owner switch: a request carrying the token in the `x-owner-token` header or the `copilot_owner` cookie is in scope |
+
+A request is in scope only from a development host (the server passes the request's host name on only when nothing proxied it, so on the VPS it never is one) or with the owner's token. The owner signs in once per browser: `curl -X POST https://copilot.design-bakery.com/api/owner -H 'content-type: application/json' -c jar -d '{"token":"<OWNER_TOKEN>"}'` sets the cookie, or send the same JSON from the page's console with `fetch('/api/owner', {method: 'POST', body: JSON.stringify({token})})`; posting an empty token signs out. Wrong tokens are limited to 10 an hour per visitor. If a gateway reports back a model whose name contains `claude` or `gemma`, the answer is dropped.
+
+Every `/api/desk` span in Phoenix carries `llm.model_name` (the model that answered), `copilot.slot`, `copilot.provider` and `copilot.scope` (`dev-host`, `owner` or `visitor`); an escalation also has `copilot.escalation` = `smart`, and a refused one `copilot.smart_refused` with the reason (`off`, `scope`, `no-key`, `cap`, or `timeout`, `error`, `banned-model` for a failed call).
+
 ## First-time setup (done once, 2026-11-01)
 
 - VPS: `git clone https://github.com/Pukujan-lab/voice-agent-research ~/apps/copilot`, write `~/apps/copilot.env`, then run `deploy/vps/autodeploy.sh` once.
