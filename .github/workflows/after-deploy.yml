@@ -46,7 +46,7 @@ jobs:
           for i in $(seq 1 30); do curl -fsS "$SITE/api/health" && exit 0; sleep 10; done
           echo "the site is not healthy" >&2; exit 1
       - name: Replay the cases against the site
-        run: node eval/replay.ts --snapshot --site "$SITE" --json "$RUNNER_TEMP/replay.json" --gate
+        run: node eval/replay.ts --snapshot --site "$SITE" --json replay.json --gate
       - name: Record the result in Phoenix
-        if: always() && hashFiles(format('{0}/replay.json', runner.temp)) != ''
-        run: node eval/after-deploy.ts --site "$SITE" --sha "${{ github.sha }}" --results "$RUNNER_TEMP/replay.json"
+        if: always() && hashFiles('replay.json') != ''
+        run: node eval/after-deploy.ts --site "$SITE" --sha "${{ github.sha }}" --results replay.json
