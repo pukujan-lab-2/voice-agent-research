@@ -58,6 +58,29 @@ Starting revision, material inputs/configuration, runtime, exact command or prom
 
 No checkpoints yet.
 
+### 2026-11-02 00:43:49 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["eval/lib/llm.ts, eval/lib/drafts.ts, eval/draft-expectations.ts, tests, eval/README.md, task record"],"completed":["The eval's generator and simulated callers follow the eval slot, and a script writes model-written draft expectations for replay cases to their own file"],"decisions":["Drafts live in eval/cases/drafts.json and never replace a case's own expectation"],"evidence":["8 new tests pass; npm run check exit 0"],"next_action":"Merge #81","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0085","timestamp":"2026-11-02T00:43:49Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"6d242ab9fa6952d07f8f50e3255430b2eaa6597caef499940a0685e0c8c4f236","request_id":"21ffe217c4984176b9fcfc358554a23b","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0085"} -->
+
+Completed:
+- The eval's generator and simulated callers follow the eval slot, and a script writes model-written draft expectations for replay cases to their own file
+
+Evidence:
+- 8 new tests pass; npm run check exit 0
+
+Decisions:
+- Drafts live in eval/cases/drafts.json and never replace a case's own expectation
+
+Changed:
+- eval/lib/llm.ts, eval/lib/drafts.ts, eval/draft-expectations.ts, tests, eval/README.md, task record
+
+Blocked/uncertain:
+- none
+
+Next:
+- Merge #81
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
