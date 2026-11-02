@@ -39,9 +39,9 @@ jobs:
       - run: npm ci --ignore-scripts
         working-directory: copilot-engine
       - name: Replay against the live site
-        run: node eval/replay.ts --snapshot --site "$SITE" --json "$RUNNER_TEMP/replay.json"
+        run: node eval/replay.ts --snapshot --site "$SITE" --json replay.json
       - name: Post the result
-        if: always() && hashFiles(format('{0}/replay.json', runner.temp)) != ''
+        if: always() && hashFiles('replay.json') != ''
         env:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: node eval/post-replay.ts "$RUNNER_TEMP/replay.json"
+        run: node eval/post-replay.ts replay.json
