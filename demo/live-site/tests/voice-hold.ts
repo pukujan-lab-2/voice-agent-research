@@ -30,11 +30,22 @@ const browser = await chromium.launch({
 });
 const page = await browser.newPage();
 page.on('pageerror', e => console.log('PAGEERR', e.message));
+// What the page's LiveKit client says about its connection, and the failures the page reports (agent-lost, voice-fallback), with the time.
+page.on('console', m => { if (/warn|error/.test(m.type()) || /signal|reconnect|resum|disconnect|ice/i.test(m.text())) console.log(`${new Date().toISOString().slice(11, 19)} console.${m.type()}: ${m.text().slice(0, 200)}`); });
+page.on('request', r => { if (r.url().includes('/api/trace')) for (const sp of JSON.parse(r.postData() ?? '{}').spans ?? []) if (/failure/.test(sp.name)) console.log(`${new Date().toISOString().slice(11, 19)} page reports ${sp.name}: ${String(sp.output ?? '').slice(0, 100)}`); });
 await page.addInitScript(() => {
   const w = window as any;
   w.__log = [];
   const ctx = new AudioContext({ sampleRate: 48000 });
   const dest = ctx.createMediaStreamDestination();
+  // A real microphone is never digital silence. Between clips the stream would be exactly zero, and the page's LiveKit client reads
+  // that as "local connection quality lost while publishing" and reconnects (#93). Faint noise (about -50 dB) is what a quiet room sounds like.
+  if ((window as any).__quiet !== false) {
+    const noise = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
+    const d = noise.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * 0.003;
+    const src = ctx.createBufferSource(); src.buffer = noise; src.loop = true; src.connect(dest); src.start();
+  }
   navigator.mediaDevices.getUserMedia = async () => { await ctx.resume(); return new MediaStream([dest.stream.getAudioTracks()[0].clone()]); };
   w.__play = async (b64: string) => {
     await ctx.resume();
