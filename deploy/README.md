@@ -58,6 +58,29 @@ The containers read `~/apps/copilot.env` on the VPS (mode 600, never in git):
 | `SIGNING_SECRET` | random, made on the VPS |
 | `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `LIVEKIT_KEYS` | random, made on the VPS; `LIVEKIT_KEYS` is `key: secret` |
 
+## Model slots (development only)
+
+[Decision 0017](../docs/decisions/0017-smart-model-slots-for-development.md): LFM3 on the Pro is the default of every task, and a smart hosted model is an opt-in for development. [`demo/live-site/model-slots.json`](../demo/live-site/model-slots.json) names, per slot, a provider and a model. The server validates it when it starts and stops with a message naming the slot if something is wrong. The shipped file names `local` for every slot, which changes nothing.
+
+| Slot | What it decides |
+|---|---|
+| `desk` | tool and form decisions (the smart model is asked only on a hard turn) |
+| `reply` | the spoken reply |
+| `rewrite` | question rewrite and clarifying questions |
+| `judge2` | a second opinion only where Jev is tied |
+| `eval` | test generation and simulated callers (offline) |
+
+| Provider | Model | Key name (env) | Reached at |
+|---|---|---|---|
+| `local` | LFM3 | none | `LLAMA_URL` / `DESK_URL` |
+| `litellm` | the gateway's `ih/...` names, for example `ih/ali/deepseek-v4.1-flash`, `ih/ali/qwen3.8-flash` | `LITELLM_COPILOT_KEY` | `LITELLM_URL` |
+| `openrouter-free` | a named model ending in `:free` | `OPENROUTER_FREE_KEY` | OpenRouter |
+| `workbuddy` | WorkBuddy's DeepSeek and Qwen models | `WORKBUDDY_KEY` | the Octo vault proxy (`WORKBUDDY_URL` overrides) |
+
+Env overrides, validated by the same rules: `SLOT_<NAME>_PROVIDER`, `SLOT_<NAME>_MODEL`, `SLOT_<NAME>_TIMEOUT_MS` (500 to 60000, default 8000) and `SLOT_<NAME>_DAILY_CAP` (default `SMART_DAILY_CAP`, or 300). For example `SLOT_DESK_PROVIDER=litellm SLOT_DESK_MODEL=ih/ali/deepseek-v4.1-flash`. Switching a slot's provider by env does not carry the file's model over.
+
+The allow-list rejects any model name containing `claude`, `gemma` or `openrouter/free`, whatever the provider. `openrouter-free` needs a `:free` model and `litellm` needs an `ih/` name, so a gateway alias such as `sonnet` is not used.
+
 ## First-time setup (done once, 2026-11-01)
 
 - VPS: `git clone https://github.com/Pukujan-lab/voice-agent-research ~/apps/copilot`, write `~/apps/copilot.env`, then run `deploy/vps/autodeploy.sh` once.
