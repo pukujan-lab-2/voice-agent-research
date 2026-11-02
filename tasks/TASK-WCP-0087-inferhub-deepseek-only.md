@@ -67,6 +67,29 @@ Starting revision, material inputs/configuration, runtime, exact command or prom
 
 No checkpoints yet.
 
+### 2026-11-02 01:19:20 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["slots.ts, desk.ts, smart.ts, api.ts, server.ts, widget remote, eval llm.ts, tests, decision 0017, deploy and eval READMEs, task record"],"completed":["Slots call InferHub's DeepSeek V4.1 Flash only, through the vault lease, trying the vendor routes in order, and a missing or expired key fails closed to the local model"],"decisions":["litellm provider removed; inferhub allow-list is deepseek-v4.1-flash and its vendor routes"],"evidence":["slot, backend and eval tests pass (14, 20 and 9); npm run check exit 0; a short request through the vault proxy with the lease answered from cb/deepseek-v4.1-flash"],"next_action":"Merge, put the lease on the VPS, deploy, live call, update #77","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0087","timestamp":"2026-11-02T01:19:20Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"82fe30e58ac7d2fd288b5e20a2355b04424f61e69c72ca7dc163f4184a9f8af5","request_id":"b23c9e39137c433796a3444b9b75d92b","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0087"} -->
+
+Completed:
+- Slots call InferHub's DeepSeek V4.1 Flash only, through the vault lease, trying the vendor routes in order, and a missing or expired key fails closed to the local model
+
+Evidence:
+- slot, backend and eval tests pass (14, 20 and 9); npm run check exit 0; a short request through the vault proxy with the lease answered from cb/deepseek-v4.1-flash
+
+Decisions:
+- litellm provider removed; inferhub allow-list is deepseek-v4.1-flash and its vendor routes
+
+Changed:
+- slots.ts, desk.ts, smart.ts, api.ts, server.ts, widget remote, eval llm.ts, tests, decision 0017, deploy and eval READMEs, task record
+
+Blocked/uncertain:
+- none
+
+Next:
+- Merge, put the lease on the VPS, deploy, live call, update #77
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
