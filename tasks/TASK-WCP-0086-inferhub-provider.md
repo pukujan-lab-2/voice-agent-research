@@ -60,6 +60,29 @@ Starting revision, material inputs/configuration, runtime, exact command or prom
 
 No checkpoints yet.
 
+### 2026-11-02 01:05:34 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["slots.ts and tests, api/server env names, eval llm.ts, decision 0017, deploy/README.md, task record"],"completed":["Model slots can call InferHub directly for DeepSeek and Qwen routes, per the owner's choice over a dedicated gateway"],"decisions":["Owner direction on #80: direct InferHub, no LiteLLM virtual key"],"evidence":["slot tests extended; npm run check exit 0"],"next_action":"Merge, set the VPS slot, run a live call","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0086","timestamp":"2026-11-02T01:05:34Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"d73543118b9103db16c1495048b1fc241c232c03e4eab9459db2ff120838ae0f","request_id":"a3596bfe9a534cf39d9c65f4953a2ce0","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0086"} -->
+
+Completed:
+- Model slots can call InferHub directly for DeepSeek and Qwen routes, per the owner's choice over a dedicated gateway
+
+Evidence:
+- slot tests extended; npm run check exit 0
+
+Decisions:
+- Owner direction on #80: direct InferHub, no LiteLLM virtual key
+
+Changed:
+- slots.ts and tests, api/server env names, eval llm.ts, decision 0017, deploy/README.md, task record
+
+Blocked/uncertain:
+- none
+
+Next:
+- Merge, set the VPS slot, run a live call
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
