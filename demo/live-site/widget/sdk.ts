@@ -26,6 +26,7 @@ import { forDisplay, forSpeech } from '../../../copilot-engine/src/guard.ts';
 import { Verifier, WANTS_VERIFY, type ReturnCard } from '../../../copilot-engine/src/verify.ts';
 import { DomFiller } from './dom-filler.ts';
 import { stackForLanguage } from './voice-choice.ts';
+import { watchAgent } from './agent-watch.ts';
 import { API_BASE } from './config.ts';
 import { callId, newCall, RemoteDeskModel, RemoteJudge, RemoteModel, RemoteRetriever, RemoteSmartModel, RemoteVerify, report, setDeskStack, setReplyLanguage, toReplyLanguage, warmUp } from './remote.ts';
 import { beginCall, endCall, failure, happened, logTurn, markDesk, notePage, noteVoice, type DeskMark } from './calllog.ts';
@@ -153,6 +154,7 @@ const AGENT_WAIT_MS = 45_000;
 // when it is created, so the page opens a fresh room and carries on, twice at most (#67).
 const AGENT_REJOINS = 2;
 let agentRejoins = 0;
+let agentWatch: ReturnType<typeof watchAgent> | null = null; // decides whether the agent has really left (agent-watch.ts)
 let ring: { ctx: AudioContext; timer: ReturnType<typeof setInterval> } | null = null;
 let agentTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -331,14 +333,33 @@ async function startVoice(rejoin = false) {
     document.body.appendChild(el);
   });
   rm.on(lk.RoomEvent.ParticipantAttributesChanged, (_changed, p) => { if (p.isAgent) agentState(p.attributes['lk.agent.state']); });
-  rm.on(lk.RoomEvent.ParticipantDisconnected, p => {
-    if (!p.isAgent || room !== rm || !snap.voice) return;
+  // A disconnect event for the agent is not the agent leaving: livekit-client sends one for every remote participant when it
+  // reconnects. The page waits for the reconnect to finish, then checks the room before it opens a new one (#95).
+  const watch = agentWatch = watchAgent(rm, () => {
+    if (room !== rm || !snap.voice) return;
     failure('agent-lost', 'the voice agent left the call', { rejoin: agentRejoins + 1 });
     if (agentRejoins >= AGENT_REJOINS) { toText("The voice line dropped, so let's carry on by typing."); return; }
     agentRejoins++;
     stopVoice(); void startVoice(true);
   });
-  rm.on(lk.RoomEvent.Disconnected, () => { if (room === rm && snap.voice) toText("The voice line dropped, so let's carry on by typing."); });
+  rm.on(lk.RoomEvent.ParticipantDisconnected, p => { if (p.isAgent && room === rm && snap.voice) watch.agentLeft(); });
+  rm.on(lk.RoomEvent.ParticipantConnected, p => { if (p.isAgent) watch.agentJoined(); });
+  rm.on(lk.RoomEvent.Reconnecting, () => watch.reconnecting());
+  rm.on(lk.RoomEvent.Reconnected, () => watch.reconnected());
+  rm.on(lk.RoomEvent.Disconnected, async () => {
+    if (room !== rm || !snap.voice) return;
+    // Our own connection to the server dropped for good: connect this room again with the same token before giving up on the call.
+    if (agentRejoins < AGENT_REJOINS) {
+      agentRejoins++;
+      failure('voice-reconnect', 'the connection dropped; connecting the same room again', { rejoin: agentRejoins });
+      try {
+        await rm.connect(grant.url, grant.token);
+        if (room === rm && micTrack) { await rm.localParticipant.publishTrack(micTrack, { source: lk.Track.Source.Microphone }); if (muted) await micTrack.mute(); }
+        return;
+      } catch (e) { report('voice', `reconnect: ${(e as Error).message}`); }
+    }
+    if (room === rm && snap.voice) toText("The voice line dropped, so let's carry on by typing.");
+  });
   // What the agent heard, live on screen ("heard: …"). A secret answer is never shown.
   rm.registerTextStreamHandler('lk.transcription', async (reader, from) => {
     if (from.identity !== rm.localParticipant.identity) return;
@@ -432,6 +453,7 @@ async function loadVoiceOptions() {
 function stopVoice() {
   voiceSeq++;
   stopRing();
+  agentWatch?.stop(); agentWatch = null;
   const rm = room; room = null; collect = null;
   void rm?.disconnect();
   micTrack?.stop(); micTrack = null;

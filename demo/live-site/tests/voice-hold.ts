@@ -35,6 +35,13 @@ await page.addInitScript(() => {
   w.__log = [];
   const ctx = new AudioContext({ sampleRate: 48000 });
   const dest = ctx.createMediaStreamDestination();
+  // A faint noise floor, as any real microphone has. Exact digital silence between clips makes livekit-client read the
+  // publisher as "connection quality lost" and do a full reconnect (#93, #95); the page now rides that out, but the driver should not cause it.
+  const noise = ctx.createBufferSource();
+  const nb = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
+  const nd = nb.getChannelData(0);
+  for (let i = 0; i < nd.length; i++) nd[i] = (Math.random() * 2 - 1) * 0.002;
+  noise.buffer = nb; noise.loop = true; noise.connect(dest); noise.start();
   navigator.mediaDevices.getUserMedia = async () => { await ctx.resume(); return new MediaStream([dest.stream.getAudioTracks()[0].clone()]); };
   w.__play = async (b64: string) => {
     await ctx.resume();
