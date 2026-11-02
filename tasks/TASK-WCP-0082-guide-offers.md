@@ -59,6 +59,29 @@ Starting revision, material inputs/configuration, runtime, exact command or prom
 
 No checkpoints yet.
 
+### 2026-11-02 00:06:09 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["copilot-engine/src/dialogue.ts, demo/live-site/widget/sdk.ts, tests"],"completed":["A live replay of both owner calls found a model promise nothing keeps, booking offers on date questions, a form topic asked back and a typed Hmm answered as a greeting; code now answers those."],"decisions":["no new decisions"],"evidence":["npm run check passed (134 engine tests, 42 eval and live-site tests, 15 python tests, 8 scenarios)."],"next_action":"Merge, then replay both owner calls on the live site.","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0082","timestamp":"2026-11-02T00:06:09Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"b2433b770c1d1d92d97cf0dfa6b255b1bf903ac7783ce9c49c1422caef2022e4","request_id":"ce09dfac6cd44be5a1d3140b0b30d39c","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0082"} -->
+
+Completed:
+- A live replay of both owner calls found a model promise nothing keeps, booking offers on date questions, a form topic asked back and a typed Hmm answered as a greeting; code now answers those.
+
+Evidence:
+- npm run check passed (134 engine tests, 42 eval and live-site tests, 15 python tests, 8 scenarios).
+
+Decisions:
+- no new decisions
+
+Changed:
+- copilot-engine/src/dialogue.ts, demo/live-site/widget/sdk.ts, tests
+
+Blocked/uncertain:
+- none
+
+Next:
+- Merge, then replay both owner calls on the live site.
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
