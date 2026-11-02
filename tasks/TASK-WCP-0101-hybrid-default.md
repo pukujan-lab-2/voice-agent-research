@@ -55,6 +55,29 @@ Every visitor gets the smarter answer on hard turns automatically; nobody has to
 
 No checkpoints yet.
 
+### 2026-11-02 20:14:02 UTC — workbuddy
+
+<!-- continuity:checkpoint {"agent":"workbuddy","blocked":[],"changed":["none"],"completed":["The DeepSeek hybrid is the default for every visitor: LFM3 answers ordinary turns and does the talking, a hard desk turn escalates to the desk slot's smart model (InferHub DeepSeek V4.1 Flash with its vendor-route fallbacks) with no sign-in or opt-in; DESK_HYBRID=0 turns it off, smart-always stays owner/dev-host only, the voice stacks never touch a hosted model. Decision 0017 amended, deploy README and picker labels updated"],"decisions":["no new decisions"],"evidence":["27 smart-desk and brain-picker tests pass; lint and typecheck clean on changed files; scenarios 8/8; replay gate ok; 147/148 overall with only the pre-existing pglite machine failure identical to main"],"next_action":"Push the branch, open the pull request with Closes #101, and confirm the VPS env has the desk slot set (SLOT_DESK_PROVIDER=inferhub, SLOT_DESK_MODEL=deepseek-v4.1-flash) plus INFERHUB_API_KEY so the default has something to escalate to","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0101","timestamp":"2026-11-02T20:14:02Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"929536c61737c78bd593b086464d69cd0d8e4894b380d3c072b5a936c2f65634","request_id":"8f43619cc49a449db50251c00732200b","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0101"} -->
+
+Completed:
+- The DeepSeek hybrid is the default for every visitor: LFM3 answers ordinary turns and does the talking, a hard desk turn escalates to the desk slot's smart model (InferHub DeepSeek V4.1 Flash with its vendor-route fallbacks) with no sign-in or opt-in; DESK_HYBRID=0 turns it off, smart-always stays owner/dev-host only, the voice stacks never touch a hosted model. Decision 0017 amended, deploy README and picker labels updated
+
+Evidence:
+- 27 smart-desk and brain-picker tests pass; lint and typecheck clean on changed files; scenarios 8/8; replay gate ok; 147/148 overall with only the pre-existing pglite machine failure identical to main
+
+Decisions:
+- no new decisions
+
+Changed:
+- none
+
+Blocked/uncertain:
+- none
+
+Next:
+- Push the branch, open the pull request with Closes #101, and confirm the VPS env has the desk slot set (SLOT_DESK_PROVIDER=inferhub, SLOT_DESK_MODEL=deepseek-v4.1-flash) plus INFERHUB_API_KEY so the default has something to escalate to
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
