@@ -152,6 +152,52 @@ Blocked/uncertain:
 Next:
 - Hold one more call with sparse turns across the deploy of this pull request, post all the evidence on #76, and file the agent-leaves-room defect
 
+### 2026-11-02 01:44:44 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["demo/live-site/speech/agent.py, deploy/vps/lib.sh, tests/deploy-keeps-calls.test.ts, .gitignore"],"completed":["The voice agent now logs who left the room, LiveKit's reason, why the session closed and the job's shutdown reason; a deploy saves the end of a finished agent's log before removing the container"],"decisions":["no new decisions"],"evidence":["Source of livekit-agents 1.8.8: session.clear_user_turn only clears the audio recogniser's buffer and the watchdog suppresses its exceptions, so the reset cannot end the job; Silero on 20 s of silence gives no speech and a say clip gives one segment; npm run check passes"],"next_action":"Merge, then read the new log lines on the next call that loses its agent and post the cause on #93","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0082","timestamp":"2026-11-02T01:44:44Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"3f742fbb73c6787e22a446b87437dafffab1b6ea472ec5151082ff6a39e56fdf","request_id":"137fb91e292f4d0da13f54af1a2faf06","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0082"} -->
+
+Completed:
+- The voice agent now logs who left the room, LiveKit's reason, why the session closed and the job's shutdown reason; a deploy saves the end of a finished agent's log before removing the container
+
+Evidence:
+- Source of livekit-agents 1.8.8: session.clear_user_turn only clears the audio recogniser's buffer and the watchdog suppresses its exceptions, so the reset cannot end the job; Silero on 20 s of silence gives no speech and a say clip gives one segment; npm run check passes
+
+Decisions:
+- no new decisions
+
+Changed:
+- demo/live-site/speech/agent.py, deploy/vps/lib.sh, tests/deploy-keeps-calls.test.ts, .gitignore
+
+Blocked/uncertain:
+- none
+
+Next:
+- Merge, then read the new log lines on the next call that loses its agent and post the cause on #93
+
+### 2026-11-02 02:12:52 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["none"],"completed":["Found why held calls lost their agent: the test driver's silent microphone made the page's LiveKit client reconnect and the widget read that as the agent leaving; with a noise floor an 8-minute call answered 12 of 12"],"decisions":["no new decisions"],"evidence":["LiveKit server log: the caller left first (CLIENT_REQUEST_LEAVE) and the agent stayed until the room closed; browser console: local connection quality lost, full reconnect; hold run with noise floor 12/12, no deploy"],"next_action":"Merge #94, hold a call with the noise floor across its deploy, post the result on #76 and #93","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0082","timestamp":"2026-11-02T02:12:52Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"b186b2d857f41fb7a269c5dbd44d44f88368b6918729033bf0f44eb07d154d2d","request_id":"7e11f5773db04f7a97d22d726bdc1645","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0082"} -->
+
+Completed:
+- Found why held calls lost their agent: the test driver's silent microphone made the page's LiveKit client reconnect and the widget read that as the agent leaving; with a noise floor an 8-minute call answered 12 of 12
+
+Evidence:
+- LiveKit server log: the caller left first (CLIENT_REQUEST_LEAVE) and the agent stayed until the room closed; browser console: local connection quality lost, full reconnect; hold run with noise floor 12/12, no deploy
+
+Decisions:
+- no new decisions
+
+Changed:
+- none
+
+Blocked/uncertain:
+- none
+
+Next:
+- Merge #94, hold a call with the noise floor across its deploy, post the result on #76 and #93
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
