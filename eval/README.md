@@ -33,3 +33,9 @@ stop on paid calls across generation and every run.
 Scoring prefers plain checks: citation present, quote found word for word in the cited passage, form never
 submitted, read-back before each spelled value, gold passage in the search hits. Jev grades only what code can't
 (is the answer right, was the goal reached, tone).
+
+## The `eval` model slot and draft expectations
+
+The `eval` slot of [`demo/live-site/model-slots.json`](../demo/live-site/model-slots.json) ([decision 0017](../docs/decisions/0017-smart-model-slots-for-development.md)) can replace the config's generator and simulated-caller model for a run, for example `SLOT_EVAL_PROVIDER=litellm SLOT_EVAL_MODEL=ih/ali/deepseek-v4.1-flash LITELLM_URL=http://127.0.0.1:4001/v1 LITELLM_COPILOT_KEY=… node eval/generate.ts --corpus irs`. The gateway listens on the VPS loopback, so reach it with `ssh -L 4001:127.0.0.1:4001 vps`. With the slot on `local` the config's model is used, as before. A model named claude, gemma or `openrouter/free` is refused, whichever file names it.
+
+`node eval/draft-expectations.ts` asks that model, for each mined replay case in `eval/cases/snapshot.json`, which expectation a good answer should meet (`answers-from`, `not-passage`, `clarifies` or `no-offer`, the shapes `lib/expect.ts` checks with code). It writes `eval/cases/drafts.json`, where every entry says `source: "model-written"` with the slot, provider, model and date, the model's reason, and the case's own expectation beside it (`agrees`). It never edits the snapshot or Octo: a draft is a proposal that a person promotes into a case, and no gate reads the drafts file.
