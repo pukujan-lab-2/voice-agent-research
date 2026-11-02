@@ -8,7 +8,7 @@ import type { SpanSpec } from '../tracing.ts';
 
 type Seen = { url: string; auth: string | null; body: Record<string, any> };
 let seen: Seen[] = [];
-let gateway: (init: RequestInit) => Promise<Response> = async () => reply('ih/ali/deepseek-v4.1-flash');
+let gateway: (init: RequestInit) => Promise<Response> = async () => reply('cb/deepseek-v4.1-flash');
 const reply = (model: string, content = 'smart says hi') => new Response(JSON.stringify({ model, choices: [{ message: { content } }] }), { status: 200 });
 globalThis.fetch = (async (url: string | URL, init: RequestInit = {}) => {
   const u = String(url);
@@ -22,7 +22,7 @@ globalThis.fetch = (async (url: string | URL, init: RequestInit = {}) => {
 
 const BASE: ApiEnv = { OPENROUTER_JEV_KEY: 'k', OCTO_KEY: 'k', OCTO_WORKSPACE: 'ws', OCTO_BASE: 'http://octo.test/api', SIGNING_SECRET: 's', STATE_STORE: 'memory', RATE_PER_MIN: '1000',
   DESK_URL: 'http://llm.test/v1' };
-const SMART: ApiEnv = { ...BASE, DESK_HYBRID: '1', SLOT_DESK_PROVIDER: 'litellm', SLOT_DESK_MODEL: 'ih/ali/deepseek-v4.1-flash', LITELLM_URL: 'http://gw.test/v1', LITELLM_COPILOT_KEY: 'virtual-key-for-test' };
+const SMART: ApiEnv = { ...BASE, DESK_HYBRID: '1', SLOT_DESK_PROVIDER: 'inferhub', SLOT_DESK_MODEL: 'deepseek-v4.1-flash', INFERHUB_BASE_URL: 'http://gw.test/v1', INFERHUB_API_KEY: 'lease-key-for-test' };
 const messages = [{ role: 'system', content: 'You are the desk.' }, { role: 'user', content: 'hello there' }];
 const VISITOR = 'https://copilot.example.com', DEV = 'http://localhost:8787';
 const spans: SpanSpec[] = [];
@@ -34,7 +34,7 @@ const desk = async (api: ReturnType<typeof make>, origin: string, extra: Record<
   return { status: r.status, headers: r.headers, ...(await r.json() as object) };
 };
 const gatewayCalls = () => seen.filter(s => s.url.startsWith('http://gw.test'));
-const reset = () => { seen = []; spans.length = 0; gateway = async () => reply('ih/ali/deepseek-v4.1-flash'); };
+const reset = () => { seen = []; spans.length = 0; gateway = async () => reply('cb/deepseek-v4.1-flash'); };
 
 test('defaults change nothing: the local model answers, no smart model is on offer and none can be asked', async () => {
   reset();
@@ -74,9 +74,9 @@ test('a development host gets the smart model for a hard turn, with the slot key
   const a = await desk(api, DEV);
   assert.equal(a.smart, true, 'the page may ask');
   const b = await desk(api, DEV, { smart: true });
-  assert.equal(b.status, 200); assert.equal(b.content, 'smart says hi'); assert.equal(b.model, 'ih/ali/deepseek-v4.1-flash'); assert.equal(b.provider, 'litellm');
+  assert.equal(b.status, 200); assert.equal(b.content, 'smart says hi'); assert.equal(b.model, 'cb/deepseek-v4.1-flash'); assert.equal(b.provider, 'inferhub');
   const g = gatewayCalls();
-  assert.equal(g.length, 1); assert.equal(g[0].auth, 'Bearer virtual-key-for-test'); assert.equal(g[0].body.model, 'ih/ali/deepseek-v4.1-flash');
+  assert.equal(g.length, 1); assert.equal(g[0].auth, 'Bearer lease-key-for-test'); assert.equal(g[0].body.model, 'deepseek-v4.1-flash');
   assert.equal(g[0].body.chat_template_kwargs, undefined, 'a hosted model is not sent the local template switch');
   for (const h of ['localhost', '127.0.0.1', 'copilot.test', 'x.localhost']) assert.equal((await desk(api, `http://${h}:1`)).smart, true, h);
   assert.equal((await desk(make({ ...SMART, SMART_DEV_HOSTS: 'dev.lan' }), 'http://dev.lan')).smart, true, 'SMART_DEV_HOSTS adds a host');
@@ -85,7 +85,7 @@ test('a development host gets the smart model for a hard turn, with the slot key
 test('DESK_HYBRID off or a missing key turns the smart model off even on a development host', async () => {
   reset();
   assert.equal((await desk(make({ ...SMART, DESK_HYBRID: '' }), DEV, { smart: true })).reason, 'off');
-  assert.equal((await desk(make({ ...SMART, LITELLM_COPILOT_KEY: '' }), DEV, { smart: true })).reason, 'no-key');
+  assert.equal((await desk(make({ ...SMART, INFERHUB_API_KEY: '' }), DEV, { smart: true })).reason, 'no-key');
   assert.equal(gatewayCalls().length, 0);
 });
 
@@ -157,7 +157,7 @@ test('an answer whose reported model is Claude or Gemma is dropped, whatever the
 });
 
 test('a banned or misspelt slot stops the server from starting, naming the slot', () => {
-  assert.throws(() => make({ ...SMART, SLOT_DESK_MODEL: 'ih/ali/claude-opus' }), /"desk".*not allowed/);
+  assert.throws(() => make({ ...SMART, SLOT_DESK_MODEL: 'cb/claude-opus' }), /"desk".*not allowed/);
   assert.throws(() => make({ ...SMART, SLOT_EVAL_PROVIDER: 'nope' }), /"eval".*unknown provider/);
 });
 
@@ -171,6 +171,111 @@ test('every desk span carries the slot, provider, scope and model, for local ans
   const a = spans.filter(s => s.name === 'desk').map(s => s.attributes!);
   assert.equal(a.length, 3);
   assert.deepEqual([a[0]['llm.model_name'], a[0]['copilot.slot'], a[0]['copilot.provider'], a[0]['copilot.scope']], ['lfm3', 'desk', 'local', 'dev-host']);
-  assert.deepEqual([a[1]['llm.model_name'], a[1]['copilot.slot'], a[1]['copilot.provider'], a[1]['copilot.escalation']], ['ih/ali/deepseek-v4.1-flash', 'desk', 'litellm', 'smart']);
+  assert.deepEqual([a[1]['llm.model_name'], a[1]['copilot.slot'], a[1]['copilot.provider'], a[1]['copilot.escalation']], ['cb/deepseek-v4.1-flash', 'desk', 'inferhub', 'smart']);
   assert.deepEqual([a[2]['copilot.smart_refused'], a[2]['copilot.scope']], ['scope', 'visitor']);
+});
+
+// ---- vendor routes, a rejected key, and no key (#89)
+const respond = (map: Record<string, number | 'hang'>) => async (init: RequestInit): Promise<Response> => {
+  const m = JSON.parse(String(init.body)).model as string;
+  const v = map[m];
+  if (v === 'hang') return new Promise((_, no) => init.signal?.addEventListener('abort', () => no(init.signal!.reason)));
+  return v === undefined ? reply(m) : new Response(JSON.stringify({ error: { code: 'x', message: 'no' } }), { status: v });
+};
+const gatewayModels = () => gatewayCalls().map(g => g.body.model as string);
+const ROUTES = ['deepseek-v4.1-flash', 'cb/deepseek-v4.1-flash', 'cbcn/deepseek-v4.1-flash', 'ali/deepseek-v4.1-flash', 'cp/cline-pass/deepseek-v4.1-flash', 'ocg/deepseek-v4.1-flash'];
+const captureLog = async <T>(run: () => Promise<T>): Promise<{ out: T; lines: string[] }> => {
+  const lines: string[] = [], real = console.error;
+  console.error = (...a: unknown[]) => { lines.push(a.join(' ')); };
+  try { return { out: await run(), lines }; } finally { console.error = real; }
+};
+
+test('a route that answers 402, 429 or 5xx is passed over for the next vendor route, in order, and the answer names the route that served', async () => {
+  reset();
+  gateway = respond({ [ROUTES[0]]: 402, [ROUTES[1]]: 429, [ROUTES[2]]: 502 });
+  const api = make({ ...SMART, SLOT_DESK_DAILY_CAP: '1' });
+  const r = await desk(api, DEV, { smart: true });
+  assert.equal(r.status, 200); assert.equal(r.model, ROUTES[3]);
+  assert.deepEqual(gatewayModels(), ROUTES.slice(0, 4));
+  assert.deepEqual(r.tried, [{ model: ROUTES[0], why: '402' }, { model: ROUTES[1], why: '429' }, { model: ROUTES[2], why: '502' }]);
+  assert.equal(r.smart, false, 'the walk down the routes used one call of the daily cap, not four');
+  await new Promise(res => setTimeout(res, 30));
+  const a = spans.find(s => s.name === 'desk')!.attributes!;
+  assert.equal(a['llm.model_name'], ROUTES[3]); assert.equal(a['copilot.smart_tried'], `${ROUTES[0]}:402, ${ROUTES[1]}:429, ${ROUTES[2]}:502`);
+});
+
+test('when every route fails the turn goes on with the local answer, and the slot stays on', async () => {
+  reset();
+  gateway = respond(Object.fromEntries(ROUTES.map(m => [m, 402])));
+  const api = make(SMART);
+  const r = await desk(api, DEV, { smart: true });
+  assert.equal(r.status, 409); assert.equal(r.reason, 'exhausted'); assert.equal(r.tried.length, 6);
+  assert.equal(gatewayCalls().length, 6);
+  assert.equal((await desk(api, DEV)).smart, true, 'not a key problem, so the page may ask again');
+});
+
+test('the slot\'s time budget covers the whole walk: a hanging second route ends it at the timeout', async () => {
+  reset();
+  gateway = respond({ [ROUTES[0]]: 402, [ROUTES[1]]: 'hang' });
+  const t0 = Date.now();
+  const r = await desk(make({ ...SMART, SLOT_DESK_TIMEOUT_MS: '600' }), DEV, { smart: true });
+  assert.equal(r.reason, 'timeout'); assert.ok(Date.now() - t0 < 2000);
+  assert.deepEqual(gatewayModels(), ROUTES.slice(0, 2), 'no third route after the deadline');
+});
+
+test('a 400 would fail the same way on every route, so the walk stops at once', async () => {
+  reset();
+  gateway = respond({ [ROUTES[0]]: 400 });
+  const r = await desk(make(SMART), DEV, { smart: true });
+  assert.equal(r.reason, 'error'); assert.equal(gatewayCalls().length, 1);
+});
+
+test('a rejected or expired key (401 or 403) stops smart calls for ten minutes, logs why without the key, and the span is an error', async () => {
+  for (const status of [401, 403]) {
+    reset();
+    gateway = respond({ [ROUTES[0]]: status });
+    const api = make(SMART);
+    const { out: r, lines } = await captureLog(async () => {
+      const first = await desk(api, DEV, { smart: true });
+      assert.equal((await desk(api, DEV)).smart, false, 'the page is told to stop asking');
+      assert.equal((await desk(api, DEV, { smart: true })).reason, 'auth');
+      await new Promise(res => setTimeout(res, 30));
+      return first;
+    });
+    assert.equal(r.status, 409); assert.equal(r.reason, 'auth');
+    assert.equal(gatewayCalls().length, 1, 'no hammering: later requests never reach InferHub');
+    const log = lines.join('\n');
+    assert.match(log, new RegExp(`rejected the key \\(HTTP ${status}\\)`)); assert.match(log, /vault lease/); assert.match(log, /local model answers/);
+    assert.ok(!log.includes('lease-key-for-test'), 'the key is never logged');
+    const failed = spans.filter(s => s.name === 'desk' && s.attributes!['copilot.smart_refused'] === 'auth');
+    assert.ok(failed.length >= 1 && failed.every(s => s.error === true), 'the refused request is an error span in Phoenix');
+  }
+});
+
+test('after the ten minutes the slot is tried again', async () => {
+  const { createSmart } = await import('../smart.ts');
+  const { loadSlots } = await import('../../../copilot-engine/src/slots.ts');
+  reset();
+  gateway = respond({ [ROUTES[0]]: 401 });
+  let clock = Date.parse('2026-11-02T00:00:00Z');
+  const slots = loadSlots(undefined, SMART as Record<string, string>);
+  const sm = createSmart(SMART as Record<string, string>, slots, { now: () => clock });
+  await assert.rejects(() => sm.call('desk', messages as never, []), (e: { reason: string }) => e.reason === 'auth');
+  assert.deepEqual(sm.check('desk', 'dev-host'), { ok: false, reason: 'auth' });
+  clock += 9 * 60_000;
+  assert.equal(sm.check('desk', 'dev-host').ok, false);
+  clock += 2 * 60_000;
+  assert.equal(sm.check('desk', 'dev-host').ok, true);
+});
+
+test('with no key the smart slot stays off, and the log says which key is missing, once, at start', async () => {
+  reset();
+  const { out: api, lines } = await captureLog(async () => make({ ...SMART, INFERHUB_API_KEY: '' }));
+  assert.match(lines.join('\n'), /smart desk: inferhub needs INFERHUB_API_KEY, which is not set; the local model answers/);
+  assert.equal((await desk(api, DEV)).smart, false);
+  assert.equal((await desk(api, DEV, { smart: true })).reason, 'no-key');
+  assert.equal(gatewayCalls().length, 0);
+  // not turned on (DESK_HYBRID off): nothing to complain about
+  const quiet = await captureLog(async () => make({ ...SMART, INFERHUB_API_KEY: '', DESK_HYBRID: '' }));
+  assert.equal(quiet.lines.length, 0);
 });

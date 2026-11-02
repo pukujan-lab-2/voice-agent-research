@@ -37,7 +37,7 @@ export type ApiEnv = {
   // Smart model slots (decision 0017, deploy/README.md): DESK_HYBRID=1 lets the desk ask the `desk` slot's hosted model on a hard turn,
   // for a development host or the owner only (SMART_OWNER=1 with OWNER_TOKEN, SMART_DEV_HOSTS adds host names). Keys are named by the slot.
   DESK_HYBRID?: string; SMART_OWNER?: string; OWNER_TOKEN?: string; SMART_DEV_HOSTS?: string; SMART_DAILY_CAP?: string;
-  INFERHUB_URL?: string; INFERHUB_API_KEY?: string; LITELLM_URL?: string; LITELLM_COPILOT_KEY?: string; OPENROUTER_FREE_URL?: string; OPENROUTER_FREE_KEY?: string; WORKBUDDY_URL?: string; WORKBUDDY_KEY?: string;
+  INFERHUB_BASE_URL?: string; INFERHUB_API_KEY?: string; OPENROUTER_FREE_URL?: string; OPENROUTER_FREE_KEY?: string; WORKBUDDY_URL?: string; WORKBUDDY_KEY?: string;
 } & Partial<Record<`SLOT_${Uppercase<(typeof SLOT_NAMES)[number]>}_${'PROVIDER' | 'MODEL' | 'TIMEOUT_MS' | 'DAILY_CAP'}`, string>>;
 
 // Only the fictional demo manuals and the IRS library (public-domain IRS.gov pages, data/irs.passages.json) can be searched.
@@ -394,9 +394,10 @@ export function createApi(env: ApiEnv, opts: { slots?: Slots; offlinePassages?: 
         if (!messages || !tools) return json({ error: 'bad desk request' }, 400);
         try {
           const r = await smart.call('desk', messages, tools, o);
-          return json({ content: r.content, calls: r.calls.filter(c => DESK_TOOLS.has(c.name)), model: r.model, slot: 'desk', provider: slots.desk.provider, smart: smart.check('desk', scope).ok });
+          return json({ content: r.content, calls: r.calls.filter(c => DESK_TOOLS.has(c.name)), model: r.model, slot: 'desk', provider: slots.desk.provider, tried: r.tried, smart: smart.check('desk', scope).ok });
         } catch (e) {
-          return json({ error: 'smart failed', reason: e instanceof SmartError ? e.reason : 'error', slot: 'desk', provider: slots.desk.provider, model: slots.desk.model }, 409);
+          const se = e instanceof SmartError ? e : null;
+          return json({ error: 'smart failed', reason: se?.reason ?? 'error', slot: 'desk', provider: slots.desk.provider, model: slots.desk.model, tried: se?.tried ?? [] }, 409);
         }
       }
       const model = clip(b.stack, 40) === 'lfm3-audio' ? audioDeskModel : deskModel;
@@ -502,7 +503,7 @@ export function createApi(env: ApiEnv, opts: { slots?: Slots; offlinePassages?: 
       attributes['copilot.slot'] = clip(o.slot, 20) || 'desk';
       attributes['copilot.provider'] = clip(o.provider, 30) || 'local';
       attributes['copilot.scope'] = scope ?? 'visitor';
-      if (b.smart === true) { attributes['copilot.escalation'] = 'smart'; if (o.reason) attributes['copilot.smart_refused'] = clip(o.reason, 20); }
+      if (b.smart === true) { attributes['copilot.escalation'] = 'smart'; if (o.reason) attributes['copilot.smart_refused'] = clip(o.reason, 20); if (o.tried?.length) attributes['copilot.smart_tried'] = clip(o.tried.map((t: any) => `${t.model}:${t.why}`).join(', '), 300); }
     }
     if (path === '/api/judge') {
       attributes['judge.rule'] = clip(o.rule, 20);

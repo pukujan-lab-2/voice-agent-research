@@ -26,7 +26,7 @@ Setup once: `uv venv eval/.venv --python 3.12 && uv pip install --python eval/.v
 promptfoo runs through `npx promptfoo@0.124.1`.
 
 Models: the generator and caller are open models named in the config (`openrouter-free` with a named `:free` model,
-`workbuddy` for DeepSeek or Qwen through the Octo vault proxy with `WORKBUDDY_KEY` set, or any `llama` server).
+`workbuddy` for a model WorkBuddy serves, through the Octo vault proxy with `WORKBUDDY_KEY` set, or any `llama` server).
 Never Claude, Gemma or the `openrouter/free` router. Checker and rubric judge: Jev. The config's `budgetUsd` is a hard
 stop on paid calls across generation and every run.
 
@@ -36,6 +36,6 @@ submitted, read-back before each spelled value, gold passage in the search hits.
 
 ## The `eval` model slot and draft expectations
 
-The `eval` slot of [`demo/live-site/model-slots.json`](../demo/live-site/model-slots.json) ([decision 0017](../docs/decisions/0017-smart-model-slots-for-development.md)) can replace the config's generator and simulated-caller model for a run, for example `SLOT_EVAL_PROVIDER=litellm SLOT_EVAL_MODEL=ih/ali/deepseek-v4.1-flash LITELLM_URL=http://127.0.0.1:4001/v1 LITELLM_COPILOT_KEY=… node eval/generate.ts --corpus irs`. The gateway listens on the VPS loopback, so reach it with `ssh -L 4001:127.0.0.1:4001 vps`. With the slot on `local` the config's model is used, as before. A model named claude, gemma or `openrouter/free` is refused, whichever file names it.
+The `eval` slot of [`demo/live-site/model-slots.json`](../demo/live-site/model-slots.json) ([decision 0017](../docs/decisions/0017-smart-model-slots-for-development.md)) can replace the config's generator and simulated-caller model for a run, for example `SLOT_EVAL_PROVIDER=inferhub SLOT_EVAL_MODEL=deepseek-v4.1-flash node eval/generate.ts --corpus irs` (the key is `INFERHUB_API_KEY`, or `inferhub_lease` in `~/Documents/projects/.env`). InferHub is reached through the Octo vault proxy; a 402 moves on to the next vendor route of the same model. With the slot on `local` the config's model is used, as before. A model named claude, gemma or `openrouter/free` is refused, whichever file names it.
 
 `node eval/draft-expectations.ts` asks that model, for each mined replay case in `eval/cases/snapshot.json`, which expectation a good answer should meet (`answers-from`, `not-passage`, `clarifies` or `no-offer`, the shapes `lib/expect.ts` checks with code). It writes `eval/cases/drafts.json`, where every entry says `source: "model-written"` with the slot, provider, model and date, the model's reason, and the case's own expectation beside it (`agrees`). It never edits the snapshot or Octo: a draft is a proposal that a person promotes into a case, and no gate reads the drafts file.
