@@ -60,6 +60,29 @@ Starting revision, material inputs/configuration, runtime, exact command or prom
 
 No checkpoints yet.
 
+### 2026-11-02 00:26:39 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["deploy/vps/autodeploy.sh, lib.sh, deploy-span.py, docker-compose.agent.yml, docker-compose.vps.yml, pro/update.sh, speech/agent.py, server.py, activity.py, server.ts, tests, README, decision 0016"],"completed":["A deploy no longer cuts an open call: the voice agent starts beside the old one and the old one drains, the site, LiveKit and the Pro's speech server wait up to 10 minutes for open calls, and each deploy records whether it waited"],"decisions":["Agent moved out of Komodo's compose file into one compose project per release so a stack deploy cannot replace it; unknown call counts do not block a deploy; Pro update waits whole, not only the restart"],"evidence":["npm run check passes; tests/deploy-keeps-calls.test.ts 21 passed without Docker; tests/deploy-sequence.ts 15 passed on a scratch Docker project with real LiveKit, LiveKit Agents 1.8.8 and a call with audio from say (the call stayed heard across a deploy, the old agent exited with code 0 when its call ended, the next call went to the new container)"],"next_action":"Open the pull request with Closes #76, wait for gates, then run a live test call across a deploy and post the evidence on #76","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0082","timestamp":"2026-11-02T00:26:39Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"9564c124d98098d0d9c1d9e783d651023d8ec39325ecd36b844e1a2d597e7938","request_id":"84cbcd5e792442d29f0bc2bf0d72a5bc","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0082"} -->
+
+Completed:
+- A deploy no longer cuts an open call: the voice agent starts beside the old one and the old one drains, the site, LiveKit and the Pro's speech server wait up to 10 minutes for open calls, and each deploy records whether it waited
+
+Evidence:
+- npm run check passes; tests/deploy-keeps-calls.test.ts 21 passed without Docker; tests/deploy-sequence.ts 15 passed on a scratch Docker project with real LiveKit, LiveKit Agents 1.8.8 and a call with audio from say (the call stayed heard across a deploy, the old agent exited with code 0 when its call ended, the next call went to the new container)
+
+Decisions:
+- Agent moved out of Komodo's compose file into one compose project per release so a stack deploy cannot replace it; unknown call counts do not block a deploy; Pro update waits whole, not only the restart
+
+Changed:
+- deploy/vps/autodeploy.sh, lib.sh, deploy-span.py, docker-compose.agent.yml, docker-compose.vps.yml, pro/update.sh, speech/agent.py, server.py, activity.py, server.ts, tests, README, decision 0016
+
+Blocked/uncertain:
+- none
+
+Next:
+- Open the pull request with Closes #76, wait for gates, then run a live test call across a deploy and post the evidence on #76
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
