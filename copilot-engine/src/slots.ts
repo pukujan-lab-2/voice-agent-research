@@ -12,7 +12,7 @@
 
 export const SLOT_NAMES = ['desk', 'reply', 'rewrite', 'judge2', 'eval'] as const;
 export type SlotName = (typeof SLOT_NAMES)[number];
-export const PROVIDERS = ['local', 'litellm', 'openrouter-free', 'workbuddy'] as const;
+export const PROVIDERS = ['local', 'inferhub', 'litellm', 'openrouter-free', 'workbuddy'] as const;
 export type Provider = (typeof PROVIDERS)[number];
 
 export type Slot = {
@@ -35,6 +35,8 @@ export function bannedModelReason(model: string): string | null {
 
 // Where each hosted provider is reached. The URL can be overridden by the env variable named here; the key is only named.
 const ENDPOINTS: Record<Exclude<Provider, 'local'>, { url: string; urlEnv: string; keyName: string; stream: boolean }> = {
+  // InferHub's own OpenAI-compatible API, with the seat key; routes are named like "cb/deepseek-v4.1-flash"
+  inferhub: { url: 'https://api.inferhub.dev/v1', urlEnv: 'INFERHUB_URL', keyName: 'INFERHUB_API_KEY', stream: false },
   litellm: { url: 'http://host.docker.internal:4001/v1', urlEnv: 'LITELLM_URL', keyName: 'LITELLM_COPILOT_KEY', stream: false },
   'openrouter-free': { url: 'https://openrouter.ai/api/v1', urlEnv: 'OPENROUTER_FREE_URL', keyName: 'OPENROUTER_FREE_KEY', stream: false },
   // the Octo vault proxy to WorkBuddy wants a system message first and a streamed reply
@@ -82,6 +84,7 @@ export function loadSlots(file: unknown, env: Env = {}): Slots {
     if (p === 'local') { out[name] = { name, provider: p, model: model ?? DEFAULT_LOCAL_MODEL, smart: false, stream: false, timeoutMs, dailyCap }; continue; }
     if (!model) fail(name, `provider "${p}" needs a model`);
     if (p === 'openrouter-free' && !model!.endsWith(':free')) fail(name, `openrouter-free needs a named model ending in ":free", not "${model}"`);
+    if (p === 'inferhub' && !/deepseek|qwen/i.test(model!)) fail(name, `inferhub takes only DeepSeek or Qwen routes (for example "cb/deepseek-v4.1-flash"), not "${model}"`);
     if (p === 'litellm' && !model!.startsWith('ih/')) fail(name, `litellm needs a gateway model name starting "ih/", not "${model}" (aliases such as "sonnet" or "opus" are not used)`);
     const e = ENDPOINTS[p];
     out[name] = { name, provider: p, model: model!, smart: true, url: (text(env[e.urlEnv]) ?? e.url).replace(/\/$/, ''), keyName: e.keyName, stream: e.stream, timeoutMs, dailyCap };

@@ -73,13 +73,14 @@ The containers read `~/apps/copilot.env` on the VPS (mode 600, never in git):
 | Provider | Model | Key name (env) | Reached at |
 |---|---|---|---|
 | `local` | LFM3 | none | `LLAMA_URL` / `DESK_URL` |
-| `litellm` | the gateway's `ih/...` names, for example `ih/ali/deepseek-v4.1-flash`, `ih/ali/qwen3.8-flash` | `LITELLM_COPILOT_KEY` | `LITELLM_URL` |
+| `inferhub` | a DeepSeek or Qwen route named as InferHub names it, for example `cb/deepseek-v4.1-flash`, `ocg/qwen3.8-flash`, `ali/qwen3.8-max`, `ali/deepseek-v4-pro-0813` | `INFERHUB_API_KEY` | InferHub (`INFERHUB_URL` overrides) |
+| `litellm` | a LiteLLM gateway's `ih/...` names; generic and unused today (the shared VPS gateway has no keys) | `LITELLM_COPILOT_KEY` | `LITELLM_URL` |
 | `openrouter-free` | a named model ending in `:free` | `OPENROUTER_FREE_KEY` | OpenRouter |
 | `workbuddy` | WorkBuddy's DeepSeek and Qwen models | `WORKBUDDY_KEY` | the Octo vault proxy (`WORKBUDDY_URL` overrides) |
 
 Env overrides, validated by the same rules: `SLOT_<NAME>_PROVIDER`, `SLOT_<NAME>_MODEL`, `SLOT_<NAME>_TIMEOUT_MS` (500 to 60000, default 8000) and `SLOT_<NAME>_DAILY_CAP` (default `SMART_DAILY_CAP`, or 300). For example `SLOT_DESK_PROVIDER=litellm SLOT_DESK_MODEL=ih/ali/deepseek-v4.1-flash`. Switching a slot's provider by env does not carry the file's model over.
 
-The allow-list rejects any model name containing `claude`, `gemma` or `openrouter/free`, whatever the provider. `openrouter-free` needs a `:free` model and `litellm` needs an `ih/` name, so a gateway alias such as `sonnet` is not used.
+The allow-list rejects any model name containing `claude`, `gemma` or `openrouter/free`, whatever the provider. `openrouter-free` needs a `:free` model, `inferhub` takes only DeepSeek or Qwen routes, and `litellm` needs an `ih/` name, so a gateway alias such as `sonnet` is not used. Not every InferHub route serves: on 2026-11-02 `ali/deepseek-v4.1-flash` and `ali/qwen3.8-flash` answered 402 `no_provider_under_bid` while the four routes in the table answered; check a route with a short request before pointing a slot at it. InferHub has no per-key budget here: the limits are `SMART_DAILY_CAP`, the slot's timeout, and any budget set in InferHub's dashboard.
 
 ### Smart desk turns (development only)
 
