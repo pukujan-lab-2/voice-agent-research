@@ -82,6 +82,29 @@ Blocked/uncertain:
 Next:
 - Merge, then report on #93; a held or spoken call confirms it.
 
+### 2026-11-02 02:17:09 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["demo/live-site/widget/agent-watch.ts, widget/sdk.ts, tests/agent-watch.test.ts"],"completed":["A reconnect made the page think the voice agent had left and restart the call; the page now waits for the reconnect, checks the room, and tries the same room again on a dropped connection. main merged in; voice-hold.ts already had the noise floor."],"decisions":["no new decisions"],"evidence":["npm run check passed (153 engine tests, 51 eval and live-site tests incl. 5 new agent-watch tests, 15 python tests, 8 scenarios)."],"next_action":"Merge, then report on #93; a held or spoken call confirms it.","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0088","timestamp":"2026-11-02T02:17:09Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"3ab5184d3e0ad6dffbf2680ff63a84a433aa08dc43e81ebb27cc4a0aaddfcc0a","request_id":"98a648a835534d639227fd9aa07b7cf3","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0088"} -->
+
+Completed:
+- A reconnect made the page think the voice agent had left and restart the call; the page now waits for the reconnect, checks the room, and tries the same room again on a dropped connection. main merged in; voice-hold.ts already had the noise floor.
+
+Evidence:
+- npm run check passed (153 engine tests, 51 eval and live-site tests incl. 5 new agent-watch tests, 15 python tests, 8 scenarios).
+
+Decisions:
+- no new decisions
+
+Changed:
+- demo/live-site/widget/agent-watch.ts, widget/sdk.ts, tests/agent-watch.test.ts
+
+Blocked/uncertain:
+- none
+
+Next:
+- Merge, then report on #93; a held or spoken call confirms it.
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
