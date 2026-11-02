@@ -129,6 +129,29 @@ Blocked/uncertain:
 Next:
 - Merge this, hold another live call across its deploy, and look at why the call's jobs exit
 
+### 2026-11-02 01:35:56 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":["A call surviving a deploy is not shown on the live site; the agent leaving rooms after a stall is a separate defect"],"changed":["none"],"completed":["Two live calls held across real deploys showed the deploy waits for the open call and goes on when it ends, and the second-signal bug is fixed; neither call survived to the deploy because the agent left its room about a minute after the caller joined"],"decisions":["no new decisions"],"evidence":["VPS deploy.log: 01:21:09 1 call(s) open, 01:23:38 calls ended after 130s; agent log: stall speech-without-turn then the agent leaves, call-288d3123 then call-e77ead10 then call-1e3ce8d1, the page's rejoins used up"],"next_action":"Hold one more call with sparse turns across the deploy of this pull request, post all the evidence on #76, and file the agent-leaves-room defect","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0082","timestamp":"2026-11-02T01:35:56Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"052659c3200f6a7d306b6234e1c4e83195a06b6b2d6b3148b329b457873508b1","request_id":"14419930b7004f69940bb7b2b059ba21","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0082"} -->
+
+Completed:
+- Two live calls held across real deploys showed the deploy waits for the open call and goes on when it ends, and the second-signal bug is fixed; neither call survived to the deploy because the agent left its room about a minute after the caller joined
+
+Evidence:
+- VPS deploy.log: 01:21:09 1 call(s) open, 01:23:38 calls ended after 130s; agent log: stall speech-without-turn then the agent leaves, call-288d3123 then call-e77ead10 then call-1e3ce8d1, the page's rejoins used up
+
+Decisions:
+- no new decisions
+
+Changed:
+- none
+
+Blocked/uncertain:
+- A call surviving a deploy is not shown on the live site; the agent leaving rooms after a stall is a separate defect
+
+Next:
+- Hold one more call with sparse turns across the deploy of this pull request, post all the evidence on #76, and file the agent-leaves-room defect
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
