@@ -56,6 +56,29 @@ Blocked/uncertain:
 Next:
 - Merge, then check both /media URLs return 200
 
+### 2026-11-02 02:21:22 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["none"],"completed":["The concept videos returned 404 on the live site because they are not in git; the two web-sized files are on the VPS and mounted read-only into copilot-web"],"decisions":["no new decisions"],"evidence":["Files copied to the VPS; compose file validates"],"next_action":"Merge, then check both /media URLs return 200","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0090","timestamp":"2026-11-02T02:21:22Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"d16495da95a0e355e96c6ea17080b1787567e000ad2c1fccd45055bcc3ee665c","request_id":"002196e73b064eeb8988ef8c5d131cac","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0090"} -->
+
+Completed:
+- The concept videos returned 404 on the live site because they are not in git; the two web-sized files are on the VPS and mounted read-only into copilot-web
+
+Evidence:
+- Files copied to the VPS; compose file validates
+
+Decisions:
+- no new decisions
+
+Changed:
+- none
+
+Blocked/uncertain:
+- none
+
+Next:
+- Merge, then check both /media URLs return 200
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
