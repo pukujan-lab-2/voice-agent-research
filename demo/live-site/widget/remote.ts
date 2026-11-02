@@ -120,7 +120,7 @@ export class RemoteSmartModel implements ChatModel {
     messages = inLanguage(messages);
     const t0 = Date.now();
     const r = await fetch(`${API_BASE}/api/desk`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-session-id': callId },
-      body: JSON.stringify({ messages, tools, max_tokens: opts.maxTokens, temperature: opts.temperature, smart: true }) });
+      body: JSON.stringify({ messages, tools, max_tokens: opts.maxTokens, temperature: opts.temperature, smart: true, brain: brainPick }) });
     const j = await r.json().catch(() => ({}));
     if (!r.ok) {
       // off, out of scope, no key or over the cap: stop asking. A timeout or a failed call is kept quiet only in the turn (the local answer stands).
@@ -133,6 +133,11 @@ export class RemoteSmartModel implements ChatModel {
   }
 }
 
+// The Brain picker's pick (#97): set by the widget, sent on every desk request (like the voice stack). 'local' sends nothing,
+// so a page that never picked behaves exactly as before. The server enforces scope; the pick is a preference, not an authority.
+let brainPick: string | null = null;
+export function setBrainPick(pick: string | null) { brainPick = pick && pick !== 'local' ? pick : null; }
+
 export class RemoteDeskModel implements ChatModel {
   name = 'lfm3';
   private smart?: RemoteSmartModel;
@@ -143,7 +148,7 @@ export class RemoteDeskModel implements ChatModel {
     messages = inLanguage(messages);
     const t0 = Date.now();
     const r = await fetch(`${API_BASE}/api/desk`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-session-id': callId },
-      body: JSON.stringify({ messages, tools, max_tokens: opts.maxTokens, temperature: opts.temperature, stack: deskStack }) });
+      body: JSON.stringify({ messages, tools, max_tokens: opts.maxTokens, temperature: opts.temperature, stack: deskStack, ...(brainPick ? { brain: brainPick } : {}) }) });
     if (r.status === 503) this.off.add(deskStack);
     if (!r.ok) { failure('desk-model', `/api/desk: ${r.status}`, { path: '/api/desk', fallback: 'code rules' }); throw new Error(`/api/desk: ${r.status}`); }
     const j = await r.json();

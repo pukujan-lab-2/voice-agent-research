@@ -28,7 +28,7 @@ import { DomFiller } from './dom-filler.ts';
 import { stackForLanguage } from './voice-choice.ts';
 import { watchAgent } from './agent-watch.ts';
 import { API_BASE } from './config.ts';
-import { callId, newCall, RemoteDeskModel, RemoteJudge, RemoteModel, RemoteRetriever, RemoteSmartModel, RemoteVerify, report, setDeskStack, setReplyLanguage, toReplyLanguage, warmUp } from './remote.ts';
+import { callId, newCall, RemoteDeskModel, RemoteJudge, RemoteModel, RemoteRetriever, RemoteSmartModel, RemoteVerify, report, setBrainPick, setDeskStack, setReplyLanguage, toReplyLanguage, warmUp } from './remote.ts';
 import { beginCall, endCall, failure, happened, logTurn, markDesk, notePage, noteVoice, type DeskMark } from './calllog.ts';
 
 export type Config = {
@@ -52,6 +52,8 @@ export type Config = {
 };
 export type Language = { code: string; name: string; native: string };
 export type VoiceStack = { id: string; label: string; languages: Language[] };
+// One Brain the picker offers (#97): the local model always, a smart one only when the server put this request in scope.
+export type BrainOption = { id: 'local' | 'smart' | 'smart-always'; label: string; smart: boolean };
 // The document an answer was quoted from, shown by the site's source viewer while snapshot.source is set. doc is the
 // library id (GET /api/library/doc?doc=…); page is the printed PDF's page (PDF sources), anchor the section (articles).
 export type Source = { label: string; title: string; credit: string; doc: string; page?: number; anchor?: string; href: string; quote: string[]; found: boolean | null };
@@ -83,6 +85,9 @@ export type Snapshot = {
   language: string;                    // the caller's pick ('' = not picked: the agent asks and goes by what it hears)
   languages: Language[];               // what the picker offers: every allowed stack's before a call, the call's stack's during one
   spokenLanguage: string;              // the language the recogniser last heard on this call ('' before the first turn)
+  brains: BrainOption[];               // what the Brain picker offers: the local model always, smart ones in scope only (#97)
+  brain: string;                       // the pick ('local' by default, rides on the desk request like the stack)
+  owner: boolean;                      // the owner is signed in on this page (the cookie the sign-in set)
 };
 
 type Mode = 'form' | 'guide' | 'ask';
@@ -94,7 +99,8 @@ const subs = new Set<() => void>();
 function blank(): Snapshot {
   return { mounted: false, open: false, voice: false, mic: canHear() ? 'off' : 'unavailable', textInput: false, status: 'idle', busy: false,
     heard: '', mode: 'form', modes: [], business: '', can: [], large: false, messages: [], startedAt: 0, wait: null, source: null, account: null,
-    voiceStacks: [], stack: '', language: '', languages: [], spokenLanguage: '' };
+    voiceStacks: [], stack: '', language: '', languages: [], spokenLanguage: '', brains: [{ id: 'local', label: 'LFM3 (local, default)', smart: false }],
+    brain: 'local', owner: false };
 }
 function set(p: Partial<Snapshot>) {
   snap = { ...snap, ...p };
@@ -448,6 +454,39 @@ async function loadVoiceOptions() {
     const current = stackLanguages(o.stack);
     set({ languages, language: snap.language || (current.length === 1 ? current[0].code : '') });
   } catch { /* no voice options: the call still starts on the server's default */ }
+  void loadBrainOptions();
+}
+
+// What the Brain picker offers on this page (#97): the server builds the list for this request's scope, so signing in as the
+// owner (or moving to a development host) changes what is here after the next load. A failure keeps the local option only.
+// The owner's auth is the cookie `/api/owner` set: the token itself is never kept in the page.
+async function loadBrainOptions() {
+  try {
+    const r = await fetch(`${API_BASE}/api/brain/options`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ brain: snap.brain }) });
+    if (!r.ok) return;
+    const o: { scope: string; pick: string; options: BrainOption[] } = await r.json();
+    const smartGone = !o.options.some(b => b.id === snap.brain);
+    set({ brains: o.options, brain: smartGone ? 'local' : snap.brain, owner: o.scope === 'owner' });
+    setBrainPick(smartGone ? null : snap.brain);
+  } catch { /* no brain options: the picker shows the local model only */ }
+}
+
+// The owner's sign-in on the page (#97): the token is typed into the field, POSTed once, and only the cookie it sets comes
+// back. The token is never written to page source, a URL, localStorage or the snapshot. An empty token signs out.
+async function ownerSignIn(token: string): Promise<boolean> {
+  try {
+    const r = await fetch(`${API_BASE}/api/owner`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ token }) });
+    if (!r.ok) return false;
+    void loadBrainOptions();
+    return true;
+  } catch { return false; }
+}
+
+// The pick for the next turn (#97). `local` clears the pick; anything else rides on the desk requests until changed.
+function setBrain(id: string) {
+  if (!snap.brains.some(b => b.id === id)) return; // not offered on this page: ignored
+  set({ brain: id });
+  setBrainPick(id === 'local' ? null : id);
 }
 
 function stopVoice() {
@@ -1198,6 +1237,8 @@ addEventListener('pagehide', () => { if (snap.open) endCall('left', formOn()); }
 
 const api = {
   mount, unmount: () => unmount(), start, end, toggleMic, setMode, showSource, closeSource, setLanguage, setStack,
+  // The Brain picker (#97): the pick for the next turn, and the owner's sign-in on the page (the token is typed, never stored).
+  setBrain, ownerSignIn,
   // The site's router, so the copilot changes page without a reload (and the call stays on): copilot.onNavigate(p => navigate(p)).
   onNavigate: (fn: (path: string) => void) => { navigateFn = fn; },
   // The staff app's session, so the copilot can look clients up by name (read-only).
