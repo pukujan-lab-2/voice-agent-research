@@ -64,6 +64,29 @@ Starting revision, material inputs/configuration, runtime, exact command or prom
 
 No checkpoints yet.
 
+### 2026-11-02 00:39:22 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["desk.ts, smart.ts, api.ts, server.ts, widget remote/sdk, tests, deploy/README.md, task record"],"completed":["The desk's hard turns can go to the desk slot's hosted model, only for a development host or the owner, under a daily cap, with the local answer kept on a timeout, and every desk span names the slot, provider and model"],"decisions":["Smart turns are asked by the page only when the server says it may (smart flag on each local answer); DESK_HYBRID=1 is the master switch"],"evidence":["13 backend tests and 5 desk tests pass; npm run check exit 0 at b3cbf7f on current main"],"next_action":"Merge #79; then deploy and run a live test call","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0084","timestamp":"2026-11-02T00:39:22Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"5322114ef78c35bba04f5a8e797d4b0fa27c410e7843344da0c8a20cb3d1b95a","request_id":"3dd7cd2554654f3c94e5eeb0cd7c4374","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0084"} -->
+
+Completed:
+- The desk's hard turns can go to the desk slot's hosted model, only for a development host or the owner, under a daily cap, with the local answer kept on a timeout, and every desk span names the slot, provider and model
+
+Evidence:
+- 13 backend tests and 5 desk tests pass; npm run check exit 0 at b3cbf7f on current main
+
+Decisions:
+- Smart turns are asked by the page only when the server says it may (smart flag on each local answer); DESK_HYBRID=1 is the master switch
+
+Changed:
+- desk.ts, smart.ts, api.ts, server.ts, widget remote/sdk, tests, deploy/README.md, task record
+
+Blocked/uncertain:
+- none
+
+Next:
+- Merge #79; then deploy and run a live test call
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
