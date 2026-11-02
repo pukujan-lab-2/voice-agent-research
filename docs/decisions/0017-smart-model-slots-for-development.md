@@ -26,3 +26,12 @@ The owner wants to see what smart hosted models make of the copilot while buildi
 - Decision 0009 stands: LFM3 writes replies and makes the per-turn form decision, Jev makes passage-pick decisions. No model comparisons come out of this; the smart slots are there to help build and test, not to pick a winner.
 - Decision 0001 stands for the product: a smart slot is an owner's development tool, and Claude and Gemma are rejected by name wherever a model is named.
 - Keys are only named, never held in a file: `INFERHUB_API_KEY` (the vault lease; it expires after 30 days and a rejected or expired one makes the slot fail closed to the local model), `OPENROUTER_FREE_KEY`, `WORKBUDDY_KEY`, in `~/apps/copilot.env` on the VPS (mode 600). A direct InferHub call has no budget of ours: the limits are the copilot's own daily cap and timeout, the owner scope, and the InferHub seat's own limits. On 2026-11-02 the owner chose this over a LiteLLM gateway (the shared VPS gateway has no master key or database, so it cannot make a budgeted virtual key, #80) and then limited InferHub to the one model (#89).
+
+## Amendment (2026-11-02, #101): the desk hybrid is the default
+
+The owner reversed the dev-only rule for the `desk` slot: **LFM3 answers every ordinary turn and does all the talking, and a hard turn escalates to the slot's smart model by default, for every visitor** ("no opt in, they're the default, LFM3 is for development"; clarified to mean the hybrid, not DeepSeek for every turn). What changed and what did not:
+
+- The escalation no longer needs a development host or the owner's token; `DESK_HYBRID=0` turns it off explicitly.
+- "Smart always" (a smart model for every turn, not just hard ones) stays scoped: a development host or the owner's token.
+- The cap, the timeout, the vendor-route fallbacks, the fail-closed key and the name allow-list are unchanged: whenever the smart model is unavailable the local model's answer stands and the caller never sees an error.
+- The `reply`, `rewrite` and `judge2` slots keep the local default; the voice stacks never touch a hosted model.
