@@ -123,6 +123,10 @@ Every `/api/desk` span in Phoenix carries `llm.model_name` (the model that answe
 - Cloudflare: tunnel A gets the public hostname `copilot.design-bakery.com` → `http://copilot-web:8787`.
 - Komodo: the `copilot` stack and the `copilot-deploy-on-push` action live in `Pukujan-lab/server-management` (`komodo/resources/stacks-vps.toml`).
 
+## Concept videos
+
+The two videos on the demo home page (`copilot-demo-720p.mp4`, 11 MB, and `copilot-demo-vertical-720p.mp4`, 9.7 MB) are not in git or in the image. They live on the VPS in `~/apps/copilot-media/` and `docker-compose.vps.yml` mounts them read-only into `copilot-web` at `/app/demo/live-site/dist/media/`. To replace one, copy the new file over it (`rsync new.mp4 vps:apps/copilot-media/copilot-demo-720p.mp4`) and restart `copilot-web`. The sources are in `demo/out/` on the owner's Mac. If a file is missing on the host when the container starts, Docker makes an empty directory in its place and that video 404s; the page still works.
+
 ## Checking it
 
 - Health: `curl https://copilot.design-bakery.com/api/health`

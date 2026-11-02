@@ -36,6 +36,11 @@ services:
       LFM3_AUDIO_URL: http://host.docker.internal:18798
     ports:
       - 127.0.0.1:18787:8787
+    # The concept videos are not in git and not in the image; they live on the host in ~/apps/copilot-media (deploy/README.md)
+    # and are mounted over the poster files' folder one file at a time. Copy the files there before changing this list.
+    volumes:
+      - ${COPILOT_MEDIA_DIR:-../../copilot-media}/copilot-demo-720p.mp4:/app/demo/live-site/dist/media/copilot-demo-720p.mp4:ro
+      - ${COPILOT_MEDIA_DIR:-../../copilot-media}/copilot-demo-vertical-720p.mp4:/app/demo/live-site/dist/media/copilot-demo-vertical-720p.mp4:ro
     networks: [default, edge]
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8787/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
