@@ -175,6 +175,29 @@ Blocked/uncertain:
 Next:
 - Merge, then read the new log lines on the next call that loses its agent and post the cause on #93
 
+### 2026-11-02 02:12:52 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["none"],"completed":["Found why held calls lost their agent: the test driver's silent microphone made the page's LiveKit client reconnect and the widget read that as the agent leaving; with a noise floor an 8-minute call answered 12 of 12"],"decisions":["no new decisions"],"evidence":["LiveKit server log: the caller left first (CLIENT_REQUEST_LEAVE) and the agent stayed until the room closed; browser console: local connection quality lost, full reconnect; hold run with noise floor 12/12, no deploy"],"next_action":"Merge #94, hold a call with the noise floor across its deploy, post the result on #76 and #93","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0082","timestamp":"2026-11-02T02:12:52Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"b186b2d857f41fb7a269c5dbd44d44f88368b6918729033bf0f44eb07d154d2d","request_id":"7e11f5773db04f7a97d22d726bdc1645","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0082"} -->
+
+Completed:
+- Found why held calls lost their agent: the test driver's silent microphone made the page's LiveKit client reconnect and the widget read that as the agent leaving; with a noise floor an 8-minute call answered 12 of 12
+
+Evidence:
+- LiveKit server log: the caller left first (CLIENT_REQUEST_LEAVE) and the agent stayed until the room closed; browser console: local connection quality lost, full reconnect; hold run with noise floor 12/12, no deploy
+
+Decisions:
+- no new decisions
+
+Changed:
+- none
+
+Blocked/uncertain:
+- none
+
+Next:
+- Merge #94, hold a call with the noise floor across its deploy, post the result on #76 and #93
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
