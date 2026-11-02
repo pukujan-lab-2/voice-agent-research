@@ -428,6 +428,12 @@ const CLAIMS = /\b(submit\w*|i'?ve (added|put|entered|noted|recorded|saved|fille
 const BYE = /\b(bye|goodbye|that'?s all|have to go|gotta go|hang up|stop|cancel|never ?mind)\b/i;
 // An optional field's "none": left blank (the same words the Copilot accepts).
 const NONE = /^\s*(no(ne|pe)?|n\/?a|skip( it| that)?|nothing|not applicable|no notice|leave it (blank|empty)|there (isn'?t|is no) (one|code)|i (didn'?t|did not|haven'?t|have not) (get|got|receive[d]?)( one| a notice| any( notice)?)?)\W*$/i;
+// A caller who will not give a value: "I ain't giving you my phone number, bro". Not the same as "no" to a read-back,
+// so it is only looked for when nothing is waiting to be confirmed. Asking again is nagging; the field stays blank.
+const WONT_GIVE = /\b((won'?t|will not|ain'?t|am not|not|never|refuse to|don'?t want to|do not want to|not going to|can'?t|cannot)\b[^.?!]{0,24}\b(giv(e|ing)|shar(e|ing)|tell(ing)?|provid(e|ing)|disclos(e|ing)|say(ing)?|put(ting)? (it|that|them)? ?(in|down)))/i;
+const WONT_GIVE_PLAIN = /\b(prefer not to|rather not|not comfortable|none of your business|mind your own|keep (it|that) to myself|going to keep (it|that)|leave it (blank|empty|out)|without (that|it|my (phone|number|email|address)))\b/i;
+// The terse form: "Nope, no phone number." A bare "no" is not this; it has to name the value it refuses.
+const WONT_GIVE_NONE = /^\s*(no|nope|nah|not really|absolutely not|definitely not)\b[^.!?]{0,20}\b(no|without (a|my|it)|not|never)\b[^.!?]{0,20}$/i;
 // A desk with no form only answers questions. Model text that states a rule, a date, an amount or what the caller can or
 // must do is a fact that has to come from the business's own passages, so that turn is looked up instead.
 const MODEL_REFUSAL = /\b(i (don'?t|do not) (have|know)|i (can'?t|cannot|couldn'?t) (find|tell)|not in (my|the) (guides|documents)|i'?m not sure|no information on)\b/i;
@@ -477,6 +483,7 @@ export class Desk {
   private mem = { asked: false, awaiting: false, lookedUp: false, forget: false, returning: false };
   private notes: string[] = []; // things code must say this turn (from inside confirm)
   private misheard = false; // the caller corrected a misheard value: every remaining step scores RISK_MISHEARD higher
+  private refused = new Set<string>(); // fields the caller said they will not give: asked once, never again
   private sureAsked = false; // this turn asked "are you sure?" instead of filling
   private skipAsk = ''; // a skip from RISK_TWICE up, asked once and waiting for the second yes
 
@@ -1127,9 +1134,18 @@ Caller: "Thanks, that helps." -> no tool; say "You're welcome. Anything else?"`;
       } else if (c.name === 'go_to_field') {
         const f = this.field(String(a.field ?? ''));
         if (!f) { ev({ type: 'bad_field', detail: String(a.field) }); continue; }
+        // The caller would not give this value ("I ain't giving you my phone number, bro"). A small model answers that
+        // by "going to" the field it is already on, which used to fall through to the question and ask for it again —
+        // twice in the call that found this (#101). Leave it blank and move on; never ask twice.
+        if (this.wontGive(f, said)) { ev({ type: 'wont_give', field: f.name, detail: said } as DeskEvent); acted = true; continue; }
         // "Go to" the empty field already open is no move: small models do this instead of proposing the answer
-        // just given, and the code net below then reads that answer back.
-        if (f.name === this.current && !this.pending && this.values[f.name] === undefined) { ev({ type: 'goto_same', field: f.name } as DeskEvent); continue; }
+        // just given, and the code net below then reads that answer back. Not when the caller is refusing: asking the
+        // same question again is the one thing this must not do.
+        if (f.name === this.current && !this.pending && this.values[f.name] === undefined) {
+          if (!this.wontGive(f, said)) { ev({ type: 'goto_same', field: f.name } as DeskEvent); continue; }
+          acted = true;
+          continue;
+        }
         acted = true;
         if (this.pending && (this.pending.field === f.name || this.pending.group?.some(g => g.field === f.name))) {
           ev({ type: 'goto_pending', field: f.name }); rec(c, `Still waiting for yes or no on ${f.name}.`);
@@ -1235,10 +1251,25 @@ Caller: "Thanks, that helps." -> no tool; say "You're welcome. Anything else?"`;
       if (this.pending) { tails.push(this.pending.text); questionTail = true; }
       else if (!this.pending && this.allFilled() && !this.done) { tails.push(this.finishLine()); this.complete = true; }
       else if (this.answerOnly) { if (!text) tails.push(this.done ? '' : "Sorry, I didn't catch that. What would you like to know?"); }
+      // A field the caller has just refused is not asked again: move on to the next one that still needs an answer.
+      else if (this.refused.has(this.current)) { const move = this.moveOffRefused(); if (move) { tails.push(move); questionTail = true; } }
       else if (!/\?/.test(text)) tails.push(this.field(this.current)!.question);
     }
     if (questionTail) text = text.split(/(?<=[.!?])\s+/).filter(s => !/\?$/.test(s)).join(' ');
     return [text, ...tails].filter(Boolean).join(' ');
+  }
+
+  // The caller just refused the field that is open. Say so once, in their own interest, and ask the next field that is
+  // still empty; a refusal is never met by asking the same question again (#101).
+  private moveOffRefused(): string {
+    const refused = this.field(this.current)!;
+    const next = this.flow.fields.find(f => f !== refused && this.values[f.name] === undefined && !this.refused.has(f.name));
+    if (!next) {
+      if (this.allFilled()) return '';
+      return `That's fine, we'll leave the ${refused.label} off. ${this.finishLine()}`;
+    }
+    this.goTo(next);
+    return `That's fine, we'll leave the ${refused.label} blank. ${next.question}`;
   }
 
   private confirmNote(): string {
@@ -1282,6 +1313,22 @@ Caller: "Thanks, that helps." -> no tool; say "You're welcome. Anything else?"`;
   private mishear(f: Field) {
     if (!this.misheard) this.events.push({ turn: this.n, type: 'misheard', field: f.name });
     this.misheard = true;
+  }
+
+  // The caller has said, in so many words, that they will not give this value. Only a refusal that names the field, or
+  // a plain "I'd rather not", counts: "no" to a read-back is handled by the confirmation path, not here. A field the
+  // caller has already refused stays refused for the rest of the call, so a later "go to" cannot reopen the nagging.
+  private wontGive(f: Field, said: string): boolean {
+    if (this.refused.has(f.name)) return true;
+    const t = said.trim();
+    if (!t || t.split(/\s+/).length > 20) return false;
+    const named = f.kind === 'phone' ? /\b(phone|number|cell|mobile)\b/i
+      : f.kind === 'email' ? /\b(e-?mail|address)\b/i
+      : f.kind === 'name' ? /\b(name|surname|last name)\b/i
+      : new RegExp(`\\b${escape(f.label.replace(/\s+/g, '\\s+'))}\\b|\\b${f.name}\\b`, 'i');
+    if (!(WONT_GIVE.test(t) || WONT_GIVE_PLAIN.test(t) || WONT_GIVE_NONE.test(t)) || !named.test(t)) return false;
+    this.refused.add(f.name);
+    return true;
   }
 
   // Up to 30: the value read from the caller's words is filled at once and said in passing ("Okay, Tuesday for the
