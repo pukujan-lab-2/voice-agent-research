@@ -341,6 +341,17 @@ async def entrypoint(ctx: JobContext):
     @session.on('close')
     def _close(ev):
         closed['reason'] = str(getattr(ev.reason, 'value', ev.reason)) + (f': {ev.error}' if ev.error else '')
+        print('session closed:', closed['reason'], flush=True)
+
+    # Why a call ended (#93): a live call lost its agent about a minute in with nothing in the log to say why. These lines name who
+    # left and the reason LiveKit gives, with what the session was doing.
+    @ctx.room.on('participant_disconnected')
+    def _left(p: rtc.RemoteParticipant):
+        print('participant left:', p.identity, 'reason', getattr(p, 'disconnect_reason', None), '| user', session.user_state, '| agent', session.agent_state, flush=True)
+
+    @ctx.room.on('disconnected')
+    def _room_gone(reason):
+        print('agent disconnected from the room:', reason, '| user', session.user_state, '| agent', session.agent_state, flush=True)
 
     # The caller spoke and no turn came of it (stall_watchdog.py): the call is not left deaf. Say so in Phoenix, drop the
     # half-made turn and the voice, and listen from the start. The call that stopped hearing its caller looked like this.
@@ -385,6 +396,7 @@ async def entrypoint(ctx: JobContext):
     ctx.add_shutdown_callback(http.close)
 
     async def _sent(reason: str):
+        print('job shutdown:', reason or '-', '| session:', closed.get('reason', 'still open'), '| user', session.user_state, '| agent', session.agent_state, flush=True)
         await tel.close(closed.get('reason') or reason or 'room closed')
 
     ctx.add_shutdown_callback(_sent)
