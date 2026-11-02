@@ -26,14 +26,15 @@ export interface ChatModel { name: string; unavailable?(): boolean; chat(message
 export class OpenAIChat implements ChatModel {
   name: string;
   waitedMs = 0; // time spent waiting out rate limits (a test harness subtracts it from latency)
-  private o: { url: string; key: string; model: string; stream: boolean; nothink: boolean; timeoutMs: number; patient: boolean; toolsHeader: string };
+  private o: { url: string; key: string; model: string; stream: boolean; nothink: boolean; timeoutMs: number; patient: boolean; toolsHeader: string; attempts: number };
   // patient: in tests, wait out 429 rate-limit windows (up to ~10 min) instead of failing the turn.
   // toolsHeader: a line the system prompt ends with when tools are offered (LFM3-Audio's card: "List of tools:"; its chat template then adds the tools).
-  constructor(o: { url?: string; key?: string; model?: string; stream?: boolean; nothink?: boolean; timeoutMs?: number; patient?: boolean; toolsHeader?: string } = {}) {
+  // attempts: tries per call before it gives up (default 3; a caller that has other routes to try uses 1).
+  constructor(o: { url?: string; key?: string; model?: string; stream?: boolean; nothink?: boolean; timeoutMs?: number; patient?: boolean; toolsHeader?: string; attempts?: number } = {}) {
     this.o = {
       url: (o.url ?? ENV.DESK_URL ?? '').replace(/\/$/, ''), key: o.key ?? ENV.DESK_KEY ?? '',
       model: o.model ?? ENV.DESK_MODEL ?? '', stream: o.stream ?? ENV.DESK_STREAM === '1',
-      nothink: o.nothink ?? ENV.DESK_THINK !== '1', timeoutMs: o.timeoutMs ?? 15000, patient: o.patient ?? false, toolsHeader: o.toolsHeader ?? '',
+      nothink: o.nothink ?? ENV.DESK_THINK !== '1', timeoutMs: o.timeoutMs ?? 15000, patient: o.patient ?? false, toolsHeader: o.toolsHeader ?? '', attempts: o.attempts ?? 3,
     };
     if (!this.o.url) throw new Error('DESK_URL is not set');
     this.name = this.o.model || 'desk-model';
@@ -46,9 +47,9 @@ export class OpenAIChat implements ChatModel {
     if (tools.length) { body.tools = tools; body.tool_choice = 'auto'; }
     if (this.o.nothink) body.chat_template_kwargs = { enable_thinking: false };
     if (this.o.stream) body.stream = true;
-    let lastErr = '';
+    let lastErr = '', lastStatus = 0;
     let t1 = t0;
-    for (let attempt = 0; attempt < (this.o.patient ? 40 : 3); attempt++) {
+    for (let attempt = 0; attempt < (this.o.patient ? 40 : this.o.attempts); attempt++) {
       try {
         t1 = Date.now();
         const r = await fetch(`${this.o.url}/chat/completions`, {
@@ -57,10 +58,10 @@ export class OpenAIChat implements ChatModel {
         });
         const txt = await r.text();
         if (!r.ok) {
-          lastErr = `${r.status} ${txt.slice(0, 120)}`;
+          lastErr = `${r.status} ${txt.slice(0, 120)}`; lastStatus = r.status;
           if ((r.status === 429 || r.status >= 500) && !/context size|context length|exceeds the context/i.test(txt)) {
             // Only rate limits are waited out patiently; a server error gets three tries.
-            if ((!this.o.patient || r.status !== 429) && attempt >= 2) break;
+            if ((!this.o.patient || r.status !== 429) && attempt >= this.o.attempts - 1) break;
             if (ENV.DESK_DEBUG) console.error(`[${this.o.model}] ${lastErr.slice(0, 160)}`);
             const wait = this.o.patient && r.status === 429 ? 15000 : 1500 * (attempt + 1);
             this.waitedMs += wait; await new Promise(res => setTimeout(res, wait)); continue;
@@ -90,7 +91,8 @@ export class OpenAIChat implements ChatModel {
         if ((e as Error).name === 'TimeoutError') break;
       }
     }
-    throw new Error(`chat failed: ${lastErr}`);
+    // status: the last HTTP status the server answered (0 when none did, as on a timeout), for a caller that picks its next route by it
+    throw Object.assign(new Error(`chat failed: ${lastErr}`), { status: lastStatus });
   }
 }
 

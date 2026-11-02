@@ -73,14 +73,29 @@ The containers read `~/apps/copilot.env` on the VPS (mode 600, never in git):
 | Provider | Model | Key name (env) | Reached at |
 |---|---|---|---|
 | `local` | LFM3 | none | `LLAMA_URL` / `DESK_URL` |
-| `inferhub` | a DeepSeek or Qwen route named as InferHub names it, for example `cb/deepseek-v4.1-flash`, `ocg/qwen3.8-flash`, `ali/qwen3.8-max`, `ali/deepseek-v4-pro-0813` | `INFERHUB_API_KEY` | InferHub (`INFERHUB_URL` overrides) |
-| `litellm` | a LiteLLM gateway's `ih/...` names; generic and unused today (the shared VPS gateway has no keys) | `LITELLM_COPILOT_KEY` | `LITELLM_URL` |
+| `inferhub` | `deepseek-v4.1-flash` and nothing else (see below) | `INFERHUB_API_KEY` | the Octo vault proxy to InferHub (`INFERHUB_BASE_URL` overrides) |
 | `openrouter-free` | a named model ending in `:free` | `OPENROUTER_FREE_KEY` | OpenRouter |
-| `workbuddy` | WorkBuddy's DeepSeek and Qwen models | `WORKBUDDY_KEY` | the Octo vault proxy (`WORKBUDDY_URL` overrides) |
+| `workbuddy` | a model WorkBuddy serves | `WORKBUDDY_KEY` | the Octo vault proxy (`WORKBUDDY_URL` overrides) |
 
-Env overrides, validated by the same rules: `SLOT_<NAME>_PROVIDER`, `SLOT_<NAME>_MODEL`, `SLOT_<NAME>_TIMEOUT_MS` (500 to 60000, default 8000) and `SLOT_<NAME>_DAILY_CAP` (default `SMART_DAILY_CAP`, or 300). For example `SLOT_DESK_PROVIDER=litellm SLOT_DESK_MODEL=ih/ali/deepseek-v4.1-flash`. Switching a slot's provider by env does not carry the file's model over.
+Env overrides, validated by the same rules: `SLOT_<NAME>_PROVIDER`, `SLOT_<NAME>_MODEL`, `SLOT_<NAME>_TIMEOUT_MS` (500 to 60000, default 8000) and `SLOT_<NAME>_DAILY_CAP` (default `SMART_DAILY_CAP`, or 300). For example `SLOT_DESK_PROVIDER=inferhub SLOT_DESK_MODEL=deepseek-v4.1-flash`. Switching a slot's provider by env does not carry the file's model over.
 
-The allow-list rejects any model name containing `claude`, `gemma` or `openrouter/free`, whatever the provider. `openrouter-free` needs a `:free` model, `inferhub` takes only DeepSeek or Qwen routes, and `litellm` needs an `ih/` name, so a gateway alias such as `sonnet` is not used. Not every InferHub route serves: on 2026-11-02 `ali/deepseek-v4.1-flash` and `ali/qwen3.8-flash` answered 402 `no_provider_under_bid` while the four routes in the table answered; check a route with a short request before pointing a slot at it. InferHub has no per-key budget here: the limits are `SMART_DAILY_CAP`, the slot's timeout, and any budget set in InferHub's dashboard.
+The allow-list rejects any model name containing `claude`, `gemma` or `openrouter/free`, whatever the provider. `openrouter-free` needs a `:free` model, and `inferhub` takes exactly one model (below); any other name stops the server at start with a message naming the slot.
+
+### InferHub: one model, vendor routes, a 30-day lease
+
+The owner limited `inferhub` to **`deepseek-v4.1-flash`** (decision 0017). A slot names that id (InferHub then picks a vendor itself) or one vendor route of it: `cb/`, `cbcn/`, `ali/`, `cp/cline-pass/` or `ocg/` followed by `deepseek-v4.1-flash`. Every other name, other DeepSeek and Qwen models included, is rejected when the server starts. The ids were checked against InferHub's `/v1/models` on 2026-11-02.
+
+```json
+{ "version": 1, "slots": { "desk": { "provider": "inferhub", "model": "deepseek-v4.1-flash" } } }
+```
+
+**Fallbacks.** A smart call tries the named id, then the other vendor routes in the order the old LiteLLM gateway used (`cb`, `cbcn`, `ali`, `cp/cline-pass`, `ocg`), moving on after an HTTP 402 (no vendor under the price cap), 429, 5xx or a network failure. The slot's `timeoutMs` (default 8000) is the time budget for the whole walk. When every route fails or the time runs out, the turn goes on with the local model's answer, which the page already holds. A 400 stops the walk, since it would fail the same way on every route. The whole walk counts as one call of the daily cap.
+
+**The key is a lease.** `INFERHUB_API_KEY` is an `octo_tmp_` working key leased for 30 days from the Octo vault item `inferhub`, so it works only through the vault proxy, which is why that is the default address. The owner mints the lease and keeps it in `~/Documents/projects/.env` as `inferhub_lease`; copy it to `~/apps/copilot.env` on the VPS (mode 600) as `INFERHUB_API_KEY`, then recreate the `web` container (the next deploy does it). To renew: the owner leases the vault item `inferhub` again, replaces `inferhub_lease`, and the same copy and redeploy follow. The full vault grant is never used for this. A real InferHub key works too, with `INFERHUB_BASE_URL=https://api.inferhub.dev/v1`.
+
+**It fails closed.** With no key, the slot stays off and the log says `smart desk: inferhub needs INFERHUB_API_KEY, which is not set; the local model answers` once at start. When InferHub answers 401 or 403 (a rejected or expired lease), smart calls stop for 10 minutes, the log says `inferhub rejected the key (HTTP 401) ... renew it`, the page is told to stop asking, and that request's span in Phoenix is an error span with `copilot.smart_refused` = `auth`. The local model keeps answering throughout. The key is never logged.
+
+**Spend.** Our own limits are the daily cap (`SMART_DAILY_CAP`, `SLOT_DESK_DAILY_CAP`) and the owner scope; InferHub's own limits belong to the seat behind the vault item. InferHub bills each request at least $0.00001 and returns the charge as `usage.cost` in the response; the account's balance and usage are on its dashboard at https://inferhub.dev (Dashboard). Phoenix shows the model and the routes tried on each span (`llm.model_name`, `copilot.smart_tried`), not the cost.
 
 ### Smart desk turns (development only)
 
@@ -91,13 +106,13 @@ With the `desk` slot on a hosted model, the page's desk asks it only for a hard 
 | `DESK_HYBRID=1` | the master switch; without it no request ever goes to a hosted model |
 | `DESK_KEY` | bearer key for the local model's server, when it needs one |
 | `SMART_DAILY_CAP` / `SLOT_DESK_DAILY_CAP` | smart calls per UTC day (default 300); past it the page keeps the local answer |
-| `SLOT_DESK_TIMEOUT_MS` | how long the hosted model gets (default 8000); past it the local answer stands |
+| `SLOT_DESK_TIMEOUT_MS` | how long the hosted model gets for the whole walk down its routes (default 8000); past it the local answer stands |
 | `SMART_DEV_HOSTS` | extra host names counted as development hosts (the built-in ones are `localhost`, `127.0.0.1`, `::1`, `*.localhost`, `*.test`) |
 | `SMART_OWNER=1`, `OWNER_TOKEN` | the owner switch: a request carrying the token in the `x-owner-token` header or the `copilot_owner` cookie is in scope |
 
 A request is in scope only from a development host (the server passes the request's host name on only when nothing proxied it, so on the VPS it never is one) or with the owner's token. The owner signs in once per browser: `curl -X POST https://copilot.design-bakery.com/api/owner -H 'content-type: application/json' -c jar -d '{"token":"<OWNER_TOKEN>"}'` sets the cookie, or send the same JSON from the page's console with `fetch('/api/owner', {method: 'POST', body: JSON.stringify({token})})`; posting an empty token signs out. Wrong tokens are limited to 10 an hour per visitor. If a gateway reports back a model whose name contains `claude` or `gemma`, the answer is dropped.
 
-Every `/api/desk` span in Phoenix carries `llm.model_name` (the model that answered), `copilot.slot`, `copilot.provider` and `copilot.scope` (`dev-host`, `owner` or `visitor`); an escalation also has `copilot.escalation` = `smart`, and a refused one `copilot.smart_refused` with the reason (`off`, `scope`, `no-key`, `cap`, or `timeout`, `error`, `banned-model` for a failed call).
+Every `/api/desk` span in Phoenix carries `llm.model_name` (the model that answered), `copilot.slot`, `copilot.provider` and `copilot.scope` (`dev-host`, `owner` or `visitor`); an escalation also has `copilot.escalation` = `smart` and, when routes were passed over, `copilot.smart_tried`; a refused one has `copilot.smart_refused` with the reason (`off`, `scope`, `no-key`, `cap`, `auth`, or `timeout`, `exhausted`, `error`, `banned-model` for a failed call).
 
 ## First-time setup (done once, 2026-11-01)
 

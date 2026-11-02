@@ -16,9 +16,10 @@ import type { Passage } from '../../copilot-engine/src/guide.ts';
 import { loadSlots, SLOT_NAMES, type Slots } from '../../copilot-engine/src/slots.ts';
 
 const here = path.dirname(new URL(import.meta.url).pathname);
-const MAP: Record<string, keyof ApiEnv> = { openrouter_jev_only: 'OPENROUTER_JEV_KEY', octo_db_chatbots: 'OCTO_KEY', octo_db_chatbots_workspace: 'OCTO_WORKSPACE', openrouter_free_only: 'OPENROUTER_FREE_KEY' };
+// inferhub_lease: the 30-day vault lease of the InferHub item, which works only through the vault proxy (the provider's default address)
+const MAP: Record<string, keyof ApiEnv> = { openrouter_jev_only: 'OPENROUTER_JEV_KEY', octo_db_chatbots: 'OCTO_KEY', octo_db_chatbots_workspace: 'OCTO_WORKSPACE', openrouter_free_only: 'OPENROUTER_FREE_KEY', inferhub_lease: 'INFERHUB_API_KEY' };
 // Names read from the env files as they are written there; the smart slots' keys are only ever named (decision 0017).
-const FROM_FILE = ['OPENROUTER_JEV_KEY', 'OCTO_KEY', 'OCTO_WORKSPACE', 'WORKBUDDY_KEY', 'LITELLM_COPILOT_KEY', 'INFERHUB_API_KEY'];
+const FROM_FILE = ['OPENROUTER_JEV_KEY', 'OCTO_KEY', 'OCTO_WORKSPACE', 'WORKBUDDY_KEY', 'INFERHUB_API_KEY'];
 const SLOT_ENV = SLOT_NAMES.flatMap(n => (['PROVIDER', 'MODEL', 'TIMEOUT_MS', 'DAILY_CAP'] as const).map(f => `SLOT_${n.toUpperCase()}_${f}` as keyof ApiEnv));
 
 export function loadEnv(): ApiEnv {
@@ -33,7 +34,7 @@ export function loadEnv(): ApiEnv {
     }
   }
   for (const k of ['OPENROUTER_JEV_KEY', 'OCTO_KEY', 'OCTO_WORKSPACE', 'JEV_URL', 'OCTO_BASE', 'OCTO_TIMEOUT_MS', 'SIGNING_SECRET', 'LLAMA_URL', 'DESK_URL', 'DESK_KEY', 'DESK_MODEL', 'LFM3_AUDIO_URL', 'OFFLINE', 'JEV_DAILY_CAP', 'RATE_PER_MIN', 'STATE_STORE', 'OCTO_TRACES',
-    'DESK_HYBRID', 'SMART_OWNER', 'OWNER_TOKEN', 'SMART_DEV_HOSTS', 'SMART_DAILY_CAP', 'INFERHUB_URL', 'INFERHUB_API_KEY', 'LITELLM_URL', 'LITELLM_COPILOT_KEY', 'OPENROUTER_FREE_URL', 'OPENROUTER_FREE_KEY', 'WORKBUDDY_URL', 'WORKBUDDY_KEY', ...SLOT_ENV] as const) {
+    'DESK_HYBRID', 'SMART_OWNER', 'OWNER_TOKEN', 'SMART_DEV_HOSTS', 'SMART_DAILY_CAP', 'INFERHUB_BASE_URL', 'INFERHUB_API_KEY', 'OPENROUTER_FREE_URL', 'OPENROUTER_FREE_KEY', 'WORKBUDDY_URL', 'WORKBUDDY_KEY', ...SLOT_ENV] as const) {
     if (process.env[k]) env[k] = process.env[k];
   }
   // The lfm3-audio stack's model is the llama.cpp server speech/server.py starts, on its own port.

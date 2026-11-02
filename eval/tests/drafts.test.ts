@@ -13,17 +13,17 @@ import { draftAll, parseDraft, promptFor } from '../lib/drafts.ts';
 import { chat, viaSlot } from '../lib/llm.ts';
 
 // the eval slot, set before the first call that reads it
-process.env.SLOT_EVAL_PROVIDER = 'litellm';
-process.env.SLOT_EVAL_MODEL = 'ih/ali/qwen3.8-flash';
-process.env.LITELLM_URL = 'http://gw.test/v1';
-process.env.LITELLM_COPILOT_KEY = 'virtual-key-for-test';
+process.env.SLOT_EVAL_PROVIDER = 'inferhub';
+process.env.SLOT_EVAL_MODEL = 'deepseek-v4.1-flash';
+process.env.INFERHUB_BASE_URL = 'http://gw.test/v1';
+process.env.INFERHUB_API_KEY = 'lease-key-for-test';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const snapshotFile = path.join(root, 'eval/cases/snapshot.json');
 const cases = JSON.parse(fs.readFileSync(snapshotFile, 'utf8')) as Case[];
 const withPassages = cases.find(c => c.recorded.searches.some(s => s.passages.length > 1))!;
 const ids = withPassages.recorded.searches.flatMap(s => s.passages.map(p => p.id));
-const who = { provider: 'litellm', model: 'ih/ali/qwen3.8-flash' };
+const who = { provider: 'inferhub', model: 'deepseek-v4.1-flash' };
 
 test('the prompt carries what the caller said, the passages found and what went wrong', () => {
   const p = promptFor(withPassages);
@@ -47,7 +47,7 @@ test('every draft is labelled model-written with its slot, model and date; a fai
   assert.equal(drafts.length + skipped.length, cases.length);
   assert.equal(skipped.length, 2);
   for (const d of drafts) {
-    assert.equal(d.source, 'model-written'); assert.equal(d.slot, 'eval'); assert.equal(d.provider, 'litellm'); assert.equal(d.model, 'ih/ali/qwen3.8-flash'); assert.equal(d.date, '2026-11-01');
+    assert.equal(d.source, 'model-written'); assert.equal(d.slot, 'eval'); assert.equal(d.provider, 'inferhub'); assert.equal(d.model, 'deepseek-v4.1-flash'); assert.equal(d.date, '2026-11-01');
     assert.deepEqual(d.current, cases.find(c => c.id === d.case)!.expect, 'the case\'s own expectation is shown beside the draft');
     assert.equal(d.agrees, d.current.kind === 'clarifies');
   }
@@ -72,8 +72,9 @@ test('the script with no model to ask says so, and neither the snapshot nor a dr
 
 test('the eval slot decides the generator and caller model; with the slot on local the config does', () => {
   const cfg = { provider: 'openrouter-free' as const, model: 'nvidia/nemotron-3.5-super-vl:free', temperature: 0.9 };
-  const smart = viaSlot(cfg, loadSlots(undefined, { SLOT_EVAL_PROVIDER: 'litellm', SLOT_EVAL_MODEL: 'ih/ali/deepseek-v4.1-flash', LITELLM_URL: 'http://gw.test/v1' }).eval);
-  assert.deepEqual([smart.provider, smart.model, smart.url, smart.temperature], ['litellm', 'ih/ali/deepseek-v4.1-flash', 'http://gw.test/v1', 0.9]);
+  const smart = viaSlot(cfg, loadSlots(undefined, { SLOT_EVAL_PROVIDER: 'inferhub', SLOT_EVAL_MODEL: 'deepseek-v4.1-flash', INFERHUB_BASE_URL: 'http://gw.test/v1' }).eval);
+  assert.deepEqual([smart.provider, smart.model, smart.url, smart.temperature], ['inferhub', 'deepseek-v4.1-flash', 'http://gw.test/v1', 0.9]);
+  assert.equal(smart.routes?.length, 6);
   assert.equal(viaSlot(cfg, loadSlots(undefined, {}).eval), cfg);
 });
 
@@ -83,9 +84,9 @@ test('chat goes to the gateway with the slot\'s model and the named key, and ref
     seen.push({ url: String(url), auth: new Headers(init.headers).get('authorization'), model: JSON.parse(String(init.body)).model });
     return new Response(JSON.stringify({ choices: [{ message: { content: 'hello' } }] }), { status: 200 });
   }) as typeof fetch;
-  // the config says an open free model on llama; the slot (litellm) wins
+  // the config says an open free model on llama; the slot (inferhub) wins
   assert.equal(await chat({ provider: 'llama', model: 'lfm3', url: 'http://llm.test' }, [{ role: 'user', content: 'hi' }], { what: 'test' }), 'hello');
-  assert.deepEqual(seen, [{ url: 'http://gw.test/v1/chat/completions', auth: 'Bearer virtual-key-for-test', model: 'ih/ali/qwen3.8-flash' }]);
+  assert.deepEqual(seen, [{ url: 'http://gw.test/v1/chat/completions', auth: 'Bearer lease-key-for-test', model: 'deepseek-v4.1-flash' }]);
 });
 
 test('a model named claude or gemma in a corpus config is refused too (slot on local)', () => {
@@ -96,4 +97,15 @@ test('a model named claude or gemma in a corpus config is refused too (slot on l
     const r = spawnSync(process.execPath, ['--input-type=module', '-e', code], { env, encoding: 'utf8' });
     assert.equal(r.status, 3, r.stderr); assert.match(r.stdout, /not allowed/);
   }
+});
+
+test('a 402 from the first vendor route moves the eval on to the next route of the same model', async () => {
+  const models: string[] = [];
+  globalThis.fetch = (async (_url: string, init: RequestInit) => {
+    const m = JSON.parse(String(init.body)).model as string; models.push(m);
+    return m === 'deepseek-v4.1-flash' || m === 'cb/deepseek-v4.1-flash' ? new Response('{"error":{"code":"no_provider_under_bid"}}', { status: 402 })
+      : new Response(JSON.stringify({ choices: [{ message: { content: `served by ${m}` } }] }), { status: 200 });
+  }) as typeof fetch;
+  assert.equal(await chat({ provider: 'llama', model: 'lfm3', url: 'http://llm.test' }, [{ role: 'user', content: 'hi' }], { what: 'test' }), 'served by cbcn/deepseek-v4.1-flash');
+  assert.deepEqual(models, ['deepseek-v4.1-flash', 'cb/deepseek-v4.1-flash', 'cbcn/deepseek-v4.1-flash']);
 });

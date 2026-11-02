@@ -12,13 +12,14 @@
 
 export const SLOT_NAMES = ['desk', 'reply', 'rewrite', 'judge2', 'eval'] as const;
 export type SlotName = (typeof SLOT_NAMES)[number];
-export const PROVIDERS = ['local', 'inferhub', 'litellm', 'openrouter-free', 'workbuddy'] as const;
+export const PROVIDERS = ['local', 'inferhub', 'openrouter-free', 'workbuddy'] as const;
 export type Provider = (typeof PROVIDERS)[number];
 
 export type Slot = {
   name: SlotName; provider: Provider; model: string;
   smart: boolean; // a hosted model, not the local one
   url?: string; keyName?: string; stream: boolean; // where a hosted model is reached and the env variable holding its key
+  routes: string[]; // the model ids tried in order, one per vendor route for inferhub (see ROUTES); the first is `model`
   timeoutMs: number; dailyCap: number;
 };
 export type Slots = Record<SlotName, Slot>;
@@ -34,13 +35,24 @@ export function bannedModelReason(model: string): string | null {
 }
 
 // Where each hosted provider is reached. The URL can be overridden by the env variable named here; the key is only named.
+// InferHub's key is a 30-day lease of the Octo vault item `inferhub`, which works only through the vault proxy, so that is the default
+// address (INFERHUB_BASE_URL set to https://api.inferhub.dev/v1 is for a real InferHub key).
 const ENDPOINTS: Record<Exclude<Provider, 'local'>, { url: string; urlEnv: string; keyName: string; stream: boolean }> = {
-  // InferHub's own OpenAI-compatible API, with the seat key; routes are named like "cb/deepseek-v4.1-flash"
-  inferhub: { url: 'https://api.inferhub.dev/v1', urlEnv: 'INFERHUB_URL', keyName: 'INFERHUB_API_KEY', stream: false },
-  litellm: { url: 'http://host.docker.internal:4001/v1', urlEnv: 'LITELLM_URL', keyName: 'LITELLM_COPILOT_KEY', stream: false },
+  inferhub: { url: 'https://octodb.design-bakery.com/api/vault/proxy/https://api.inferhub.dev/v1', urlEnv: 'INFERHUB_BASE_URL', keyName: 'INFERHUB_API_KEY', stream: false },
   'openrouter-free': { url: 'https://openrouter.ai/api/v1', urlEnv: 'OPENROUTER_FREE_URL', keyName: 'OPENROUTER_FREE_KEY', stream: false },
   // the Octo vault proxy to WorkBuddy wants a system message first and a streamed reply
   workbuddy: { url: 'https://octodb.design-bakery.com/api/vault/proxy/https://www.workbuddy.ai/v2', urlEnv: 'WORKBUDDY_URL', keyName: 'WORKBUDDY_KEY', stream: true },
+};
+
+// The one InferHub model the product may use (owner decision, 2026-11-02) and the vendor routes InferHub serves it through. A slot
+// names the bare id (InferHub picks a vendor itself) or one route; a failed call (402, 429, 5xx, a timeout) moves on to the next route,
+// in the order the old LiteLLM gateway tried them (its router_settings.fallbacks), and then the local model answers.
+const INFERHUB_MODEL = 'deepseek-v4.1-flash';
+const VENDORS = ['cb', 'cbcn', 'ali', 'cp/cline-pass', 'ocg'] as const;
+const inferhubRoutes = (model: string): string[] | null => {
+  if (model === INFERHUB_MODEL) return [model, ...VENDORS.map(v => `${v}/${INFERHUB_MODEL}`)];
+  const v = VENDORS.find(x => model === `${x}/${INFERHUB_MODEL}`);
+  return v ? [model, ...VENDORS.filter(x => x !== v).map(x => `${x}/${INFERHUB_MODEL}`)] : null;
 };
 
 const DEFAULT_LOCAL_MODEL = 'lfm3';
@@ -81,13 +93,13 @@ export function loadSlots(file: unknown, env: Env = {}): Slots {
     if (!Number.isInteger(dailyCap) || dailyCap < 0 || dailyCap > 1_000_000) fail(name, 'dailyCap must be a whole number from 0 to 1000000');
     const p = provider as Provider;
     if (model) { const why = bannedModelReason(model); if (why) fail(name, why); }
-    if (p === 'local') { out[name] = { name, provider: p, model: model ?? DEFAULT_LOCAL_MODEL, smart: false, stream: false, timeoutMs, dailyCap }; continue; }
+    if (p === 'local') { const m = model ?? DEFAULT_LOCAL_MODEL; out[name] = { name, provider: p, model: m, smart: false, stream: false, routes: [m], timeoutMs, dailyCap }; continue; }
     if (!model) fail(name, `provider "${p}" needs a model`);
     if (p === 'openrouter-free' && !model!.endsWith(':free')) fail(name, `openrouter-free needs a named model ending in ":free", not "${model}"`);
-    if (p === 'inferhub' && !/deepseek|qwen/i.test(model!)) fail(name, `inferhub takes only DeepSeek or Qwen routes (for example "cb/deepseek-v4.1-flash"), not "${model}"`);
-    if (p === 'litellm' && !model!.startsWith('ih/')) fail(name, `litellm needs a gateway model name starting "ih/", not "${model}" (aliases such as "sonnet" or "opus" are not used)`);
+    const routes = p === 'inferhub' ? inferhubRoutes(model!) : [model!];
+    if (!routes) fail(name, `inferhub takes only ${INFERHUB_MODEL} (or one of its vendor routes, such as "cb/${INFERHUB_MODEL}"), not "${model}"`);
     const e = ENDPOINTS[p];
-    out[name] = { name, provider: p, model: model!, smart: true, url: (text(env[e.urlEnv]) ?? e.url).replace(/\/$/, ''), keyName: e.keyName, stream: e.stream, timeoutMs, dailyCap };
+    out[name] = { name, provider: p, model: model!, smart: true, url: (text(env[e.urlEnv]) ?? e.url).replace(/\/$/, ''), keyName: e.keyName, stream: e.stream, routes: routes!, timeoutMs, dailyCap };
   }
   return out;
 }

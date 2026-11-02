@@ -124,7 +124,7 @@ export class RemoteSmartModel implements ChatModel {
     const j = await r.json().catch(() => ({}));
     if (!r.ok) {
       // off, out of scope, no key or over the cap: stop asking. A timeout or a failed call is kept quiet only in the turn (the local answer stands).
-      if (['off', 'scope', 'no-key', 'cap'].includes(j.reason)) this.available = false;
+      if (['off', 'scope', 'no-key', 'cap', 'auth'].includes(j.reason)) this.available = false;
       else failure('desk-smart', `/api/desk smart: ${j.reason ?? r.status}`, { path: '/api/desk', fallback: 'local model' });
       throw new Error(`smart: ${j.reason ?? r.status}`);
     }
