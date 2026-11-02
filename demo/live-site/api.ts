@@ -28,11 +28,17 @@ import type { Field, FieldKind, Flow, Model } from '../../copilot-engine/src/typ
 import { maskPII } from '../../copilot-engine/src/guard.ts';
 import { MemoryStore, SESSION_TTL_MS, type Store } from '../../copilot-engine/src/memory.ts';
 import { OctoStore } from '../../copilot-engine/src/octo-store.ts';
+import { loadSlots, SLOT_NAMES, type Slots } from '../../copilot-engine/src/slots.ts';
+import { createSmart, SmartError, type Scope } from './smart.ts';
 
 export type ApiEnv = {
   OPENROUTER_JEV_KEY?: string; OCTO_KEY?: string; OCTO_WORKSPACE?: string; JEV_URL?: string; OCTO_BASE?: string; OCTO_TIMEOUT_MS?: string; OCTO_TRACES?: string;
-  SIGNING_SECRET?: string; LLAMA_URL?: string; DESK_URL?: string; DESK_MODEL?: string; LFM3_AUDIO_URL?: string; OFFLINE?: string; JEV_DAILY_CAP?: string; RATE_PER_MIN?: string; STATE_STORE?: string;
-};
+  SIGNING_SECRET?: string; LLAMA_URL?: string; DESK_URL?: string; DESK_KEY?: string; DESK_MODEL?: string; LFM3_AUDIO_URL?: string; OFFLINE?: string; JEV_DAILY_CAP?: string; RATE_PER_MIN?: string; STATE_STORE?: string;
+  // Smart model slots (decision 0017, deploy/README.md): DESK_HYBRID=1 lets the desk ask the `desk` slot's hosted model on a hard turn,
+  // for a development host or the owner only (SMART_OWNER=1 with OWNER_TOKEN, SMART_DEV_HOSTS adds host names). Keys are named by the slot.
+  DESK_HYBRID?: string; SMART_OWNER?: string; OWNER_TOKEN?: string; SMART_DEV_HOSTS?: string; SMART_DAILY_CAP?: string;
+  LITELLM_URL?: string; LITELLM_COPILOT_KEY?: string; OPENROUTER_FREE_URL?: string; OPENROUTER_FREE_KEY?: string; WORKBUDDY_URL?: string; WORKBUDDY_KEY?: string;
+} & Partial<Record<`SLOT_${Uppercase<(typeof SLOT_NAMES)[number]>}_${'PROVIDER' | 'MODEL' | 'TIMEOUT_MS' | 'DAILY_CAP'}`, string>>;
 
 // Only the fictional demo manuals and the IRS library (public-domain IRS.gov pages, data/irs.passages.json) can be searched.
 export const MANUALS: Record<string, string> = { 'demo-hdw500': 'manual:demo-hdw500 ', 'demo-r17': 'manual:demo-r17 ', irs: 'irs/' };
@@ -89,7 +95,7 @@ function deskTools(raw: unknown): unknown[] | null {
 
 const WARM_FIELD: Field = { name: 'warm', label: 'warm-up', question: 'Say hello.', kind: 'text' };
 
-export function createApi(env: ApiEnv, opts: { offlinePassages?: Record<string, LibraryPassage[]>; matchNames?: NameMatcher; trace?: ExportTrace; score?: (s: EvalScore) => Promise<'annotation' | 'span'>;
+export function createApi(env: ApiEnv, opts: { slots?: Slots; offlinePassages?: Record<string, LibraryPassage[]>; matchNames?: NameMatcher; trace?: ExportTrace; score?: (s: EvalScore) => Promise<'annotation' | 'span'>;
   // Where state lives. calls: caller verification (shared, so a restart or a second instance keeps a lock); sessions: resume
   // snapshots; limits: rate-limit counters (hot path, so per instance). Default: Octo for the first two when live, a capped
   // in-process store otherwise or when STATE_STORE=memory.
@@ -103,10 +109,13 @@ export function createApi(env: ApiEnv, opts: { offlinePassages?: Record<string, 
   // The v2 desk's model: LFM3 on our GPU, the same server as LLAMA_URL unless DESK_URL names another. Offline, none:
   // the desk then runs each turn on its code rules.
   const deskModel = offline || !(env.DESK_URL || env.LLAMA_URL) ? null
-    : new OpenAIChat({ url: env.DESK_URL || `${env.LLAMA_URL!.replace(/\/$/, '')}/v1`, key: '', model: env.DESK_MODEL || 'lfm3', stream: false, nothink: true, timeoutMs: 15000 });
+    : new OpenAIChat({ url: env.DESK_URL || `${env.LLAMA_URL!.replace(/\/$/, '')}/v1`, key: env.DESK_KEY ?? '', model: env.DESK_MODEL || 'lfm3', stream: false, nothink: true, timeoutMs: 15000 });
   // The lfm3-audio voice stack (docs/decisions/0012) is one model: its desk turns go to LFM3-Audio on llama.cpp (the
   // server speech/server.py starts), not to the text model. The desk's code lock is the same either way.
   const audioDeskModel = offline || !env.LFM3_AUDIO_URL ? null : lfm3AudioChat(env.LFM3_AUDIO_URL);
+  // Model slots: every one is the local model unless the file or env names a hosted one; checked when the server starts.
+  const slots = opts.slots ?? loadSlots(undefined, env);
+  const smart = createSmart(env as Record<string, string | undefined>, slots, { log });
   const overlap = new OverlapJudge();
   // When Jev is overloaded or down, the word-overlap judge stands in, so a covered question isn't answered "I don't know".
   // choose: the same pick with what Jev said (its probabilities, the rule that kept or dropped the pick, or the error),
@@ -224,6 +233,8 @@ export function createApi(env: ApiEnv, opts: { offlinePassages?: Record<string, 
     if (d !== day) { day = d; jevToday = 0; }
     return jevToday++ < cap;
   };
+  // Wrong owner tokens: 10 an hour per visitor, on top of the general rate limit.
+  const ownerTries = async (ip: string) => (await limits.incr(`own:${ip.slice(0, 64)}`, 3_600_000)) <= 10;
   const limited = async (ip: string) => (await limits.incr(`rl:${ip.slice(0, 64)}`, 60_000)) > perMin;
 
   // The library's pages read from Octo. Lists and documents are cached a few minutes in memory; PDFs (a few MB each)
@@ -354,7 +365,7 @@ export function createApi(env: ApiEnv, opts: { offlinePassages?: Record<string, 
     return json({ ok: true });
   }
 
-  async function route(path: string, b: any, ip = '', session: string | null = null): Promise<Response> {
+  async function route(path: string, b: any, ip = '', session: string | null = null, scope: Scope = null): Promise<Response> {
     if (path === '/api/verify') return verify(b, ip);
     if (path === '/api/session') return sessionApi(b);
     if (path === '/api/account/status') return accountStatus(b);
@@ -368,13 +379,32 @@ export function createApi(env: ApiEnv, opts: { offlinePassages?: Record<string, 
       const m = gate && jevAllowed() ? gate : inner;
       return json(await m.understand({ flow, field, said, values }));
     }
+    if (path === '/api/owner') {
+      if (!await ownerTries(ip)) return json({ error: 'slow down' }, 429);
+      return smart.ownerSession(b.token);
+    }
     if (path === '/api/desk') {
+      const messages = deskMessages(b.messages), tools = deskTools(b.tools ?? []);
+      const o = { maxTokens: Math.min(Math.max(Number(b.max_tokens) || 220, 1), 220), temperature: Math.min(Math.max(Number(b.temperature) || 0, 0), 1) };
+      // The desk's escalation of a hard turn to the `desk` slot's smart model. Out of scope, over the cap, off or failing: a refusal
+      // the page answers by keeping the local model's answer, which it already has. The slot and model are on the span either way.
+      if (b.smart === true) {
+        const gate = smart.check('desk', scope);
+        if (!gate.ok) return json({ error: 'smart unavailable', reason: gate.reason, slot: 'desk', provider: slots.desk.provider }, 409);
+        if (!messages || !tools) return json({ error: 'bad desk request' }, 400);
+        try {
+          const r = await smart.call('desk', messages, tools, o);
+          return json({ content: r.content, calls: r.calls.filter(c => DESK_TOOLS.has(c.name)), model: r.model, slot: 'desk', provider: slots.desk.provider, smart: smart.check('desk', scope).ok });
+        } catch (e) {
+          return json({ error: 'smart failed', reason: e instanceof SmartError ? e.reason : 'error', slot: 'desk', provider: slots.desk.provider, model: slots.desk.model }, 409);
+        }
+      }
       const model = clip(b.stack, 40) === 'lfm3-audio' ? audioDeskModel : deskModel;
       if (!model) return json({ error: 'no desk model' }, 503);
-      const messages = deskMessages(b.messages), tools = deskTools(b.tools ?? []);
       if (!messages || !tools) return json({ error: 'bad desk request' }, 400);
-      const r = await model.chat(messages, tools, { maxTokens: Math.min(Math.max(Number(b.max_tokens) || 220, 1), 220), temperature: Math.min(Math.max(Number(b.temperature) || 0, 0), 1) });
-      return json({ content: r.content, calls: r.calls.filter(c => DESK_TOOLS.has(c.name)), model: r.model });
+      const r = await model.chat(messages, tools, o);
+      // `smart` tells the page whether a smart model may answer its hard turns now, so an ordinary visitor's page never asks.
+      return json({ content: r.content, calls: r.calls.filter(c => DESK_TOOLS.has(c.name)), model: r.model, slot: 'desk', provider: 'local', smart: smart.check('desk', scope).ok });
     }
     if (path === '/api/search') {
       const label = clip(b.manual, 40);
@@ -454,7 +484,7 @@ export function createApi(env: ApiEnv, opts: { offlinePassages?: Record<string, 
   });
 
   // One trace per backend call, after it answered, so tracing never slows a reply.
-  async function traceCall(path: string, b: any, r: Response, start: number, session: string | null) {
+  async function traceCall(path: string, b: any, r: Response, start: number, session: string | null, scope: Scope) {
     const kind: SpanSpec['kind'] = path === '/api/search' ? 'RETRIEVER' : 'LLM';
     const out = await r.text();
     let o: any = {};
@@ -465,7 +495,15 @@ export function createApi(env: ApiEnv, opts: { offlinePassages?: Record<string, 
       'output.value': out.slice(0, 8000),
       'http.status_code': r.status,
     };
-    if (path === '/api/desk') { attributes['llm.model_name'] = clip(o.model, 120); attributes['llm.tools'] = (b.tools ?? []).length; }
+    if (path === '/api/desk') {
+      // Which slot answered and with what, on every desk span: the model the server reported (or, for a refused smart call, the one asked).
+      attributes['llm.model_name'] = clip(o.model, 120);
+      attributes['llm.tools'] = (b.tools ?? []).length;
+      attributes['copilot.slot'] = clip(o.slot, 20) || 'desk';
+      attributes['copilot.provider'] = clip(o.provider, 30) || 'local';
+      attributes['copilot.scope'] = scope ?? 'visitor';
+      if (b.smart === true) { attributes['copilot.escalation'] = 'smart'; if (o.reason) attributes['copilot.smart_refused'] = clip(o.reason, 20); }
+    }
     if (path === '/api/judge') {
       attributes['judge.rule'] = clip(o.rule, 20);
       attributes['judge.probabilities'] = JSON.stringify(o.probs ?? {});
@@ -517,9 +555,10 @@ export function createApi(env: ApiEnv, opts: { offlinePassages?: Record<string, 
       const session = sid && /^[\w-]{8,64}$/.test(sid) ? sid : null;
       const started = Date.now();
       try {
-        const r = await route(path, b, ip || req.headers.get('cf-connecting-ip') || 'local', session);
+        const scope = smart.scope(req);
+        const r = await route(path, b, ip || req.headers.get('cf-connecting-ip') || 'local', session, scope);
         if (r.status >= 400) log(`${path} ${r.status}`);
-        if (opts.trace && ['/api/understand', '/api/desk', '/api/search', '/api/judge', '/api/sentences'].includes(path)) void traceCall(path, b, r.clone(), started, session).catch(() => {});
+        if (opts.trace && ['/api/understand', '/api/desk', '/api/search', '/api/judge', '/api/sentences'].includes(path)) void traceCall(path, b, r.clone(), started, session, scope).catch(() => {});
         return r;
       } catch (e) {
         log(`${path} failed: ${(e as Error).stack ?? e}`);

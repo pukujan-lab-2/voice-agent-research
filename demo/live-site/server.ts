@@ -13,9 +13,13 @@ import { createTracer } from './tracing.ts';
 import { stackForLanguage } from './widget/voice-choice.ts';
 import { createApi, type ApiEnv, type NameMatcher } from './api.ts';
 import type { Passage } from '../../copilot-engine/src/guide.ts';
+import { loadSlots, SLOT_NAMES, type Slots } from '../../copilot-engine/src/slots.ts';
 
 const here = path.dirname(new URL(import.meta.url).pathname);
-const MAP: Record<string, keyof ApiEnv> = { openrouter_jev_only: 'OPENROUTER_JEV_KEY', octo_db_chatbots: 'OCTO_KEY', octo_db_chatbots_workspace: 'OCTO_WORKSPACE' };
+const MAP: Record<string, keyof ApiEnv> = { openrouter_jev_only: 'OPENROUTER_JEV_KEY', octo_db_chatbots: 'OCTO_KEY', octo_db_chatbots_workspace: 'OCTO_WORKSPACE', openrouter_free_only: 'OPENROUTER_FREE_KEY' };
+// Names read from the env files as they are written there; the smart slots' keys are only ever named (decision 0017).
+const FROM_FILE = ['OPENROUTER_JEV_KEY', 'OCTO_KEY', 'OCTO_WORKSPACE', 'WORKBUDDY_KEY', 'LITELLM_COPILOT_KEY'];
+const SLOT_ENV = SLOT_NAMES.flatMap(n => (['PROVIDER', 'MODEL', 'TIMEOUT_MS', 'DAILY_CAP'] as const).map(f => `SLOT_${n.toUpperCase()}_${f}` as keyof ApiEnv));
 
 export function loadEnv(): ApiEnv {
   const env: ApiEnv = {};
@@ -24,16 +28,23 @@ export function loadEnv(): ApiEnv {
     for (const line of fs.readFileSync(file, 'utf8').split('\n')) {
       const m = line.match(/^\s*(?:export\s+)?([A-Za-z_][\w]*)\s*=\s*(.*)$/);
       if (!m) continue;
-      const name = MAP[m[1]] ?? (['OPENROUTER_JEV_KEY', 'OCTO_KEY', 'OCTO_WORKSPACE'].includes(m[1]) ? m[1] as keyof ApiEnv : undefined);
+      const name = MAP[m[1]] ?? (FROM_FILE.includes(m[1]) ? m[1] as keyof ApiEnv : undefined);
       if (name && !env[name]) env[name] = m[2].trim().replace(/^['"]|['"]$/g, '');
     }
   }
-  for (const k of ['OPENROUTER_JEV_KEY', 'OCTO_KEY', 'OCTO_WORKSPACE', 'JEV_URL', 'OCTO_BASE', 'OCTO_TIMEOUT_MS', 'SIGNING_SECRET', 'LLAMA_URL', 'DESK_URL', 'DESK_MODEL', 'LFM3_AUDIO_URL', 'OFFLINE', 'JEV_DAILY_CAP', 'RATE_PER_MIN', 'STATE_STORE', 'OCTO_TRACES'] as const) {
+  for (const k of ['OPENROUTER_JEV_KEY', 'OCTO_KEY', 'OCTO_WORKSPACE', 'JEV_URL', 'OCTO_BASE', 'OCTO_TIMEOUT_MS', 'SIGNING_SECRET', 'LLAMA_URL', 'DESK_URL', 'DESK_KEY', 'DESK_MODEL', 'LFM3_AUDIO_URL', 'OFFLINE', 'JEV_DAILY_CAP', 'RATE_PER_MIN', 'STATE_STORE', 'OCTO_TRACES',
+    'DESK_HYBRID', 'SMART_OWNER', 'OWNER_TOKEN', 'SMART_DEV_HOSTS', 'SMART_DAILY_CAP', 'LITELLM_URL', 'LITELLM_COPILOT_KEY', 'OPENROUTER_FREE_URL', 'OPENROUTER_FREE_KEY', 'WORKBUDDY_URL', 'WORKBUDDY_KEY', ...SLOT_ENV] as const) {
     if (process.env[k]) env[k] = process.env[k];
   }
   // The lfm3-audio stack's model is the llama.cpp server speech/server.py starts, on its own port.
   env.LFM3_AUDIO_URL ??= `http://127.0.0.1:${process.env.LFM3_AUDIO_PORT ?? 8798}`;
   return env;
+}
+
+// The model slots (decision 0017): the file next to this one (MODEL_SLOTS_FILE names another), then env overrides. A bad slot
+// stops the start with a message naming it. Without a file every slot is the local model.
+export function readSlots(env: ApiEnv, file = process.env.MODEL_SLOTS_FILE || path.join(here, 'model-slots.json')): Slots {
+  return loadSlots(fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : undefined, env);
 }
 
 function offlinePassages(): Record<string, (Passage & { source?: string; section?: string; url?: string })[]> {
@@ -196,7 +207,7 @@ export async function start(opts: { port?: number; host?: string; offline?: bool
   const env = loadEnv();
   if (opts.offline) env.OFFLINE = '1';
   const tracing = opts.offline ? undefined : createTracer(env);
-  const api = createApi(env, { offlinePassages: offlinePassages(), matchNames: nameMatcher(), trace: tracing?.trace, score: tracing?.score });
+  const api = createApi(env, { slots: readSlots(env), offlinePassages: offlinePassages(), matchNames: nameMatcher(), trace: tracing?.trace, score: tracing?.score });
   const dist = path.join(here, 'dist');
   agentTrace = Object.fromEntries(Object.entries({ OCTO_KEY: env.OCTO_KEY, OCTO_WORKSPACE: env.OCTO_WORKSPACE, OCTO_BASE: env.OCTO_BASE,
     OCTO_TRACES: opts.offline ? 'off' : env.OCTO_TRACES }).filter((e): e is [string, string] => !!e[1]));
@@ -221,9 +232,15 @@ export async function start(opts: { port?: number; host?: string; offline?: bool
     if (url.pathname.startsWith('/api/')) {
       const chunks: Buffer[] = [];
       for await (const c of req) chunks.push(c as Buffer);
-      const r = await api.handle(new Request(`http://local${url.pathname}${url.search}`, { method: req.method,
+      // The request's own host name goes on only when nothing proxied it (no tunnel, no forwarding headers): that is how the backend
+      // knows a development host. Deployed, it is always `local`, so no visitor is taken for a developer.
+      const direct = process.env.TRUST_PROXY !== '1' && !req.headers['cf-connecting-ip'] && !req.headers['x-forwarded-for'] && !req.headers['x-forwarded-host']
+        && ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress ?? '') && /^[\w.\-]+(:\d+)?$|^\[[\da-f:]+\](:\d+)?$/i.test(req.headers.host ?? '');
+      const r = await api.handle(new Request(`http://${direct ? req.headers.host : 'local'}${url.pathname}${url.search}`, { method: req.method,
         headers: { 'content-type': 'application/json', ...(typeof req.headers.authorization === 'string' ? { authorization: req.headers.authorization } : {}),
-          ...(typeof req.headers['x-session-id'] === 'string' ? { 'x-session-id': req.headers['x-session-id'] } : {}) },
+          ...(typeof req.headers['x-session-id'] === 'string' ? { 'x-session-id': req.headers['x-session-id'] } : {}),
+          ...(typeof req.headers['x-owner-token'] === 'string' ? { 'x-owner-token': req.headers['x-owner-token'] } : {}),
+          ...(typeof req.headers.cookie === 'string' ? { cookie: req.headers.cookie } : {}) },
         body: req.method === 'POST' ? Buffer.concat(chunks) : undefined }), visitor(req));
       res.writeHead(r.status, Object.fromEntries(r.headers));
       res.end(Buffer.from(await r.arrayBuffer()));

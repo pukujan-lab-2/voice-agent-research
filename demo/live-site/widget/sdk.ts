@@ -27,7 +27,7 @@ import { Verifier, WANTS_VERIFY, type ReturnCard } from '../../../copilot-engine
 import { DomFiller } from './dom-filler.ts';
 import { stackForLanguage } from './voice-choice.ts';
 import { API_BASE } from './config.ts';
-import { callId, newCall, RemoteDeskModel, RemoteJudge, RemoteModel, RemoteRetriever, RemoteVerify, report, setDeskStack, setReplyLanguage, toReplyLanguage, warmUp } from './remote.ts';
+import { callId, newCall, RemoteDeskModel, RemoteJudge, RemoteModel, RemoteRetriever, RemoteSmartModel, RemoteVerify, report, setDeskStack, setReplyLanguage, toReplyLanguage, warmUp } from './remote.ts';
 import { beginCall, endCall, failure, happened, logTurn, markDesk, notePage, noteVoice, type DeskMark } from './calllog.ts';
 
 export type Config = {
@@ -451,7 +451,8 @@ function toText(msg?: string) {
 const IDLE_MS = 290_000;
 let modelUsedAt = 0;
 const remoteModel = new RemoteModel();
-const remoteDesk = new RemoteDeskModel();
+const remoteSmart = new RemoteSmartModel();
+const remoteDesk = new RemoteDeskModel(remoteSmart);
 async function timed<T>(call: () => Promise<T>): Promise<T> {
   const t0 = Date.now();
   const cold = t0 - modelUsedAt > IDLE_MS;
@@ -465,6 +466,9 @@ async function timed<T>(call: () => Promise<T>): Promise<T> {
 const model: Model = { name: 'remote', understand: input => timed(() => remoteModel.understand(input)) };
 // The desk's model turn (LFM3).
 const deskModel: ChatModel = { name: remoteDesk.name, chat: (m, t, o) => timed(() => remoteDesk.chat(m, t, o)) };
+// The hosted model for a hard desk turn: only when the server says this request may use one (a development host or the owner).
+// Questions and long turns still go to the local model first; the desk escalates only where code rejects the local model's answer.
+const deskHeavy = { heavy: remoteSmart as ChatModel, hybrid: true, route: () => false };
 function warm() {
   if (Date.now() - modelUsedAt < IDLE_MS) return;
   void warmUp().then(() => { modelUsedAt = Date.now(); });
@@ -517,7 +521,7 @@ function startFormNow() {
   if (parts++) flow.intro = `Thanks. On to the next part.`;
   firstEl = document.querySelector(`[data-copilot-id="${form.fields[0].id}"]`);
   const filler = new DomFiller(form);
-  desk = new Desk(flow, { model: deskModel, hooks: filler, answer: answerFor, unknown: manual ? manual.unknown ?? NO_ANSWER : undefined, finish: flow.doneMessage });
+  desk = new Desk(flow, { model: deskModel, ...deskHeavy, hooks: filler, answer: answerFor, unknown: manual ? manual.unknown ?? NO_ANSWER : undefined, finish: flow.doneMessage });
   const draft = takeDraft();
   if (draft) {
     // Back on a form left half filled during this call: its answers go back in and the open question is asked.
@@ -698,7 +702,7 @@ function talk(): Dialogue { return (talking ??= new Dialogue({ offers: cfg?.desk
 function askDesk(): Desk {
   if (!asker) {
     asker = new Desk({ id: 'ask', business: cfg!.business, scope: (cfg!.manual?.title ?? 'documents').toLowerCase(), intro: cfg!.desk!.greeting, doneMessage: '', fields: [] },
-      { model: deskModel, answer: answerFor, unknown: manual ? manual.unknown ?? NO_ANSWER : undefined });
+      { model: deskModel, ...deskHeavy, answer: answerFor, unknown: manual ? manual.unknown ?? NO_ANSWER : undefined });
     asker.start();
   }
   return asker;

@@ -1,0 +1,69 @@
+# TASK-WCP-0084 — Smart Desk
+
+<!-- continuity:task {"acceptance":["An ordinary visitor never reaches a smart model","A development host or the owner does, for hard turns only, under a daily cap","A slow or failing smart model leaves the local answer in place","Every desk span names the slot, provider and model"],"depends_on":[],"goal":"Hard desk turns can use a smart model, only for development hosts and the owner, with a daily cap","id":"WCP-0084","issue_url":"https://github.com/pukujan-lab-2/voice-agent-research/issues/79","next_action":"Open the pull request, merge, then deploy and test on the VPS","owner":"owner","priority":"P2","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"active","why":"The live backend cannot use a keyed or hybrid model, and smart slots must never reach an ordinary visitor (#79, parent #77)"} -->
+
+- Status: active
+- Owner: owner
+- Priority: P2
+- Depends on: none
+
+## Goal
+
+Hard desk turns can use a smart model, only for development hosts and the owner, with a daily cap
+
+## Why
+
+The live backend cannot use a keyed or hybrid model, and smart slots must never reach an ordinary visitor (#79, parent #77)
+
+## Allowed files
+
+- `copilot-engine/src/desk.ts`
+- `copilot-engine/tests/desk-smart.test.ts`
+- `copilot-engine/package.json`
+- `demo/live-site/smart.ts`
+- `demo/live-site/api.ts`
+- `demo/live-site/server.ts`
+- `demo/live-site/widget/remote.ts`
+- `demo/live-site/widget/sdk.ts`
+- `demo/live-site/tests/smart-desk.test.ts`
+- `deploy/README.md`
+- `tasks/TASK-WCP-0084-smart-desk.md`
+
+## Human outcome
+
+The owner can try a smart hosted model on hard desk turns in development, while no ordinary visitor's call can reach one.
+
+## Scope and boundaries
+
+- In scope: keys on the local model, the escalation, scoping, cap, timeout fallback, span attributes.
+- Out of scope: the LiteLLM key (#80), the eval (#81).
+- Dependencies/uncertainty: depends on #78 (PR #83), stacked on its branch until it merges.
+
+## Acceptance criteria
+
+- [ ] An ordinary visitor never reaches a smart model
+- [ ] A development host or the owner does, for hard turns only, under a daily cap
+- [ ] A slow or failing smart model leaves the local answer in place
+- [ ] Every desk span names the slot, provider and model
+
+## Evidence and sources
+
+`demo/live-site/tests/smart-desk.test.ts` (13 tests) and `copilot-engine/tests/desk-smart.test.ts` (5 tests) pass.
+
+## Reproduction details (only when needed)
+
+Starting revision, material inputs/configuration, runtime, exact command or prompt, observed result, and limitations.
+
+## Related records
+
+- Leaf #79; parent #77; depends on #78; related #80, #81.
+- Primary writer / branch: claude-code / `task/WCP-0084-smart-desk`; source issue open as of 2026-11-01.
+- Related PR/CI evidence and push receipt: none yet.
+
+## Checkpoint log
+
+No checkpoints yet.
+
+## Handoff
+
+Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
