@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "slots": {
+    "desk": { "provider": "local" },
+    "reply": { "provider": "local" },
+    "rewrite": { "provider": "local" },
+    "judge2": { "provider": "local" },
+    "eval": { "provider": "local" }
+  }
+}
