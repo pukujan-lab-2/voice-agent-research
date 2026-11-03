@@ -68,6 +68,30 @@ The VPS gets about 1.2 GiB back for the hours between calls. A caller after a qu
 
 No checkpoints yet.
 
+### 2026-11-03 09:01:53 UTC — agent:claude-code/fc363939-4605-4a1f-8cbf-72beeec584a2
+
+<!-- continuity:checkpoint {"agent":"agent:claude-code/fc363939-4605-4a1f-8cbf-72beeec584a2","blocked":[],"changed":["deploy/docker-compose.agent.yml, deploy/docker-compose.vps.yml, deploy/vps/lib.sh, deploy/vps/autodeploy.sh, deploy/test/fake_agent.py, deploy/README.md, demo/live-site/speech/agent.py, demo/live-site/sablier.ts, demo/live-site/server.ts, demo/live-site/widget/sdk.ts, tests"],"completed":["The voice agent carries the Sablier label and a health check that passes once it has registered with LiveKit; the site wakes it (widget load: start without waiting; call button: wait up to 30 s before the token); the agent renews its session every minute during a call; deploys keep the release's sleeping agent and remove an old release's sleeping one"],"decisions":["Wake by container name (SABLIER_AGENT from deploy/.env), never by group, so old releases' stopped agents are never started","The agent renews its own Sablier session from inside each call (poke every 60 s), so a Sablier stop never lands on an agent that holds a call"],"evidence":["npm run check passes (lint, ruff, tsc, knip, 155+51+78 node tests incl. 5 new Sablier and 6 new or changed deploy tests, pytest 31, speech 11, scenarios 8/8, replay gate ok); docker compose config of both compose files resolves the labels, health check, SABLIER_NAME and the sablier network"],"evidence_class":"observed","next_action":"Open the pull request; after the deploy, check on the VPS that the agent shows Exited (0) 10 minutes after the last call and that a call after a cold start is answered, and time the wake","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0103","timestamp":"2026-11-03T09:01:53Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"a40bccedf46836055bb685ab55321463e7c05daa355e906a9b6613967e2f5524","request_id":"e9925d490df543fe87b5ea517d78fbac","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0103"} -->
+
+Completed:
+- The voice agent carries the Sablier label and a health check that passes once it has registered with LiveKit; the site wakes it (widget load: start without waiting; call button: wait up to 30 s before the token); the agent renews its session every minute during a call; deploys keep the release's sleeping agent and remove an old release's sleeping one
+
+Evidence:
+- npm run check passes (lint, ruff, tsc, knip, 155+51+78 node tests incl. 5 new Sablier and 6 new or changed deploy tests, pytest 31, speech 11, scenarios 8/8, replay gate ok); docker compose config of both compose files resolves the labels, health check, SABLIER_NAME and the sablier network
+
+Decisions:
+- Wake by container name (SABLIER_AGENT from deploy/.env), never by group, so old releases' stopped agents are never started
+- The agent renews its own Sablier session from inside each call (poke every 60 s), so a Sablier stop never lands on an agent that holds a call
+
+Changed:
+- deploy/docker-compose.agent.yml, deploy/docker-compose.vps.yml, deploy/vps/lib.sh, deploy/vps/autodeploy.sh, deploy/test/fake_agent.py, deploy/README.md, demo/live-site/speech/agent.py, demo/live-site/sablier.ts, demo/live-site/server.ts, demo/live-site/widget/sdk.ts, tests
+
+Blocked/uncertain:
+- none
+
+Next:
+- Open the pull request; after the deploy, check on the VPS that the agent shows Exited (0) 10 minutes after the last call and that a call after a cold start is answered, and time the wake
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
