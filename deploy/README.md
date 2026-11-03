@@ -35,6 +35,19 @@ Limits: the wait ceiling (600 s) plus the build must fit in Komodo's pre-deploy 
 
 Tests: `npm test` runs [`tests/deploy-keeps-calls.test.ts`](../demo/live-site/tests/deploy-keeps-calls.test.ts) (the scripts with a stand-in for `docker`, and `update.sh` in a scratch git repository). `npm --prefix demo/live-site run test:deploy-sequence` runs the whole sequence on a scratch Docker project with a real call: it deploys, starts a call with audio from macOS `say`, deploys again, and checks the call is still heard, the old agent drains and exits, and the next call goes to the new container. On the live site, `node --no-warnings tests/voice-hold.ts` (in `demo/live-site`) holds one call open and talks every 30 s, so a deploy that lands during it shows in its output whether the call survived.
 
+## The agent sleeps between calls
+
+The voice agent holds about 1.2 GB, and calls come in bursts with hours between them, so it does not run all day (#117). The VPS's one Sablier (server-management `komodo/resources/platform.toml`) stops a container labelled `sablier.enable` 10 minutes after the last request for it, with a plain `docker stop`, and starts it again when asked. The agent connects out to LiveKit, so nothing ever reaches it that could wake it; the site does it ([`sablier.ts`](../demo/live-site/sablier.ts)):
+
+- When the widget loads (`POST /api/voice/options`), the site asks Sablier to start the agent and does not wait, at most once a minute.
+- When the call button is pressed (`POST /api/voice/token`), the site waits for the agent, up to 30 s, before it hands out the room's token. LiveKit gives a new room's job only to the workers registered when the room is created, so the agent has to be up first. The caller hears the ringback meanwhile. If the agent is not up in time, the token is handed out anyway and the page falls back to text after 45 s with no agent.
+- The agent is ready when its container is healthy: `speech/agent.py` writes `/tmp/agent-registered` once the worker has registered with LiveKit, and removes it when it starts. LiveKit Agents' own check on port 8081 answers before that.
+- During a call the agent renews its own Sablier session every minute (`keep_awake`), so a call longer than 10 minutes is not cut.
+
+The site wakes the agent by its container name, `SABLIER_AGENT`, which `autodeploy.sh` writes into `deploy/.env` as `COPILOT_AGENT_CONTAINER` beside the web image. It never wakes by group, because the group also holds the stopped agents of older releases. A deploy treats a sleeping agent of the release as present and does not start another. It removes an old release's sleeping agent at once (it holds no call), and the next deploy's `reap_agents` removes only agents that finished draining (restart policy off), so a failed deploy still has its previous agent to go back to. An agent started by a deploy gets Sablier's default session (`auto-warm-externally-started`) and sleeps after 10 idle minutes like any other. Without `SABLIER_URL` or an agent name (local runs, tests) the site calls nothing.
+
+A new agent registered with LiveKit in 6 to 14 s in the 15 deploys before this change (`grep "registered with LiveKit" deploy/deploy.log`); a woken one is timed after the first deploy. Between the site's swap and the new agent registering (about 8 s of each deploy), the site names an agent that does not exist yet: the wake fails at once and the old agent, which still runs then, takes the call. If the old agent was asleep, a call in that moment gets no agent.
+
 ## Where each part runs
 
 | Part | Machine | How it's reached |
@@ -42,7 +55,7 @@ Tests: `npm test` runs [`tests/deploy-keeps-calls.test.ts`](../demo/live-site/te
 | Site and `/api` (`server.ts`) | VPS, `copilot-web` | Cloudflare tunnel A → `copilot-web:8787` |
 | LiveKit signalling | VPS, `copilot-livekit:7880` | through `server.ts` at `/rtc` |
 | Call audio (WebRTC) | VPS, `copilot-livekit` | the VPS's public address, TCP 7881 and UDP 7882 |
-| Voice agent (`speech/agent.py`) | VPS, `copilot-agent-<sha>` (one per release; the old one drains) | joins every call's room |
+| Voice agent (`speech/agent.py`) | VPS, `copilot-agent-<sha>` (one per release; the old one drains; asleep between calls) | joins every call's room; woken through Sablier by the site |
 | Speech models, all five stacks (`speech/server.py`) | Pro, `com.pukujan.copilot-speech` | reverse tunnel → VPS `127.0.0.1:18799` |
 | LFM3-Audio (the `lfm3-audio` stack) | Pro, started by the speech server | reverse tunnel → VPS `127.0.0.1:18798` |
 | LFM3 text model | Pro, `com.pukujan.lfm3` | nyc-map-agent's tunnel and bridge → `18099` |
@@ -134,5 +147,6 @@ The two videos on the demo home page (`copilot-demo-720p.mp4`, 11 MB, and `copil
 - Health: `curl https://copilot.design-bakery.com/api/health`
 - VPS logs: `ssh vps 'cd ~/apps/copilot/deploy && docker compose -f docker-compose.vps.yml logs --tail 50; docker logs --tail 50 $(docker ps -q --filter label=copilot.role=agent)'`
 - Pro logs: `ssh mac-pro 'tail ~/Library/Logs/copilot/*.log'`
-- Agents: `ssh vps 'docker ps -a --filter label=copilot.role=agent'`; deploy decisions: `ssh vps 'tail ~/apps/copilot/deploy/deploy.log'`
+- Agents: `ssh vps 'docker ps -a --filter label=copilot.role=agent'` (`Exited (0)` with no call for 10 minutes is the agent asleep); deploy decisions: `ssh vps 'tail ~/apps/copilot/deploy/deploy.log'`
+- Sleeping and waking: `ssh vps 'docker logs --since 1h sablier 2>&1 | grep copilot-agent'`; the site logs `the agent did not wake within 30s` when a wake timed out
 - A commit that failed is kept in `deploy/.deploy-failed` and isn't retried. Delete that file to retry it.

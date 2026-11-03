@@ -123,21 +123,25 @@ test('a count that fails in the middle of a wait does not end it', () => {
   assert.equal(r.result, 'waited 10 1 0');
 });
 
-// `docker` stand-in: two release containers, aaa (old, running) and bbb (new, running). Everything it is asked is recorded.
+// `docker` stand-in with four release containers: aaa (an old release, running), bbb (the new release, running), old (finished
+// draining: stopped, restart off) and zzz (an old release asleep: Sablier stopped it, restart still on). `ps` without -a lists the
+// running ones only. Everything it is asked is recorded.
 function fakeDocker(body: string, extra: Record<string, string> = {}) {
   const calls = path.join(tmp, `docker-${Math.random().toString(36).slice(2)}.calls`);
   const out = bash(`. "${root}/deploy/vps/lib.sh"
     docker() { echo "docker $*" >> "${calls}"; case "$1" in
-      ps) printf 'copilot-agent-aaa\\ncopilot-agent-bbb\\ncopilot-agent-old\\n' ;;
+      ps) if [ "$2" = -a ]; then printf 'copilot-agent-aaa\\ncopilot-agent-bbb\\ncopilot-agent-old\\ncopilot-agent-zzz\\n'
+          else printf 'copilot-agent-aaa\\ncopilot-agent-bbb\\n'; fi ;;
       inspect) case "$*" in
-        *copilot.tag*) case "$2" in copilot-agent-aaa) echo aaa ;; copilot-agent-old) echo old ;; *) echo bbb ;; esac ;;
-        *State.Status*) echo exited ;;
+        *copilot.tag*) echo "\${2#copilot-agent-}" ;;
+        *State.Status*) case "$2" in copilot-agent-old|copilot-agent-zzz) echo exited ;; *) echo running ;; esac ;;
         *RestartPolicy*) case "$2" in copilot-agent-old) echo no ;; *) echo unless-stopped ;; esac ;;
       esac ;;
     esac; }
-    ${body}`, { DEPLOY_LOG: path.join(tmp, 'x.log'), ...extra });
+    ${body}`, { DEPLOY_LOG: path.join(tmp, 'x.log'), AGENT_LOG_DIR: path.join(tmp, 'agent-logs'), ...extra });
   return { out, calls: fs.existsSync(calls) ? fs.readFileSync(calls, 'utf8').split('\n').filter(Boolean) : [] };
 }
+const touches = (calls: string[], c: string) => calls.filter(l => /^docker (kill|update|stop|start|rm)/.test(l) && l.endsWith(c));
 
 test('drain_old_agents turns the restart off and sends SIGTERM to every agent but the new release, and no other signal', () => {
   const { out, calls } = fakeDocker('drain_old_agents bbb; echo "DRAINED $DRAINED"');
@@ -145,17 +149,28 @@ test('drain_old_agents turns the restart off and sends SIGTERM to every agent bu
   const update = calls.indexOf('docker update --restart=no copilot-agent-aaa');
   const kill = calls.indexOf('docker kill --signal=SIGTERM copilot-agent-aaa');
   assert.ok(update >= 0 && kill > update, `restart off, then SIGTERM: ${calls.join(' | ')}`);
-  assert.equal(calls.filter(c => /^docker (kill|update|stop|rm)/.test(c) && /agent-bbb/.test(c)).length, 0, 'the new release is left alone');
-  assert.equal(calls.filter(c => /^docker (kill|update|stop|rm)/.test(c) && /agent-old/.test(c)).length, 0, 'an agent that is already draining gets no second signal: LiveKit Agents exits at once on it');
+  assert.equal(touches(calls, 'copilot-agent-bbb').length, 0, 'the new release is left alone');
+  assert.equal(touches(calls, 'copilot-agent-old').length, 0, 'an agent that is already draining gets no second signal: LiveKit Agents exits at once on it');
 });
 
-test('reap_agents saves a finished agent\'s log before it removes the container, and keeps only the last few', () => {
+test('drain_old_agents removes an old agent that is asleep, after saving its log, so the site can never wake it again', () => {
+  const { out, calls } = fakeDocker('drain_old_agents bbb; echo "DRAINED $DRAINED"');
+  assert.match(out, /DRAINED 1/, 'only the running old agent counts as drained');
+  const logs = calls.findIndex(c => /^docker logs .*copilot-agent-zzz/.test(c));
+  const rm = calls.indexOf('docker rm copilot-agent-zzz');
+  assert.ok(logs >= 0 && rm > logs, `logs saved, then removed: ${calls.join(' | ')}`);
+  assert.deepEqual(touches(calls, 'copilot-agent-zzz'), ['docker rm copilot-agent-zzz'], 'no signal and no start: it holds no call');
+});
+
+test('reap_agents removes only the agents that finished draining, saving each log first, and keeps only the last few logs', () => {
   const keep = fs.mkdtempSync(path.join(tmp, 'agent-logs-'));
   for (const n of ['1', '2', '3']) fs.writeFileSync(path.join(keep, `copilot-agent-old${n}.log`), 'old\n');
   const { calls } = fakeDocker('AGENT_LOGS_KEPT=2 reap_agents; true', { AGENT_LOG_DIR: keep });
-  const logs = calls.findIndex(c => /^docker logs .*copilot-agent-aaa/.test(c));
-  const rm = calls.findIndex(c => c === 'docker rm copilot-agent-aaa');
+  const logs = calls.findIndex(c => /^docker logs .*copilot-agent-old$/.test(c));
+  const rm = calls.indexOf('docker rm copilot-agent-old');
   assert.ok(logs >= 0 && rm > logs, `logs saved, then removed: ${calls.join(' | ')}`);
+  assert.equal(touches(calls, 'copilot-agent-zzz').length, 0, 'an agent that is only asleep is kept: a failed deploy goes back to it');
+  assert.deepEqual(calls.filter(c => /^docker rm/.test(c)), ['docker rm copilot-agent-old']);
   assert.equal(fs.readdirSync(keep).filter(f => f.endsWith('.log')).length, 2, 'only the last two are kept');
 });
 
@@ -163,6 +178,33 @@ test('start_agent does not start a second agent for a release that already runs'
   const { out, calls } = fakeDocker('start_agent bbb && echo "STATE $AGENT_STATE"');
   assert.match(out, /STATE current/);
   assert.equal(calls.filter(c => /compose/.test(c)).length, 0);
+});
+
+test('start_agent leaves the agent of the release asleep: the site wakes it when someone calls', () => {
+  const { out, calls } = fakeDocker('start_agent zzz && echo "STATE $AGENT_STATE"');
+  assert.match(out, /STATE current/);
+  assert.equal(calls.filter(c => /compose/.test(c)).length, 0);
+  assert.equal(touches(calls, 'copilot-agent-zzz').length, 0);
+});
+
+// --- sleeping between calls (#117) -------------------------------------------------------------------------------------------
+test('the agent sleeps through the shared Sablier, which wakes it by the name the site is given', () => {
+  const compose = read('deploy/docker-compose.agent.yml');
+  assert.match(compose, /sablier\.enable: "true"/);
+  const name = /container_name:\s*(\S+)/.exec(compose)?.[1];
+  assert.equal(/SABLIER_NAME:\s*(\S+)/.exec(compose)?.[1], name, 'the agent renews the session of its own container');
+  assert.match(read('deploy/docker-compose.vps.yml'), /SABLIER_AGENT: \$\{COPILOT_AGENT_CONTAINER:-\}/);
+  assert.match(name ?? '', /^\$\{COPILOT_PREFIX:-copilot\}-agent-\$\{AGENT_TAG:-local\}$/, 'autodeploy.sh names it the same way');
+  assert.match(read('deploy/vps/autodeploy.sh'), /COPILOT_AGENT_CONTAINER=%s-agent-%s/);
+});
+
+test('the agent is healthy only once it has registered with LiveKit, and forgets that when it starts again', () => {
+  const compose = read('deploy/docker-compose.agent.yml');
+  const marker = /test", "-f", "([^"]+)"/.exec(compose)?.[1];
+  const py = read('demo/live-site/speech/agent.py');
+  assert.equal(/REGISTERED = '([^']+)'/.exec(py)?.[1], marker, 'the health check looks for the file agent.py writes');
+  assert.match(py, /@server\.on\('worker_registered'\)/);
+  assert.match(py, /__main__[\s\S]*REGISTERED[\s\S]*cli\.run_app/, 'a stopped container keeps /tmp, so the file is removed before the worker starts');
 });
 
 // --- deploy/pro/update.sh against a scratch repository ----------------------------------------------------------------------

@@ -90,7 +90,7 @@ function commit(): string {
 fs.mkdirSync(repo);
 git(dir, 'init', '-q', '--bare', origin); git(repo, 'init', '-q'); git(repo, 'remote', 'add', 'origin', origin);
 fs.writeFileSync(path.join(dir, 'copilot.env'), `LIVEKIT_API_KEY=devkey\nLIVEKIT_API_SECRET=${secret}\nOCTO_TRACES=off\n`);
-const env = { ...process.env, COPILOT_PREFIX: P, COPILOT_PROJECT: P, CALL_WAIT_S: '20', CALL_POLL_S: '4', AGENT_DRAIN_S: '120', AGENT_READY_S: '90', DEPLOY_LOG: path.join(dir, 'deploy.log') };
+const env = { ...process.env, COPILOT_PREFIX: P, COPILOT_PROJECT: P, SABLIER_NETWORK: `${P}-sablier`, CALL_WAIT_S: '20', CALL_POLL_S: '4', AGENT_DRAIN_S: '120', AGENT_READY_S: '90', DEPLOY_LOG: path.join(dir, 'deploy.log') };
 const deployNow = () => run('bash', [path.join(deploy, 'vps/autodeploy.sh')], { env, encoding: 'utf8', maxBuffer: 1 << 26 }).then(r => ({ code: 0, out: r.stdout + r.stderr }), (e: { code?: number; stdout?: string; stderr?: string }) => ({ code: e.code ?? 1, out: `${e.stdout ?? ''}${e.stderr ?? ''}` }));
 
 function token(room: string, sub: string): string {
@@ -116,13 +116,14 @@ const last = (name: string) => callLog(name).at(-1);
 const everything = () => docker('ps', '-a', '--filter', `name=${P}-`, '--format', '{{.Names}}').split('\n').filter(Boolean);
 async function cleanup() {
   for (const c of everything()) docker('rm', '-f', c);
-  docker('network', 'rm', `${P}_default`);
+  docker('network', 'rm', `${P}_default`, `${P}-sablier`);
   for (const img of docker('image', 'ls', '--format', '{{.Repository}}:{{.Tag}}').split('\n').filter(i => /^copilot-(web|agent):[0-9a-f]{12}$/.test(i))) {
     if (fs.existsSync(dir) && fs.readFileSync(path.join(dir, 'tags'), 'utf8').includes(img.split(':')[1])) docker('rmi', img);
   }
   fs.rmSync(dir, { recursive: true, force: true });
 }
 fs.writeFileSync(path.join(dir, 'tags'), '');
+docker('network', 'create', `${P}-sablier`); // the agent's compose file joins the VPS's Sablier network; no Sablier runs here
 const remember = (tag: string) => fs.appendFileSync(path.join(dir, 'tags'), `${tag}\n`);
 const log = () => fs.existsSync(path.join(dir, 'deploy.log')) ? fs.readFileSync(path.join(dir, 'deploy.log'), 'utf8') : '';
 

@@ -4,7 +4,8 @@
 #   wait_for_calls    before anything that drops a call's connection (the site's signalling, LiveKit, the speech bridges):
 #                     wait up to CALL_WAIT_S for the open calls to end, then go on, and remember what happened for the record
 #   start_agent       the new voice agent starts beside the old one and must register with LiveKit before the old one is told to stop
-#   drain_old_agents  SIGTERM to every other agent: LiveKit Agents takes no new calls and exits when its calls end
+#   drain_old_agents  SIGTERM to every other agent: LiveKit Agents takes no new calls and exits when its calls end. An old agent
+#                     that is asleep (Sablier stopped it, #117) holds no call and is removed at once
 #   record_deploy     one line in the deploy log, and a `deploy` span in Phoenix, saying whether it waited, how long and for how many calls
 # Calls are counted from LiveKit's room list with the server's own key (copilot.env), through open-calls.py run in a short-lived
 # container of the agent image on LiveKit's network.
@@ -71,17 +72,34 @@ agent_containers() {
     docker ps $a --filter "name=^$COPILOT_PREFIX-agent\$" --format '{{.Names}}'; } | sort -u
 }
 agent_tag_of() { docker inspect "$1" --format '{{index .Config.Labels "copilot.tag"}}' 2>/dev/null || true; }
-agent_running_for() { local c; for c in $(agent_containers running); do [ "$(agent_tag_of "$c")" = "$1" ] && return 0; done; return 1; }
+state_of() { docker inspect "$1" --format '{{.State.Status}}' 2>/dev/null || true; }
+restart_of() { docker inspect "$1" --format '{{.HostConfig.RestartPolicy.Name}}' 2>/dev/null || true; }
+# The agent of release <tag> is running or asleep. Sablier stops an idle agent with a plain `docker stop`, which leaves its restart
+# policy on, so the site can wake it; an agent that drain_old_agents told to stop has its restart off and is on its way out.
+agent_present_for() {
+  local c
+  for c in $(agent_containers all); do
+    [ "$(agent_tag_of "$c")" = "$1" ] && [ "$(restart_of "$c")" != no ] && return 0
+  done
+  return 1
+}
 
-# Remove agents that have finished draining (they stay stopped: drain_old_agents turned their restart off). The end of each one's
-# log is saved first, in deploy/agent-logs (the last AGENT_LOGS_KEPT), because a removed container takes its log with it and a
-# call that went wrong (#93) needs the agent's side of the story.
+# remove_agent <container> <what it was>   The end of its log is saved first, in deploy/agent-logs, because a removed container
+# takes its log with it and a call that went wrong (#93) needs the agent's side of the story.
+remove_agent() {
+  local keep="${AGENT_LOG_DIR:-$DEPLOY_DIR/agent-logs}"
+  mkdir -p "$keep" && docker logs --tail 3000 "$1" > "$keep/$1.log" 2>&1 || true
+  docker rm "$1" >/dev/null 2>&1 && log "removed $2 agent $1 (log kept in agent-logs/$1.log)"
+}
+
+# Remove agents that have finished draining (they stay stopped: drain_old_agents turned their restart off), and keep the last
+# AGENT_LOGS_KEPT saved logs. An agent that is only asleep is kept: it is the release's agent, or the one a failed deploy goes back to.
 reap_agents() {
   local c keep="${AGENT_LOG_DIR:-$DEPLOY_DIR/agent-logs}" f
   for c in $(agent_containers all); do
-    [ "$(docker inspect "$c" --format '{{.State.Status}}')" = running ] && continue
-    mkdir -p "$keep" && docker logs --tail 3000 "$c" > "$keep/$c.log" 2>&1 || true
-    docker rm "$c" >/dev/null 2>&1 && log "removed finished agent $c (log kept in agent-logs/$c.log)"
+    [ "$(state_of "$c")" = running ] && continue
+    [ "$(restart_of "$c")" = no ] || continue
+    remove_agent "$c" finished
   done
   # shellcheck disable=SC2012  # file names here are container names
   ls -t "$keep"/*.log 2>/dev/null | tail -n +"$((${AGENT_LOGS_KEPT:-20} + 1))" | while read -r f; do rm -f "$f"; done
@@ -91,12 +109,12 @@ reap_agents() {
 # start_agent <tag>   The agent of release <tag> beside whatever agents run. 0 when it registered with LiveKit.
 start_agent() {
   local tag="$1" name="$COPILOT_PREFIX-agent-$1" waited=0
-  if agent_running_for "$tag"; then AGENT_STATE=current; return 0; fi
+  if agent_present_for "$tag"; then AGENT_STATE=current; return 0; fi   # running, or asleep until the site wakes it
   docker rm -f "$name" >/dev/null 2>&1 || true   # a failed earlier try
   agent_compose "$tag" up -d --no-build agent >/dev/null
   while [ "$waited" -lt "$AGENT_READY_S" ]; do
     if docker logs "$name" 2>&1 | grep -q 'registered worker'; then AGENT_STATE=started; log "agent $name registered with LiveKit after ${waited}s"; return 0; fi
-    [ "$(docker inspect "$name" --format '{{.State.Status}}' 2>/dev/null)" = running ] || break
+    [ "$(state_of "$name")" = running ] || break
     sleep 2; waited=$((waited + 2))
   done
   AGENT_STATE=failed; log "agent $name did not register within ${AGENT_READY_S}s; removing it and keeping the old agent"
@@ -106,14 +124,16 @@ start_agent() {
 }
 
 # drain_old_agents <tag>   Every running agent that is not release <tag> and not already draining stops taking calls and exits when its calls end.
-# Not waited for: the script goes on, and reap_agents removes the container on a later deploy.
+# Not waited for: the script goes on, and reap_agents removes the container on a later deploy. An old agent that is asleep holds
+# no call; it is removed now, so the site can never wake it again.
 drain_old_agents() {
   local tag="$1" c
   DRAINED=0
-  for c in $(agent_containers running); do
+  for c in $(agent_containers all); do
     [ "$(agent_tag_of "$c")" = "$tag" ] && continue
     # Already told to stop (its restart policy is off): a second SIGTERM makes LiveKit Agents exit at once, with its calls (cli.py `_force_exit`).
-    [ "$(docker inspect "$c" --format '{{.HostConfig.RestartPolicy.Name}}' 2>/dev/null)" = no ] && continue
+    [ "$(restart_of "$c")" = no ] && continue
+    if [ "$(state_of "$c")" != running ]; then remove_agent "$c" sleeping; continue; fi
     docker update --restart=no "$c" >/dev/null && docker kill --signal=SIGTERM "$c" >/dev/null
     DRAINED=$((DRAINED + 1)); log "draining agent $c (it keeps its calls, up to the agent's AGENT_DRAIN_S)"
   done

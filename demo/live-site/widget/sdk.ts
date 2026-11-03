@@ -154,7 +154,8 @@ let lastSearchMs: number | undefined;
 
 // Until the agent picks up, the caller hears a soft ringback made here (two short tones every 3 s, no audio file, no
 // browser speech). With no agent after AGENT_WAIT_MS, the call carries on as text instead of sitting on "Connecting…".
-// A cold local worker can take over 20 seconds to register while loading speech models.
+// A cold local worker can take over 20 seconds to register while loading speech models. On the VPS the agent sleeps between
+// calls and the server wakes it before it hands out the token (sablier.ts), so the ringing starts before the token is asked for.
 const AGENT_WAIT_MS = 45_000;
 // The voice agent can leave a call that is still going (its container replaced, a crash). A new agent only joins a room
 // when it is created, so the page opens a fresh room and carries on, twice at most (#67).
@@ -291,6 +292,7 @@ async function startVoice(rejoin = false) {
     return;
   }
   if (seq !== voiceSeq || !snap.open) { micTrack.stop(); micTrack = null; return; }
+  startRing();
   let grant: { url: string; token: string; stack: string; language: string };
   try {
     const r = await fetch(`${API_BASE}/api/voice/token`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(voiceAsk()) });
@@ -304,6 +306,7 @@ async function startVoice(rejoin = false) {
     toText("Voice isn't available right now, so let's carry on by typing. Your answers go in the box below.");
     return;
   }
+  if (seq !== voiceSeq) return; // hung up while the agent woke: stopVoice has let go of the microphone and the ringing
   const rm = new lk.Room({ adaptiveStream: false, dynacast: false });
   room = rm;
   // The agent says which speech models it runs; the call id it gets back puts its own spans in this call's session.
@@ -373,7 +376,6 @@ async function startVoice(rejoin = false) {
     if (room === rm && snap.voice) set({ heard: verifier?.secretOpen() ? '••••' : text.trim() });
   });
   try {
-    startRing();
     agentTimer = setTimeout(() => {
       if (room !== rm || agentIdentity()) return;
       report('voice', `no agent after ${AGENT_WAIT_MS} ms`);
