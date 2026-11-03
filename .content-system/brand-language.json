@@ -6,10 +6,14 @@
     "careful",
     "helpful"
   ],
-  "promise": "A live agent on every website that checks before it acts.",
+  "promise": "Ask out loud, in your own words, as many times as you need.",
   "avoid": [
     "invented traction",
     "invented integrations",
-    "claims that it submits for the visitor"
+    "claims that it submits for the visitor",
+    "framing the assistant as a neighbour or next door (decision 0019)",
+    "a human name, face or persona for the assistant (decision 0020)",
+    "the name Copilot",
+    "copy that says it watches, follows or checks in on its own"
   ]
 }
