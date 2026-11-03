@@ -11,10 +11,13 @@
 #   4. Start the new voice agent beside the old one and wait until it has registered with LiveKit; new calls go to it. If it
 #      does not register, remove it, put the web container back and keep the old agent.
 #   5. Tell the old agent to stop (SIGTERM): LiveKit Agents takes no new calls and exits when its calls end. Not waited for.
+#      An old agent that is asleep is removed.
 #   6. Write the record: a line in deploy/deploy.log and a `deploy` span in Phoenix (whether it waited, how long, for how many calls).
 # Exits early when the running web image is already production (the agent is still brought to production if it lags). Either way
 # it writes deploy/.env, which compose reads by itself, so Komodo's `compose up` afterwards resolves the same image and changes
 # nothing. The agent is not in Komodo's compose file (docker-compose.agent.yml), so Komodo never replaces it.
+# Between calls the agent sleeps: the shared Sablier stops it after 10 idle minutes and the site starts it again (#117). The site
+# names the agent of its own release (COPILOT_AGENT_CONTAINER, written beside the web image), so it never wakes an old one.
 # A commit that failed is remembered in .deploy-failed and not retried every 5 minutes; delete that file to retry it.
 set -euo pipefail
 
@@ -33,7 +36,7 @@ git_() {
   else sudo -u "$OWNER" git -C "$REPO_DIR" "$@"; fi
 }
 
-write_images() { printf 'COPILOT_WEB_IMAGE=copilot-web:%s\n' "$1" > "$DEPLOY_DIR/.env"; }
+write_images() { printf 'COPILOT_WEB_IMAGE=copilot-web:%s\nCOPILOT_AGENT_CONTAINER=%s-agent-%s\n' "$1" "$COPILOT_PREFIX" "$1" > "$DEPLOY_DIR/.env"; }
 tag_of() { local t; t="$(docker inspect "$COPILOT_PREFIX-web" --format '{{.Config.Image}}' 2>/dev/null || true)"; echo "${t#copilot-web:}"; }
 # True when `compose up` would create or replace this service: no container, or its configuration changed.
 needs_recreate() {
@@ -56,8 +59,9 @@ reap_agents
 if [ "$RUNNING" = "$TAG" ]; then
   echo "copilot-web already runs $BRANCH ($TAG)"
   write_images "$TAG"
-  # The agent may lag (an earlier deploy stopped after the web swap, or the agents used to live in this compose file).
-  if ! agent_running_for "$TAG"; then
+  # The agent may lag (an earlier deploy stopped after the web swap, or the agents used to live in this compose file). An agent
+  # that is asleep does not lag.
+  if ! agent_present_for "$TAG"; then
     docker image inspect "$CHECK_IMAGE" >/dev/null 2>&1 || agent_compose "$TAG" build agent
     start_agent "$TAG" && drain_old_agents "$TAG"
   fi
@@ -83,7 +87,7 @@ CHANGED="$(changed_services)"
 wait_for_calls "swapping the site${CHANGED:+ and $CHANGED}"
 RESTARTED="web ${CHANGED}"
 # shellcheck disable=SC2086  # CHANGED is a list of service names
-COPILOT_WEB_IMAGE="copilot-web:$TAG" "${COMPOSE[@]}" up -d --no-deps web $CHANGED
+COPILOT_WEB_IMAGE="copilot-web:$TAG" COPILOT_AGENT_CONTAINER="$COPILOT_PREFIX-agent-$TAG" "${COMPOSE[@]}" up -d --no-deps web $CHANGED
 
 for _ in $(seq 1 30); do
   STATUS="$(docker inspect "$COPILOT_PREFIX-web" --format '{{.State.Health.Status}}' 2>/dev/null || true)"
@@ -106,7 +110,7 @@ echo "$SHA" > "$DEPLOY_DIR/.deploy-failed"
 echo "deploying $TAG failed (copilot-web: ${STATUS:-none})" >&2
 if [ -n "$RUNNING" ]; then
   echo "rolling back the site to $RUNNING; the agents are left as they are" >&2
-  COPILOT_WEB_IMAGE="copilot-web:$RUNNING" "${COMPOSE[@]}" up -d --no-deps web
+  COPILOT_WEB_IMAGE="copilot-web:$RUNNING" COPILOT_AGENT_CONTAINER="$COPILOT_PREFIX-agent-$RUNNING" "${COMPOSE[@]}" up -d --no-deps web
   write_images "$RUNNING"
 fi
 AGENT_STATE="${AGENT_STATE/unchanged/failed}"

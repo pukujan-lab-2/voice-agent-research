@@ -9,6 +9,7 @@ import http from 'node:http';
 import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
+import { createWaker } from './sablier.ts';
 import { createTracer } from './tracing.ts';
 import { stackForLanguage } from './widget/voice-choice.ts';
 import { createApi, type ApiEnv, type NameMatcher } from './api.ts';
@@ -96,6 +97,10 @@ const LIVEKIT = { url: process.env.LIVEKIT_URL || 'ws://127.0.0.1:7880', key: pr
 // Deployed (deploy/README.md), the page reaches LiveKit's signalling through this server's own hostname: LIVEKIT_PUBLIC_URL
 // is what the page is told, and /rtc is passed through to LIVEKIT_URL. Call audio goes to LiveKit directly, not through here.
 const LIVEKIT_PUBLIC = process.env.LIVEKIT_PUBLIC_URL || '';
+// On the VPS the agent sleeps between calls and is woken here (sablier.ts). A caller waits up to this long for it (it starts in
+// about 8 s); after that the token is handed out anyway and the page falls back to text if no agent joins.
+const AGENT_WAKE_S = 30;
+const waker = createWaker();
 const up = (url: string) => fetch(url).then(r => r.ok, () => false);
 let voiceStarting: Promise<void> | null = null;
 // Octo's settings for the agent's own spans (speech/telemetry.py): the same Phoenix project as tracing.ts. Set by start().
@@ -221,7 +226,10 @@ export async function start(opts: { port?: number; host?: string; offline?: bool
       for await (const c of req) chunks.push(c as Buffer);
       let ask: VoiceAsk = {};
       try { ask = JSON.parse(Buffer.concat(chunks).toString('utf8').slice(0, 2000) || '{}'); } catch { /* no picks: the defaults */ }
-      if (url.pathname === '/api/voice/token') void voiceUp();
+      if (url.pathname === '/api/voice/token') {
+        void voiceUp();
+        if (!(await waker.ready(AGENT_WAKE_S))) console.warn(`voice: the agent did not wake within ${AGENT_WAKE_S}s; handing out the token anyway`);
+      } else waker.poke();  // the widget loaded: the agent starts while the visitor reads
       res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
       res.end(JSON.stringify(url.pathname === '/api/voice/token' ? voiceToken(ask) : voiceOptions(ask))); return;
     }

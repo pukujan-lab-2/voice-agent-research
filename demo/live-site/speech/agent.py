@@ -34,6 +34,11 @@ from stall_watchdog import StallWatchdog
 from telemetry import CallTelemetry
 
 SPEECH = os.environ.get('SPEECH_URL', 'http://127.0.0.1:8799')
+# On the VPS the agent sleeps between calls (#117): the shared Sablier stops it after 10 idle minutes and the site starts it when
+# the call button is pressed. Sablier counts it as ready once the container is healthy, which is once this file exists
+# (deploy/docker-compose.agent.yml). Without SABLIER_URL (a local run) nothing is renewed.
+REGISTERED = '/tmp/agent-registered'
+SABLIER_URL, SABLIER_NAME = os.environ.get('SABLIER_URL', ''), os.environ.get('SABLIER_NAME', '')
 with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'stacks.json')) as f:
     STACKS = json.load(f)
 
@@ -241,6 +246,22 @@ def prewarm(proc: JobProcess):
 server.setup_fnc = prewarm
 
 
+# LiveKit Agents' own HTTP check (port 8081) answers OK before the worker has registered; a woken agent is ready only after this.
+@server.on('worker_registered')
+def _registered(*_):
+    open(REGISTERED, 'w').close()
+
+
+async def keep_awake(http: aiohttp.ClientSession) -> None:
+    """Renew this container's Sablier session every minute while a call is on. Each request to Sablier sets the session to end
+    10 minutes from then, and the call button's request is the only other one, so without this a long call would be cut."""
+    while True:
+        with contextlib.suppress(Exception):
+            async with http.get(f'{SABLIER_URL}/api/strategies/poke', params={'names': SABLIER_NAME}, timeout=aiohttp.ClientTimeout(total=5)):
+                pass
+        await asyncio.sleep(60)
+
+
 async def load_stack(http: aiohttp.ClientSession, stack: str) -> None:
     """Models are swapped, not run all at once (docs/decisions/0014): the speech server unloads the stack in use before this
     one's load, which can take a few seconds to a minute, so a call waits for it here and not in the middle of its greeting."""
@@ -268,6 +289,13 @@ async def entrypoint(ctx: JobContext):
     await ctx.connect()
     caller = await ctx.wait_for_participant()
     http = aiohttp.ClientSession()
+    if SABLIER_URL and SABLIER_NAME:
+        awake = asyncio.create_task(keep_awake(http))
+
+        async def _let_sleep():
+            awake.cancel()
+
+        ctx.add_shutdown_callback(_let_sleep)
     async with http.get(f'{SPEECH}/health') as r:
         health = await r.json()
     rates = health.get('rates') or {'pocket-tts': health.get('rate', 24000)}
@@ -404,4 +432,6 @@ async def entrypoint(ctx: JobContext):
 
 
 if __name__ == '__main__':
+    with contextlib.suppress(FileNotFoundError):
+        os.remove(REGISTERED)  # a stopped container keeps its /tmp: until this start has registered, the agent is not ready
     cli.run_app(server)
