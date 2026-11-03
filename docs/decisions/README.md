@@ -23,3 +23,4 @@ One file per decision. A decision changes only through a new file that replaces 
 | 0017 | [LFM3 stays the default; smart model slots are opt-in for development only](0017-smart-model-slots-for-development.md) | 2026-11-01 |
 | 0018 | [Huge sites: search for prose, declared lookups for records](0018-huge-sites-search-prose-declared-lookups-records.md) | 2026-11-01 |
 | 0019 | [Market positioning: the assistant is never framed as a neighbour](0019-market-positioning-not-a-neighbour.md) | 2026-11-02 |
+| 0020 | [The assistant is honest that it's an AI](0020-honest-that-it-is-an-ai.md) | 2026-11-02 |
