@@ -75,6 +75,12 @@ Not tax advice." The team has illustrated SVG avatars, no photos.
   900-999, 000 and 666): `uv run --with faker==33.1.0 python tools/bw_clients.py`. Tested by `node eval/verify.ts`
   and the last step of `tests/tax-call.ts`.
 
+## The home page (`/`)
+
+The Maybe home page is `app/src/pages/MaybeHome.tsx` with its styles in `app/src/styles/maybe.css` (every rule sits under `.maybe`, so the demo sites are untouched). It holds the words and the motion. The earlier home page now lives at `/dev/index`, for developers only.
+
+Its pictures and films are not in the repository. `GET /api/site-media` reads two tables in the workspace's Octo database and returns, per slot, the public URL, a phone-sized version where there is one, the poster frame, the alt text, the crop positions and the film cut times (schema and seed: `tools/site_media.sql`). A slot that Octo cannot answer is left out, with no copy kept anywhere else, as in [decision 0004](../../docs/decisions/0004-octo-single-store.md). To change a picture, upload the file to Octo, publish it, and update its row in `site_media`; the page picks it up within a minute.
+
 ## How it fits together
 
 - **The app** (`app/`): a React + Vite + shadcn app built by ABA (app-builder-automation) from `aba/spec.md`, then

@@ -548,6 +548,7 @@ export function createApi(env: ApiEnv, opts: { slots?: Slots; offlinePassages?: 
     opts.trace!({ name: path.slice(5), kind, start, end: Date.now(), error: r.status >= 400, attributes }, session);
   }
 
+  let siteMedia: { at: number; slots: Record<string, unknown> } | null = null;
   return {
     // For tests only (never over HTTP): which client a call was verified as.
     verifiedAs: clientOf,
@@ -558,6 +559,20 @@ export function createApi(env: ApiEnv, opts: { slots?: Slots; offlinePassages?: 
       if (/^\/api\/(site|forms|slots|portal|staff|files|newsletter)(\/|$)/.test(path)) {
         if (!practice) return json({ error: 'the practice backend needs Octo (live mode)' }, 503);
         return practice.handle(req, ip || req.headers.get('cf-connecting-ip') || 'local');
+      }
+      if (path === '/api/site-media' && req.method === 'GET') {
+        // The home page's pictures and films: which Octo file (public URL) goes in which slot, with its crop and cut times.
+        // Octo is the only store, so when it can't answer the page just leaves the slots out. Kept for a minute so a visitor never waits on it.
+        if (offline) return json({ error: 'site media needs Octo (live mode)' }, 503);
+        try {
+          if (!siteMedia || Date.now() - siteMedia.at > 60_000) {
+            const rows = await sql(`select m.slot, m.kind, m.alt, m.pos, m.mpos, m.cuts, f.url, mf.url as mobile_url, pf.url as poster_url
+              from site_media m join site_media_files f on f.name = m.file
+              left join site_media_files mf on mf.name = m.mobile_file left join site_media_files pf on pf.name = m.poster_file`);
+            siteMedia = { at: Date.now(), slots: Object.fromEntries(rows.map(r => [r.slot, { kind: r.kind, url: r.url, mobile_url: r.mobile_url ?? null, poster_url: r.poster_url ?? null, alt: r.alt ?? '', pos: r.pos ?? null, mpos: r.mpos ?? null, cuts: r.cuts ?? null }])) };
+          }
+          const ok = json({ slots: siteMedia.slots }); ok.headers.set('Cache-Control', 'public, max-age=60'); return ok;
+        } catch (e) { log(`${path} failed: ${(e as Error).message}`); return json({ error: 'backend error' }, 502); }
       }
       if (path.startsWith('/api/library/') && path !== '/api/library/search' && req.method === 'GET') {
         if (await limited(ip || req.headers.get('cf-connecting-ip') || 'local')) return json({ error: 'slow down' }, 429);
