@@ -34,9 +34,12 @@ services:
       sablier.enable: "true"
       sablier.group: ${COPILOT_PREFIX:-copilot}-agent
     # Healthy once the worker has registered with LiveKit (speech/agent.py writes the file). LiveKit Agents' own HTTP check on
-    # port 8081 answers before that. Sablier counts a woken agent as ready only when it is healthy.
+    # port 8081 answers before that. Sablier counts a woken agent as ready only when it is healthy. The file is on a tmpfs, which
+    # Docker empties on every start: a stopped container keeps the rest of its filesystem, and a file left from the last run made
+    # a woken agent look ready 7 s before it had registered, so the call that woke it got no agent (#117).
+    tmpfs: [/run/agent]
     healthcheck:
-      test: ["CMD", "test", "-f", "/tmp/agent-registered"]
+      test: ["CMD", "test", "-f", "/run/agent/registered"]
       interval: 30s
       timeout: 5s
       retries: 3

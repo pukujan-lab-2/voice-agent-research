@@ -92,6 +92,29 @@ Blocked/uncertain:
 Next:
 - Open the pull request; after the deploy, check on the VPS that the agent shows Exited (0) 10 minutes after the last call and that a call after a cold start is answered, and time the wake
 
+### 2026-11-03 09:29:00 UTC — agent:claude-code/fc363939-4605-4a1f-8cbf-72beeec584a2
+
+<!-- continuity:checkpoint {"agent":"agent:claude-code/fc363939-4605-4a1f-8cbf-72beeec584a2","blocked":[],"changed":["deploy/docker-compose.agent.yml, demo/live-site/speech/agent.py, deploy/test/fake_agent.py, deploy/README.md, demo/live-site/tests/deploy-keeps-calls.test.ts"],"completed":["After #118 deployed, the agent slept on time (Sablier stopped it at 09:22:18 UTC, Exited (0)), but the first call after the sleep got no agent: the health-check file from the last run survived in /tmp, so Sablier reported a woken agent ready 7 s before it registered. The file now lives on a tmpfs (/run/agent) that Docker empties on every start"],"decisions":["Keep the ready file on a tmpfs rather than deleting it at Python start, because the first probe runs before Python has loaded its imports"],"evidence":["Live: container started 09:22:53.8, Sablier 'instance is ready' the same second, 'registered worker' at 09:23:01, page 'no agent after 45000 ms'. Local Docker 29.5.2: after stop and start a tmpfs file is gone, a /tmp file remains, and health stays 'starting' until the file is written again. npm run check passes"],"evidence_class":"observed","next_action":"Open the pull request with Closes #117; after the deploy, let the agent sleep and check that the first call after a cold start is answered, and time the wake","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0103","timestamp":"2026-11-03T09:29:00Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"ceb450345bcdf96e69a8be49f8365f5c2409d4f4798a049158fca76dc6331159","request_id":"63504b271ec149399cf29e79d3622d8a","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0103"} -->
+
+Completed:
+- After #118 deployed, the agent slept on time (Sablier stopped it at 09:22:18 UTC, Exited (0)), but the first call after the sleep got no agent: the health-check file from the last run survived in /tmp, so Sablier reported a woken agent ready 7 s before it registered. The file now lives on a tmpfs (/run/agent) that Docker empties on every start
+
+Evidence:
+- Live: container started 09:22:53.8, Sablier 'instance is ready' the same second, 'registered worker' at 09:23:01, page 'no agent after 45000 ms'. Local Docker 29.5.2: after stop and start a tmpfs file is gone, a /tmp file remains, and health stays 'starting' until the file is written again. npm run check passes
+
+Decisions:
+- Keep the ready file on a tmpfs rather than deleting it at Python start, because the first probe runs before Python has loaded its imports
+
+Changed:
+- deploy/docker-compose.agent.yml, demo/live-site/speech/agent.py, deploy/test/fake_agent.py, deploy/README.md, demo/live-site/tests/deploy-keeps-calls.test.ts
+
+Blocked/uncertain:
+- none
+
+Next:
+- Open the pull request with Closes #117; after the deploy, let the agent sleep and check that the first call after a cold start is answered, and time the wake
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
