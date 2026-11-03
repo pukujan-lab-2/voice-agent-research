@@ -9,7 +9,7 @@ from livekit.agents import AgentServer, JobContext, cli
 
 RELEASE = open('/agent/release.txt').read().strip()
 server = AgentServer(num_idle_processes=1, load_fnc=lambda: 0.0, load_threshold=1.0, drain_timeout=int(os.environ.get('AGENT_DRAIN_S', 1200)))
-server.on('worker_registered', lambda *_: open('/tmp/agent-registered', 'w').close())  # the compose file's health check, as in speech/agent.py
+server.on('worker_registered', lambda *_: open('/run/agent/registered', 'w').close())  # the compose file's health check, as in speech/agent.py
 
 
 @server.rtc_session()

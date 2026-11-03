@@ -36,8 +36,9 @@ from telemetry import CallTelemetry
 SPEECH = os.environ.get('SPEECH_URL', 'http://127.0.0.1:8799')
 # On the VPS the agent sleeps between calls (#117): the shared Sablier stops it after 10 idle minutes and the site starts it when
 # the call button is pressed. Sablier counts it as ready once the container is healthy, which is once this file exists
-# (deploy/docker-compose.agent.yml). Without SABLIER_URL (a local run) nothing is renewed.
-REGISTERED = '/tmp/agent-registered'
+# (deploy/docker-compose.agent.yml mounts its directory as a tmpfs, so every start begins without it). Without SABLIER_URL (a
+# local run) nothing is renewed.
+REGISTERED = '/run/agent/registered'
 SABLIER_URL, SABLIER_NAME = os.environ.get('SABLIER_URL', ''), os.environ.get('SABLIER_NAME', '')
 with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'stacks.json')) as f:
     STACKS = json.load(f)
@@ -249,7 +250,8 @@ server.setup_fnc = prewarm
 # LiveKit Agents' own HTTP check (port 8081) answers OK before the worker has registered; a woken agent is ready only after this.
 @server.on('worker_registered')
 def _registered(*_):
-    open(REGISTERED, 'w').close()
+    with contextlib.suppress(OSError):  # the directory exists only in the container
+        open(REGISTERED, 'w').close()
 
 
 async def keep_awake(http: aiohttp.ClientSession) -> None:
@@ -432,6 +434,4 @@ async def entrypoint(ctx: JobContext):
 
 
 if __name__ == '__main__':
-    with contextlib.suppress(FileNotFoundError):
-        os.remove(REGISTERED)  # a stopped container keeps its /tmp: until this start has registered, the agent is not ready
     cli.run_app(server)

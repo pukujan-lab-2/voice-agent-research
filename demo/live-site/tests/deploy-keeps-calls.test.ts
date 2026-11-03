@@ -200,11 +200,14 @@ test('the agent sleeps through the shared Sablier, which wakes it by the name th
 
 test('the agent is healthy only once it has registered with LiveKit, and forgets that when it starts again', () => {
   const compose = read('deploy/docker-compose.agent.yml');
-  const marker = /test", "-f", "([^"]+)"/.exec(compose)?.[1];
+  const marker = /test", "-f", "([^"]+)"/.exec(compose)?.[1] ?? '';
   const py = read('demo/live-site/speech/agent.py');
   assert.equal(/REGISTERED = '([^']+)'/.exec(py)?.[1], marker, 'the health check looks for the file agent.py writes');
   assert.match(py, /@server\.on\('worker_registered'\)/);
-  assert.match(py, /__main__[\s\S]*REGISTERED[\s\S]*cli\.run_app/, 'a stopped container keeps /tmp, so the file is removed before the worker starts');
+  // A stopped container keeps its filesystem; a file left from the last run made a woken agent look ready before it had registered.
+  const tmpfs = /tmpfs:\s*\[([^\]]+)\]/.exec(compose)?.[1].split(',').map(s => s.trim()) ?? [];
+  assert.ok(tmpfs.includes(path.dirname(marker)), `the file's directory ${path.dirname(marker)} is a tmpfs, emptied on every start: ${tmpfs}`);
+  assert.equal(/open\('([^']+)', 'w'\)/.exec(read('deploy/test/fake_agent.py'))?.[1], marker, 'the end-to-end stand-in agent writes the same file');
 });
 
 // --- deploy/pro/update.sh against a scratch repository ----------------------------------------------------------------------
