@@ -55,6 +55,29 @@ A caller who asks to be forgotten, or a business that leaves, can be erased for 
 
 No checkpoints yet.
 
+### 2026-11-04 23:42:41 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["copilot-engine/src/call-vault.ts, call-records.ts, call-audio.ts, call-callers.ts, demo/live-site/api.ts, demo/live-site/tools/erase.ts, deploy/README.md, tests"],"completed":["A call, a caller or a business can now be erased by destroying a key in OpenBao: each call's data key needs the business key and the call's own key, and the rows and files are removed from Octo afterwards (#132)"],"decisions":["Callers are erased by destroying the key of each call linked to them, because a caller is usually identified after a call's first words are locked"],"evidence":["npm run check exit 0, gate ok; tests show a backup taken before erasing no longer opens; a live check against the VPS OpenBao refused an erased call's copy and still opened the other call"],"next_action":"open the pull request with Closes #132, confirm CI is green and arm auto-merge","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0111","timestamp":"2026-11-04T23:42:41Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"f7fe4f54efcf848703cae4620813e542a36aecd5434275187b136065908c9f40","request_id":"f5734795c0d94971b26e50ab32eea1dc","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0111"} -->
+
+Completed:
+- A call, a caller or a business can now be erased by destroying a key in OpenBao: each call's data key needs the business key and the call's own key, and the rows and files are removed from Octo afterwards (#132)
+
+Evidence:
+- npm run check exit 0, gate ok; tests show a backup taken before erasing no longer opens; a live check against the VPS OpenBao refused an erased call's copy and still opened the other call
+
+Decisions:
+- Callers are erased by destroying the key of each call linked to them, because a caller is usually identified after a call's first words are locked
+
+Changed:
+- copilot-engine/src/call-vault.ts, call-records.ts, call-audio.ts, call-callers.ts, demo/live-site/api.ts, demo/live-site/tools/erase.ts, deploy/README.md, tests
+
+Blocked/uncertain:
+- none
+
+Next:
+- open the pull request with Closes #132, confirm CI is green and arm auto-merge
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
