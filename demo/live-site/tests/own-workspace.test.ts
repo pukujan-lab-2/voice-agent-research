@@ -9,6 +9,8 @@ import { SiteConfigs, newSiteKey } from '../../../copilot-engine/src/site-config
 import { createWorkspace, octoSql } from '../../../copilot-engine/src/octo-workspaces.ts';
 import type { Sql } from '../../../copilot-engine/src/octo-store.ts';
 import { pgSql } from '../../../copilot-engine/tests/pg-sql.ts';
+import { CallVault } from '../../../copilot-engine/src/call-vault.ts';
+import { FakeTransit } from '../../../copilot-engine/tests/fake-transit.ts';
 
 const SHARED = 'aaaaaaaa-0000-4000-8000-000000000000', SHARED_KEY = 'octo_live_ws_shared', ACCOUNT_KEY = 'octo_live_acc_test';
 const BASE = 'http://octo.test/api', DESK = 'http://desk.test/v1';
@@ -54,7 +56,8 @@ const clinicWs = (await registry.get('clinic-test'))?.workspace?.id ?? '';
 
 const env = { OPENROUTER_JEV_KEY: 'k', OCTO_KEY: SHARED_KEY, OCTO_WORKSPACE: SHARED, OCTO_ACCOUNT_KEY: ACCOUNT_KEY, OCTO_BASE: BASE, DESK_URL: DESK, SIGNING_SECRET: 's', SITE_ORIGINS: 'https://copilot.test' };
 const traced: { name: string; session: string | null | undefined; ws: string | undefined }[] = [];
-const api = createApi(env, { trace: (s: SpanSpec, session, ws) => { traced.push({ name: s.name, session, ws }); } });
+const transit = new FakeTransit();
+const api = createApi(env, { vault: new CallVault(transit), trace: (s: SpanSpec, session, ws) => { traced.push({ name: s.name, session, ws }); } });
 const fromClinic = { origin: ORIGIN, 'x-site-key': KEY };
 const post = (path: string, body: unknown, headers: Record<string, string> = fromClinic, a = api) =>
   a.handle(new Request(`https://copilot.test${path}`, { method: 'POST', headers: { ...headers, 'x-session-id': 'call-0001-abcdef' }, body: JSON.stringify(body) }), '1.2.3.4');
@@ -84,7 +87,10 @@ test('a test business runs a chat end to end in its own workspace, and the share
   await new Promise(r => setTimeout(r, 20)); // the desk span is written after the reply
 
   const own = await dump(clinicWs);
-  assert.ok((own.copilot_kv as { k: string }[]).some(r => r.k === 'sess:clinic-test:session-0001-abcdef'), 'the session is in its workspace');
+  const row = (own.copilot_kv as { k: string; v: Record<string, unknown> }[]).find(r => r.k === 'sess:clinic-test:session-0001-abcdef');
+  assert.ok(row, 'the session is in its workspace');
+  assert.equal(row.v.sealed, 'a256gcm.v1', 'locked by its own key (#128)');
+  assert.doesNotMatch(JSON.stringify(own.copilot_kv), /Ana|baby|booking/, 'no call text is readable in Octo');
   assert.deepEqual(traced.map(t => [t.name, t.ws]).sort(), [['desk', clinicWs], ['turn', clinicWs]], 'its traces go to its workspace');
   assert.deepEqual(await dump(SHARED), before, 'the shared workspace is exactly as it was');
   assert.doesNotMatch(JSON.stringify(before), /Welcome to the clinic|appointment/, 'and held only the registry entry for it');
@@ -107,4 +113,20 @@ test('without the account-wide key a business with its own workspace is refused,
   const r = await post('/api/session', { op: 'set', business: 'clinic-test', id: 'session-0003-abcdef', snapshot: { v: 1, flow: 'f', values: {}, log: [] } }, fromClinic, keyless);
   assert.equal(r.status, 502);
   assert.deepEqual(await dump(SHARED), before);
+});
+
+test("a call record locked for one business can't be opened as another's", async () => {
+  await registry.put('other-clinic', { desk: { greeting: 'Another' } });
+  const row = ((await dump(clinicWs)).copilot_kv as { k: string; v: unknown }[]).find(r => r.k === 'sess:clinic-test:session-0001-abcdef')!;
+  await dbs.get(SHARED)!(`insert into copilot_kv (k, v) values ($1, $2::jsonb)`, ['sess:other-clinic:session-0001-abcdef', JSON.stringify(row.v)]);
+  const r = await post('/api/session', { op: 'get', business: 'other-clinic', id: 'session-0001-abcdef' }, {});
+  assert.equal((await r.json() as { snapshot: unknown }).snapshot, null, 'the copied record does not open with the other business key');
+});
+
+test('a live server without OpenBao refuses to save a call record rather than store it readable', async () => {
+  const before = await dump(clinicWs);
+  const noKeys = createApi(env);
+  const r = await post('/api/session', { op: 'set', business: 'clinic-test', id: 'session-0004-abcdef', snapshot: { v: 1, flow: 'f', values: { name: 'Sam' }, log: [] } }, fromClinic, noKeys);
+  assert.equal(r.status, 503);
+  assert.deepEqual(await dump(clinicWs), before);
 });

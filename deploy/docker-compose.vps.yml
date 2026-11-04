@@ -47,7 +47,8 @@ services:
     volumes:
       - ${COPILOT_MEDIA_DIR:-../../copilot-media}/copilot-demo-720p.mp4:/app/demo/live-site/dist/media/copilot-demo-720p.mp4:ro
       - ${COPILOT_MEDIA_DIR:-../../copilot-media}/copilot-demo-vertical-720p.mp4:/app/demo/live-site/dist/media/copilot-demo-vertical-720p.mp4:ro
-    networks: [default, edge, sablier]
+    # openbao: the key store for call records (#128); OPENBAO_ADDR, OPENBAO_ROLE_ID and OPENBAO_SECRET_ID come from copilot.env.
+    networks: [default, edge, sablier, openbao]
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8787/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 10s
@@ -87,4 +88,8 @@ networks:
     external: true
   sablier:
     name: ${SABLIER_NETWORK:-sablier}
+    external: true
+  # Made by server-management's `openbao` stack (komodo/resources/openbao.toml).
+  openbao:
+    name: openbao
     external: true
