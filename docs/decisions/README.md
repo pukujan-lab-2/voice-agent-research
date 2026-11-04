@@ -24,3 +24,4 @@ One file per decision. A decision changes only through a new file that replaces 
 | 0018 | [Huge sites: search for prose, declared lookups for records](0018-huge-sites-search-prose-declared-lookups-records.md) | 2026-11-01 |
 | 0019 | [Market positioning: the assistant is never framed as a neighbour](0019-market-positioning-not-a-neighbour.md) | 2026-11-02 |
 | 0020 | [The assistant is honest that it's an AI](0020-honest-that-it-is-an-ai.md) | 2026-11-02 |
+| 0021 | [Each adopter owns a workspace; the factory owns the code and the registry](0021-adopters-own-a-workspace.md) | 2026-11-04 |
