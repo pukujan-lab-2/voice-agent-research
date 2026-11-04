@@ -1,8 +1,8 @@
 # TASK-WCP-0042 — Business Config
 
-<!-- continuity:task {"acceptance":["A business's config is stored in Octo by business and loaded on demand through a bounded cache","/api/desk refuses a voice stack the business does not allow","Two businesses with the same session ids and page paths never read each other's config or snapshot (test)","A page can mount with only its business id"],"depends_on":[],"goal":"Each business's copilot config is stored in Octo and loaded on demand","id":"WCP-0042","issue_url":"https://github.com/Pukujan-lab/voice-agent-research/issues/103","next_action":"Merge the pull request, then start the large-site form index (#104)","owner":"owner","priority":"P2","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"active","why":"The page sends the whole config with requests, so the server can't enforce a business's allowed voice stacks and a big config rides every request (#103)"} -->
+<!-- continuity:task {"acceptance":["A business's config is stored in Octo by business and loaded on demand through a bounded cache","/api/desk refuses a voice stack the business does not allow","Two businesses with the same session ids and page paths never read each other's config or snapshot (test)","A page can mount with only its business id"],"depends_on":[],"goal":"Each business's copilot config is stored in Octo and loaded on demand","id":"WCP-0042","issue_url":"https://github.com/Pukujan-lab/voice-agent-research/issues/103","next_action":"None for this task","owner":"owner","priority":"P2","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"completed","why":"The page sends the whole config with requests, so the server can't enforce a business's allowed voice stacks and a big config rides every request (#103)"} -->
 
-- Status: active
+- Status: completed (merged in #50 as 54b815d; #103 stays open for work beyond this task)
 - Owner: owner
 - Priority: P2
 - Depends on: none

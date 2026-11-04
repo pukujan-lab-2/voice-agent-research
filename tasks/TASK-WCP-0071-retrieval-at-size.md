@@ -1,8 +1,8 @@
 # TASK-WCP-0071 — Retrieval At Size
 
-<!-- continuity:task {"acceptance":["A filter never returns a passage outside it (tests)","recall@5/10, MRR and latency reported at each size for the synthetic site and the IRS library","What is slow is filed in the Octo repo with measurements"],"depends_on":["WCP-0070"],"goal":"Search narrows by section, page type and language and holds up at 200,000 passages, with measured figures","id":"WCP-0071","issue_url":"https://github.com/pukujan-lab-2/voice-agent-research/issues/33","next_action":"Start the leaf on its task branch","owner":"owner","priority":"P2","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"active","why":"Search has no filters and nobody has measured it beyond 133,000 passages (#33)"} -->
+<!-- continuity:task {"acceptance":["A filter never returns a passage outside it (tests)","recall@5/10, MRR and latency reported at each size for the synthetic site and the IRS library","What is slow is filed in the Octo repo with measurements"],"depends_on":["WCP-0070"],"goal":"Search narrows by section, page type and language and holds up at 200,000 passages, with measured figures","id":"WCP-0071","issue_url":"https://github.com/pukujan-lab-2/voice-agent-research/issues/33","next_action":"None for this task","owner":"owner","priority":"P2","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"completed","why":"Search has no filters and nobody has measured it beyond 133,000 passages (#33)"} -->
 
-- Status: active
+- Status: completed (merged in #53 as 85a00c9)
 - Owner: owner
 - Priority: P2
 - Depends on: WCP-0070

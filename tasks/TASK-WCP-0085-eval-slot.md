@@ -1,8 +1,8 @@
 # TASK-WCP-0085 — Eval Slot
 
-<!-- continuity:task {"acceptance":["The eval slot decides the generator and simulated-caller model, with local meaning the config as before","A script writes model-written draft expectations for replay cases without touching the snapshot","Claude, Gemma and openrouter/free models are refused in the eval"],"depends_on":[],"goal":"Use smart models offline: eval slot and draft expectations for replay cases","id":"WCP-0085","issue_url":"https://github.com/pukujan-lab-2/voice-agent-research/issues/81","next_action":"Open the pull request and merge; run the draft script once a key exists","owner":"owner","priority":"P2","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"active","why":"The loop's tests improve from a smart model without touching the product path (#81, parent #77)"} -->
+<!-- continuity:task {"acceptance":["The eval slot decides the generator and simulated-caller model, with local meaning the config as before","A script writes model-written draft expectations for replay cases without touching the snapshot","Claude, Gemma and openrouter/free models are refused in the eval"],"depends_on":[],"goal":"Use smart models offline: eval slot and draft expectations for replay cases","id":"WCP-0085","issue_url":"https://github.com/pukujan-lab-2/voice-agent-research/issues/81","next_action":"None for this task","owner":"owner","priority":"P2","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"completed","why":"The loop's tests improve from a smart model without touching the product path (#81, parent #77)"} -->
 
-- Status: active
+- Status: completed (merged in #86 as 4e05d3b)
 - Owner: owner
 - Priority: P2
 - Depends on: none

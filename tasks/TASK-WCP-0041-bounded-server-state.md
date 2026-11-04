@@ -1,8 +1,8 @@
 # TASK-WCP-0041 — Bounded Server State
 
-<!-- continuity:task {"acceptance":["Verification locks, rate limits and resume snapshots sit behind the Store interface with a time limit and a hard size cap","An Octo-backed store holds locks and snapshots, so a restart or a second instance loses nothing","Tests run the Octo store on a real Postgres engine"],"depends_on":[],"goal":"The backend's call, rate-limit and cache state is bounded, and resume snapshots live in Octo","id":"WCP-0041","issue_url":"https://github.com/Pukujan-lab/voice-agent-research/issues/102","next_action":"Merge the pull request, then start the per-business config leaf (#103)","owner":"owner","priority":"P2","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"active","why":"Caller verification and rate limits live in process memory: a restart loses them, a second instance can't see them, and nothing caps them (#102)"} -->
+<!-- continuity:task {"acceptance":["Verification locks, rate limits and resume snapshots sit behind the Store interface with a time limit and a hard size cap","An Octo-backed store holds locks and snapshots, so a restart or a second instance loses nothing","Tests run the Octo store on a real Postgres engine"],"depends_on":[],"goal":"The backend's call, rate-limit and cache state is bounded, and resume snapshots live in Octo","id":"WCP-0041","issue_url":"https://github.com/Pukujan-lab/voice-agent-research/issues/102","next_action":"None for this task","owner":"owner","priority":"P2","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"completed","why":"Caller verification and rate limits live in process memory: a restart loses them, a second instance can't see them, and nothing caps them (#102)"} -->
 
-- Status: active
+- Status: completed (merged in #49 as c8671af)
 - Owner: owner
 - Priority: P2
 - Depends on: none

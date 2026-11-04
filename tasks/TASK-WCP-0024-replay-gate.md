@@ -1,8 +1,8 @@
 # TASK-WCP-0024 — Replay Gate
 
-<!-- continuity:task {"acceptance":["CI replays the cases offline with recorded search results and fails the PR on a regression","A reverted fix makes that check fail","The live set runs nightly and on every `production` move and posts to a standing issue","An issue opens when a rule's failure count rises"],"depends_on":["WCP-0023"],"goal":"Fail pull requests that bring back a flagged answer; run the live set nightly","id":"WCP-0024","issue_url":"https://github.com/pukujan-lab-2/voice-agent-research/issues/19","next_action":"Record search results for the seed cases","owner":"owner","priority":"P2","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"active","why":"CI never runs an answer (#91)"} -->
+<!-- continuity:task {"acceptance":["CI replays the cases offline with recorded search results and fails the PR on a regression","A reverted fix makes that check fail","The live set runs nightly and on every `production` move and posts to a standing issue","An issue opens when a rule's failure count rises"],"depends_on":["WCP-0023"],"goal":"Fail pull requests that bring back a flagged answer; run the live set nightly","id":"WCP-0024","issue_url":"https://github.com/pukujan-lab-2/voice-agent-research/issues/19","next_action":"None for this task","owner":"owner","priority":"P2","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"completed","why":"CI never runs an answer (#91)"} -->
 
-- Status: active
+- Status: completed (merged in #23 as 89ed48c; #19 stays open for work beyond this task)
 - Owner: owner
 - Priority: P2
 - Depends on: WCP-0023 (#90)
@@ -158,6 +158,29 @@ Blocked/uncertain:
 
 Next:
 - Merge #23
+
+### 2026-11-04 20:42:54 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["tasks/TASK-WCP-{0024,0025,0026,0040,0041,0042,0071,0074,0081-voice-stops-hearing,0082-deploys-keep-calls,0083,0084,0085,0086,0087,0102,0103}-*.md"],"completed":["The 17 task records whose PRs had merged still said active, which blocked worktree cleanup; they now say completed with the merging PR and commit (PR #134, issue #133)"],"decisions":["Source issues #19, #20, #21, #103 and #109 stay open for work beyond these tasks"],"evidence":["continuity validate reports the same 25 errors before and after these edits; none come from them"],"next_action":"Merge #134, then run continuity worktree remove for the 17 tasks","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0024","timestamp":"2026-11-04T20:42:54Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"db45226b6e6ac8b7ae3b85396396ba93a372fab685d69813230160d0bd9511ca","request_id":"ec4a036f5bb94984a80b591fdd3ecb42","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0024"} -->
+
+Completed:
+- The 17 task records whose PRs had merged still said active, which blocked worktree cleanup; they now say completed with the merging PR and commit (PR #134, issue #133)
+
+Evidence:
+- continuity validate reports the same 25 errors before and after these edits; none come from them
+
+Decisions:
+- Source issues #19, #20, #21, #103 and #109 stay open for work beyond these tasks
+
+Changed:
+- tasks/TASK-WCP-{0024,0025,0026,0040,0041,0042,0071,0074,0081-voice-stops-hearing,0082-deploys-keep-calls,0083,0084,0085,0086,0087,0102,0103}-*.md
+
+Blocked/uncertain:
+- none
+
+Next:
+- Merge #134, then run continuity worktree remove for the 17 tasks
 
 ## Handoff
 
