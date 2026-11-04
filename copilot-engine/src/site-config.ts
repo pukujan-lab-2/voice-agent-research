@@ -4,6 +4,7 @@
 // No Node imports: it also runs in a Cloudflare Pages Function.
 import { MemoryStore } from './memory.ts';
 import type { Sql } from './octo-store.ts';
+import { WORKSPACE_ID } from './octo-workspaces.ts';
 
 export const BUSINESS_ID = /^[a-z0-9][a-z0-9-]{0,39}$/;
 export const MAX_CONFIG_CHARS = 256_000;
@@ -14,7 +15,13 @@ export const MAX_ORIGINS = 20;
 // What the widget's Config holds, minus code: the server keeps it as JSON and only reads `voice` and `site` itself.
 // site: the business's public site key (it rides in the page's script tag) and the exact origins its pages are served
 // from. A request from any other site is answered only with that key and from one of those origins (decision 0021).
-export type SiteConfig = { business?: string; voice?: { stacks?: string[]; default?: string }; site?: { key?: string; origins?: string[] } } & Record<string, unknown>;
+// workspace: an outside business's own Octo workspace (#127). Put `workspace: {}` to give a business one; the registry
+// creates it and fills in the id. A demo business has none and stays on the shared workspace, told apart by prefix.
+export type SiteConfig = { business?: string; voice?: { stacks?: string[]; default?: string }; site?: { key?: string; origins?: string[] }; workspace?: { id?: string } } & Record<string, unknown>;
+
+// How the registry reaches business workspaces: sqlFor(id) is that workspace's SQL; create(business) makes a new one
+// and returns its id (an account-wide Octo key; only the registry tool has it, never the request path).
+export type Workspaces = { sqlFor: (workspace: string) => Sql; create?: (business: string) => Promise<string> };
 
 // The slice of SiteConfigs the backend uses: a business's config, or null when it has none; the business a site key
 // belongs to; and whether any business lists an origin (a preflight carries no key).
@@ -45,20 +52,36 @@ export class SiteConfigs implements Sites {
   private cache: MemoryStore;
   private ttlMs: number;
   private ready?: Promise<void>;
+  private workspaces?: Workspaces;
   // cacheMax: how many businesses stay in memory. ttlMs: how long an instance serves a config before asking Octo again,
   // so an update reaches every instance within this time.
-  constructor(sql: Sql, opts: { table?: string; cacheMax?: number; ttlMs?: number; now?: () => number } = {}) {
+  // workspaces: how to reach and create businesses' own workspaces. Without it a business that has one is refused, never
+  // served from the shared workspace.
+  constructor(sql: Sql, opts: { table?: string; cacheMax?: number; ttlMs?: number; now?: () => number; workspaces?: Workspaces } = {}) {
     this.table = opts.table ?? 'copilot_sites';
     if (!/^[a-z_][a-z0-9_]{0,40}$/.test(this.table)) throw new Error('bad table name');
-    this.sql = sql; this.ttlMs = opts.ttlMs ?? 60_000;
+    this.sql = sql; this.ttlMs = opts.ttlMs ?? 60_000; this.workspaces = opts.workspaces;
     this.cache = new MemoryStore(opts.now ?? Date.now, { max: opts.cacheMax ?? 200 });
   }
   get cached() { return this.cache.size; }
 
   private ensure(): Promise<void> {
-    this.ready ??= this.sql(`create table if not exists ${this.table} (business text primary key, config jsonb not null, updated timestamptz not null default now())`)
-      .then(() => undefined, e => { this.ready = undefined; throw e; });
+    this.ready ??= this.create(this.sql).then(() => undefined, e => { this.ready = undefined; throw e; });
     return this.ready;
+  }
+  private create(sql: Sql) {
+    return sql(`create table if not exists ${this.table} (business text primary key, config jsonb not null, updated timestamptz not null default now())`);
+  }
+  private async row(sql: Sql, business: string): Promise<SiteConfig | null> {
+    return ((await sql(`select config from ${this.table} where business = $1`, [business]))[0]?.config as SiteConfig | undefined) ?? null;
+  }
+  private write(sql: Sql, business: string, config: SiteConfig) {
+    return sql(`insert into ${this.table} (business, config, updated) values ($1, $2::jsonb, now()) on conflict (business) do update set config = excluded.config, updated = now()`, [business, JSON.stringify(config)]);
+  }
+  // A business's own workspace's SQL, refused when the registry was built without a way to reach it.
+  private own(id: string): Sql {
+    if (!this.workspaces) throw new Error('this business has its own workspace, and no account-wide Octo key is set to reach it');
+    return this.workspaces.sqlFor(id);
   }
 
   async get(business: string): Promise<SiteConfig | null> {
@@ -66,7 +89,15 @@ export class SiteConfigs implements Sites {
     const hit = (await this.cache.get(business)) as { c: SiteConfig | null } | undefined;
     if (hit) return hit.c;
     await this.ensure();
-    const c = ((await this.sql(`select config from ${this.table} where business = $1`, [business]))[0]?.config as SiteConfig | undefined) ?? null;
+    let c = await this.row(this.sql, business);
+    // A business with its own workspace: the shared registry holds only how to reach it (workspace, site key, origins);
+    // the rest of its config is read from its workspace, and the registry's facts win.
+    const id = c?.workspace?.id;
+    if (c && id) {
+      const own = this.own(id);
+      await this.create(own);
+      c = { ...(await this.row(own, business)), workspace: c.workspace, ...(c.site ? { site: c.site } : {}) };
+    }
     await this.cache.set(business, { c }, c ? this.ttlMs : Math.min(this.ttlMs, 10_000)); // a business with no config is asked about again sooner
     return c;
   }
@@ -90,8 +121,28 @@ export class SiteConfigs implements Sites {
       const other = await this.byKey(site.key!);
       if (other && other.business !== business) throw new Error('site.key already belongs to another business');
     }
+    const ws = config.workspace;
+    if (ws !== undefined && (!ws || typeof ws !== 'object' || Array.isArray(ws) || Object.keys(ws).some(k => k !== 'id'))) throw new Error('workspace must be {} or { id }');
     await this.ensure();
-    await this.sql(`insert into ${this.table} (business, config, updated) values ($1, $2::jsonb, now()) on conflict (business) do update set config = excluded.config, updated = now()`, [business, text]);
+    // Once a business has its own workspace it keeps it: a put cannot move it back to the shared workspace or point it
+    // at a workspace the registry did not create for it.
+    const had = (await this.row(this.sql, business))?.workspace?.id;
+    let id = had;
+    if (had && ws?.id !== undefined && ws.id !== had) throw new Error(`${business} already has its own workspace; it cannot be changed`);
+    if (!had && ws) {
+      if (ws.id !== undefined) throw new Error('workspace.id is set by the registry when it creates the workspace; put workspace: {} instead');
+      if (!this.workspaces?.create) throw new Error('creating a business workspace needs an account-wide Octo key');
+      id = await this.workspaces.create(business);
+      if (!WORKSPACE_ID.test(id)) throw new Error('Octo returned a bad workspace id');
+      // Recorded at once, so a failure below never leaves a workspace the registry does not know.
+      await this.write(this.sql, business, { business, workspace: { id } });
+    }
+    if (id) {
+      const own = this.own(id);
+      await this.create(own);
+      await this.write(own, business, { ...config, business, workspace: { id } });
+      await this.write(this.sql, business, { business, workspace: { id }, ...(site ? { site } : {}) });
+    } else await this.write(this.sql, business, config);
     await this.cache.delete(business);
     if (site?.key) await this.cache.delete(`key:${site.key}`); // a key just added is found at once, not after a cached miss
     for (const o of site?.origins ?? []) await this.cache.delete(`origin:${o}`);
@@ -126,6 +177,9 @@ export class SiteConfigs implements Sites {
   async remove(business: string): Promise<void> {
     if (!BUSINESS_ID.test(business)) return;
     await this.ensure();
+    // A business's own workspace is left in place: deleting a workspace takes the owner's signed-in session (Octo).
+    const id = (await this.row(this.sql, business))?.workspace?.id;
+    if (id) await this.own(id)(`delete from ${this.table} where business = $1`, [business]);
     await this.sql(`delete from ${this.table} where business = $1`, [business]);
     await this.cache.delete(business);
   }
