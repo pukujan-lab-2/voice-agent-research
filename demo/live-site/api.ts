@@ -32,6 +32,7 @@ import { OctoStore } from '../../copilot-engine/src/octo-store.ts';
 import { CallVault, isSealed, OpenBaoKeys } from '../../copilot-engine/src/call-vault.ts';
 import { CallRecords, retentionDays } from '../../copilot-engine/src/call-records.ts';
 import { CallAudio, MAX_AUDIO_BYTES, recordsAudio, type Files } from '../../copilot-engine/src/call-audio.ts';
+import { CALLER, CallCallers } from '../../copilot-engine/src/call-callers.ts';
 import { octoSql } from '../../copilot-engine/src/octo-workspaces.ts';
 import { loadSlots, SLOT_NAMES, type Slots } from '../../copilot-engine/src/slots.ts';
 import { createSmart, SmartError, type Scope } from './smart.ts';
@@ -324,6 +325,29 @@ export function createApi(env: ApiEnv, opts: { slots?: Slots; offlinePassages?: 
       audios.set(k, a);
     }
     return a;
+  };
+  // Which calls each caller was on (#132), beside the call records.
+  const callers = new Map<string, CallCallers>();
+  const callersAt = (ws: string | undefined): CallCallers | null => {
+    if (offline) return null;
+    const k = ws ?? '';
+    let c = callers.get(k);
+    if (!c) {
+      c = new CallCallers(ws ? sqlAt(ws) : sql);
+      if (callers.size >= 500) callers.delete(callers.keys().next().value!);
+      callers.set(k, c);
+    }
+    return c;
+  };
+  // Erasing one call (#132): its key goes first, so every copy stops opening, backups included; then its rows and files.
+  // A failure before the key is gone throws and leaves everything in place to try again.
+  const eraseCall = async (business: string, call: string, ws: string | undefined) => {
+    if (!vault) throw new Error('erasing needs the key store');
+    await vault.forgetCall(business, call);
+    const records = await recordsAt(ws)?.forget(business, call) ?? 0, recordings = await audioAt(ws)?.forget(business, call) ?? 0;
+    await sessionsAt(ws).delete(`sess:${business}:${call}`);
+    await callersAt(ws)?.forget(business, { call });
+    return { records, recordings };
   };
   // Span attributes that carry what a caller said or what the copilot answered. They never reach a trace: each span's
   // go into the call record as one entry, and the span keeps `call.record`, a pointer to it. Without a key store, a call
@@ -715,17 +739,29 @@ export function createApi(env: ApiEnv, opts: { slots?: Slots; offlinePassages?: 
 
   let siteMedia: { at: number; slots: Record<string, unknown> } | null = null;
   return {
-    // Deletes every business's call-record entries and recordings past its retention (#129, #130): the shared workspace
-    // and each business's own. server.ts runs it every hour. Returns how many entries and recordings went, per business.
+    // Deletes every business's call-record entries and recordings past its retention (#129, #130), and the key of each
+    // call with nothing left (#132): the shared workspace and each business's own. server.ts runs it every hour. Returns how many entries and recordings went, per business.
     async sweepRecords(): Promise<Record<string, number>> {
       const gone: Record<string, number> = {};
       const own = sites instanceof SiteConfigs ? (await sites.list()).map(r => r.workspace).filter((w): w is string => !!w) : [];
       for (const ws of [undefined, ...new Set(own)]) {
+        const swept = new Set<string>();
         for (const book of [recordsAt(ws), audioAt(ws)]) {
           if (!book) continue;
           try {
-            for (const business of await book.businesses()) gone[business] = (gone[business] ?? 0) + await book.sweep(business, retentionDays(await sites?.get(business)));
+            for (const business of await book.businesses()) {
+              const calls = await book.sweep(business, retentionDays(await sites?.get(business)));
+              gone[business] = (gone[business] ?? 0) + calls.length;
+              for (const call of calls) swept.add(`${business}\n${call}`);
+            }
           } catch (e) { log(`call record sweep (${ws ?? 'shared'}): ${(e as Error).message}`); }
+        }
+        // A call with nothing left is erased in full: its key goes too, so its backups stop opening (#132).
+        for (const id of swept) {
+          const [business, call] = id.split('\n');
+          try {
+            if (!await recordsAt(ws)?.has(business, call) && !await audioAt(ws)?.has(business, call)) await vault?.forgetCall(business, call);
+          } catch (e) { log(`call key sweep (${ws ?? 'shared'}): ${(e as Error).message}`); }
         }
       }
       return gone;
@@ -746,6 +782,52 @@ export function createApi(env: ApiEnv, opts: { slots?: Slots; offlinePassages?: 
     async callAudio(business: string, call: string) {
       const store = audioAt(await workspaceOf(business));
       return store ? store.open(business, call, retentionDays(await sites?.get(business))) : null;
+    },
+    // Erasure (#132). Not served over HTTP: who may erase is a business admin, which waits on grants (#131). Each destroys
+    // the key in OpenBao first, so every copy stops opening, backups included, then removes the rows from Octo.
+    // A caller (memory.ts customerKey's hash) was on this call; erasing the caller erases this call too.
+    async linkCaller(business: string, caller: string, call: string): Promise<void> {
+      if (!BUSINESS_ID.test(business) || !CALLER.test(caller) || !call) throw new Error('bad caller link');
+      await callersAt(await workspaceOf(business))?.link(business, caller, call);
+    },
+    async eraseCall(business: string, call: string) {
+      if (!BUSINESS_ID.test(business) || !call) throw new Error('bad call');
+      const out = await eraseCall(business, call, await workspaceOf(business));
+      log(`erase: call of ${business} (${out.records} record entries, ${out.recordings} recordings)`);
+      return out;
+    },
+    async eraseCaller(business: string, caller: string) {
+      if (!BUSINESS_ID.test(business) || !CALLER.test(caller)) throw new Error('bad caller');
+      const ws = await workspaceOf(business), out = { calls: 0, records: 0, recordings: 0 };
+      for (const call of await callersAt(ws)?.calls(business, caller) ?? []) {
+        const n = await eraseCall(business, call, ws);
+        out.calls++; out.records += n.records; out.recordings += n.recordings;
+      }
+      await sessionsAt(ws).delete(`cust:${business}:${caller}`);
+      await callersAt(ws)?.forget(business, { caller });
+      log(`erase: a caller of ${business} (${out.calls} calls)`);
+      return out;
+    },
+    // A whole business, for good. `confirm` must be the business id typed again.
+    async eraseBusiness(business: string, confirm: string) {
+      if (!BUSINESS_ID.test(business)) throw new Error('bad business');
+      if (confirm !== business) throw new Error('type the business id to confirm');
+      if (!vault) throw new Error('erasing needs the key store');
+      const ws = await workspaceOf(business), records = recordsAt(ws), audio = audioAt(ws);
+      const kv = ws || inOcto ? ws ? sqlAt(ws) : sql : null;
+      const kvRows = kv && (await kv(`select to_regclass('copilot_kv') as t`))[0]?.t
+        ? await kv(`select k from copilot_kv where k like $1 or k like $2`, [`sess:${business}:%`, `cust:${business}:%`]) as { k: string }[] : [];
+      const calls = new Set([...await records?.calls(business) ?? [], ...await audio?.calls(business) ?? [],
+        ...kvRows.filter(r => r.k.startsWith('sess:')).map(r => r.k.slice(`sess:${business}:`.length))]);
+      await vault.forgetBusiness(business);
+      // The business key alone locks every call; each call's own key goes too so none is left behind in OpenBao.
+      for (const call of calls) await vault.forgetCall(business, call).catch(e => log(`erase: a call key of ${business}: ${(e as Error).message}`));
+      const out = { calls: calls.size, records: await records?.forget(business) ?? 0, recordings: await audio?.forget(business) ?? 0, sessions: 0 };
+      await callersAt(ws)?.forget(business);
+      // Resume snapshots and customer records, in Octo's key-value table.
+      if (kv && kvRows.length) out.sessions = (await kv(`delete from copilot_kv where k like $1 or k like $2 returning k`, [`sess:${business}:%`, `cust:${business}:%`])).length;
+      log(`erase: business ${business} (${out.calls} calls, ${out.records} record entries, ${out.recordings} recordings, ${out.sessions} snapshots and customer records)`);
+      return out;
     },
     // For tests only (never over HTTP): which client a call was verified as.
     verifiedAs: clientOf,
