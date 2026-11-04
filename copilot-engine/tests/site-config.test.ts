@@ -1,7 +1,7 @@
 // A business's config in Octo (#103): stored by business, loaded on demand through a small cache, never crossing businesses.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { SiteConfigs } from '../src/site-config.ts';
+import { SiteConfigs, newSiteKey, SITE_KEY } from '../src/site-config.ts';
 import { pgSql } from './pg-sql.ts';
 
 const { sql, db } = await pgSql();
@@ -58,4 +58,27 @@ test('loading is on demand and bounded: a cache with a size cap and a time limit
   c.add(61_000);
   assert.equal((await s.get('biz-39'))?.n, 'new');
   await db.exec('select 1');
+});
+
+test('a site block holds one public key and the exact origins allowed to use it (#125)', async () => {
+  const s = new SiteConfigs(sql, { table: 'sites_key' });
+  const key = newSiteKey();
+  assert.match(key, SITE_KEY);
+  assert.notEqual(key, newSiteKey(), 'each key is new');
+  await assert.rejects(s.put('acme', { site: { key: 'abc', origins: ['https://acme.test'] } }), /key/);
+  await assert.rejects(s.put('acme', { site: { key, origins: [] } }), /origins/);
+  await assert.rejects(s.put('acme', { site: { key, origins: ['https://acme.test/page'] } }), /origin/, 'an origin, not a page');
+  await assert.rejects(s.put('acme', { site: { key, origins: ['http://acme.test'] } }), /origin/, 'plain http only for localhost');
+  await assert.rejects(s.put('acme', { site: { key, origins: Array.from({ length: 21 }, (_, i) => `https://s${i}.test`) } }), /origins/);
+  await s.put('acme', { site: { key, origins: ['https://www.acme.test', 'http://localhost:5173'] } });
+  assert.equal((await s.byKey(key))?.business, 'acme');
+  assert.equal(await s.byKey(newSiteKey()), null, 'an unknown key');
+  assert.equal(await s.byKey("' or 1=1 --"), null, 'an odd key is refused before it reaches SQL');
+  assert.equal(await s.knowsOrigin('https://www.acme.test'), true);
+  assert.equal(await s.knowsOrigin('https://evil.test'), false);
+  await assert.rejects(s.put('harbor', { site: { key, origins: ['https://harbor.test'] } }), /another business/, 'one key, one business');
+  const next = newSiteKey();
+  await s.put('acme', { site: { key: next, origins: ['https://www.acme.test'] } });
+  assert.equal(await s.byKey(key), null, 'a replaced key stops working at once on the instance that wrote it');
+  assert.equal((await s.byKey(next))?.business, 'acme');
 });
