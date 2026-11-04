@@ -1,8 +1,8 @@
 # TASK-WCP-0111 — Erase By Key
 
-<!-- continuity:task {"acceptance":["One call, one caller, or one business can be deleted by destroying its key in OpenBao","The rows are also removed from Octo where they live","A plain-code test: after deletion, the record and a backup copy taken before it no longer decrypt"],"depends_on":["WCP-0108"],"goal":"Delete one call, one caller or one business by destroying its key in OpenBao, and remove its rows from Octo","id":"WCP-0111","issue_url":"https://github.com/pukujan-lab-2/voice-agent-research/issues/132","next_action":"open the pull request with Closes #132, confirm CI is green and arm auto-merge","owner":"owner","priority":"P1","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"active","why":"A caller who asks to be forgotten or a business that leaves needs every copy gone, backups included; deleting rows does not reach backups (decision 0021, #132)"} -->
+<!-- continuity:task {"acceptance":["One call, one caller, or one business can be deleted by destroying its key in OpenBao","The rows are also removed from Octo where they live","A plain-code test: after deletion, the record and a backup copy taken before it no longer decrypt"],"depends_on":["WCP-0108"],"goal":"Delete one call, one caller or one business by destroying its key in OpenBao, and remove its rows from Octo","id":"WCP-0111","issue_url":"https://github.com/pukujan-lab-2/voice-agent-research/issues/132","next_action":"None for this task","owner":"owner","priority":"P1","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"completed","why":"A caller who asks to be forgotten or a business that leaves needs every copy gone, backups included; deleting rows does not reach backups (decision 0021, #132)"} -->
 
-- Status: active
+- Status: completed (merged in #139 as 5c661b0)
 - Owner: owner
 - Priority: P1
 - Depends on: WCP-0108 (#128, merged)

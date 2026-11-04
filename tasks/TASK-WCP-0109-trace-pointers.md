@@ -1,8 +1,8 @@
 # TASK-WCP-0109 — Trace Pointers
 
-<!-- continuity:task {"acceptance":["A trace carries a pointer to the encrypted call record, never the caller's words or the reply","Each business's config sets how long its calls are kept; a sweeper deletes calls past that age","A plain-code test: Phoenix spans hold no transcript text, and a call past its business's retention can no longer be read"],"depends_on":["WCP-0108"],"goal":"Keep call text out of traces and delete each business's calls on its own schedule","id":"WCP-0109","issue_url":"https://github.com/pukujan-lab-2/voice-agent-research/issues/129","next_action":"open the pull request with Closes #129, confirm CI is green and arm auto-merge","owner":"owner","priority":"P1","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"active","why":"Every turn's trace carries what the caller said and the reply in full, and Phoenix is shared and unencrypted, so the words escape the locked record; nothing deletes a business's calls by age (#129, decision 0021 settlement 3)"} -->
+<!-- continuity:task {"acceptance":["A trace carries a pointer to the encrypted call record, never the caller's words or the reply","Each business's config sets how long its calls are kept; a sweeper deletes calls past that age","A plain-code test: Phoenix spans hold no transcript text, and a call past its business's retention can no longer be read"],"depends_on":["WCP-0108"],"goal":"Keep call text out of traces and delete each business's calls on its own schedule","id":"WCP-0109","issue_url":"https://github.com/pukujan-lab-2/voice-agent-research/issues/129","next_action":"None for this task","owner":"owner","priority":"P1","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"completed","why":"Every turn's trace carries what the caller said and the reply in full, and Phoenix is shared and unencrypted, so the words escape the locked record; nothing deletes a business's calls by age (#129, decision 0021 settlement 3)"} -->
 
-- Status: active
+- Status: completed (merged in #137 as 2f5cc08)
 - Owner: owner
 - Priority: P1
 - Depends on: WCP-0108 (#128, merged)
