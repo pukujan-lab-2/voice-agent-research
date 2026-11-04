@@ -3,7 +3,7 @@
 // nothing. Octo is faked at fetch: each workspace is its own Postgres (PGlite), reached only with the right key.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createApi } from '../api.ts';
+import { audioSignature, createApi } from '../api.ts';
 import type { SpanSpec } from '../tracing.ts';
 import { SiteConfigs, newSiteKey } from '../../../copilot-engine/src/site-config.ts';
 import { createWorkspace, octoSql } from '../../../copilot-engine/src/octo-workspaces.ts';
@@ -16,6 +16,8 @@ const SHARED = 'aaaaaaaa-0000-4000-8000-000000000000', SHARED_KEY = 'octo_live_w
 const BASE = 'http://octo.test/api', DESK = 'http://desk.test/v1';
 const dbs = new Map<string, Sql>([[SHARED, (await pgSql()).sql]]);
 const created: string[] = [];
+// Octo's file store, faked: id -> { workspace, bytes }.
+const files = new Map<string, { ws: string; bytes: Uint8Array }>();
 
 globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
   const url = String(input), method = init?.method ?? 'GET', auth = new Headers(init?.headers).get('authorization');
@@ -27,6 +29,20 @@ globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) =>
     const id = `bbbbbbbb-0000-4000-8000-${String(dbs.size).padStart(12, '0')}`;
     dbs.set(id, (await pgSql()).sql); created.push(body.slug);
     return reply({ workspace: { id, slug: body.slug }, rawSecret: 'octo_live_ws_new' }, 201);
+  }
+  const keyOf = (ws: string) => `Bearer ${ws === SHARED ? SHARED_KEY : ACCOUNT_KEY}`;
+  if (url === `${BASE}/files/upload` && method === 'POST') {
+    if (!dbs.has(body.workspaceId) || auth !== keyOf(body.workspaceId)) return reply({ error: 'FORBIDDEN' }, 403);
+    const id = `file-${files.size + 1}`;
+    files.set(id, { ws: body.workspaceId, bytes: Uint8Array.from(Buffer.from(body.data, 'base64')) });
+    return reply({ id }, 201);
+  }
+  const f = url.match(/^http:\/\/octo\.test\/api\/files\/(?:content\?workspaceId=([\w-]+)&fileId=([\w-]+)|([\w-]+)\?workspaceId=([\w-]+))$/);
+  if (f) {
+    const [ws, id] = f[1] ? [f[1], f[2]] : [f[4], f[3]], file = files.get(id);
+    if (!file || file.ws !== ws || auth !== keyOf(ws)) return reply({ error: 'NOT_FOUND' }, 404);
+    if (method === 'DELETE') { files.delete(id); return reply({ ok: true }); }
+    return new Response(file.bytes as BodyInit);
   }
   const q = url.match(/^http:\/\/octo\.test\/api\/workspaces\/([\w-]+)\/query$/);
   if (q) {
@@ -152,4 +168,39 @@ test('call-record entries past the business retention are not read and the sweep
   const fresh = createApi(env, { vault: new CallVault(transit) }); // the first one holds the config for a minute
   assert.deepEqual(await fresh.callRecord('clinic-test', 'call-0001-abcdef'), [], 'a business that keeps one day sees nothing older');
   assert.deepEqual(await fresh.sweepRecords(), { 'clinic-test': kept - 1 });
+});
+
+test("a voice call's recording from the agent is locked with the call's key in its business's workspace (#130)", async () => {
+  const audio = new TextEncoder().encode('OggS the caller said my baby has a fever');
+  const room = 'call-0a1b2c3d.clinic-test', call = 'call-0001-abcdef';
+  const send = async (headers: Record<string, string>, body: Uint8Array = audio, a = api) =>
+    a.handle(new Request('https://copilot.test/api/call-audio', { method: 'POST', headers: { 'content-type': 'audio/ogg', ...headers }, body: body as BodyInit }), '10.0.0.5');
+  assert.equal(await audioSignature('s', room, call, new TextEncoder().encode('OggS fake audio')),
+    '5e364d6973d7e9e0413de5f9d1155b4212a86a758a68a07bc1aa6d46bbdaf130', 'the same signature the agent computes (speech/tests/test_recording.py)');
+  const sig = await audioSignature('s', room, call, audio);
+
+  assert.equal((await send({ 'x-call-room': room, 'x-call-id': call, 'x-call-sig': '0'.repeat(64) })).status, 403, 'a wrong signature is refused');
+  assert.equal((await send({ 'x-call-room': room, 'x-call-id': call, 'x-call-sig': sig }, new TextEncoder().encode('OggS something else'))).status, 403, 'and so is other audio');
+  assert.equal((await send({ 'x-call-room': 'call-0a1b2c3d', 'x-call-id': call, 'x-call-sig': sig })).status, 400, 'a room that names no business');
+  assert.equal(files.size, 0);
+
+  const ok = await send({ 'x-call-room': room, 'x-call-id': call, 'x-call-sig': sig });
+  assert.equal(ok.status, 200, await ok.clone().text());
+  assert.deepEqual(await ok.json(), { ok: true, kept: true, bytes: audio.byteLength });
+  const [stored] = [...files.values()];
+  assert.equal(stored.ws, clinicWs, 'the recording is in the clinic\'s own workspace');
+  assert.doesNotMatch(Buffer.from(stored.bytes).toString('latin1'), /fever|OggS/, 'and is ciphertext');
+  const row = ((await dump(clinicWs)).copilot_call_audio as { key: string }[])[0];
+  assert.match(row.key, /^vault:v1:/, 'its data key is kept only locked by the business key');
+  assert.deepEqual((await api.callAudio('clinic-test', call))?.audio, audio, 'it opens for its business');
+
+  // A business that turned recording off: nothing is kept, and its calls aren't put in a recorded room.
+  await registry.put('quiet-clinic', { desk: { greeting: 'Quiet' }, recording: { audio: false } });
+  const quiet = 'call-0a1b2c3d.quiet-clinic';
+  const r = await send({ 'x-call-room': quiet, 'x-call-id': call, 'x-call-sig': await audioSignature('s', quiet, call, audio) });
+  assert.deepEqual(await r.json(), { ok: true, kept: false });
+  assert.equal(files.size, 1);
+  assert.equal(await api.recordingFor('quiet-clinic'), null);
+  assert.equal(await api.recordingFor('clinic-test'), 'clinic-test');
+  assert.equal(await api.recordingFor('clinic-test', 'other-clinic'), null, 'a site key only records its own business');
 });

@@ -125,7 +125,7 @@ function voiceUp(): Promise<void> {
 // page today, so until businesses are stored server-side they are taken from the request.
 type Stacks = { default: string; stacks: Record<string, { label: string; languages: string[] }>; languages: Record<string, { name: string; native: string }> };
 const STACKS: Stacks = JSON.parse(fs.readFileSync(path.join(here, 'speech/stacks.json'), 'utf8'));
-type VoiceAsk = { stack?: unknown; language?: unknown; allowed?: unknown; default?: unknown };
+type VoiceAsk = { stack?: unknown; language?: unknown; allowed?: unknown; default?: unknown; business?: unknown };
 function pickStack(ask: VoiceAsk, owner = process.env.VOICE_STACK ?? ''): { stack: string; by: 'owner' | 'visitor' | 'business' | 'default'; allowed: string[] } {
   const known = (s: unknown): s is string => typeof s === 'string' && Object.hasOwn(STACKS.stacks, s);
   const allowed = Array.isArray(ask.allowed) && ask.allowed.some(known) ? ask.allowed.filter(known) : [known(ask.default) ? ask.default : STACKS.default];
@@ -146,14 +146,16 @@ function voiceOptions(ask: VoiceAsk) {
 export const VOICE_TOKEN_S = 600;
 
 // A LiveKit access token (HS256 JWT) for one caller in a new room; the agent is dispatched to every new room. The call's
-// stack and the caller's language ride on the caller's attributes; the page may change its language mid-call.
-export function voiceToken(ask: VoiceAsk = {}): { url: string; token: string; room: string; stack: string; language: string } {
+// stack and the caller's language ride on the caller's attributes; the page may change its language mid-call. A call that
+// is recorded (#130) is in a room named call-<id>.<business>: the name is signed into the token, so the caller can't change
+// it, and the voice agent records only rooms named so.
+export function voiceToken(ask: VoiceAsk = {}, recordFor: string | null = null): { url: string; token: string; room: string; stack: string; language: string } {
   const picked = pickStack(ask);
   const stack = typeof ask.language === 'string' && picked.by !== 'owner'
     ? stackForLanguage(picked.allowed.map(id => ({ id, languages: STACKS.stacks[id].languages.map(code => ({ code })) })), picked.stack, ask.language)
     : picked.stack;
   const language = typeof ask.language === 'string' && STACKS.stacks[stack].languages.includes(ask.language) ? ask.language : '';
-  const room = `call-${crypto.randomUUID().slice(0, 8)}`;
+  const room = `call-${crypto.randomUUID().slice(0, 8)}${recordFor ? `.${recordFor}` : ''}`;
   const now = Math.floor(Date.now() / 1000);
   const b64 = (o: object) => Buffer.from(JSON.stringify(o)).toString('base64url');
   const body = `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64({ iss: LIVEKIT.key, sub: `caller-${crypto.randomUUID().slice(0, 8)}`, nbf: now - 5, exp: now + VOICE_TOKEN_S,
@@ -256,7 +258,7 @@ export async function start(opts: { port?: number; host?: string; offline?: bool
         if (!(await waker.ready(AGENT_WAKE_S))) console.warn(`voice: the agent did not wake within ${AGENT_WAKE_S}s; handing out the token anyway`);
       } else waker.poke();  // the widget loaded: the agent starts while the visitor reads
       res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...gate.headers });
-      res.end(JSON.stringify(url.pathname === '/api/voice/token' ? voiceToken(ask) : voiceOptions(ask))); return;
+      res.end(JSON.stringify(url.pathname === '/api/voice/token' ? voiceToken(ask, await api.recordingFor(ask.business, gate.business)) : voiceOptions(ask))); return;
     }
     if (req.method === 'GET' && url.pathname === '/api/voice/calls') {
       res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });

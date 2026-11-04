@@ -46,6 +46,8 @@ test('bad configs and bad ids are refused and nothing is written', async () => {
   await assert.rejects(s.put('acme', { voice: { stacks: ['a'], default: 'b' } }), /voice.default/);
   for (const days of [0, 3651, 1.5, '30']) await assert.rejects(s.put('acme', { retention: { days } as never }), /retention/, `retention ${days}`);
   await s.put('acme-keeps', { retention: { days: 365 } });
+  for (const recording of [{}, { audio: 'no' }, { audio: false, video: true }, false]) await assert.rejects(s.put('acme', { recording } as never), /recording/);
+  await s.put('acme-quiet', { recording: { audio: false } });
   assert.equal(await s.get('acme'), null);
 });
 

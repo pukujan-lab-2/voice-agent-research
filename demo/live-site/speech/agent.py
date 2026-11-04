@@ -17,6 +17,11 @@ moment the caller stops talking, the end-of-turn wait (VAD and turn detector), S
 any library search) and the voice's first audio; barge-ins, failed RPC calls and speech errors too. A watchdog
 (stall_watchdog.py) logs a stall (the caller spoke and no turn came of it) as an error span and starts the turn over.
 
+A recorded call (#130): the site names the room call-<id>.<business> when that business records its calls. The session's own
+recorder then writes the call's audio (the caller on one channel, the copilot on the other, Ogg/Opus) to the job's temporary
+folder, and when the call ends it goes to the site (COPILOT_API_URL), signed with the site's secret. The site locks it with the
+call's key before it reaches Octo. Nothing else keeps it.
+
 Run: speech/.venv/bin/python speech/agent.py dev    (server.ts starts it with the speech server)
 """
 import asyncio, contextlib, inspect, json, os, re, time, uuid
@@ -31,6 +36,7 @@ from livekit.plugins import silero
 from livekit.plugins.turn_detector.english import EnglishModel
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
 from stall_watchdog import StallWatchdog
+from recording import audio_signature, room_business
 from telemetry import CallTelemetry
 
 SPEECH = os.environ.get('SPEECH_URL', 'http://127.0.0.1:8799')
@@ -40,6 +46,29 @@ SPEECH = os.environ.get('SPEECH_URL', 'http://127.0.0.1:8799')
 # local run) nothing is renewed.
 REGISTERED = '/run/agent/registered'
 SABLIER_URL, SABLIER_NAME = os.environ.get('SABLIER_URL', ''), os.environ.get('SABLIER_NAME', '')
+COPILOT_API, SIGNING = os.environ.get('COPILOT_API_URL', '').rstrip('/'), os.environ.get('SIGNING_SECRET', '')
+
+
+def recorded_business(room: str) -> str:
+    """The business this call is recorded for, or '' when it isn't recorded (or there is nowhere to send it)."""
+    return room_business(room) if COPILOT_API and SIGNING else ''
+
+
+async def send_audio(path, room: str, call: str) -> None:
+    """The call's recording to the site, which locks it. A failed send is logged; the recording is not kept anywhere else."""
+    try:
+        audio = path.read_bytes() if path and path.exists() else b''
+        if not audio:
+            print('recording: nothing was recorded', flush=True)
+            return
+        headers = {'content-type': 'audio/ogg', 'x-call-room': room, 'x-call-id': call, 'x-call-sig': audio_signature(SIGNING, room, call, audio)}
+        async with aiohttp.ClientSession() as h, h.post(f'{COPILOT_API}/api/call-audio', data=audio, headers=headers,
+                                                         timeout=aiohttp.ClientTimeout(total=120)) as r:
+            print('recording:', len(audio), 'bytes sent,', r.status, (await r.text())[:200], flush=True)
+    except Exception as e:  # noqa: BLE001 - the call is over; say what happened and go on
+        print('recording: not sent:', e, flush=True)
+
+
 with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'stacks.json')) as f:
     STACKS = json.load(f)
 
@@ -430,7 +459,18 @@ async def entrypoint(ctx: JobContext):
         await tel.close(closed.get('reason') or reason or 'room closed')
 
     ctx.add_shutdown_callback(_sent)
-    await session.start(agent=agent, room=ctx.room)
+
+    business = recorded_business(ctx.room.name)
+    if business:
+        async def _send_recording(_reason: str = ''):
+            with contextlib.suppress(Exception):
+                await session.aclose()  # the recorder finishes the file when the session closes
+            await send_audio(ctx.session_directory / 'audio.ogg', ctx.room.name, tel.call or ctx.room.name.split('.')[0])
+
+        ctx.add_shutdown_callback(_send_recording)
+    # The session's recorder, audio only: no transcript, traces or logs go to LiveKit (with a self-hosted server nothing is uploaded).
+    await session.start(agent=agent, room=ctx.room,
+                        record={'audio': True, 'traces': False, 'logs': False, 'transcript': False} if business else False)
 
 
 if __name__ == '__main__':

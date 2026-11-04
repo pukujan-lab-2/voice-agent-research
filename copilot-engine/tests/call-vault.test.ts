@@ -67,3 +67,13 @@ test('OpenBaoKeys speaks transit through the AppRole: makes the business key onc
     assert.throws(() => OpenBaoKeys.keyName('../sys'), /bad business id/);
   } finally { globalThis.fetch = real; }
 });
+
+test("a call's audio locks as raw bytes and opens only as that business's call (#130)", async () => {
+  const transit = new FakeTransit(), vault = new CallVault(transit);
+  const audio = new TextEncoder().encode('OggS the caller said my baby has a fever');
+  const s = await vault.sealBytes('clinic', 'call-1', audio);
+  assert.equal(new TextDecoder().decode(s.ct).includes('fever'), false);
+  assert.deepEqual(await vault.openBytes('clinic', 'call-1', s), audio);
+  await assert.rejects(vault.openBytes('other', 'call-1', s));
+  await assert.rejects(vault.openBytes('clinic', 'call-2', s));
+});

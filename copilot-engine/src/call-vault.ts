@@ -53,6 +53,20 @@ export class CallVault {
     const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: unb64(s.iv), additionalData: bound(business, call) }, await aesKey(key), unb64(s.ct));
     return JSON.parse(new TextDecoder().decode(pt));
   }
+
+  // Bytes (a call's audio, #130): the same call key and binding as seal(), with the ciphertext kept as raw bytes so a
+  // recording isn't stored as base64.
+  async sealBytes(business: string, call: string, data: Uint8Array): Promise<{ key: string; iv: string; ct: Uint8Array }> {
+    const { key, locked } = await this.callKey(business, call);
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv, additionalData: bound(business, call) }, await aesKey(key), data as BufferSource);
+    return { key: locked, iv: b64(iv), ct: new Uint8Array(ct) };
+  }
+
+  async openBytes(business: string, call: string, s: { key: string; iv: string; ct: Uint8Array }): Promise<Uint8Array> {
+    const key = await this.keys.unlock(business, s.key);
+    return new Uint8Array(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: unb64(s.iv), additionalData: bound(business, call) }, await aesKey(key), s.ct as BufferSource));
+  }
 }
 
 // OpenBao's transit engine, reached with the copilot's AppRole (server-management vps/openbao/policies/copilot.hcl).
