@@ -399,7 +399,7 @@ async function startVoice(rejoin = false) {
 // participant attributes, so speech to text, the turn detector and the voice all follow it, and LFM3 writes in it.
 const LANGUAGE_ASK = 'Which language would you like to talk in? You can just start speaking it.';
 function voiceAsk() {
-  return { stack: snap.stack, language: snap.language, allowed: cfg?.voice?.stacks, default: cfg?.voice?.default };
+  return { stack: snap.stack, language: snap.language, allowed: cfg?.voice?.stacks, default: cfg?.voice?.default, business: cfg?.business };
 }
 function stackLanguages(stack: string): Language[] {
   return snap.voiceStacks.find(s => s.id === stack)?.languages ?? snap.languages;

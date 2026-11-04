@@ -31,6 +31,7 @@ import { MemoryStore, SESSION_TTL_MS, type Store } from '../../copilot-engine/sr
 import { OctoStore } from '../../copilot-engine/src/octo-store.ts';
 import { CallVault, isSealed, OpenBaoKeys } from '../../copilot-engine/src/call-vault.ts';
 import { CallRecords, retentionDays } from '../../copilot-engine/src/call-records.ts';
+import { CallAudio, MAX_AUDIO_BYTES, recordsAudio, type Files } from '../../copilot-engine/src/call-audio.ts';
 import { octoSql } from '../../copilot-engine/src/octo-workspaces.ts';
 import { loadSlots, SLOT_NAMES, type Slots } from '../../copilot-engine/src/slots.ts';
 import { createSmart, SmartError, type Scope } from './smart.ts';
@@ -104,6 +105,22 @@ function deskTools(raw: unknown): unknown[] | null {
 // Span attributes that hold a caller's words or the copilot's answer (#129); they go to the call record, never a trace.
 // tracing.ts's CALL_TEXT_KEYS is the same list (that file is Node only).
 const CALL_TEXT = /^(input\.value|output\.value|tool\.parameters|correction\.(before|after))$/;
+
+const toBase64 = (b: Uint8Array) => { let s = ''; for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode(...b.subarray(i, i + 0x8000)); return btoa(s); };
+const hex = (b: ArrayBuffer) => [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join('');
+// The voice agent's signature on a recording (speech/agent.py send_audio): HMAC-SHA256 with the site's secret over
+// "call-audio", the room, the call id and the audio's SHA-256.
+export async function audioSignature(secret: string, room: string, call: string, audio: Uint8Array): Promise<string> {
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const digest = hex(await crypto.subtle.digest('SHA-256', audio as BufferSource));
+  return hex(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(`call-audio\n${room}\n${call}\n${digest}`)));
+}
+const audioSigned = async (secret: string, room: string, call: string, audio: Uint8Array, sig: string) => {
+  const want = await audioSignature(secret, room, call, audio);
+  let diff = want.length ^ sig.length;
+  for (let i = 0; i < want.length; i++) diff |= want.charCodeAt(i) ^ (sig.charCodeAt(i) || 0);
+  return diff === 0;
+};
 
 const WARM_FIELD: Field = { name: 'warm', label: 'warm-up', question: 'Say hello.', kind: 'text' };
 
@@ -280,6 +297,34 @@ export function createApi(env: ApiEnv, opts: { slots?: Slots; offlinePassages?: 
     }
     return r;
   };
+  // Octo's file store in one workspace: the shared one with its own key, a business's own with the account-wide key.
+  const filesAt = (ws: string | undefined): Files => {
+    const key = ws ? env.OCTO_ACCOUNT_KEY : env.OCTO_KEY, id = encodeURIComponent(ws ?? env.OCTO_WORKSPACE ?? '');
+    const call = async (path: string, init: RequestInit = {}) => {
+      if (!key) throw new Error('no account-wide Octo key (OCTO_ACCOUNT_KEY) to reach a business workspace');
+      const r = await fetch(`${octoBase}${path}`, { ...init, headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' } });
+      if (!r.ok) throw new Error(`octo ${path.split('?')[0].replace(/\/files\/[^/]+$/, '/files/:id')} ${r.status}`);
+      return r;
+    };
+    return {
+      upload: async (name, mimeType, data) => (await (await call('/files/upload', { method: 'POST', body: JSON.stringify({ workspaceId: decodeURIComponent(id), name, mimeType, data: toBase64(data), dataEncoding: 'base64' }) })).json()).id,
+      download: async f => new Uint8Array(await (await call(`/files/content?workspaceId=${id}&fileId=${encodeURIComponent(f)}`)).arrayBuffer()),
+      remove: async f => { await call(`/files/${encodeURIComponent(f)}?workspaceId=${id}`, { method: 'DELETE' }); },
+    };
+  };
+  // Voice call recordings (#130), locked, beside the call records.
+  const audios = new Map<string, CallAudio>();
+  const audioAt = (ws: string | undefined): CallAudio | null => {
+    if (!vault || offline) return null;
+    const k = ws ?? '';
+    let a = audios.get(k);
+    if (!a) {
+      a = new CallAudio(ws ? sqlAt(ws) : sql, filesAt(ws), vault);
+      if (audios.size >= 500) audios.delete(audios.keys().next().value!);
+      audios.set(k, a);
+    }
+    return a;
+  };
   // Span attributes that carry what a caller said or what the copilot answered. They never reach a trace: each span's
   // go into the call record as one entry, and the span keeps `call.record`, a pointer to it. Without a key store, a call
   // id or a business, the words are dropped, never sent.
@@ -425,6 +470,31 @@ export function createApi(env: ApiEnv, opts: { slots?: Slots; offlinePassages?: 
     const r = (await sql(`select tax_year, status, updated::text, next_step, preparer, amount from bw_returns where client_id = $1`, [client]))[0];
     if (!r) return json({ error: 'not found' }, 404);
     return json({ card: { taxYear: r.tax_year, status: r.status, updated: r.updated, nextStep: r.next_step, preparer: r.preparer, amount: r.amount, sample: true } });
+  }
+
+  // ---- A voice call's recording, sent by the voice agent when the call ends (#130). The agent signs the room, the call id
+  // and the audio's hash with the site's secret. The room's name, which the site chose and signed into the caller's token
+  // (server.ts voiceToken), names the business: call-<id>.<business>. The audio is locked with the call's key, and only if
+  // the business records its calls.
+  const ROOM = /^call-[0-9a-f]{8}\.([a-z0-9][a-z0-9-]{0,39})$/, RECORDED_CALL = /^[\w-]{6,64}$/;
+  async function callAudioApi(req: Request): Promise<Response> {
+    const room = req.headers.get('x-call-room') ?? '', call = req.headers.get('x-call-id') ?? '', sig = req.headers.get('x-call-sig') ?? '';
+    const business = ROOM.exec(room)?.[1];
+    if (!business || !RECORDED_CALL.test(call) || !env.SIGNING_SECRET) return json({ error: 'bad recording' }, 400);
+    if (Number(req.headers.get('content-length') ?? 0) > MAX_AUDIO_BYTES) return json({ error: 'recording too large' }, 413);
+    const audio = new Uint8Array(await req.arrayBuffer());
+    if (audio.byteLength > MAX_AUDIO_BYTES) return json({ error: 'recording too large' }, 413);
+    if (!(await audioSigned(env.SIGNING_SECRET, room, call, audio, sig))) return json({ error: 'bad signature' }, 403);
+    try {
+      const config = sites ? await sites.get(business) : null;
+      if (!config) return json({ error: 'unknown business' }, 404);
+      if (!recordsAudio(config)) return json({ ok: true, kept: false });
+      const store = audioAt(await workspaceOf(business));
+      if (!store) return json({ error: 'call audio needs the key store' }, 503);
+      const type = (req.headers.get('content-type') ?? '').split(';')[0].trim();
+      const saved = await store.save(business, call, audio, /^audio\/(ogg|wav)$/.test(type) ? type : 'audio/ogg');
+      return json({ ok: true, kept: true, bytes: saved.bytes });
+    } catch (e) { log(`call audio for ${business}: ${(e as Error).message}`); return json({ error: 'backend error' }, 502); }
   }
 
   // ---- Resume snapshots (a dropped call picked up again). One key per business and session, a snapshot of at most 16 KB
@@ -645,17 +715,18 @@ export function createApi(env: ApiEnv, opts: { slots?: Slots; offlinePassages?: 
 
   let siteMedia: { at: number; slots: Record<string, unknown> } | null = null;
   return {
-    // Deletes every business's call-record entries past its retention (#129): the shared workspace and each business's
-    // own. server.ts runs it every hour. Returns how many entries went, per business.
+    // Deletes every business's call-record entries and recordings past its retention (#129, #130): the shared workspace
+    // and each business's own. server.ts runs it every hour. Returns how many entries and recordings went, per business.
     async sweepRecords(): Promise<Record<string, number>> {
       const gone: Record<string, number> = {};
       const own = sites instanceof SiteConfigs ? (await sites.list()).map(r => r.workspace).filter((w): w is string => !!w) : [];
       for (const ws of [undefined, ...new Set(own)]) {
-        const book = recordsAt(ws);
-        if (!book) continue;
-        try {
-          for (const business of await book.businesses()) gone[business] = (gone[business] ?? 0) + await book.sweep(business, retentionDays(await sites?.get(business)));
-        } catch (e) { log(`call record sweep (${ws ?? 'shared'}): ${(e as Error).message}`); }
+        for (const book of [recordsAt(ws), audioAt(ws)]) {
+          if (!book) continue;
+          try {
+            for (const business of await book.businesses()) gone[business] = (gone[business] ?? 0) + await book.sweep(business, retentionDays(await sites?.get(business)));
+          } catch (e) { log(`call record sweep (${ws ?? 'shared'}): ${(e as Error).message}`); }
+        }
       }
       return gone;
     },
@@ -663,6 +734,18 @@ export function createApi(env: ApiEnv, opts: { slots?: Slots; offlinePassages?: 
     async callRecord(business: string, call: string) {
       const book = recordsAt(await workspaceOf(business));
       return book ? book.read(business, call, retentionDays(await sites?.get(business))) : [];
+    },
+    // The business a new voice call is recorded for (#130), or null: one that is registered, records its calls (on unless
+    // its config says no) and, from another site, is the site key's own. server.ts names the call's room after it.
+    async recordingFor(business: unknown, siteBusiness?: string): Promise<string | null> {
+      if (typeof business !== 'string' || !BUSINESS_ID.test(business) || (siteBusiness && business !== siteBusiness) || !vault || offline) return null;
+      try { return recordsAudio(await sites?.get(business)) && (await sites?.get(business)) ? business : null; }
+      catch (e) { log(`recording check for ${business}: ${(e as Error).message}`); return null; }
+    },
+    // A call's recording, opened, within its business's retention. Not served over HTTP: playback is through a grant (#131).
+    async callAudio(business: string, call: string) {
+      const store = audioAt(await workspaceOf(business));
+      return store ? store.open(business, call, retentionDays(await sites?.get(business))) : null;
     },
     // For tests only (never over HTTP): which client a call was verified as.
     verifiedAs: clientOf,
@@ -687,6 +770,7 @@ export function createApi(env: ApiEnv, opts: { slots?: Slots; offlinePassages?: 
     },
     async serve(req: Request, ip: string, siteBusiness?: string): Promise<Response> {
       const path = new URL(req.url).pathname;
+      if (path === '/api/call-audio' && req.method === 'POST') return callAudioApi(req);
       if (/^\/api\/(site|forms|slots|portal|staff|files|newsletter)(\/|$)/.test(path)) {
         if (!practice) return json({ error: 'the practice backend needs Octo (live mode)' }, 503);
         return practice.handle(req, ip || req.headers.get('cf-connecting-ip') || 'local');

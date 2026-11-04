@@ -22,6 +22,8 @@ services:
       LIVEKIT_URL: ws://${LIVEKIT_HOST:-copilot-livekit}:7880
       SPEECH_URL: ${SPEECH_URL:-http://host.docker.internal:18799}
       AGENT_DRAIN_S: ${AGENT_DRAIN_S:-1200}
+      # Where a recorded call's audio goes when the call ends (#130); it is signed with SIGNING_SECRET from copilot.env.
+      COPILOT_API_URL: ${COPILOT_API_URL:-http://copilot-web:8787}
       # During a call the agent renews its own Sablier session, so a call longer than the idle time is not cut.
       SABLIER_URL: ${SABLIER_URL:-http://sablier:10000}
       SABLIER_NAME: ${COPILOT_PREFIX:-copilot}-agent-${AGENT_TAG:-local}
