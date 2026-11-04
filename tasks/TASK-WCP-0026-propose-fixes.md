@@ -18,6 +18,7 @@ Flagged turns pile up with no one reading them (#93)
 ## Allowed files
 
 - `eval/propose.ts`
+- `eval/README.md`
 - `eval/lib/patterns.ts`
 - `eval/tests/propose.test.ts`
 - `tasks/TASK-WCP-0026-propose-fixes.md`
@@ -34,9 +35,9 @@ Flagged turns turn into issues a coding session can pick up, one per failure pat
 
 ## Acceptance criteria
 
-- [ ] One issue per failure pattern with call, turn, rule and text as evidence
-- [ ] No second issue while one for the pattern is open
-- [ ] The routine changes no code and moves no branch
+- [x] One issue per failure pattern with call, turn, rule and text as evidence
+- [x] No second issue while one for the pattern is open
+- [x] The routine changes no code and moves no branch
 
 ## Evidence and sources
 
@@ -49,12 +50,104 @@ Starting revision, material inputs/configuration, runtime, exact command or prom
 ## Related records
 
 - Leaf #93; parent #88; depends on WCP-0022 (#89); related #17, #12, #13, #15.
-- Primary writer / branch: claude-code / `task/WCP-0026-*` (not started); source issue open as of 2026-11-01.
+- Primary writer / branch: claude-code / `task/WCP-0026-propose-fixes`; source issue open as of 2026-11-01.
 - Related PR/CI evidence and push receipt: none yet.
 
 ## Checkpoint log
 
 No checkpoints yet.
+
+### 2026-11-01 18:08:02 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["eval/propose.ts, eval/lib/patterns.ts, eval/tests/patterns.test.ts, eval/README.md, task record"],"completed":["A routine now turns the week's flagged turns into one GitHub issue per failure pattern, with the evidence, and a daily scheduled task runs mining, cases and the filing"],"decisions":["The routine lists open issues and matches titles instead of searching; it runs as a Claude desktop scheduled task on this Mac, which needs the app open, because the Octo key lives here"],"evidence":["Dry run listed 8 patterns from the live flags; a real run opened #115 for invented-offer; the duplicate check was found broken twice (search lag, then GitHub's issue list answering empty) so #116 and #117 were duplicates, closed, and the routine now stops when the list is empty but the repository has open issues; npm run check passes"],"next_action":"Merge; once GitHub's issue list answers again, run propose.ts a second time to confirm it files nothing new","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0026","timestamp":"2026-11-01T18:08:02Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"6a3306b0299cd8c8df85fdbef697b64a80e4a84b6b44961501850a14d36b4754","request_id":"539dcfc733a34c4da61dd2f3ec21e0d1","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0026"} -->
+
+Completed:
+- A routine now turns the week's flagged turns into one GitHub issue per failure pattern, with the evidence, and a daily scheduled task runs mining, cases and the filing
+
+Evidence:
+- Dry run listed 8 patterns from the live flags; a real run opened #115 for invented-offer; the duplicate check was found broken twice (search lag, then GitHub's issue list answering empty) so #116 and #117 were duplicates, closed, and the routine now stops when the list is empty but the repository has open issues; npm run check passes
+
+Decisions:
+- The routine lists open issues and matches titles instead of searching; it runs as a Claude desktop scheduled task on this Mac, which needs the app open, because the Octo key lives here
+
+Changed:
+- eval/propose.ts, eval/lib/patterns.ts, eval/tests/patterns.test.ts, eval/README.md, task record
+
+Blocked/uncertain:
+- none
+
+Next:
+- Merge; once GitHub's issue list answers again, run propose.ts a second time to confirm it files nothing new
+
+### 2026-11-01 23:27:38 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["eval/README.md, eval/propose.ts, eval/lib/patterns.ts, task record"],"completed":["The propose-fixes branch now contains main after the move to pukujan-lab-2, with the repository name and issue numbers in the routine updated (loop #18, routine #21)"],"decisions":["no new decisions"],"evidence":["npm run check passes on the merged tree"],"next_action":"Merge #39","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0026","timestamp":"2026-11-01T23:27:38Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"c132adbbc9d81d7c0266b7b5cfe73e09d34e3af98b5bdbe56de5be9f3a8a8205","request_id":"4ceb53fdfa84481f954cf6c458cf6041","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0026"} -->
+
+Completed:
+- The propose-fixes branch now contains main after the move to pukujan-lab-2, with the repository name and issue numbers in the routine updated (loop #18, routine #21)
+
+Evidence:
+- npm run check passes on the merged tree
+
+Decisions:
+- no new decisions
+
+Changed:
+- eval/README.md, eval/propose.ts, eval/lib/patterns.ts, task record
+
+Blocked/uncertain:
+- none
+
+Next:
+- Merge #39
+
+### 2026-11-01 23:36:22 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["eval/README.md"],"completed":["Merged the newest main into this branch"],"decisions":["no new decisions"],"evidence":["npm run check passes on the merged tree"],"next_action":"Merge #39","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0026","timestamp":"2026-11-01T23:36:22Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"6c7e9998ca5df773588ac86de4bf17b963323dd6f93e773189b539b6c3b1e8b3","request_id":"d4e723460384449dbeba1ac9dfbfbe2b","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0026"} -->
+
+Completed:
+- Merged the newest main into this branch
+
+Evidence:
+- npm run check passes on the merged tree
+
+Decisions:
+- no new decisions
+
+Changed:
+- eval/README.md
+
+Blocked/uncertain:
+- none
+
+Next:
+- Merge #39
+
+### 2026-11-01 23:37:06 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["eval/README.md"],"completed":["Merged the newest main into this branch"],"decisions":["no new decisions"],"evidence":["typecheck and eval tests pass on the merged tree; the full check passed one merge earlier"],"next_action":"Merge #39","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0026","timestamp":"2026-11-01T23:37:06Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"61d1564d6d95adf4392d9d87cc9f122c7e45de9fb4f571749d73758578c2f15c","request_id":"33e0061a08384a928d002c9e13f1e666","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0026"} -->
+
+Completed:
+- Merged the newest main into this branch
+
+Evidence:
+- typecheck and eval tests pass on the merged tree; the full check passed one merge earlier
+
+Decisions:
+- no new decisions
+
+Changed:
+- eval/README.md
+
+Blocked/uncertain:
+- none
+
+Next:
+- Merge #39
 
 ## Handoff
 

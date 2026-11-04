@@ -7,9 +7,10 @@
 import type { Field, Flow, Hooks } from './types.ts';
 import { formatDate, formatSerial, parseName, spellOut, spokenDigits, spokenToCode, spokenToDate, spokenToEmail, spokenToPhone, spokenToSerial, stripFiller, validEmail, validSerial, yesNo } from './guard.ts';
 import { shortQuote, type Passage, type SearchFilter } from './guide.ts';
+import { ownQuestion } from './dialogue.ts';
 import { filterFrom, SEARCH_HINT, withSearchTools, type SiteSearch } from './search-site.ts';
 import { LOOKUP_HINT, type Caller, type Lookups } from './lookups.ts';
-import { customerKey, newSessionId, SESSION_TTL_MS, type CustomerRecord, type SessionSnapshot, type Store } from './memory.ts';
+import { businessSecret, customerKey, newSessionId, SESSION_TTL_MS, type CustomerRecord, type SessionSnapshot, type Store } from './memory.ts';
 
 // Environment settings in Node; none in the browser.
 const ENV: Record<string, string | undefined> = (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env ?? {};
@@ -18,19 +19,22 @@ const ENV: Record<string, string | undefined> = (globalThis as { process?: { env
 export type ToolCall = { name: string; args: Record<string, unknown> };
 export type ChatMsg = { role: 'system' | 'user' | 'assistant' | 'tool'; content: string | null; tool_calls?: unknown[]; tool_call_id?: string };
 export type ChatResult = { content: string; calls: ToolCall[]; ms: number; model: string };
-export interface ChatModel { name: string; chat(messages: ChatMsg[], tools: unknown[], opts?: { maxTokens?: number; temperature?: number; json?: boolean }): Promise<ChatResult> }
+// unavailable (optional): a hosted model that knows it cannot answer right now (out of scope, over its cap) says so, and the desk
+// then runs exactly as if it had no hosted model.
+export interface ChatModel { name: string; unavailable?(): boolean; chat(messages: ChatMsg[], tools: unknown[], opts?: { maxTokens?: number; temperature?: number; json?: boolean }): Promise<ChatResult> }
 
 export class OpenAIChat implements ChatModel {
   name: string;
   waitedMs = 0; // time spent waiting out rate limits (a test harness subtracts it from latency)
-  private o: { url: string; key: string; model: string; stream: boolean; nothink: boolean; timeoutMs: number; patient: boolean; toolsHeader: string };
+  private o: { url: string; key: string; model: string; stream: boolean; nothink: boolean; timeoutMs: number; patient: boolean; toolsHeader: string; attempts: number };
   // patient: in tests, wait out 429 rate-limit windows (up to ~10 min) instead of failing the turn.
   // toolsHeader: a line the system prompt ends with when tools are offered (LFM3-Audio's card: "List of tools:"; its chat template then adds the tools).
-  constructor(o: { url?: string; key?: string; model?: string; stream?: boolean; nothink?: boolean; timeoutMs?: number; patient?: boolean; toolsHeader?: string } = {}) {
+  // attempts: tries per call before it gives up (default 3; a caller that has other routes to try uses 1).
+  constructor(o: { url?: string; key?: string; model?: string; stream?: boolean; nothink?: boolean; timeoutMs?: number; patient?: boolean; toolsHeader?: string; attempts?: number } = {}) {
     this.o = {
       url: (o.url ?? ENV.DESK_URL ?? '').replace(/\/$/, ''), key: o.key ?? ENV.DESK_KEY ?? '',
       model: o.model ?? ENV.DESK_MODEL ?? '', stream: o.stream ?? ENV.DESK_STREAM === '1',
-      nothink: o.nothink ?? ENV.DESK_THINK !== '1', timeoutMs: o.timeoutMs ?? 15000, patient: o.patient ?? false, toolsHeader: o.toolsHeader ?? '',
+      nothink: o.nothink ?? ENV.DESK_THINK !== '1', timeoutMs: o.timeoutMs ?? 15000, patient: o.patient ?? false, toolsHeader: o.toolsHeader ?? '', attempts: o.attempts ?? 3,
     };
     if (!this.o.url) throw new Error('DESK_URL is not set');
     this.name = this.o.model || 'desk-model';
@@ -43,9 +47,9 @@ export class OpenAIChat implements ChatModel {
     if (tools.length) { body.tools = tools; body.tool_choice = 'auto'; }
     if (this.o.nothink) body.chat_template_kwargs = { enable_thinking: false };
     if (this.o.stream) body.stream = true;
-    let lastErr = '';
+    let lastErr = '', lastStatus = 0;
     let t1 = t0;
-    for (let attempt = 0; attempt < (this.o.patient ? 40 : 3); attempt++) {
+    for (let attempt = 0; attempt < (this.o.patient ? 40 : this.o.attempts); attempt++) {
       try {
         t1 = Date.now();
         const r = await fetch(`${this.o.url}/chat/completions`, {
@@ -54,10 +58,10 @@ export class OpenAIChat implements ChatModel {
         });
         const txt = await r.text();
         if (!r.ok) {
-          lastErr = `${r.status} ${txt.slice(0, 120)}`;
+          lastErr = `${r.status} ${txt.slice(0, 120)}`; lastStatus = r.status;
           if ((r.status === 429 || r.status >= 500) && !/context size|context length|exceeds the context/i.test(txt)) {
             // Only rate limits are waited out patiently; a server error gets three tries.
-            if ((!this.o.patient || r.status !== 429) && attempt >= 2) break;
+            if ((!this.o.patient || r.status !== 429) && attempt >= this.o.attempts - 1) break;
             if (ENV.DESK_DEBUG) console.error(`[${this.o.model}] ${lastErr.slice(0, 160)}`);
             const wait = this.o.patient && r.status === 429 ? 15000 : 1500 * (attempt + 1);
             this.waitedMs += wait; await new Promise(res => setTimeout(res, wait)); continue;
@@ -87,7 +91,8 @@ export class OpenAIChat implements ChatModel {
         if ((e as Error).name === 'TimeoutError') break;
       }
     }
-    throw new Error(`chat failed: ${lastErr}`);
+    // status: the last HTTP status the server answered (0 when none did, as on a timeout), for a caller that picks its next route by it
+    throw Object.assign(new Error(`chat failed: ${lastErr}`), { status: lastStatus });
   }
 }
 
@@ -423,8 +428,15 @@ const CLAIMS = /\b(submit\w*|i'?ve (added|put|entered|noted|recorded|saved|fille
 const BYE = /\b(bye|goodbye|that'?s all|have to go|gotta go|hang up|stop|cancel|never ?mind)\b/i;
 // An optional field's "none": left blank (the same words the Copilot accepts).
 const NONE = /^\s*(no(ne|pe)?|n\/?a|skip( it| that)?|nothing|not applicable|no notice|leave it (blank|empty)|there (isn'?t|is no) (one|code)|i (didn'?t|did not|haven'?t|have not) (get|got|receive[d]?)( one| a notice| any( notice)?)?)\W*$/i;
+// A caller who will not give a value: "I ain't giving you my phone number, bro". Not the same as "no" to a read-back,
+// so it is only looked for when nothing is waiting to be confirmed. Asking again is nagging; the field stays blank.
+const WONT_GIVE = /\b((won'?t|will not|ain'?t|am not|not|never|refuse to|don'?t want to|do not want to|not going to|can'?t|cannot)\b[^.?!]{0,24}\b(giv(e|ing)|shar(e|ing)|tell(ing)?|provid(e|ing)|disclos(e|ing)|say(ing)?|put(ting)? (it|that|them)? ?(in|down)))/i;
+const WONT_GIVE_PLAIN = /\b(prefer not to|rather not|not comfortable|none of your business|mind your own|keep (it|that) to myself|going to keep (it|that)|leave it (blank|empty|out)|without (that|it|my (phone|number|email|address)))\b/i;
+// The terse form: "Nope, no phone number." A bare "no" is not this; it has to name the value it refuses.
+const WONT_GIVE_NONE = /^\s*(no|nope|nah|not really|absolutely not|definitely not)\b[^.!?]{0,20}\b(no|without (a|my|it)|not|never)\b[^.!?]{0,20}$/i;
 // A desk with no form only answers questions. Model text that states a rule, a date, an amount or what the caller can or
 // must do is a fact that has to come from the business's own passages, so that turn is looked up instead.
+const MODEL_REFUSAL = /\b(i (don'?t|do not) (have|know)|i (can'?t|cannot|couldn'?t) (find|tell)|not in (my|the) (guides|documents)|i'?m not sure|no information on)\b/i;
 const FACTS = /\b(deduct\w*|credits?|deadlines?|due (date|by|on)|penalt\w*|refunds?|percent|withh[eo]ld\w*|exempt\w*|qualif\w*|eligib\w*|owe|filing status|you (can|can't|cannot|must|need to|have to|should|may|will)|the (rule|law|limit)s?|allowed|required|costs?|prices?|hours|open (on|at|from|until))\b|[$%]|\d/i;
 
 export class Desk {
@@ -468,9 +480,11 @@ export class Desk {
   private scope: string; // the business a snapshot belongs to: part of its key, so one business never reads another's
   private sessions?: Store;
   private customers?: Store;
+  private customerSecret = ''; // this business's secret for its customer keys (memory.ts customerKey)
   private mem = { asked: false, awaiting: false, lookedUp: false, forget: false, returning: false };
   private notes: string[] = []; // things code must say this turn (from inside confirm)
   private misheard = false; // the caller corrected a misheard value: every remaining step scores RISK_MISHEARD higher
+  private refused = new Set<string>(); // fields the caller said they will not give: asked once, never again
   private sureAsked = false; // this turn asked "are you sure?" instead of filling
   private skipAsk = ''; // a skip from RISK_TWICE up, asked once and waiting for the second yes
 
@@ -487,7 +501,7 @@ export class Desk {
   private unknown: string;
   private finish?: string;
 
-  constructor(flow: Flow, opts: { model?: ChatModel; heavy?: ChatModel; docs?: Docs; answer?: (question: string, filter?: SearchFilter) => Promise<string | null>; search?: SiteSearch; lookups?: Lookups; caller?: () => Caller; unknown?: string; finish?: string; hooks?: Partial<Hooks>; route?: (said: string, d: Desk) => boolean; sessions?: Store; customers?: Store; fullFormFields?: number; scope?: string } = {}) {
+  constructor(flow: Flow, opts: { model?: ChatModel; heavy?: ChatModel; hybrid?: boolean; docs?: Docs; answer?: (question: string, filter?: SearchFilter) => Promise<string | null>; search?: SiteSearch; lookups?: Lookups; caller?: () => Caller; unknown?: string; finish?: string; hooks?: Partial<Hooks>; route?: (said: string, d: Desk) => boolean; sessions?: Store; customers?: Store; customerSecret?: string; fullFormFields?: number; scope?: string } = {}) {
     this.flow = flow;
     this.scope = id(opts.scope ?? '');
     this.windowed = flow.fields.length > (opts.fullFormFields ?? FULL_FORM_FIELDS);
@@ -496,9 +510,18 @@ export class Desk {
     this.finish = opts.finish;
     this.sessions = opts.sessions;
     this.customers = opts.customers;
+    if (this.customers) {
+      // Customer memory belongs to one business: without its id and a secret, records could cross businesses or be
+      // guessed back from their keys, so the desk refuses to start. customerSecret is the business's own secret;
+      // otherwise one is derived from the master DESK_MEMORY_SECRET.
+      if (!this.scope) throw new Error('customer memory needs the business id (scope)');
+      this.customerSecret = opts.customerSecret ?? (ENV.DESK_MEMORY_SECRET ? businessSecret(ENV.DESK_MEMORY_SECRET, this.scope) : '');
+      if (!this.customerSecret) throw new Error('customer memory needs customerSecret or DESK_MEMORY_SECRET');
+    }
     this.chatModel = opts.model;
-    // Hybrid (a hosted model for hard turns) is off unless DESK_HYBRID=1: the default path is the local model only.
-    this.heavy = ENV.DESK_HYBRID === '1' ? opts.heavy : undefined;
+    // Hybrid (a hosted model for hard turns) is off unless DESK_HYBRID=1 or the caller says so (the page, which has no env, and
+    // only for a model it knows is allowed): the default path is the local model only.
+    this.heavy = (opts.hybrid ?? ENV.DESK_HYBRID === '1') ? opts.heavy : undefined;
     this.docs = opts.docs;
     this.hooks = opts.hooks ?? {};
     if (opts.route) this.route = opts.route;
@@ -574,8 +597,9 @@ export class Desk {
     this.acts = [];
     this.lookupsThisTurn = 0;
     let reply = '', modelName = 'rules', calls: string[] = [], fallback: string | undefined;
-    const useHeavy = !!this.heavy && this.route(said, this);
-    const first = useHeavy ? this.heavy : this.chatModel;
+    const heavy = this.heavy && !this.heavy.unavailable?.() ? this.heavy : undefined; // a hosted model that cannot answer now is not used
+    const useHeavy = !!heavy && this.route(said, this);
+    const first = useHeavy ? heavy : this.chatModel;
     try {
       if (!first) throw new Error('no model');
       let r: ChatResult;
@@ -588,15 +612,15 @@ export class Desk {
       }
       modelName = r.model;
       // Escalate a turn the small model got wrong (a value code rejects, or nothing done when something was said).
-      if (this.heavy && first !== this.heavy && this.needsEscalation(r, said)) {
-        try { r = await this.heavy.chat(this.messages(said), this.toolsSpec); modelName = `${modelName}>${r.model}`; } catch { /* keep the small model's answer */ }
+      if (heavy && first !== heavy && this.needsEscalation(r, said)) {
+        try { r = await heavy.chat(this.messages(said), this.toolsSpec); modelName = `${modelName}>${r.model}`; } catch { /* keep the small model's answer */ }
       }
       // No tool call on a turn where the customer said something substantive: remind the model once.
       if (!r.calls.length && this.nudgeWorthy(said)) {
         try {
           const m = this.messages(said);
           m[m.length - 1] = { role: 'user', content: `${m[m.length - 1].content}\n[Reminder: if the customer gave or corrected ANY field value, call propose_value now (one call per value); if they said yes to the read-back, call confirm_pending; if they asked about the business, call answer_question.]` };
-          const r2 = await (useHeavy || !this.heavy ? first : this.heavy).chat(m, this.toolsSpec);
+          const r2 = await (useHeavy || !heavy ? first : heavy).chat(m, this.toolsSpec);
           if (r2.calls.length) { r = r2; modelName = `${modelName}+nudge`; }
         } catch { /* keep the first answer */ }
       }
@@ -665,15 +689,16 @@ export class Desk {
     if (f.kind === 'serial' || f.kind === 'text' || f.kind === 'choice') return false; // never serials, symptoms, visit reasons
     return (f as Field & { remember?: boolean }).remember ?? (f.kind === 'name' || f.kind === 'phone' || f.kind === 'email');
   }
+  private custKey(kind: 'phone' | 'email', value: string): string { return customerKey(this.scope, this.customerSecret, kind, value); }
   private contactKeys(): string[] {
-    return this.flow.fields.filter(f => (f.kind === 'phone' || f.kind === 'email') && this.values[f.name]).map(f => customerKey(f.kind as 'phone' | 'email', this.values[f.name]));
+    return this.flow.fields.filter(f => (f.kind === 'phone' || f.kind === 'email') && this.values[f.name]).map(f => this.custKey(f.kind as 'phone' | 'email', this.values[f.name]));
   }
   private async forgetCustomer(): Promise<void> {
     // Delete under every contact the record holds, not only the ones given on this call.
     const keys = new Set(this.contactKeys());
     for (const k of [...keys]) {
       const rec = (await this.customers!.get(k).catch(() => undefined)) as CustomerRecord | undefined;
-      for (const f of this.flow.fields) if ((f.kind === 'phone' || f.kind === 'email') && rec?.values[f.name]) keys.add(customerKey(f.kind, rec.values[f.name]));
+      for (const f of this.flow.fields) if ((f.kind === 'phone' || f.kind === 'email') && rec?.values[f.name]) keys.add(this.custKey(f.kind, rec.values[f.name]));
     }
     for (const k of keys) await this.customers!.delete(k);
     this.queue = this.queue.filter(q => !q.reuse);
@@ -688,7 +713,7 @@ export class Desk {
     if (this.mem.lookedUp) return;
     this.mem.lookedUp = true;
     let rec: CustomerRecord | undefined;
-    try { rec = (await this.customers.get(customerKey(f.kind, this.values[f.name]))) as CustomerRecord | undefined; } catch { rec = undefined; }
+    try { rec = (await this.customers.get(this.custKey(f.kind, this.values[f.name]))) as CustomerRecord | undefined; } catch { rec = undefined; }
     if (!rec || rec.v !== 1) return;
     const offers = this.flow.fields.filter(g => rec!.values[g.name] && this.rememberable(g) && this.values[g.name] === undefined && this.pending?.field !== g.name && !this.queue.some(q => q.field === g.name));
     if (!offers.length) return;
@@ -1119,9 +1144,18 @@ Caller: "Thanks, that helps." -> no tool; say "You're welcome. Anything else?"`;
       } else if (c.name === 'go_to_field') {
         const f = this.field(String(a.field ?? ''));
         if (!f) { ev({ type: 'bad_field', detail: String(a.field) }); continue; }
+        // The caller would not give this value ("I ain't giving you my phone number, bro"). A small model answers that
+        // by "going to" the field it is already on, which used to fall through to the question and ask for it again —
+        // twice in the call that found this (#101). Leave it blank and move on; never ask twice.
+        if (this.wontGive(f, said)) { ev({ type: 'wont_give', field: f.name, detail: said } as DeskEvent); acted = true; continue; }
         // "Go to" the empty field already open is no move: small models do this instead of proposing the answer
-        // just given, and the code net below then reads that answer back.
-        if (f.name === this.current && !this.pending && this.values[f.name] === undefined) { ev({ type: 'goto_same', field: f.name } as DeskEvent); continue; }
+        // just given, and the code net below then reads that answer back. Not when the caller is refusing: asking the
+        // same question again is the one thing this must not do.
+        if (f.name === this.current && !this.pending && this.values[f.name] === undefined) {
+          if (!this.wontGive(f, said)) { ev({ type: 'goto_same', field: f.name } as DeskEvent); continue; }
+          acted = true;
+          continue;
+        }
         acted = true;
         if (this.pending && (this.pending.field === f.name || this.pending.group?.some(g => g.field === f.name))) {
           ev({ type: 'goto_pending', field: f.name }); rec(c, `Still waiting for yes or no on ${f.name}.`);
@@ -1141,7 +1175,7 @@ Caller: "Thanks, that helps." -> no tool; say "You're welcome. Anything else?"`;
         let p = await this.lookup(q, filter);
         if (!p && filter && (filter.section || filter.pageType || filter.language)) { ev({ type: 'filter_dropped', detail: JSON.stringify(filter) }); p = await this.lookup(q); }
         // The model's rewording can lose the point; try the customer's own question too.
-        const own = said.match(ASKED_Q)?.[0] ?? said;
+        const own = ownQuestion(said);
         const same = (x: string) => x.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
         if (!p && same(own) !== same(q)) p = await this.lookup(own);
         ev({ type: 'answer', detail: p ? p.id : 'none' }); rec(c, p ? `Read to the customer: ${p.text}` : 'Nothing in the documents answers this; told the customer you do not know.');
@@ -1167,7 +1201,10 @@ Caller: "Thanks, that helps." -> no tool; say "You're welcome. Anything else?"`;
     // code looks it up only when the model stated a fact itself, or said nothing at all to a question.
     const askedQ = said.match(ASKED_Q)?.[0];
     const stated = content.split(/(?<=[.!?])\s+/).some(x => FACTS.test(x));
-    const netAsk = this.answerOnly ? !answered && !this.done && (stated || (!content.trim() && QUESTION.test(said)))
+    // A model that tells a caller who asked a question that it has nothing ("I don't have that detail in my guides") has not
+    // looked: the library decides that, not the model.
+    const modelRefuses = QUESTION.test(said) && MODEL_REFUSAL.test(content);
+    const netAsk = this.answerOnly ? !answered && !this.done && (stated || modelRefuses || (!content.trim() && QUESTION.test(said)))
       : !answered && (askedQ || (!proposedNow && !confirmedNow && QUESTION.test(said))) && !calls.some(c => c.name === 'go_to_field' || c.name === 'end_call');
     if (netAsk && this.canLookUp) {
       const p = await this.lookup(askedQ && (proposedNow || confirmedNow) ? askedQ : said);
@@ -1224,10 +1261,25 @@ Caller: "Thanks, that helps." -> no tool; say "You're welcome. Anything else?"`;
       if (this.pending) { tails.push(this.pending.text); questionTail = true; }
       else if (!this.pending && this.allFilled() && !this.done) { tails.push(this.finishLine()); this.complete = true; }
       else if (this.answerOnly) { if (!text) tails.push(this.done ? '' : "Sorry, I didn't catch that. What would you like to know?"); }
+      // A field the caller has just refused is not asked again: move on to the next one that still needs an answer.
+      else if (this.refused.has(this.current)) { const move = this.moveOffRefused(); if (move) { tails.push(move); questionTail = true; } }
       else if (!/\?/.test(text)) tails.push(this.field(this.current)!.question);
     }
     if (questionTail) text = text.split(/(?<=[.!?])\s+/).filter(s => !/\?$/.test(s)).join(' ');
     return [text, ...tails].filter(Boolean).join(' ');
+  }
+
+  // The caller just refused the field that is open. Say so once, in their own interest, and ask the next field that is
+  // still empty; a refusal is never met by asking the same question again (#101).
+  private moveOffRefused(): string {
+    const refused = this.field(this.current)!;
+    const next = this.flow.fields.find(f => f !== refused && this.values[f.name] === undefined && !this.refused.has(f.name));
+    if (!next) {
+      if (this.allFilled()) return '';
+      return `That's fine, we'll leave the ${refused.label} off. ${this.finishLine()}`;
+    }
+    this.goTo(next);
+    return `That's fine, we'll leave the ${refused.label} blank. ${next.question}`;
   }
 
   private confirmNote(): string {
@@ -1271,6 +1323,22 @@ Caller: "Thanks, that helps." -> no tool; say "You're welcome. Anything else?"`;
   private mishear(f: Field) {
     if (!this.misheard) this.events.push({ turn: this.n, type: 'misheard', field: f.name });
     this.misheard = true;
+  }
+
+  // The caller has said, in so many words, that they will not give this value. Only a refusal that names the field, or
+  // a plain "I'd rather not", counts: "no" to a read-back is handled by the confirmation path, not here. A field the
+  // caller has already refused stays refused for the rest of the call, so a later "go to" cannot reopen the nagging.
+  private wontGive(f: Field, said: string): boolean {
+    if (this.refused.has(f.name)) return true;
+    const t = said.trim();
+    if (!t || t.split(/\s+/).length > 20) return false;
+    const named = f.kind === 'phone' ? /\b(phone|number|cell|mobile)\b/i
+      : f.kind === 'email' ? /\b(e-?mail|address)\b/i
+      : f.kind === 'name' ? /\b(name|surname|last name)\b/i
+      : new RegExp(`\\b${escape(f.label.replace(/\s+/g, '\\s+'))}\\b|\\b${f.name}\\b`, 'i');
+    if (!(WONT_GIVE.test(t) || WONT_GIVE_PLAIN.test(t) || WONT_GIVE_NONE.test(t)) || !named.test(t)) return false;
+    this.refused.add(f.name);
+    return true;
   }
 
   // Up to 30: the value read from the caller's words is filled at once and said in passing ("Okay, Tuesday for the

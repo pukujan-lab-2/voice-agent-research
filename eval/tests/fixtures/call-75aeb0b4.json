@@ -1,0 +1,226 @@
+[
+ {
+  "name": "voice.turn",
+  "start_time": "2026-11-01T23:27:51.112807+00:00",
+  "attributes": {
+   "input.value": "Help me file taxes?",
+   "output.value": "I've opened IRS Publication 970, page 67. The highlighted part says: \"This program lets you prepare and file your federal individual income tax return for free using software or Free File Fillable Forms. Go to IRS.gov/FreeFile to see if you qualify for free online federal tax preparation, e-filing, and direct deposit or payment options.\""
+  }
+ },
+ {
+  "name": "turn",
+  "start_time": "2026-11-01T23:27:52.321000+00:00",
+  "attributes": {
+   "desk.calls": "answer_question({\"question\":\"How do I file my tax return?\"})",
+   "turn.why": "question desk (model with tools); quoted from the library",
+   "input.value": "Help me file taxes?",
+   "output.value": "I've opened IRS Publication 970, page 67. The highlighted part says: \"This program lets you prepare and file your federal individual income tax return for free using software or Free File Fillable Forms. Go to IRS.gov/FreeFile to see if you qualify for free online federal tax preparation, e-filing, and direct deposit or payment options.\""
+  }
+ },
+ {
+  "name": "search",
+  "start_time": "2026-11-01T23:27:54.677000+00:00",
+  "attributes": {
+   "input.value": "How do I file my tax return?",
+   "output.value": "{\"passages\":[]}"
+  }
+ },
+ {
+  "name": "search",
+  "start_time": "2026-11-01T23:28:05.287000+00:00",
+  "attributes": {
+   "input.value": "Help me file taxes?",
+   "output.value": "{\"passages\":[{\"id\":\"fd7992e0-49c1-4c58-9355-2f8934b859e2\",\"text\":\"Free File. This program lets you prepare and file your federal individual income tax return for free using software or Free File Fillable Forms. However, state tax preparation may not be available through Free File. Go to IRS.gov/FreeFile to see if you qualify for free online federal tax preparation, e-filing, and direct deposit or payment options.\",\"page\":67,\"cite\":{\"title\":\"IRS Pub 970, 12. How To Get Tax Help\",\"url\":\"https://www.irs.gov/publications/p970#en_US_2025_publink1000178735\",\"doc\":\"publications-p970\",\"anchor\":\"en_US_2025_publink1000178735\"},\"sig\":\"37478c34d30f020dd25448b42a42236108de727a018e27ab76e0718181a038b3\"},{\"id\":\"f2aae639-6836-4ac3-ad01-b79332251469\",\"text\":\"With an online account, you can access a variety of information to help you during the filing season. You can get a transcript, review your most recently filed tax return, and get your adjusted gross income. Create or access your online account at IRS.gov/Account .\\nTax Pro Account.\\nThis tool lets your tax professional submit an authorization request to access your individual taxpayer IRS online account. For more information, go to IRS.gov/TaxProAccount .\\nUsing direct deposit.\",\"page\":13,\"cite\":{\"title\":\"IRS Pub 516, Note.\",\"url\":\"https://www.irs.gov/publications/p516#idm139644959131072\",\"doc\":\"publications-p516\",\"anchor\":\"idm139644959131072\"},\"sig\":\"81f6a54beeeb61f49e3707097928d837d2be0b42ecd0b0a63b3e23b1c15d8320\"},{\"id\":\"226ef3f9-b4a9-42a0-b6c8-eb3489cebba3\",\"text\":\"With an online account, you can access a variety of information to help you during the filing season. You can get a transcript, review your most recently filed tax return, and get your adjusted gross income. Create or access your online account at IRS.gov/Account .\\nTax Pro Account.\\nThis tool lets your tax professional submit an authorization request to access your individual taxpayer IRS OLA. For more information, go to IRS.gov/TaxProAccount .\\nUsing direct deposit.\",\"page\":69,\"cite\":{\"title\":\"IRS Pub 970, 12. How To Get Tax Help\",\"url\":\"https://www.irs.gov/publications/p970#en_US_2025_publink1000178735\",\"doc\":\"publications-p970\",\"anchor\":\"en_US_2025_publink1000178735\"},\"sig\":\"72b1346a35d33bcb4cd43951eece359e27429b4b2ee36d4d7edb461afbeea988\"},{\"id\":\"7f09535f-6d34-41bc-9e09-06fec77c245c\",\"text\":\"Free help in preparing your return is available nationwide from IRS-trained volunteers. The Volunteer Income Tax Assistance (VITA) program is designed to help low-income taxpayers, and the Tax Counseling for the Elderly (TCE) program is designed to assist taxpayers age 60 or older with their tax returns. Some locations offer free electronic filing.\",\"page\":8,\"cite\":{\"title\":\"IRS Pub 334, Free Help With Your Return\",\"url\":\"https://www.irs.gov/publications/p334#en_US_2025_publink1000313187\",\"doc\":\"publications-p334\",\"anchor\":\"en_US_2025_publink1000313187\"},\"sig\":\"a1ca2b3cc196c8d033448f9f75e754d24fb68c5f008c14b41ba753a9d494baef\"}]}",
+   "retrieval.documents.0.document.id": "fd7992e0-49c1-4c58-9355-2f8934b859e2",
+   "retrieval.documents.0.document.content": "Free File. This program lets you prepare and file your federal individual income tax return for free using software or Free File Fillable Forms. However, state tax preparation may not be available through Free File. Go to IRS.gov/FreeFile to see if you qualify for free online federal tax preparation, e-filing, and direct deposit or payment options.",
+   "retrieval.documents.1.document.id": "f2aae639-6836-4ac3-ad01-b79332251469",
+   "retrieval.documents.1.document.content": "With an online account, you can access a variety of information to help you during the filing season. You can get a transcript, review your most recently filed tax return, and get your adjusted gross income. Create or access your online account at IRS.gov/Account .\nTax Pro Account.\nThis tool lets your tax professional submit an authorization request to access your individual taxpayer IRS online account. For more information, go to IRS.gov/TaxProAccount .\nUsing direct deposit.",
+   "retrieval.documents.2.document.id": "226ef3f9-b4a9-42a0-b6c8-eb3489cebba3",
+   "retrieval.documents.2.document.content": "With an online account, you can access a variety of information to help you during the filing season. You can get a transcript, review your most recently filed tax return, and get your adjusted gross income. Create or access your online account at IRS.gov/Account .\nTax Pro Account.\nThis tool lets your tax professional submit an authorization request to access your individual taxpayer IRS OLA. For more information, go to IRS.gov/TaxProAccount .\nUsing direct deposit.",
+   "retrieval.documents.3.document.id": "7f09535f-6d34-41bc-9e09-06fec77c245c",
+   "retrieval.documents.3.document.content": "Free help in preparing your return is available nationwide from IRS-trained volunteers. The Volunteer Income Tax Assistance (VITA) program is designed to help low-income taxpayers, and the Tax Counseling for the Elderly (TCE) program is designed to assist taxpayers age 60 or older with their tax returns. Some locations offer free electronic filing."
+  }
+ },
+ {
+  "name": "judge",
+  "start_time": "2026-11-01T23:28:21.635000+00:00",
+  "attributes": {
+   "input.value": "Help me file taxes?",
+   "output.value": "{\"id\":\"fd7992e0-49c1-4c58-9355-2f8934b859e2\"}"
+  }
+ },
+ {
+  "name": "sentences",
+  "start_time": "2026-11-01T23:28:22.971000+00:00",
+  "attributes": {
+   "input.value": "Help me file taxes?",
+   "output.value": "{\"idx\":[3,1]}"
+  }
+ },
+ {
+  "name": "voice.turn",
+  "start_time": "2026-11-01T23:29:19.563859+00:00",
+  "attributes": {
+   "input.value": "Hmm. Uh can you consult on Filing taxes, what happens? Like, what's the best month to file taxes?",
+   "output.value": "I don't know. I couldn't find that in the tax guides I answer from, and I only answer from them. A preparer can look into it with you at a consultation."
+  }
+ },
+ {
+  "name": "turn",
+  "start_time": "2026-11-01T23:29:19.825000+00:00",
+  "attributes": {
+   "desk.calls": "answer_question({\"question\":\"What is the best month to file taxes?\"})",
+   "turn.why": "question desk (model with tools)",
+   "input.value": "Hmm. Uh can you consult on Filing taxes, what happens? Like, what's the best month to file taxes?",
+   "output.value": "I don't know. I couldn't find that in the tax guides I answer from, and I only answer from them. A preparer can look into it with you at a consultation."
+  }
+ },
+ {
+  "name": "search",
+  "start_time": "2026-11-01T23:29:22.454000+00:00",
+  "attributes": {
+   "input.value": "What is the best month to file taxes?",
+   "output.value": "{\"passages\":[{\"id\":\"ae129542-6f31-4cb8-b3f1-867bb18da236\",\"text\":\"If you're a calendar year filer and your tax year ends on December 31, the due date for filing your federal individual income tax return is generally April 15 of each year. For the 2025 tax return, the due date is April 15, 2026. If you use a fiscal year (tax year ending on the last day of any month other than December), your return is due on or before the 15th day of the fourth month after the close of your fiscal year. If your due date falls on a Saturday, Sunday, or legal holiday, the due date is moved to the next business day.\",\"cite\":{\"title\":\"IRS Tax Topic 301, When to file\",\"url\":\"https://www.irs.gov/taxtopics/tc301\",\"doc\":\"taxtopics-tc301\"},\"sig\":\"f9ed9a8879339f6001fd8d124fdb74d94d6d1c69d16987e32ddb2fa025119d4a\"},{\"id\":\"85391dae-575e-4883-9d23-ece4a5b25603\",\"text\":\"If you file on a calendar year basis, the due date for filing your U.S. income tax return is April 15 following the end of your tax year. If you use a fiscal year (a year ending on the last day of a month other than December), the due date is the 15th day of the 4th month after the end of your fiscal year. If any due date falls on a Saturday, Sunday, or legal holiday, your tax return is due on the next business day.\\nFor your 2025 tax return, the due date is April 15, 2026.\",\"page\":31,\"cite\":{\"title\":\"IRS Pub 570, When To File\",\"url\":\"https://www.irs.gov/publications/p570#en_US_2025_publink1000221380\",\"doc\":\"publications-p570\",\"anchor\":\"en_US_2025_publink1000221380\"},\"sig\":\"cd8f0288d4b1659bbd93423b8263a1a8b9789bd4ec7ebe2f62c273d6bf5af569\"},{\"id\":\"fd13f888-f3d6-4b73-94f7-3978ca144327\",\"text\":\"income tax withholding, you must file by the 15th day of the 6th month after your tax year ends. For the 2025 calendar year, file your return by June 15, 2026. For more information on when to file and where to file , see chapter 7 . A social security number (SSN) must be furnished on returns, statements, and other tax-related documents. If your spouse does not have and is not eligible to get an SSN, they must apply for an individual taxpayer identification number (ITIN).\",\"page\":50,\"cite\":{\"title\":\"IRS Pub 519, Frequently Asked Questions\",\"url\":\"https://www.irs.gov/publications/p519#id778\",\"doc\":\"publications-p519\",\"anchor\":\"id778\"},\"sig\":\"e17e222aae6259128add76023ee5f95096570543bb958c1be7921cd95f26b32b\"},{\"id\":\"3c74a0c9-2816-45ee-8496-53f48ab99e6f\",\"text\":\"If you are an employee and you receive wages subject to U.S. income tax withholding, you will generally file by the 15th day of the 4th month after your tax year ends. For the 2025 calendar year, file your return by April 15, 2026.\\nIf you are not an employee who receives wages subject to U.S. income tax withholding, you must file by the 15th day of the 6th month after your tax year ends. For the 2025 calendar year, file your return by June 15, 2026.\\nExtensions of time to file.\",\"page\":50,\"cite\":{\"title\":\"IRS Pub 519, When To File\",\"url\":\"https://www.irs.gov/publications/p519#en_US_2025_publink1000222595\",\"doc\":\"publications-p519\",\"anchor\":\"en_US_2025_publink1000222595\"},\"sig\":\"dc4718dc9cb4dc7944564bda636c48842549de4f12df8942644e08fdfd9127fb\"}]}",
+   "retrieval.documents.0.document.id": "ae129542-6f31-4cb8-b3f1-867bb18da236",
+   "retrieval.documents.0.document.content": "If you're a calendar year filer and your tax year ends on December 31, the due date for filing your federal individual income tax return is generally April 15 of each year. For the 2025 tax return, the due date is April 15, 2026. If you use a fiscal year (tax year ending on the last day of any month other than December), your return is due on or before the 15th day of the fourth month after the close of your fiscal year. If your due date falls on a Saturday, Sunday, or legal holiday, the due date is moved to the next business day.",
+   "retrieval.documents.1.document.id": "85391dae-575e-4883-9d23-ece4a5b25603",
+   "retrieval.documents.1.document.content": "If you file on a calendar year basis, the due date for filing your U.S. income tax return is April 15 following the end of your tax year. If you use a fiscal year (a year ending on the last day of a month other than December), the due date is the 15th day of the 4th month after the end of your fiscal year. If any due date falls on a Saturday, Sunday, or legal holiday, your tax return is due on the next business day.\nFor your 2025 tax return, the due date is April 15, 2026.",
+   "retrieval.documents.2.document.id": "fd13f888-f3d6-4b73-94f7-3978ca144327",
+   "retrieval.documents.2.document.content": "income tax withholding, you must file by the 15th day of the 6th month after your tax year ends. For the 2025 calendar year, file your return by June 15, 2026. For more information on when to file and where to file , see chapter 7 . A social security number (SSN) must be furnished on returns, statements, and other tax-related documents. If your spouse does not have and is not eligible to get an SSN, they must apply for an individual taxpayer identification number (ITIN).",
+   "retrieval.documents.3.document.id": "3c74a0c9-2816-45ee-8496-53f48ab99e6f",
+   "retrieval.documents.3.document.content": "If you are an employee and you receive wages subject to U.S. income tax withholding, you will generally file by the 15th day of the 4th month after your tax year ends. For the 2025 calendar year, file your return by April 15, 2026.\nIf you are not an employee who receives wages subject to U.S. income tax withholding, you must file by the 15th day of the 6th month after your tax year ends. For the 2025 calendar year, file your return by June 15, 2026.\nExtensions of time to file."
+  }
+ },
+ {
+  "name": "judge",
+  "start_time": "2026-11-01T23:29:24.633000+00:00",
+  "attributes": {
+   "input.value": "What is the best month to file taxes?",
+   "output.value": "{\"id\":\"\"}"
+  }
+ },
+ {
+  "name": "search",
+  "start_time": "2026-11-01T23:29:24.926000+00:00",
+  "attributes": {
+   "input.value": "what happens?",
+   "output.value": "{\"passages\":[{\"id\":\"1233f149-f036-43da-a3e9-fa090775c8aa\",\"text\":\"You should choose a beneficiary when you set up your HSA. What happens to that HSA when you die depends on whom you designate as the beneficiary.\\nSpouse is the designated beneficiary.\\nIf your spouse is the designated beneficiary of your HSA, it will be treated as your spouse’s HSA after your death.\\nSpouse isn’t the designated beneficiary.\\nIf your spouse isn’t the designated beneficiary of your HSA:\\nThe account stops being an HSA, and\",\"page\":10,\"cite\":{\"title\":\"IRS Pub 969, Death of HSA Holder\",\"url\":\"https://www.irs.gov/publications/p969#en_US_2025_publink1000204096\",\"doc\":\"publications-p969\",\"anchor\":\"en_US_2025_publink1000204096\"},\"sig\":\"50c825434d60fd690e43ed8220b6c6fdfab3ec863bda11242598934f47daf16b\"},{\"id\":\"061b1b55-9219-449c-be22-afc2c79ce867\",\"text\":\"If your home is located in a federally declared disaster area, your state or local government may order you to tear it down or move it because it is no longer safe to live in because of the disaster. If this happens, treat the loss in value as a casualty loss from a disaster. Your state or local government must issue the order for you to tear down or move the home within 120 days after the area is declared a disaster area.\",\"page\":25,\"cite\":{\"title\":\"IRS Pub 547\",\"url\":\"https://www.irs.gov/publications/p547#id208\",\"doc\":\"publications-p547\",\"anchor\":\"id208\"},\"sig\":\"722ab5a28fcaa8419720d8768189ccb60f3029e112700f0908c842ad5bdb4cfb\"},{\"id\":\"0d50829d-3d3a-455a-90d2-114d2b02792e\",\"text\":\"In each cycle, continuous planning, preparation, and execution happens as per the demands of the selected approach, which may include all the activities below:\\nPerform Planning\\nPerform Preparation\\nExecute Test and Document\\nCloseout Test\",\"cite\":{\"title\":\"IRM 2.127.2.2.4.2, Execution State\",\"url\":\"https://www.irs.gov/irm/part2/irm_02-127-002#id117#id117\",\"doc\":\"irm-2.127.2.2.4.2\",\"anchor\":\"id117\"},\"sig\":\"2b04f5ae67dd8dba0ca122e5ada7e84b7f9991a4b24b6ce82b1e3bfd11dc9308\"},{\"id\":\"124fdd32-600e-47c5-b447-0a2b68a57c2c\",\"text\":\"This Interface Design process description describes what happens within the Interface Design process and provides an operational definition of the major components of the process. This description specifies, in a complete, precise, and verifiable manner, the requirements, design, and behavior characteristics of the Interface Design process.\",\"cite\":{\"title\":\"IRM 2.120.8.1.1.1, Process Description\",\"url\":\"https://www.irs.gov/irm/part2/irm_02-120-008#idm140378804004224#idm140378804004224\",\"doc\":\"irm-2.120.8.1.1.1\",\"anchor\":\"idm140378804004224\"},\"sig\":\"2e9714b45eb5cadd94a7a68504f52834324fd82e210a45ae58ef2c4080a329cc\"}]}",
+   "retrieval.documents.0.document.id": "1233f149-f036-43da-a3e9-fa090775c8aa",
+   "retrieval.documents.0.document.content": "You should choose a beneficiary when you set up your HSA. What happens to that HSA when you die depends on whom you designate as the beneficiary.\nSpouse is the designated beneficiary.\nIf your spouse is the designated beneficiary of your HSA, it will be treated as your spouse’s HSA after your death.\nSpouse isn’t the designated beneficiary.\nIf your spouse isn’t the designated beneficiary of your HSA:\nThe account stops being an HSA, and",
+   "retrieval.documents.1.document.id": "061b1b55-9219-449c-be22-afc2c79ce867",
+   "retrieval.documents.1.document.content": "If your home is located in a federally declared disaster area, your state or local government may order you to tear it down or move it because it is no longer safe to live in because of the disaster. If this happens, treat the loss in value as a casualty loss from a disaster. Your state or local government must issue the order for you to tear down or move the home within 120 days after the area is declared a disaster area.",
+   "retrieval.documents.2.document.id": "0d50829d-3d3a-455a-90d2-114d2b02792e",
+   "retrieval.documents.2.document.content": "In each cycle, continuous planning, preparation, and execution happens as per the demands of the selected approach, which may include all the activities below:\nPerform Planning\nPerform Preparation\nExecute Test and Document\nCloseout Test",
+   "retrieval.documents.3.document.id": "124fdd32-600e-47c5-b447-0a2b68a57c2c",
+   "retrieval.documents.3.document.content": "This Interface Design process description describes what happens within the Interface Design process and provides an operational definition of the major components of the process. This description specifies, in a complete, precise, and verifiable manner, the requirements, design, and behavior characteristics of the Interface Design process."
+  }
+ },
+ {
+  "name": "judge",
+  "start_time": "2026-11-01T23:29:25.983000+00:00",
+  "attributes": {
+   "input.value": "what happens?",
+   "output.value": "{\"id\":\"\"}"
+  }
+ },
+ {
+  "name": "turn",
+  "start_time": "2026-11-01T23:29:26.799000+00:00",
+  "attributes": {
+   "desk.calls": "answer_question({\"question\":\"For each year?\"})",
+   "turn.why": "question desk (model with tools)",
+   "input.value": "For each year",
+   "output.value": "I don't know. I couldn't find that in the tax guides I answer from, and I only answer from them. A preparer can look into it with you at a consultation."
+  }
+ },
+ {
+  "name": "search",
+  "start_time": "2026-11-01T23:29:28.974000+00:00",
+  "attributes": {
+   "input.value": "For each year?",
+   "output.value": "{\"passages\":[{\"id\":\"30fe87d0-c4d7-4475-bbff-a28b65b81790\",\"text\":\"Under the allocation method, you figure the depreciation for each later tax year by allocating to that year the depreciation attributable to the parts of the recovery years that fall within that year. Whether your tax year is a 12-month or short tax year, you figure the depreciation by determining which recovery years are included in that year. For each recovery year included, multiply the depreciation attributable to that recovery year by a fraction.\",\"page\":46,\"cite\":{\"title\":\"IRS Pub 946, Figuring the Deduction for a Short Tax Year\",\"url\":\"https://www.irs.gov/publications/p946#en_US_2024_publink1000107595\",\"doc\":\"publications-p946\",\"anchor\":\"en_US_2024_publink1000107595\"},\"sig\":\"b78cf3f3022595b0cbe69e54fa90617b7d18efc4c3570b5ba57caf1bfe548650\"},{\"id\":\"326e7df9-3168-4aed-a105-f98fb2b50818\",\"text\":\"You must file your tax return on the basis of an annual accounting period called a tax year. If you have not previously established a fiscal tax year, your tax year is the calendar year. A calendar year is 12 consecutive months ending on December 31. If you have previously established a regular fiscal year (12 consecutive months ending on the last day of a month other than December, or a 52–53-week year) and are considered to be a U.S. resident for any calendar year, you will be treated as a U.S. resident for any part of your fiscal year that falls within that calendar year.\",\"page\":45,\"cite\":{\"title\":\"IRS Pub 519, Tax Year\",\"url\":\"https://www.irs.gov/publications/p519#en_US_2025_publink1000222525\",\"doc\":\"publications-p519\",\"anchor\":\"en_US_2025_publink1000222525\"},\"sig\":\"0c7b44570b93b3c7f1a63628f198c35ec9f791db8db46c06c6e0a02d0f097fbb\"},{\"id\":\"4438a649-34f8-4028-9480-a6638f0d995f\",\"text\":\"Wage and Income information for current year and 9 years prior i.e. 2014 is the oldest year that can be requested.\\nRecord of Account for current year and 3 years prior i.e. 2021 is the oldest year that can be requested.\\nVNF for current year and 3 years prior i.e. 2021 is the oldest year that can be requested.\\nA transcript (any type) for a future year.\\nAccount Transcript may be available if account is active on Master File.\",\"cite\":{\"title\":\"IRM 3.5.21.2, General Information for All RAIVS Requests\",\"url\":\"https://www.irs.gov/irm/part3/irm_03-005-021r#id20#id20\",\"doc\":\"irm-3.5.21.2\",\"anchor\":\"id20\"},\"sig\":\"03474458d93d89365117e5a9bcf19c6120532b540aac84ab5e232f7159ea40fd\"},{\"id\":\"5f86936d-4589-4f3b-bdd2-5448a828b180\",\"text\":\"Ages | Duration of guaranteed amount | \\nMale | Female | 1 year | 2 years | 3 years | 4 years | 5 years | 6 years | 7 years | 8 years | 9 years | 10 years | 11 years | 12 years | 13 years | \\n |  | Percent | Percent | Percent | Percent | Percent | Percent | Percent | Percent | Percent | Percent | Percent | Percent | Percent | \\n35 | 40 | — | — | — | 1 | 1 | 1 | 1 | 1 | 2 | 2 | 2 | 2 | 2 | \\n36 | 41 | — | — | — | 1 | 1 | 1 | 1 | 1 | 2 | 2 | 2 | 2 | 3 |\",\"page\":19,\"cite\":{\"title\":\"IRS Pub 939, Actuarial Tables\",\"url\":\"https://www.irs.gov/publications/p939#en_US_202412_publink1000310331\",\"doc\":\"publications-p939\",\"anchor\":\"en_US_202412_publink1000310331\"},\"sig\":\"39886ca68bf00020da9ba26011b6d6770fbc5b4923b0d691838c576485d671ed\"}]}",
+   "retrieval.documents.0.document.id": "30fe87d0-c4d7-4475-bbff-a28b65b81790",
+   "retrieval.documents.0.document.content": "Under the allocation method, you figure the depreciation for each later tax year by allocating to that year the depreciation attributable to the parts of the recovery years that fall within that year. Whether your tax year is a 12-month or short tax year, you figure the depreciation by determining which recovery years are included in that year. For each recovery year included, multiply the depreciation attributable to that recovery year by a fraction.",
+   "retrieval.documents.1.document.id": "326e7df9-3168-4aed-a105-f98fb2b50818",
+   "retrieval.documents.1.document.content": "You must file your tax return on the basis of an annual accounting period called a tax year. If you have not previously established a fiscal tax year, your tax year is the calendar year. A calendar year is 12 consecutive months ending on December 31. If you have previously established a regular fiscal year (12 consecutive months ending on the last day of a month other than December, or a 52–53-week year) and are considered to be a U.S. resident for any calendar year, you will be treated as a U.S. resident for any part of your fiscal year that falls within that calendar year.",
+   "retrieval.documents.2.document.id": "4438a649-34f8-4028-9480-a6638f0d995f",
+   "retrieval.documents.2.document.content": "Wage and Income information for current year and 9 years prior i.e. 2014 is the oldest year that can be requested.\nRecord of Account for current year and 3 years prior i.e. 2021 is the oldest year that can be requested.\nVNF for current year and 3 years prior i.e. 2021 is the oldest year that can be requested.\nA transcript (any type) for a future year.\nAccount Transcript may be available if account is active on Master File.",
+   "retrieval.documents.3.document.id": "5f86936d-4589-4f3b-bdd2-5448a828b180",
+   "retrieval.documents.3.document.content": "Ages | Duration of guaranteed amount | \nMale | Female | 1 year | 2 years | 3 years | 4 years | 5 years | 6 years | 7 years | 8 years | 9 years | 10 years | 11 years | 12 years | 13 years | \n |  | Percent | Percent | Percent | Percent | Percent | Percent | Percent | Percent | Percent | Percent | Percent | Percent | Percent | \n35 | 40 | — | — | — | 1 | 1 | 1 | 1 | 1 | 2 | 2 | 2 | 2 | 2 | \n36 | 41 | — | — | — | 1 | 1 | 1 | 1 | 1 | 2 | 2 | 2 | 2 | 3 |"
+  }
+ },
+ {
+  "name": "judge",
+  "start_time": "2026-11-01T23:29:30.155000+00:00",
+  "attributes": {
+   "input.value": "For each year?",
+   "output.value": "{\"id\":\"\"}"
+  }
+ },
+ {
+  "name": "voice.turn",
+  "start_time": "2026-11-01T23:29:49.461441+00:00",
+  "attributes": {
+   "input.value": "For each year.",
+   "output.value": "I don't know. I couldn't find that in the tax guides I answer from, and I only answer from them. A preparer can look into it with you at a consultation."
+  }
+ },
+ {
+  "name": "turn",
+  "start_time": "2026-11-01T23:29:50.335000+00:00",
+  "attributes": {
+   "desk.calls": "answer_question({\"question\":\"What is the filing deadline for my return?\"})",
+   "turn.why": "question desk (model with tools)",
+   "input.value": "I asked when should I What month do I file taxes up to? What's the deadline?",
+   "output.value": "I don't know. I couldn't find that in the tax guides I answer from, and I only answer from them. A preparer can look into it with you at a consultation."
+  }
+ },
+ {
+  "name": "search",
+  "start_time": "2026-11-01T23:29:52.593000+00:00",
+  "attributes": {
+   "input.value": "What is the filing deadline for my return?",
+   "output.value": "{\"passages\":[{\"id\":\"60892896-f9d1-457f-b654-0f37308d9067\",\"text\":\"If you were due a refund but you did not file a return, you must generally file your return within 3 years from the date the return was due (including extensions) to get that refund.\",\"page\":5,\"cite\":{\"title\":\"IRS Pub 17, Refunds\",\"url\":\"https://www.irs.gov/publications/p17#en_US_2025_publink100083659\",\"doc\":\"publications-p17\",\"anchor\":\"en_US_2025_publink100083659\"},\"sig\":\"82c269aa0ea6e29ca603021a2f48fedba834f89e3a1120ebeeb70c2e929eb167\"},{\"id\":\"a2ebdba1-0077-4602-941d-c06ded6aba2a\",\"text\":\"Generally, for a credit or refund, you must file Form 1040-X within 3 years (including extensions) after the date you filed your original return or within 2 years after the date you paid the tax, whichever is later. If you filed your original return early (for example, March 1), your return is considered filed on the due date (generally April 15). However, if you had an extension to file (for example, until October 15) but you filed earlier and we received it on July 1, your return is considered filed on July 1.\",\"page\":23,\"cite\":{\"title\":\"IRS Pub 17, Marital Status\",\"url\":\"https://www.irs.gov/publications/p17#en_US_2024_publink1000170736\",\"doc\":\"publications-p17\",\"anchor\":\"en_US_2024_publink1000170736\"},\"sig\":\"cf03a90f38d8263d65c08b1e1260222a7ef2dcfc15d3ccbf97e68af1fa59e6cb\"},{\"id\":\"798cc7d5-b6ec-4da9-96c3-f037b0aa0c4a\",\"text\":\"If you filed your original return early (for example, March 1 for a calendar year return), your return is considered filed on the due date (generally April 15). However, if you had an extension of time to file (for example, until October 15) but you filed earlier and we received it on July 1, your return is considered filed on July 1.\",\"page\":3,\"cite\":{\"title\":\"Instructions for Form 1040-X (12/2025), When To File\",\"url\":\"https://www.irs.gov/instructions/i1040x#en_US_202601_publink11362hd0e233\",\"doc\":\"instructions-i1040x\",\"anchor\":\"en_US_202601_publink11362hd0e233\"},\"sig\":\"3d80827f832ac7ca773724dddd15d52885cd636f833cb4eb574c2a735a78c984\"},{\"id\":\"33e5c85c-7bfe-4250-8910-f6a94f11fe0c\",\"text\":\"Extended filing deadline for certain taxpayers. If you previously obtained a 6-month extension of time to file your original 2016 return and you are an affected taxpayer for purposes of Hurricane Harvey or Tropical Storm Harvey, Hurricane Irma, and the California wildfires, you have until January 31, 2018, or June 29, 2018, for taxpayers affected by Hurricane Maria in the U.S. Virgin Islands or Puerto Rico to timely file. See IRS.gov/DisasterTaxRelief for more information on which taxpayers have been granted additional time to file.\",\"page\":2,\"cite\":{\"title\":\"IRS Pub 976, Disaster-Related Relief\",\"url\":\"https://www.irs.gov/publications/p976#en_US_2017_publink100075816\",\"doc\":\"publications-p976\",\"anchor\":\"en_US_2017_publink100075816\"},\"sig\":\"a6ed14008d38959e1a500441ea1c869569a2a94c03bad6cc153b636195106527\"}]}",
+   "retrieval.documents.0.document.id": "60892896-f9d1-457f-b654-0f37308d9067",
+   "retrieval.documents.0.document.content": "If you were due a refund but you did not file a return, you must generally file your return within 3 years from the date the return was due (including extensions) to get that refund.",
+   "retrieval.documents.1.document.id": "a2ebdba1-0077-4602-941d-c06ded6aba2a",
+   "retrieval.documents.1.document.content": "Generally, for a credit or refund, you must file Form 1040-X within 3 years (including extensions) after the date you filed your original return or within 2 years after the date you paid the tax, whichever is later. If you filed your original return early (for example, March 1), your return is considered filed on the due date (generally April 15). However, if you had an extension to file (for example, until October 15) but you filed earlier and we received it on July 1, your return is considered filed on July 1.",
+   "retrieval.documents.2.document.id": "798cc7d5-b6ec-4da9-96c3-f037b0aa0c4a",
+   "retrieval.documents.2.document.content": "If you filed your original return early (for example, March 1 for a calendar year return), your return is considered filed on the due date (generally April 15). However, if you had an extension of time to file (for example, until October 15) but you filed earlier and we received it on July 1, your return is considered filed on July 1.",
+   "retrieval.documents.3.document.id": "33e5c85c-7bfe-4250-8910-f6a94f11fe0c",
+   "retrieval.documents.3.document.content": "Extended filing deadline for certain taxpayers. If you previously obtained a 6-month extension of time to file your original 2016 return and you are an affected taxpayer for purposes of Hurricane Harvey or Tropical Storm Harvey, Hurricane Irma, and the California wildfires, you have until January 31, 2018, or June 29, 2018, for taxpayers affected by Hurricane Maria in the U.S. Virgin Islands or Puerto Rico to timely file. See IRS.gov/DisasterTaxRelief for more information on which taxpayers have been granted additional time to file."
+  }
+ },
+ {
+  "name": "judge",
+  "start_time": "2026-11-01T23:29:54.071000+00:00",
+  "attributes": {
+   "input.value": "What is the filing deadline for my return?",
+   "output.value": "{\"id\":\"\"}"
+  }
+ },
+ {
+  "name": "search",
+  "start_time": "2026-11-01T23:29:54.426000+00:00",
+  "attributes": {
+   "input.value": "when should I What month do I file taxes up to?",
+   "output.value": "{\"passages\":[{\"id\":\"ae129542-6f31-4cb8-b3f1-867bb18da236\",\"text\":\"If you're a calendar year filer and your tax year ends on December 31, the due date for filing your federal individual income tax return is generally April 15 of each year. For the 2025 tax return, the due date is April 15, 2026. If you use a fiscal year (tax year ending on the last day of any month other than December), your return is due on or before the 15th day of the fourth month after the close of your fiscal year. If your due date falls on a Saturday, Sunday, or legal holiday, the due date is moved to the next business day.\",\"cite\":{\"title\":\"IRS Tax Topic 301, When to file\",\"url\":\"https://www.irs.gov/taxtopics/tc301\",\"doc\":\"taxtopics-tc301\"},\"sig\":\"f9ed9a8879339f6001fd8d124fdb74d94d6d1c69d16987e32ddb2fa025119d4a\"},{\"id\":\"85391dae-575e-4883-9d23-ece4a5b25603\",\"text\":\"If you file on a calendar year basis, the due date for filing your U.S. income tax return is April 15 following the end of your tax year. If you use a fiscal year (a year ending on the last day of a month other than December), the due date is the 15th day of the 4th month after the end of your fiscal year. If any due date falls on a Saturday, Sunday, or legal holiday, your tax return is due on the next business day.\\nFor your 2025 tax return, the due date is April 15, 2026.\",\"page\":31,\"cite\":{\"title\":\"IRS Pub 570, When To File\",\"url\":\"https://www.irs.gov/publications/p570#en_US_2025_publink1000221380\",\"doc\":\"publications-p570\",\"anchor\":\"en_US_2025_publink1000221380\"},\"sig\":\"cd8f0288d4b1659bbd93423b8263a1a8b9789bd4ec7ebe2f62c273d6bf5af569\"},{\"id\":\"57f21a90-fe21-46d4-afbe-998058b84138\",\"text\":\"For example, you must generally report wages you pay during the 1st quarter—which is January through March—by April 30. If you made timely deposits in full payment of your taxes for the quarter, you may file by the 10th day of the 2nd month that follows the end of the quarter. For example, you may file Form 941 by May 10 if you made timely deposits in full payment of your taxes for the 1st quarter.\",\"page\":6,\"cite\":{\"title\":\"Instructions for Form 941 (03/2026), When Must You File?\",\"url\":\"https://www.irs.gov/instructions/i941#en_US_202603_publink1000294651\",\"doc\":\"instructions-i941\",\"anchor\":\"en_US_202603_publink1000294651\"},\"sig\":\"dc0e5b55b900b1450e3a33d4846e83f8d1a2aec99186b893de89948f3f27190b\"},{\"id\":\"3c74a0c9-2816-45ee-8496-53f48ab99e6f\",\"text\":\"If you are an employee and you receive wages subject to U.S. income tax withholding, you will generally file by the 15th day of the 4th month after your tax year ends. For the 2025 calendar year, file your return by April 15, 2026.\\nIf you are not an employee who receives wages subject to U.S. income tax withholding, you must file by the 15th day of the 6th month after your tax year ends. For the 2025 calendar year, file your return by June 15, 2026.\\nExtensions of time to file.\",\"page\":50,\"cite\":{\"title\":\"IRS Pub 519, When To File\",\"url\":\"https://www.irs.gov/publications/p519#en_US_2025_publink1000222595\",\"doc\":\"publications-p519\",\"anchor\":\"en_US_2025_publink1000222595\"},\"sig\":\"dc4718dc9cb4dc7944564bda636c48842549de4f12df8942644e08fdfd9127fb\"}]}",
+   "retrieval.documents.0.document.id": "ae129542-6f31-4cb8-b3f1-867bb18da236",
+   "retrieval.documents.0.document.content": "If you're a calendar year filer and your tax year ends on December 31, the due date for filing your federal individual income tax return is generally April 15 of each year. For the 2025 tax return, the due date is April 15, 2026. If you use a fiscal year (tax year ending on the last day of any month other than December), your return is due on or before the 15th day of the fourth month after the close of your fiscal year. If your due date falls on a Saturday, Sunday, or legal holiday, the due date is moved to the next business day.",
+   "retrieval.documents.1.document.id": "85391dae-575e-4883-9d23-ece4a5b25603",
+   "retrieval.documents.1.document.content": "If you file on a calendar year basis, the due date for filing your U.S. income tax return is April 15 following the end of your tax year. If you use a fiscal year (a year ending on the last day of a month other than December), the due date is the 15th day of the 4th month after the end of your fiscal year. If any due date falls on a Saturday, Sunday, or legal holiday, your tax return is due on the next business day.\nFor your 2025 tax return, the due date is April 15, 2026.",
+   "retrieval.documents.2.document.id": "57f21a90-fe21-46d4-afbe-998058b84138",
+   "retrieval.documents.2.document.content": "For example, you must generally report wages you pay during the 1st quarter—which is January through March—by April 30. If you made timely deposits in full payment of your taxes for the quarter, you may file by the 10th day of the 2nd month that follows the end of the quarter. For example, you may file Form 941 by May 10 if you made timely deposits in full payment of your taxes for the 1st quarter.",
+   "retrieval.documents.3.document.id": "3c74a0c9-2816-45ee-8496-53f48ab99e6f",
+   "retrieval.documents.3.document.content": "If you are an employee and you receive wages subject to U.S. income tax withholding, you will generally file by the 15th day of the 4th month after your tax year ends. For the 2025 calendar year, file your return by April 15, 2026.\nIf you are not an employee who receives wages subject to U.S. income tax withholding, you must file by the 15th day of the 6th month after your tax year ends. For the 2025 calendar year, file your return by June 15, 2026.\nExtensions of time to file."
+  }
+ },
+ {
+  "name": "judge",
+  "start_time": "2026-11-01T23:29:55.889000+00:00",
+  "attributes": {
+   "input.value": "when should I What month do I file taxes up to?",
+   "output.value": "{\"id\":\"\"}"
+  }
+ }
+]

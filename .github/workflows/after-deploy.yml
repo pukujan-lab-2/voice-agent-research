@@ -1,0 +1,52 @@
+name: After deploy
+
+# When `production` moves, Komodo deploys within about 5 minutes (deploy/README.md). This waits for that, then replays
+# every case against the public site and records the result in Phoenix as an eval span on the deploy. The site does
+# not report its commit yet, so the wait is a fixed time; run it by hand with wait 0 to check the site as it is now.
+# The voice test needs a Mac (macOS `say`, Chrome for Testing), so it runs from the Pro: see deploy/pro/voice-check.sh.
+
+on:
+  push:
+    branches: [production]
+  workflow_dispatch:
+    inputs:
+      wait:
+        description: Minutes to wait for the deploy first
+        default: "0"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: after-deploy
+  cancel-in-progress: false
+
+jobs:
+  replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      SITE: https://copilot.design-bakery.com
+      WAIT: ${{ github.event_name == 'push' && '12' || inputs.wait }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            copilot-engine/package-lock.json
+      - run: npm ci
+      - run: npm ci --ignore-scripts
+        working-directory: copilot-engine
+      - name: Wait for Komodo to deploy, then for the site to be healthy
+        run: |
+          sleep $((WAIT * 60))
+          for i in $(seq 1 30); do curl -fsS "$SITE/api/health" && exit 0; sleep 10; done
+          echo "the site is not healthy" >&2; exit 1
+      - name: Replay the cases against the site
+        run: node eval/replay.ts --snapshot --site "$SITE" --json replay.json --gate
+      - name: Record the result in Phoenix
+        if: always() && hashFiles('replay.json') != ''
+        run: node eval/after-deploy.ts --site "$SITE" --sha "${{ github.sha }}" --results replay.json

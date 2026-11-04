@@ -9,13 +9,19 @@ import http from 'node:http';
 import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
+import { createWaker } from './sablier.ts';
 import { createTracer } from './tracing.ts';
 import { stackForLanguage } from './widget/voice-choice.ts';
 import { createApi, type ApiEnv, type NameMatcher } from './api.ts';
 import type { Passage } from '../../copilot-engine/src/guide.ts';
+import { loadSlots, SLOT_NAMES, type Slots } from '../../copilot-engine/src/slots.ts';
 
 const here = path.dirname(new URL(import.meta.url).pathname);
-const MAP: Record<string, keyof ApiEnv> = { openrouter_jev_only: 'OPENROUTER_JEV_KEY', octo_db_chatbots: 'OCTO_KEY', octo_db_chatbots_workspace: 'OCTO_WORKSPACE' };
+// inferhub_lease: the 30-day vault lease of the InferHub item, which works only through the vault proxy (the provider's default address)
+const MAP: Record<string, keyof ApiEnv> = { openrouter_jev_only: 'OPENROUTER_JEV_KEY', octo_db_chatbots: 'OCTO_KEY', octo_db_chatbots_workspace: 'OCTO_WORKSPACE', openrouter_free_only: 'OPENROUTER_FREE_KEY', inferhub_lease: 'INFERHUB_API_KEY' };
+// Names read from the env files as they are written there; the smart slots' keys are only ever named (decision 0017).
+const FROM_FILE = ['OPENROUTER_JEV_KEY', 'OCTO_KEY', 'OCTO_WORKSPACE', 'WORKBUDDY_KEY', 'INFERHUB_API_KEY'];
+const SLOT_ENV = SLOT_NAMES.flatMap(n => (['PROVIDER', 'MODEL', 'TIMEOUT_MS', 'DAILY_CAP'] as const).map(f => `SLOT_${n.toUpperCase()}_${f}` as keyof ApiEnv));
 
 export function loadEnv(): ApiEnv {
   const env: ApiEnv = {};
@@ -24,16 +30,23 @@ export function loadEnv(): ApiEnv {
     for (const line of fs.readFileSync(file, 'utf8').split('\n')) {
       const m = line.match(/^\s*(?:export\s+)?([A-Za-z_][\w]*)\s*=\s*(.*)$/);
       if (!m) continue;
-      const name = MAP[m[1]] ?? (['OPENROUTER_JEV_KEY', 'OCTO_KEY', 'OCTO_WORKSPACE'].includes(m[1]) ? m[1] as keyof ApiEnv : undefined);
+      const name = MAP[m[1]] ?? (FROM_FILE.includes(m[1]) ? m[1] as keyof ApiEnv : undefined);
       if (name && !env[name]) env[name] = m[2].trim().replace(/^['"]|['"]$/g, '');
     }
   }
-  for (const k of ['OPENROUTER_JEV_KEY', 'OCTO_KEY', 'OCTO_WORKSPACE', 'JEV_URL', 'OCTO_BASE', 'OCTO_TIMEOUT_MS', 'SIGNING_SECRET', 'LLAMA_URL', 'DESK_URL', 'DESK_MODEL', 'LFM3_AUDIO_URL', 'OFFLINE', 'JEV_DAILY_CAP', 'RATE_PER_MIN', 'STATE_STORE', 'OCTO_TRACES'] as const) {
+  for (const k of ['OPENROUTER_JEV_KEY', 'OCTO_KEY', 'OCTO_WORKSPACE', 'JEV_URL', 'OCTO_BASE', 'OCTO_TIMEOUT_MS', 'SIGNING_SECRET', 'LLAMA_URL', 'DESK_URL', 'DESK_KEY', 'DESK_MODEL', 'LFM3_AUDIO_URL', 'OFFLINE', 'JEV_DAILY_CAP', 'RATE_PER_MIN', 'STATE_STORE', 'OCTO_TRACES',
+    'DESK_HYBRID', 'SMART_OWNER', 'OWNER_TOKEN', 'SMART_DEV_HOSTS', 'SMART_DAILY_CAP', 'INFERHUB_BASE_URL', 'INFERHUB_API_KEY', 'OPENROUTER_FREE_URL', 'OPENROUTER_FREE_KEY', 'WORKBUDDY_URL', 'WORKBUDDY_KEY', ...SLOT_ENV] as const) {
     if (process.env[k]) env[k] = process.env[k];
   }
   // The lfm3-audio stack's model is the llama.cpp server speech/server.py starts, on its own port.
   env.LFM3_AUDIO_URL ??= `http://127.0.0.1:${process.env.LFM3_AUDIO_PORT ?? 8798}`;
   return env;
+}
+
+// The model slots (decision 0017): the file next to this one (MODEL_SLOTS_FILE names another), then env overrides. A bad slot
+// stops the start with a message naming it. Without a file every slot is the local model.
+export function readSlots(env: ApiEnv, file = process.env.MODEL_SLOTS_FILE || path.join(here, 'model-slots.json')): Slots {
+  return loadSlots(fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : undefined, env);
 }
 
 function offlinePassages(): Record<string, (Passage & { source?: string; section?: string; url?: string })[]> {
@@ -84,6 +97,10 @@ const LIVEKIT = { url: process.env.LIVEKIT_URL || 'ws://127.0.0.1:7880', key: pr
 // Deployed (deploy/README.md), the page reaches LiveKit's signalling through this server's own hostname: LIVEKIT_PUBLIC_URL
 // is what the page is told, and /rtc is passed through to LIVEKIT_URL. Call audio goes to LiveKit directly, not through here.
 const LIVEKIT_PUBLIC = process.env.LIVEKIT_PUBLIC_URL || '';
+// On the VPS the agent sleeps between calls and is woken here (sablier.ts). A caller waits up to this long for it (it starts in
+// about 8 s); after that the token is handed out anyway and the page falls back to text if no agent joins.
+const AGENT_WAKE_S = 30;
+const waker = createWaker();
 const up = (url: string) => fetch(url).then(r => r.ok, () => false);
 let voiceStarting: Promise<void> | null = null;
 // Octo's settings for the agent's own spans (speech/telemetry.py): the same Phoenix project as tracing.ts. Set by start().
@@ -141,6 +158,22 @@ function voiceToken(ask: VoiceAsk = {}): { url: string; token: string; room: str
   return { url: LIVEKIT_PUBLIC || LIVEKIT.url, room, stack, language, token: `${body}.${crypto.createHmac('sha256', LIVEKIT.secret).update(body).digest('base64url')}` };
 }
 
+// How many calls are open: LiveKit rooms that hold anyone. deploy/pro/update.sh asks before it restarts the speech server (#76).
+// An agent alone in a room for the few seconds after its caller left counts too, which errs towards waiting. null when LiveKit can't be asked.
+async function openCalls(): Promise<number | null> {
+  const now = Math.floor(Date.now() / 1000);
+  const b64 = (o: object) => Buffer.from(JSON.stringify(o)).toString('base64url');
+  const body = `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64({ iss: LIVEKIT.key, nbf: now - 5, exp: now + 60, video: { roomList: true } })}`;
+  const jwt = `${body}.${crypto.createHmac('sha256', LIVEKIT.secret).update(body).digest('base64url')}`;
+  try {
+    const r = await fetch(`${LIVEKIT.url.replace(/^ws/, 'http')}/twirp/livekit.RoomService/ListRooms`, {
+      method: 'POST', headers: { authorization: `Bearer ${jwt}`, 'content-type': 'application/json' }, body: '{}', signal: AbortSignal.timeout(3000) });
+    if (!r.ok) return null;
+    const { rooms = [] } = await r.json() as { rooms?: { numParticipants?: number; num_participants?: number }[] };
+    return rooms.filter(room => (room.numParticipants ?? room.num_participants ?? 0) > 0).length;
+  } catch { return null; }
+}
+
 // /rtc on this server to LiveKit (LIVEKIT_PUBLIC_URL set): plain requests and the signalling WebSocket, passed as they are.
 const lk = new URL(LIVEKIT.url.replace(/^ws/, 'http'));
 function rtcRequest(req: http.IncomingMessage, res: http.ServerResponse) {
@@ -180,7 +213,7 @@ export async function start(opts: { port?: number; host?: string; offline?: bool
   const env = loadEnv();
   if (opts.offline) env.OFFLINE = '1';
   const tracing = opts.offline ? undefined : createTracer(env);
-  const api = createApi(env, { offlinePassages: offlinePassages(), matchNames: nameMatcher(), trace: tracing?.trace, score: tracing?.score });
+  const api = createApi(env, { slots: readSlots(env), offlinePassages: offlinePassages(), matchNames: nameMatcher(), trace: tracing?.trace, score: tracing?.score });
   const dist = path.join(here, 'dist');
   agentTrace = Object.fromEntries(Object.entries({ OCTO_KEY: env.OCTO_KEY, OCTO_WORKSPACE: env.OCTO_WORKSPACE, OCTO_BASE: env.OCTO_BASE,
     OCTO_TRACES: opts.offline ? 'off' : env.OCTO_TRACES }).filter((e): e is [string, string] => !!e[1]));
@@ -193,17 +226,30 @@ export async function start(opts: { port?: number; host?: string; offline?: bool
       for await (const c of req) chunks.push(c as Buffer);
       let ask: VoiceAsk = {};
       try { ask = JSON.parse(Buffer.concat(chunks).toString('utf8').slice(0, 2000) || '{}'); } catch { /* no picks: the defaults */ }
-      if (url.pathname === '/api/voice/token') void voiceUp();
+      if (url.pathname === '/api/voice/token') {
+        void voiceUp();
+        if (!(await waker.ready(AGENT_WAKE_S))) console.warn(`voice: the agent did not wake within ${AGENT_WAKE_S}s; handing out the token anyway`);
+      } else waker.poke();  // the widget loaded: the agent starts while the visitor reads
       res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
       res.end(JSON.stringify(url.pathname === '/api/voice/token' ? voiceToken(ask) : voiceOptions(ask))); return;
+    }
+    if (req.method === 'GET' && url.pathname === '/api/voice/calls') {
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+      res.end(JSON.stringify({ calls: await openCalls() })); return;
     }
     if (LIVEKIT_PUBLIC && url.pathname.startsWith('/rtc')) { rtcRequest(req, res); return; }
     if (url.pathname.startsWith('/api/')) {
       const chunks: Buffer[] = [];
       for await (const c of req) chunks.push(c as Buffer);
-      const r = await api.handle(new Request(`http://local${url.pathname}${url.search}`, { method: req.method,
+      // The request's own host name goes on only when nothing proxied it (no tunnel, no forwarding headers): that is how the backend
+      // knows a development host. Deployed, it is always `local`, so no visitor is taken for a developer.
+      const direct = process.env.TRUST_PROXY !== '1' && !req.headers['cf-connecting-ip'] && !req.headers['x-forwarded-for'] && !req.headers['x-forwarded-host']
+        && ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress ?? '') && /^[\w.\-]+(:\d+)?$|^\[[\da-f:]+\](:\d+)?$/i.test(req.headers.host ?? '');
+      const r = await api.handle(new Request(`http://${direct ? req.headers.host : 'local'}${url.pathname}${url.search}`, { method: req.method,
         headers: { 'content-type': 'application/json', ...(typeof req.headers.authorization === 'string' ? { authorization: req.headers.authorization } : {}),
-          ...(typeof req.headers['x-session-id'] === 'string' ? { 'x-session-id': req.headers['x-session-id'] } : {}) },
+          ...(typeof req.headers['x-session-id'] === 'string' ? { 'x-session-id': req.headers['x-session-id'] } : {}),
+          ...(typeof req.headers['x-owner-token'] === 'string' ? { 'x-owner-token': req.headers['x-owner-token'] } : {}),
+          ...(typeof req.headers.cookie === 'string' ? { cookie: req.headers.cookie } : {}) },
         body: req.method === 'POST' ? Buffer.concat(chunks) : undefined }), visitor(req));
       res.writeHead(r.status, Object.fromEntries(r.headers));
       res.end(Buffer.from(await r.arrayBuffer()));

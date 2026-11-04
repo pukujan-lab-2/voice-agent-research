@@ -1,5 +1,6 @@
-# The copilot lab on the VPS: the site and its backend, the LiveKit server and the voice agent. See deploy/README.md.
-# Komodo's `copilot` stack deploys it (deploy/vps/autodeploy.sh) when GitHub's `production` branch moves.
+# The copilot lab on the VPS: the site and its backend and the LiveKit server. See deploy/README.md. Komodo's `copilot` stack
+# deploys it (deploy/vps/autodeploy.sh) when GitHub's `production` branch moves. The voice agent is not here: it has its own
+# compose file (docker-compose.agent.yml), one project per release, so a deploy never replaces an agent that is on a call.
 # The site binds loopback on 127.0.0.1:18787 and joins study-os_edge, where Cloudflare tunnel A reaches it as
 # copilot-web:8787 (copilot.design-bakery.com). Models stay on the MacBook Pro, reached through reverse SSH tunnels to
 # this host's loopback that the bridges below re-offer on the Docker gateway (containers can't reach the host's loopback):
@@ -33,27 +34,24 @@ services:
       SPEECH_URL: http://host.docker.internal:18799
       LLAMA_URL: http://host.docker.internal:18099
       LFM3_AUDIO_URL: http://host.docker.internal:18798
+      # The voice agent sleeps between calls; the site wakes it through the VPS's one Sablier (demo/live-site/sablier.ts).
+      # deploy/.env names the agent of this release (deploy/vps/autodeploy.sh writes it). Empty: nothing is woken.
+      SABLIER_URL: http://sablier:10000
+      SABLIER_AGENT: ${COPILOT_AGENT_CONTAINER:-}
     ports:
       - 127.0.0.1:18787:8787
-    networks: [default, edge]
+    # The concept videos are not in git and not in the image; they live on the host in ~/apps/copilot-media (deploy/README.md)
+    # and are mounted over the poster files' folder one file at a time. Copy the files there before changing this list.
+    volumes:
+      - ${COPILOT_MEDIA_DIR:-../../copilot-media}/copilot-demo-720p.mp4:/app/demo/live-site/dist/media/copilot-demo-720p.mp4:ro
+      - ${COPILOT_MEDIA_DIR:-../../copilot-media}/copilot-demo-vertical-720p.mp4:/app/demo/live-site/dist/media/copilot-demo-vertical-720p.mp4:ro
+    networks: [default, edge, sablier]
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8787/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 10s
       timeout: 5s
       retries: 3
       start_period: 20s
-
-  agent:
-    <<: *env
-    container_name: copilot-agent
-    image: ${COPILOT_AGENT_IMAGE:-copilot-agent:local}
-    build:
-      context: ..
-      dockerfile: deploy/agent.Dockerfile
-    environment:
-      LIVEKIT_URL: ws://copilot-livekit:7880
-      SPEECH_URL: http://host.docker.internal:18799
-    depends_on: [livekit]
 
   livekit:
     <<: *env
@@ -84,4 +82,7 @@ services:
 networks:
   edge:
     name: study-os_edge
+    external: true
+  sablier:
+    name: ${SABLIER_NETWORK:-sablier}
     external: true

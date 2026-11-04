@@ -3,11 +3,32 @@
 //   openrouter-free  a named free model on the free-only OpenRouter key (never the openrouter/free router)
 //   workbuddy        WorkBuddy (DeepSeek, Qwen) through the Octo vault proxy; key in WORKBUDDY_KEY (a lease, never minted here)
 //   llama            any OpenAI-compatible server (llama.cpp), no key
+//   inferhub         InferHub's deepseek-v4.1-flash through the vault lease (INFERHUB_API_KEY, or inferhub_lease in the env file); only
+//                    through the `eval` slot. A 402 moves on to the slot's next vendor route.
+// The `eval` model slot (decision 0017, demo/live-site/model-slots.json) can replace the corpus config's model for the generator and
+// the simulated callers; with the slot on `local` the config decides, as before. A model named claude, gemma or openrouter/free is refused.
 // Every call is counted, timed and costed in `usage`, so the report can show spend per suite.
+import fs from 'node:fs';
+import { bannedModelReason, loadSlots, type Slot } from '../../copilot-engine/src/slots.ts';
 import { key } from './env.ts';
 
-export type ChatCfg = { provider: 'openrouter-free' | 'workbuddy' | 'llama'; model: string; url?: string; temperature?: number };
+export type ChatCfg = { provider: 'openrouter-free' | 'workbuddy' | 'llama' | 'inferhub'; model: string; url?: string; temperature?: number; routes?: string[] };
 export type Msg = { role: 'system' | 'user' | 'assistant'; content: string };
+
+// The eval slot: the file next to the backend's (MODEL_SLOTS_FILE names another) with env overrides. Read once.
+let evalSlotCache: Slot | undefined;
+export function evalSlot(): Slot {
+  if (!evalSlotCache) {
+    const file = process.env.MODEL_SLOTS_FILE || new URL('../../demo/live-site/model-slots.json', import.meta.url).pathname;
+    evalSlotCache = loadSlots(fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : undefined, process.env).eval;
+  }
+  return evalSlotCache;
+}
+// What a call really uses: the slot's smart model when the slot names one, else the config's own model.
+export function viaSlot(cfg: ChatCfg, slot: Slot): ChatCfg {
+  if (!slot.smart) return cfg;
+  return { provider: slot.provider as ChatCfg['provider'], model: slot.model, url: slot.url, temperature: cfg.temperature, routes: slot.routes };
+}
 
 export const usage: Record<string, { calls: number; cost: number; ms: number; failed: number }> = {};
 const note = (what: string, ms: number, cost = 0, failed = false) => {
@@ -26,28 +47,35 @@ const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
 export async function chat(cfg: ChatCfg, messages: Msg[], opts: { what: string; maxTokens?: number; json?: boolean }): Promise<string> {
   guard();
+  cfg = viaSlot(cfg, evalSlot());
+  const banned = bannedModelReason(cfg.model);
+  if (banned) throw new Error(banned);
   const wb = cfg.provider === 'workbuddy';
   const url = cfg.provider === 'llama' ? `${cfg.url}/v1/chat/completions`
+    : cfg.provider === 'inferhub' ? `${cfg.url}/chat/completions`
     : wb ? `${cfg.url ?? 'https://octodb.design-bakery.com/api/vault/proxy/https://www.workbuddy.ai/v2'}/chat/completions`
     : 'https://openrouter.ai/api/v1/chat/completions';
-  const auth = cfg.provider === 'llama' ? undefined : wb ? key('WORKBUDDY_KEY') : key('openrouter_free_only');
+  const auth = cfg.provider === 'llama' ? undefined : cfg.provider === 'inferhub' ? key('INFERHUB_API_KEY', 'inferhub_lease') : wb ? key('WORKBUDDY_KEY') : key('openrouter_free_only', 'OPENROUTER_FREE_KEY');
   if (cfg.provider !== 'llama' && !auth) throw new Error(`no key for ${cfg.provider}`);
   if (cfg.provider === 'openrouter-free' && !cfg.model.endsWith(':free')) throw new Error('openrouter-free needs a named :free model');
   // WorkBuddy's proxy wants a system message first and a streamed reply.
   if (wb && messages[0]?.role !== 'system') messages = [{ role: 'system', content: 'You are a helpful assistant.' }, ...messages];
-  for (let attempt = 0; attempt < 4; attempt++) {
+  const routes = cfg.routes?.length ? cfg.routes : [cfg.model];
+  let route = 0; // a 402 (no vendor under the price cap) moves on to the next vendor route of the same model
+  for (let attempt = 0; attempt < 4 + routes.length; attempt++) {
     const t0 = Date.now();
     try {
       const r = await fetch(url, {
         method: 'POST', signal: AbortSignal.timeout(120000),
         headers: { 'Content-Type': 'application/json', ...(auth ? { Authorization: `Bearer ${auth}` } : {}) },
-        body: JSON.stringify({ model: cfg.model, messages, temperature: cfg.temperature ?? 0.7, max_tokens: opts.maxTokens ?? 1200,
+        body: JSON.stringify({ model: routes[route], messages, temperature: cfg.temperature ?? 0.7, max_tokens: opts.maxTokens ?? 1200,
           ...(opts.json && !wb ? { response_format: { type: 'json_object' } } : {}), ...(wb ? { stream: true } : {}),
           // the open models think out loud by default and can spend the whole budget on it; these sets don't need it
           ...(cfg.provider === 'openrouter-free' ? { reasoning: { enabled: false } } : {}), ...(cfg.provider === 'llama' ? { chat_template_kwargs: { enable_thinking: false } } : {}) }),
       });
       if (!r.ok) {
         note(opts.what, Date.now() - t0, 0, true);
+        if (r.status === 402 && route + 1 < routes.length) { route++; continue; }
         if (r.status === 429 || r.status >= 500) { await sleep(4000 * (attempt + 1)); continue; }
         throw new Error(`${cfg.provider} ${r.status}: ${(await r.text()).slice(0, 200)}`);
       }
@@ -66,7 +94,7 @@ export async function chat(cfg: ChatCfg, messages: Msg[], opts: { what: string; 
       return text.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
     } catch (e) {
       if (e instanceof OverBudget) throw e;
-      if (attempt === 3) throw e;
+      if (attempt >= 3 + routes.length) throw e;
       await sleep(3000 * (attempt + 1));
     }
   }

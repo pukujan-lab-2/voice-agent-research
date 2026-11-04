@@ -60,6 +60,7 @@ A visitor opens the copilot on a site and talks to it. The copilot can:
 | Hosting | https://copilot.design-bakery.com, every merge to `main` that passes CI goes live (decision 0016, `deploy/`) |
 | Phone calls | Planned (LiveKit SIP) |
 | Multi-language | Voice: English on the default stack; English, Spanish, French, Italian, Portuguese, Hindi and Chinese on the `multilingual` stack (decision 0012); English on the one-model `lfm3-audio` stack (decision 0013). Text chat passes the visitor's words through |
+| Model choice (brain) | Hybrid by default: LFM3 answers and talks, DeepSeek takes hard turns automatically for every visitor; "smart always" stays owner-only from the Brain picker on the page (decision 0017 as amended, #97, #101) |
 
 <!-- pcm:github-progression:start -->
 ## GitHub-owned progression

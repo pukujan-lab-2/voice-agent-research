@@ -302,6 +302,48 @@ test('a first or last name field takes one word; a full name field still wants t
   assert.equal(d.pending?.value, 'Michael');
 });
 
+test('a caller who will not give a value is not asked for it again', async () => {
+  // From a live call (#101): "I ain't giving you my phone number, bro" was met with the same question twice, because
+  // the model answered a refusal by "going to" the field it was already on and the guard treated that as no move.
+  const flow = { id: 'svc', business: 'Halden', scope: 'the form', intro: 'Hi.', doneMessage: '', fields: [
+    { name: 'phone', label: 'phone number', kind: 'phone' as const, question: "What's the best phone number to reach you?" },
+    { name: 'what', label: 'what happened', kind: 'text' as const, question: 'What happened?' },
+  ] };
+  const d: Desk = new Desk(flow, { model: stub(() => ({ content: '', calls: [call('go_to_field', { field: 'phone' })] })) });
+  d.start();
+  const r = await d.turn("I ain't giving you my phone number, bro");
+  assert.doesNotMatch(r, /what'?s the best phone number/i, 'the refusal must not be met with the same question');
+  assert.match(r, /leave the phone number/i);
+  assert.match(r, /What happened\?/, 'it moves on to the next field that still needs an answer');
+  assert.equal(d.values.phone, undefined, 'a refused field is left blank');
+  // A second refusal of a different field does not reopen the first.
+  const r2 = await d.turn('yes');
+  assert.doesNotMatch(r2, /phone number to reach you/i);
+});
+
+test('a refusal is read from what the caller says, and an ordinary answer is not mistaken for one', async () => {
+  const flow = { id: 'svc', business: 'Halden', scope: 'the form', intro: 'Hi.', doneMessage: '', fields: [
+    { name: 'phone', label: 'phone number', kind: 'phone' as const, question: "What's the best phone number to reach you?" },
+    { name: 'what', label: 'what happened', kind: 'text' as const, question: 'What happened?' },
+  ] };
+  const atPhone = () => {
+    const d: Desk = new Desk(flow, { model: stub(() => ({ content: '', calls: [call('go_to_field', { field: 'phone' })] })) });
+    d.start();
+    return d;
+  };
+  for (const said of ["I'd rather not give my phone number", "I'm not comfortable sharing my phone number", 'Nope, no phone number', "I don't want to give my phone number"]) {
+    const d = atPhone();
+    await d.turn(said);
+    assert.equal(d.values.phone, undefined, `"${said}" leaves the field blank`);
+  }
+  // "No" to a read-back, a value given after a "no", and a bare "no" are not refusals of the value itself.
+  for (const said of ['No', 'Yes', 'Never mind', "No, it's 555 0134", "I'm not sure, maybe 555 0134", "It's not a cell, it's my landline: 555 0134"]) {
+    const d = atPhone();
+    await d.turn(said);
+    assert.equal(d.events.some(e => e.type === 'wont_give'), false, `"${said}" is not read as a refusal`);
+  }
+});
+
 test('an answer the model ignores ("go to" the open field) is still read back by code', async () => {
   const flow = { id: 'svc', business: 'Halden', scope: 'the form', intro: 'Hi.', doneMessage: '', fields: [
     { name: 'serial', label: 'serial number', kind: 'serial' as const, question: 'Can you read me the serial number?' },
@@ -464,4 +506,25 @@ test('LFM3-Audio is asked the way its model card says: the system prompt ends "L
     await chat.chat(msgs, []);
     assert.equal(sent[1].messages[0].content, 'You are the desk.', 'no tools, no header');
   } finally { globalThis.fetch = realFetch; }
+});
+
+// Call 7d689fcd, "You guide me how to file it. Can I file it from here?": the model said "I don't have that detail in my
+// guides" without looking. The library decides, not the model.
+test('a question desk looks up a question its model refused to answer, and says the library\'s answer, not the model\'s', async () => {
+  const looked: string[] = [];
+  const d = new Desk(taxDesk, {
+    model: stub(() => ({ content: "I don't have that detail in my guides right now. A preparer can walk you through the form." })),
+    answer: async q => { looked.push(q); return 'IRS FAQ says: "Yes, you can file an original Form 1040 series tax return electronically."'; },
+  });
+  d.start();
+  const reply = await d.turn('You guide me how to file it. Can I file it from here?');
+  assert.equal(looked.length, 1);
+  assert.match(reply, /Yes, you can file an original Form 1040/);
+  assert.doesNotMatch(reply, /don't have that detail/);
+  // small talk is still the model's
+  const e = new Desk(taxDesk, { model: stub(() => ({ content: "I don't know about that, but thanks!" })), answer: async q => { looked.push(q); return 'x'; } });
+  e.start();
+  const before = looked.length;
+  await e.turn('Thanks, that helps.');
+  assert.equal(looked.length, before);
 });

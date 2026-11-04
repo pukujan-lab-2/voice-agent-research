@@ -157,6 +157,17 @@ export interface CopilotSnapshot {
   languages?: CopilotLanguage[];
   /** The language the recogniser last heard on this call. */
   spokenLanguage?: string;
+  /** The Brain picker (#97): what is offered (the local model always, smart ones in scope only) and the current pick. */
+  brains?: CopilotBrainOption[];
+  brain?: string;
+  /** The owner is signed in on this page. */
+  owner?: boolean;
+}
+
+export interface CopilotBrainOption {
+  id: "local" | "smart" | "smart-always";
+  label: string;
+  smart: boolean;
 }
 
 export interface Copilot {
@@ -169,6 +180,10 @@ export interface Copilot {
   setLanguage?(code: string): void;
   /** The visitor's voice stack, before a call. */
   setStack?(id: string): void;
+  /** The Brain picker's pick for the next turn (#97). */
+  setBrain?(id: string): void;
+  /** The owner's sign-in on the page (#97): true when the token was accepted. An empty token signs out. */
+  ownerSignIn?(token: string): Promise<boolean>;
   setMode(mode: "form" | "guide" | "ask"): void;
   setCovered(px: number): void;
   end(): void;

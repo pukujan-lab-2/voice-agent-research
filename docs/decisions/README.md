@@ -20,4 +20,8 @@ One file per decision. A decision changes only through a new file that replaces 
 | 0014 | [Voice models are swapped: only the stack in use is resident](0014-voice-models-are-swapped.md) | 2026-11-01 |
 | 0015 | [The production branch deploys the lab](0015-production-branch-deploys.md) (replaced by 0016) | 2026-11-01 |
 | 0016 | [A merge to main goes live when CI passes](0016-merges-go-live.md) | 2026-11-01 |
+| 0017 | [LFM3 stays the default; smart model slots are opt-in for development only](0017-smart-model-slots-for-development.md) | 2026-11-01 |
 | 0018 | [Huge sites: search for prose, declared lookups for records](0018-huge-sites-search-prose-declared-lookups-records.md) | 2026-11-01 |
+| 0019 | [Market positioning: the assistant is never framed as a neighbour](0019-market-positioning-not-a-neighbour.md) | 2026-11-02 |
+| 0020 | [The assistant is honest that it's an AI](0020-honest-that-it-is-an-ai.md) | 2026-11-02 |
+| 0021 | [Each adopter owns a workspace; the factory owns the code and the registry](0021-adopters-own-a-workspace.md) | 2026-11-04 |

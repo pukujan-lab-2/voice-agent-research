@@ -121,18 +121,51 @@ export async function toReplyLanguage(text: string): Promise<string> {
   }
 }
 
+// The server's smart model for the hard turns of any call — the hybrid is the default now (#101). The page never decides who
+// may use it: every local answer from /api/desk says whether a smart model may answer now (on unless DESK_HYBRID=0, under the
+// cap, with the key healthy), and until it says so this model is unavailable, so the desk runs exactly as before.
+export class RemoteSmartModel implements ChatModel {
+  name = 'smart';
+  available = false;
+  unavailable() { return !this.available; }
+  async chat(messages: ChatMsg[], tools: unknown[], opts: { maxTokens?: number; temperature?: number } = {}): Promise<ChatResult> {
+    if (this.available === false) throw new Error('no smart model');
+    messages = inLanguage(messages);
+    const t0 = Date.now();
+    const r = await fetch(`${API_BASE}/api/desk`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-session-id': callId },
+      body: JSON.stringify({ messages, tools, max_tokens: opts.maxTokens, temperature: opts.temperature, smart: true, brain: brainPick }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      // off, out of scope, no key or over the cap: stop asking. A timeout or a failed call is kept quiet only in the turn (the local answer stands).
+      if (['off', 'scope', 'no-key', 'cap', 'auth'].includes(j.reason)) this.available = false;
+      else failure('desk-smart', `/api/desk smart: ${j.reason ?? r.status}`, { path: '/api/desk', fallback: 'local model' });
+      throw new Error(`smart: ${j.reason ?? r.status}`);
+    }
+    this.available = j.smart === true;
+    return { content: String(j.content ?? ''), calls: Array.isArray(j.calls) ? j.calls : [], ms: Date.now() - t0, model: String(j.model ?? this.name) };
+  }
+}
+
+// The Brain picker's pick (#97): set by the widget, sent on every desk request (like the voice stack). 'local' sends nothing,
+// so a page that never picked behaves exactly as before. The server enforces scope; the pick is a preference, not an authority.
+let brainPick: string | null = null;
+export function setBrainPick(pick: string | null) { brainPick = pick && pick !== 'local' ? pick : null; }
+
 export class RemoteDeskModel implements ChatModel {
   name = 'lfm3';
+  private smart?: RemoteSmartModel;
+  constructor(smart?: RemoteSmartModel) { this.smart = smart; }
   private off = new Set<string>(); // the stacks whose model the server said it has none of (a call on another stack still has its own)
   async chat(messages: ChatMsg[], tools: unknown[], opts: { maxTokens?: number; temperature?: number } = {}): Promise<ChatResult> {
     if (this.off.has(deskStack)) throw new Error('no desk model');
     messages = inLanguage(messages);
     const t0 = Date.now();
     const r = await fetch(`${API_BASE}/api/desk`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-session-id': callId },
-      body: JSON.stringify({ messages, tools, max_tokens: opts.maxTokens, temperature: opts.temperature, stack: deskStack, business: deskBusiness || undefined }) });
+      body: JSON.stringify({ messages, tools, max_tokens: opts.maxTokens, temperature: opts.temperature, stack: deskStack, business: deskBusiness || undefined, ...(brainPick ? { brain: brainPick } : {}) }) });
     if (r.status === 503) this.off.add(deskStack);
     if (!r.ok) { failure('desk-model', `/api/desk: ${r.status}`, { path: '/api/desk', fallback: 'code rules' }); throw new Error(`/api/desk: ${r.status}`); }
     const j = await r.json();
+    if (this.smart) this.smart.available = j.smart === true;
     return { content: String(j.content ?? ''), calls: Array.isArray(j.calls) ? j.calls : [], ms: Date.now() - t0, model: String(j.model ?? this.name) };
   }
 }

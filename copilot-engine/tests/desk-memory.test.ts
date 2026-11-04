@@ -5,13 +5,17 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { Desk, type ChatModel, type ToolCall } from '../src/desk.ts';
-import { MemoryStore, JsonFileStore, customerKey, SESSION_TTL_MS } from '../src/memory.ts';
+import { MemoryStore, JsonFileStore, businessSecret, customerKey, SESSION_TTL_MS } from '../src/memory.ts';
 import { brookside } from '../src/flows/brookside.ts';
 
 function stub(script: (said: string) => { content?: string; calls?: ToolCall[] } = () => ({})): ChatModel {
   return { name: 'stub', async chat(messages) { const last = String(messages[messages.length - 1].content).split('\n\n[Form state')[0]; const r = script(last); return { content: r.content ?? '', calls: r.calls ?? [], ms: 1, model: 'stub' }; } };
 }
 const call = (name: string, args: Record<string, unknown> = {}): ToolCall => ({ name, args });
+// Customer memory belongs to one business: its id and its secret go into every key.
+const SECRET = 'test-secret-brookside';
+const mem = { scope: 'brookside', customerSecret: SECRET };
+const key = (kind: 'phone' | 'email', value: string) => customerKey('brookside', SECRET, kind, value);
 const clock = () => { let t = 1_000_000; return { now: () => t, add: (ms: number) => { t += ms; } }; };
 
 test('a dropped call resumes with its state; a waiting read-back is asked again, never filled', async () => {
@@ -63,8 +67,8 @@ test('JSON file store keeps sessions across processes and honours the TTL', asyn
 });
 
 // A desk with everything filled except the email, which is waiting for a yes.
-function nearlyDone(customers: MemoryStore) {
-  const d = new Desk(brookside, { model: stub(), customers });
+function nearlyDone(customers: MemoryStore, opts: { scope: string; customerSecret: string } = mem) {
+  const d = new Desk(brookside, { model: stub(), customers, ...opts });
   d.start();
   Object.assign(d.values, { child_name: 'Maya Chen', visit_type: 'Sick visit', preferred_day: 'Monday', preferred_time: 'Morning', parent_name: 'Lucia Chen', phone: '555-210-4433' });
   d.current = 'email';
@@ -78,7 +82,7 @@ test('details are stored only after a clear yes, and only the rememberable field
   const r = await d.turn('yes');
   assert.match(r, /remember your name and contact details/);
   await d.turn('hmm, maybe later');
-  assert.equal(await customers.get(customerKey('phone', '555-210-4433')), undefined, 'no store without a clear yes');
+  assert.equal(await customers.get(key('phone', '555-210-4433')), undefined, 'no store without a clear yes');
 
   const d2 = nearlyDone(customers);
   await d2.turn('lucia dot chen at gmail dot com');
@@ -86,17 +90,17 @@ test('details are stored only after a clear yes, and only the rememberable field
   const r2 = await d2.turn('yes please');
   assert.match(r2, /remember them/);
   assert.match(r2, /press Submit/);
-  const rec = await customers.get(customerKey('phone', '(555) 210 4433')) as { values: Record<string, string> };
+  const rec = await customers.get(key('phone', '(555) 210 4433')) as { values: Record<string, string> };
   assert.deepEqual(Object.keys(rec.values).sort(), ['child_name', 'email', 'parent_name', 'phone']);
-  assert.ok(await customers.get(customerKey('email', 'Lucia.Chen@gmail.com')), 'also found by email');
+  assert.ok(await customers.get(key('email', 'Lucia.Chen@gmail.com')), 'also found by email');
   assert.equal(d2.submitted, 0);
 });
 
 test('a returning customer: every reused value is read back and needs a yes; one can be changed', async () => {
   const customers = new MemoryStore();
   const rec = { v: 1, flow: brookside.id, savedAt: 0, values: { parent_name: 'Lucia Chen', phone: '555-210-4433', email: 'lucia.chen@gmail.com', child_name: 'Maya Chen' } };
-  await customers.set(customerKey('phone', '555-210-4433'), rec);
-  const d = new Desk(brookside, { model: stub(s => /@|\bat\b/.test(s) ? { calls: [call('propose_value', { field: 'email', value: 'lucia@newmail.com' })] } : {}), customers });
+  await customers.set(key('phone', '555-210-4433'), rec);
+  const d = new Desk(brookside, { model: stub(s => /@|\bat\b/.test(s) ? { calls: [call('propose_value', { field: 'email', value: 'lucia@newmail.com' })] } : {}), customers, ...mem });
   d.start();
   const r0 = await d.turn("Hi, I've been there before.");
   assert.equal(d.current, 'phone');
@@ -125,9 +129,9 @@ test('a returning customer: every reused value is read back and needs a yes; one
 test('"forget me" deletes the record under every contact it holds', async () => {
   const customers = new MemoryStore();
   const rec = { v: 1, flow: brookside.id, savedAt: 0, values: { parent_name: 'Lucia Chen', phone: '555-210-4433', email: 'lucia.chen@gmail.com' } };
-  await customers.set(customerKey('phone', '555-210-4433'), rec);
-  await customers.set(customerKey('email', 'lucia.chen@gmail.com'), rec);
-  const d = new Desk(brookside, { model: stub(), customers });
+  await customers.set(key('phone', '555-210-4433'), rec);
+  await customers.set(key('email', 'lucia.chen@gmail.com'), rec);
+  const d = new Desk(brookside, { model: stub(), customers, ...mem });
   d.start();
   const r = await d.turn('Actually, please forget me, I do not want you keeping my details.');
   assert.equal(d.current, 'phone');
@@ -135,7 +139,62 @@ test('"forget me" deletes the record under every contact it holds', async () => 
   await d.turn('555 210 4433');
   const r2 = await d.turn('yes');
   assert.match(r2, /deleted the details/);
-  assert.equal(await customers.get(customerKey('phone', '555-210-4433')), undefined);
-  assert.equal(await customers.get(customerKey('email', 'lucia.chen@gmail.com')), undefined);
+  assert.equal(await customers.get(key('phone', '555-210-4433')), undefined);
+  assert.equal(await customers.get(key('email', 'lucia.chen@gmail.com')), undefined);
   assert.equal(d.pending, null, 'nothing offered after forget');
+});
+
+test('two businesses never share a caller: the same phone gets two separate records, and forgetting at one leaves the other', async () => {
+  const customers = new MemoryStore(); // one shared store, the hardest case
+  const other = { scope: 'harbor-clinic', customerSecret: 'test-secret-harbor' };
+  for (const opts of [mem, other]) {
+    const d = nearlyDone(customers, opts);
+    await d.turn('lucia dot chen at gmail dot com');
+    await d.turn('yes');
+    await d.turn('yes please');
+  }
+  const a = key('phone', '555-210-4433'), b = customerKey('harbor-clinic', 'test-secret-harbor', 'phone', '555-210-4433');
+  assert.notEqual(a, b);
+  assert.ok(a.startsWith('cust:brookside:') && b.startsWith('cust:harbor-clinic:'));
+  assert.ok(await customers.get(a)); assert.ok(await customers.get(b));
+
+  // A desk at the second business, with the first one's record in the store, does not find it.
+  await customers.delete(b); await customers.delete(customerKey('harbor-clinic', 'test-secret-harbor', 'email', 'lucia.chen@gmail.com'));
+  const d = new Desk(brookside, { model: stub(), customers, ...other });
+  d.start();
+  await d.turn("Hi, I've been there before.");
+  await d.turn('555 210 4433');
+  await d.turn('yes');
+  assert.equal(d.pending, null, 'nothing offered from the other business');
+  assert.equal(d.values.child_name, undefined);
+
+  // "Forget me" at the second business leaves the first business's record.
+  const f = new Desk(brookside, { model: stub(), customers, ...other });
+  f.start();
+  await f.turn('Please forget me.');
+  await f.turn('555 210 4433');
+  await f.turn('yes');
+  assert.ok(await customers.get(a), 'the first business keeps its record');
+});
+
+test('customer keys need the business secret: a different secret gives an unrelated key', () => {
+  assert.notEqual(key('phone', '555-210-4433'), customerKey('brookside', 'another-secret', 'phone', '555-210-4433'));
+  assert.equal(key('phone', '(555) 210 4433'), key('phone', '+1 555 210 4433'), 'still normalized');
+  assert.notEqual(businessSecret('master', 'brookside'), businessSecret('master', 'harbor-clinic'));
+  assert.throws(() => customerKey('', SECRET, 'phone', '5552104433'));
+  assert.throws(() => customerKey('brookside', '', 'phone', '5552104433'));
+});
+
+test('a desk with customer memory refuses to start without a business id or a secret', () => {
+  const customers = new MemoryStore();
+  const saved = process.env.DESK_MEMORY_SECRET;
+  delete process.env.DESK_MEMORY_SECRET;
+  try {
+    assert.throws(() => new Desk(brookside, { model: stub(), customers, customerSecret: SECRET }), /business id/);
+    assert.throws(() => new Desk(brookside, { model: stub(), customers, scope: 'brookside' }), /customerSecret or DESK_MEMORY_SECRET/);
+    process.env.DESK_MEMORY_SECRET = 'master';
+    assert.doesNotThrow(() => new Desk(brookside, { model: stub(), customers, scope: 'brookside' }), 'a secret derived from the master');
+    delete process.env.DESK_MEMORY_SECRET;
+    assert.doesNotThrow(() => new Desk(brookside, { model: stub() }), 'no customer store, nothing needed');
+  } finally { if (saved !== undefined) process.env.DESK_MEMORY_SECRET = saved; }
 });

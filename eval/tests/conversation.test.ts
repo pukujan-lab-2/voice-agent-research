@@ -99,7 +99,7 @@ test('turns 1-3: the visitor says what they meant, then "Yeah." and "Is it gonna
 
 test('turn 4: "Can I file my tax return from here?" is answered from the FAQ passage Jev picked at 0.70, not "I don\'t know"', async () => {
   const { turn, guide } = site();
-  const r = await turn('You guide me how to file it. Can I file it from here?', 'Can I file my tax return from here?');
+  const r = await turn('So can I file my taxes online?', 'Can I file my tax return from here?');
   assert.ok(!isUnknown(r.reply));
   assert.match(r.reply, /Yes, you can file an original Form 1040 series tax return electronically/);
   assert.equal(guide.last?.id.slice(0, 8), 'b8590d3c');
@@ -107,7 +107,7 @@ test('turn 4: "Can I file my tax return from here?" is answered from the FAQ pas
 
 test('turn 5: the answer offers the new-client form, and a yes opens it', async () => {
   const s = site();
-  const r = await s.turn('You guide me how to file it. Can I file it from here?', 'Can I file my tax return from here?');
+  const r = await s.turn('So can I file my taxes online?', 'Can I file my tax return from here?');
   assert.match(r.reply, /new-client form/);
   assert.equal(questions(r.reply), 1, 'one follow-up');
   const yes = await s.turn('Yeah, go ahead');
@@ -127,7 +127,7 @@ test('the same passage for a different question says so instead of repeating the
   const s = site();
   await s.turn('So how do I file it?', 'How do I file my tax return?');
   // Jev favours the same FAQ passage for a rephrased question and there is no other candidate in the results
-  const again = await s.turn('Can I file it from here?', 'Can I file my tax return from here?', 'How do I file my tax return?');
+  const again = await s.turn('Can I file it online?', 'Can I file my tax return from here?', 'How do I file my tax return?');
   assert.match(again.reply, /same part of IRS FAQ I showed you before/);
   assert.doesNotMatch(again.reply, /Yes, you can file an original/);
 });
@@ -160,4 +160,12 @@ test('on the eval sets the rules alone ask back at least 25 of 100 vague questio
   assert.ok(asked('vague') >= 25, `asked back ${asked('vague')} of 100 vague questions`);
   assert.ok(asked('casual') + asked('chain') <= 3, `asked back ${asked('casual') + asked('chain')} of 200 clear questions`);
   assert.equal(asked('unanswerable'), 0);
+});
+
+test('turn 4 as the owner said it: "Can I file it from here?" gets the site\'s form offered at once, and "Yeah, go ahead" opens it', async () => {
+  const s = site();
+  const r = await s.turn('You guide me how to file it. Can I file it from here?', 'Can I file my tax return from here?');
+  assert.match(r.reply, /new-client form/);
+  assert.ok(!isUnknown(r.reply));
+  assert.equal((await s.turn('Yeah, go ahead')).go, '/tax/start');
 });

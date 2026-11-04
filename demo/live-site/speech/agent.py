@@ -14,11 +14,12 @@
 
 Every turn goes to Phoenix through Octo (speech/telemetry.py), in the page's call session: what was heard, and from the
 moment the caller stops talking, the end-of-turn wait (VAD and turn detector), STT, the engine's decision (which includes
-any library search) and the voice's first audio; barge-ins, failed RPC calls and speech errors too.
+any library search) and the voice's first audio; barge-ins, failed RPC calls and speech errors too. A watchdog
+(stall_watchdog.py) logs a stall (the caller spoke and no turn came of it) as an error span and starts the turn over.
 
 Run: speech/.venv/bin/python speech/agent.py dev    (server.ts starts it with the speech server)
 """
-import asyncio, json, os, time, uuid
+import asyncio, contextlib, inspect, json, os, re, time, uuid
 
 import aiohttp
 from livekit import rtc
@@ -29,9 +30,16 @@ from livekit.agents.types import DEFAULT_API_CONNECT_OPTIONS
 from livekit.plugins import silero
 from livekit.plugins.turn_detector.english import EnglishModel
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
+from stall_watchdog import StallWatchdog
 from telemetry import CallTelemetry
 
 SPEECH = os.environ.get('SPEECH_URL', 'http://127.0.0.1:8799')
+# On the VPS the agent sleeps between calls (#117): the shared Sablier stops it after 10 idle minutes and the site starts it when
+# the call button is pressed. Sablier counts it as ready once the container is healthy, which is once this file exists
+# (deploy/docker-compose.agent.yml mounts its directory as a tmpfs, so every start begins without it). Without SABLIER_URL (a
+# local run) nothing is renewed.
+REGISTERED = '/run/agent/registered'
+SABLIER_URL, SABLIER_NAME = os.environ.get('SABLIER_URL', ''), os.environ.get('SABLIER_NAME', '')
 with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'stacks.json')) as f:
     STACKS = json.load(f)
 
@@ -64,6 +72,7 @@ class LocalSTT(stt.STT):
         self.last_ms = 0
         self.last_confidence: float | None = None  # the model's mean token probability for the last turn, 0 to 1
         self.last_language = 'en'
+        self.on_request = lambda: None  # told when a turn's audio reaches the recogniser (the stall watchdog)
 
     @property
     def model(self) -> str:
@@ -92,6 +101,7 @@ class LocalSTT(stt.STT):
         return conn_options.timeout if self._voice.parts['listens'].startswith('parakeet') else max(conn_options.timeout, 60.0)
 
     async def _recognize_impl(self, buffer, *, language=None, conn_options: APIConnectOptions) -> stt.SpeechEvent:
+        self.on_request()
         frame = rtc.combine_audio_frames(buffer)
         t = time.perf_counter()
         v = self._voice
@@ -154,6 +164,10 @@ class _LocalStream(tts.ChunkedStream):
         output_emitter.flush()
 
 
+# "Hmm.", "uh", "um", "like": thinking aloud at the start of a turn is not part of the question (copilot-engine's stripFillers).
+FILLER = re.compile(r'^(?:(?:hmm+|hm+|uh+|um+|umm+|er+|erm|ah+|oh|well|like|so|okay so|you know|i mean)(?=[\s,.…-]|$)[\s,.…-]*)+', re.I)
+JOIN_WITHIN_S = 10.0  # more speech this soon after a reply was handed over, before it began, joins the earlier words
+
 class Copilot(Agent):
     """No LLM of its own: each finished turn goes to the copilot engine in the caller's page, and its reply is spoken."""
 
@@ -161,6 +175,11 @@ class Copilot(Agent):
         super().__init__(instructions='The copilot engine in the page decides every reply.')
         self._room, self._caller, self._stt, self._tts, self._tel, self._voice = room, caller, stt_, tts_, tel, voice
         self.turn: dict = {}
+        # The reply last handed to the voice and the words behind it: a reply that has not begun when more speech arrives is
+        # dropped, and the two pieces are one question (a pause in the middle of a sentence ends a turn too early).
+        self._speech = None
+        self._said = ''
+        self._said_at = 0.0
 
     async def _rpc(self, method: str, payload: dict, timeout: float = 45.0) -> dict:
         t = time.perf_counter()
@@ -183,10 +202,14 @@ class Copilot(Agent):
             self.session.say(r['say'], allow_interruptions=True)
 
     async def on_user_turn_completed(self, turn_ctx, new_message) -> None:
-        said = (new_message.text_content or '').strip()
+        said = FILLER.sub('', (new_message.text_content or '').strip()).strip()
         if not said:
-            raise StopResponse()
+            raise StopResponse()  # "hmm", "uh…": someone thinking, not a turn
         t = time.perf_counter()
+        sp = self._speech
+        if sp is not None and not sp.done() and self._tts.first_ms is None and t - self._said_at < JOIN_WITHIN_S:
+            sp.interrupt()  # the earlier reply never started: this is the rest of the same question
+            said = f'{self._said} {said}'.strip()
         turn = uuid.uuid4().hex
         heard = {'turn': turn, 'stt_ms': self._stt.last_ms, 'confidence': self._stt.last_confidence, 'language': self._stt.last_language}
         try:
@@ -199,14 +222,22 @@ class Copilot(Agent):
                      'kind': r.get('kind', ''), 'search_ms': r.get('searchMs')}
         if r.get('say'):
             self._tts.first_ms = None
-            self.session.say(r['say'], allow_interruptions=True)
+            self._speech = self.session.say(r['say'], allow_interruptions=True)
+            self._said, self._said_at = said, time.perf_counter()
+        else:  # nothing to say, so no first audio will close this turn's span: record it now
+            self._tel.turn({**self.turn, 'total_ms': round((time.perf_counter() - t) * 1000), 'end_of_turn_ms': 0}, time.time() - (time.perf_counter() - t), time.time())
+            self.turn = {}
         # The engine's reply is the whole response: no LLM runs after it.
         raise StopResponse()
 
 
 # One local caller at a time on a busy laptop: the machine's CPU load (a library load, the LiveKit VM) must not make the
 # worker turn calls away, so it is always available. Modules the agent loop would otherwise import mid-call are loaded first.
-server = AgentServer(num_idle_processes=1, load_fnc=lambda: 0.0, load_threshold=1.0, preload_modules=['filelock', 'numpy'])
+# A stop (docker stop, SIGTERM) drains instead of killing: LiveKit Agents 1.8.8 marks the worker full, so new calls go to a newer
+# worker, and waits for the calls it holds to end (cli/cli.py runs worker.drain() on the first TERM or INT in `start` mode). Its
+# default wait is an hour; this one is shorter, and docker-compose.agent.yml's stop_grace_period must stay longer than it.
+server = AgentServer(num_idle_processes=1, load_fnc=lambda: 0.0, load_threshold=1.0, preload_modules=['filelock', 'numpy'],
+                     drain_timeout=int(os.environ.get('AGENT_DRAIN_S', 1200)))
 
 
 def prewarm(proc: JobProcess):
@@ -214,6 +245,23 @@ def prewarm(proc: JobProcess):
 
 
 server.setup_fnc = prewarm
+
+
+# LiveKit Agents' own HTTP check (port 8081) answers OK before the worker has registered; a woken agent is ready only after this.
+@server.on('worker_registered')
+def _registered(*_):
+    with contextlib.suppress(OSError):  # the directory exists only in the container
+        open(REGISTERED, 'w').close()
+
+
+async def keep_awake(http: aiohttp.ClientSession) -> None:
+    """Renew this container's Sablier session every minute while a call is on. Each request to Sablier sets the session to end
+    10 minutes from then, and the call button's request is the only other one, so without this a long call would be cut."""
+    while True:
+        with contextlib.suppress(Exception):
+            async with http.get(f'{SABLIER_URL}/api/strategies/poke', params={'names': SABLIER_NAME}, timeout=aiohttp.ClientTimeout(total=5)):
+                pass
+        await asyncio.sleep(60)
 
 
 async def load_stack(http: aiohttp.ClientSession, stack: str) -> None:
@@ -243,6 +291,13 @@ async def entrypoint(ctx: JobContext):
     await ctx.connect()
     caller = await ctx.wait_for_participant()
     http = aiohttp.ClientSession()
+    if SABLIER_URL and SABLIER_NAME:
+        awake = asyncio.create_task(keep_awake(http))
+
+        async def _let_sleep():
+            awake.cancel()
+
+        ctx.add_shutdown_callback(_let_sleep)
     async with http.get(f'{SPEECH}/health') as r:
         health = await r.json()
     rates = health.get('rates') or {'pocket-tts': health.get('rate', 24000)}
@@ -257,9 +312,9 @@ async def entrypoint(ctx: JobContext):
         vad=ctx.proc.userdata['vad'], stt=stt_, tts=tts_,
         turn_handling={
             'turn_detection': turns,
-            # A third of a second of quiet ends a turn when the turn detector thinks the caller is done; up to 2 s when
-            # the sentence sounds unfinished ("my number is 512…").
-            'endpointing': {'min_delay': 0.3, 'max_delay': 2.0},
+            # Seven tenths of a second of quiet ends a turn when the turn detector thinks the caller is done; up to 4 s when
+            # the sentence sounds unfinished ("my number is 512…", or a pause to think in the middle of a question).
+            'endpointing': {'min_delay': 0.7, 'max_delay': 4.0},
             # Barge-in: 0.15 s of the caller's voice stops the copilot's (the page's echo cancellation keeps its own out).
             'interruption': {'enabled': True, 'mode': 'vad', 'min_duration': 0.15, 'min_words': 0},
             'preemptive_generation': {'enabled': False},
@@ -268,13 +323,18 @@ async def entrypoint(ctx: JobContext):
     )
 
     pending: dict = {}
+    dog = StallWatchdog()
+    stt_.on_request = dog.recognising
 
     # A turn's total: from the moment the caller stopped talking to the moment the copilot's voice started.
     @session.on('user_state_changed')
     def _user(ev):
-        if ev.new_state == 'speaking' and session.agent_state == 'speaking':
-            tel.barge_in()  # the caller talked over the copilot's voice
+        if ev.new_state == 'speaking':
+            dog.speech_started()
+            if session.agent_state == 'speaking':
+                tel.barge_in()  # the caller talked over the copilot's voice
         if ev.old_state == 'speaking' and ev.new_state != 'speaking':
+            dog.speech_ended()
             pending['stopped_at'] = ev.created_at
 
     @session.on('agent_state_changed')
@@ -311,6 +371,47 @@ async def entrypoint(ctx: JobContext):
     @session.on('close')
     def _close(ev):
         closed['reason'] = str(getattr(ev.reason, 'value', ev.reason)) + (f': {ev.error}' if ev.error else '')
+        print('session closed:', closed['reason'], flush=True)
+
+    # Why a call ended (#93): a live call lost its agent about a minute in with nothing in the log to say why. These lines name who
+    # left and the reason LiveKit gives, with what the session was doing.
+    @ctx.room.on('participant_disconnected')
+    def _left(p: rtc.RemoteParticipant):
+        print('participant left:', p.identity, 'reason', getattr(p, 'disconnect_reason', None), '| user', session.user_state, '| agent', session.agent_state, flush=True)
+
+    @ctx.room.on('disconnected')
+    def _room_gone(reason):
+        print('agent disconnected from the room:', reason, '| user', session.user_state, '| agent', session.agent_state, flush=True)
+
+    # The caller spoke and no turn came of it (stall_watchdog.py): the call is not left deaf. Say so in Phoenix, drop the
+    # half-made turn and the voice, and listen from the start. The call that stopped hearing its caller looked like this.
+    async def watch_for_stalls():
+        while True:
+            await asyncio.sleep(1)
+            try:
+                hit = dog.check()
+                if not hit:
+                    continue
+                kind, seen = hit
+                print('stall', kind, round(seen, 1), 's; starting the turn over', flush=True)
+                tel.failure('stall', f'{kind}: {seen:.0f} s', stall=kind, seconds=round(seen, 1), user_state=str(session.user_state), agent_state=str(session.agent_state))
+                agent.turn = {}
+                pending.clear()
+                # A detector stuck on speech also cuts the voice; a lost turn leaves a reply that is playing alone.
+                for reset in ((session.interrupt, session.clear_user_turn) if kind == 'speech-without-end' else (session.clear_user_turn,)):
+                    with contextlib.suppress(Exception):
+                        done = reset()
+                        if inspect.isawaitable(done):
+                            await asyncio.wait_for(done, 5)
+            except Exception as e:  # noqa: BLE001 - the watchdog must outlive whatever it finds
+                print('stall watchdog:', e, flush=True)
+
+    watcher = asyncio.create_task(watch_for_stalls())
+
+    async def _stop_watching():
+        watcher.cancel()
+
+    ctx.add_shutdown_callback(_stop_watching)
 
     ctx.room.local_participant.register_rpc_method('agent.say', agent_say)
 
@@ -325,6 +426,7 @@ async def entrypoint(ctx: JobContext):
     ctx.add_shutdown_callback(http.close)
 
     async def _sent(reason: str):
+        print('job shutdown:', reason or '-', '| session:', closed.get('reason', 'still open'), '| user', session.user_state, '| agent', session.agent_state, flush=True)
         await tel.close(closed.get('reason') or reason or 'room closed')
 
     ctx.add_shutdown_callback(_sent)

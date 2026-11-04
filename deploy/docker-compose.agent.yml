@@ -1,0 +1,62 @@
+# The voice agent, one compose project per release (deploy/vps/lib.sh starts it as `-p copilot-agent-<tag>`), so the new agent
+# starts while the old one is still on its calls. A fixed container name or one project would make compose replace the old
+# agent, and a replaced agent drops its calls (#67, #76). The old release gets SIGTERM instead: LiveKit Agents (speech/agent.py)
+# then takes no new calls and exits when its calls end, or after AGENT_DRAIN_S (default 1200 s).
+# The agent joins the LiveKit server of the main stack (docker-compose.vps.yml) through its network. See deploy/README.md.
+# Between calls it sleeps (#117): the VPS's one Sablier (server-management komodo/resources/platform.toml) stops it after 10 idle
+# minutes and the site starts it again when the call button is pressed (demo/live-site/sablier.ts). It is woken by its container
+# name, never by the group, because the group also holds the stopped agents of older releases.
+name: copilot-agent
+
+services:
+  agent:
+    container_name: ${COPILOT_PREFIX:-copilot}-agent-${AGENT_TAG:-local}
+    image: ${COPILOT_AGENT_IMAGE:-copilot-agent:local}
+    build:
+      context: ..
+      dockerfile: deploy/agent.Dockerfile
+    env_file:
+      - path: ${COPILOT_ENV_FILE:-../../copilot.env}
+        required: false
+    environment:
+      LIVEKIT_URL: ws://${LIVEKIT_HOST:-copilot-livekit}:7880
+      SPEECH_URL: ${SPEECH_URL:-http://host.docker.internal:18799}
+      AGENT_DRAIN_S: ${AGENT_DRAIN_S:-1200}
+      # During a call the agent renews its own Sablier session, so a call longer than the idle time is not cut.
+      SABLIER_URL: ${SABLIER_URL:-http://sablier:10000}
+      SABLIER_NAME: ${COPILOT_PREFIX:-copilot}-agent-${AGENT_TAG:-local}
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    labels:
+      copilot.role: agent
+      copilot.prefix: ${COPILOT_PREFIX:-copilot}
+      copilot.tag: ${AGENT_TAG:-local}
+      sablier.enable: "true"
+      sablier.group: ${COPILOT_PREFIX:-copilot}-agent
+    # Healthy once the worker has registered with LiveKit (speech/agent.py writes the file). LiveKit Agents' own HTTP check on
+    # port 8081 answers before that. Sablier counts a woken agent as ready only when it is healthy. The file is on a tmpfs, which
+    # Docker empties on every start: a stopped container keeps the rest of its filesystem, and a file left from the last run made
+    # a woken agent look ready 7 s before it had registered, so the call that woke it got no agent (#117).
+    tmpfs: [/run/agent]
+    healthcheck:
+      test: ["CMD", "test", "-f", "/run/agent/registered"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+      start_interval: 1s
+    # Longer than AGENT_DRAIN_S, so a plain `docker stop` also lets the calls finish; the spans of the last turns need a few more.
+    stop_grace_period: 1230s
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+    networks: [lk, sablier]
+
+networks:
+  lk:
+    name: ${COPILOT_NETWORK:-copilot_default}
+    external: true
+  sablier:
+    name: ${SABLIER_NETWORK:-sablier}
+    external: true

@@ -7,6 +7,9 @@
 import fs from 'node:fs';
 import { Desk, OpenAIChat, clearYes, docsFrom, normalize, type ChatModel } from '../src/desk.ts';
 import { MemoryStore, customerKey } from '../src/memory.ts';
+
+// Customer memory belongs to one business: the simulated desk runs as that business with a test secret.
+const SIM_SECRET = 'desk-sim-secret';
 import { brookside, brooksideDocs } from '../src/flows/brookside.ts';
 import { halvorsen } from '../src/flows/halvorsen.ts';
 import { halvorsenFilter } from '../src/manuals/halvorsen-filter.ts';
@@ -208,8 +211,8 @@ async function conversation(id: number) {
   const plan = makePlan(flow, truth, r);
   let submits = 0;
   const sessions = new MemoryStore(), customers = new MemoryStore();
-  if (plan.stored) { const ph = flow.fields.find(f => f.kind === 'phone')!; await customers.set(customerKey('phone', truth[ph.name]), { v: 1, flow: flow.id, savedAt: 0, values: plan.stored }); }
-  const newDesk = () => new Desk(flow, { model: agentModel, heavy: heavyModel, docs: docsFrom(passages, docJudge), hooks: { submit: () => { submits++; } }, sessions, customers });
+  if (plan.stored) { const ph = flow.fields.find(f => f.kind === 'phone')!; await customers.set(customerKey(flow.id, SIM_SECRET, 'phone', truth[ph.name]), { v: 1, flow: flow.id, savedAt: 0, values: plan.stored }); }
+  const newDesk = () => new Desk(flow, { model: agentModel, heavy: heavyModel, docs: docsFrom(passages, docJudge), hooks: { submit: () => { submits++; } }, sessions, customers, scope: flow.id, customerSecret: SIM_SECRET });
   let desk = newDesk();
   const lines = [`AGENT: ${desk.start()}`];
   const turnsLog: typeof desk.turns = [];
@@ -310,7 +313,7 @@ async function conversation(id: number) {
     turnsLog.push(desk.turns[desk.turns.length - 1]);
     lines.push(`USER [remember_${wantYes ? 'yes' : 'no'}]: ${said}`, `AGENT (${turnsLog[turnsLog.length - 1].ms}ms): ${reply}`);
     const ph = flow.fields.find(f => f.kind === 'phone');
-    const rec = ph && desk.values[ph.name] ? await customers.get(customerKey('phone', desk.values[ph.name])) as { savedAt: number; values: Record<string, string> } | undefined : undefined;
+    const rec = ph && desk.values[ph.name] ? await customers.get(customerKey(flow.id, SIM_SECRET, 'phone', desk.values[ph.name])) as { savedAt: number; values: Record<string, string> } | undefined : undefined;
     const storedNow = !!rec && rec.savedAt > 0;
     add('stored_only_on_clear_yes', storedNow === clearYes(said) && (!rec || !Object.keys(rec.values).some(k => { const f = desk.field(k); return !f || f.kind === 'text' || f.kind === 'serial' || f.kind === 'choice'; })), `said="${said}" stored=${storedNow}`);
   }

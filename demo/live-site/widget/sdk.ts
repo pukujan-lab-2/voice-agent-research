@@ -18,16 +18,17 @@
 //   copilot.onNavigate(fn)       the site's client-side navigate, so the copilot can change page without ending the call
 //   copilot.subscribe(fn) / copilot.getSnapshot()   the state to draw (works with React's useSyncExternalStore)
 import { Desk, type ChatModel } from '../../../copilot-engine/src/desk.ts';
-import { Guide, type Manual, NO_ANSWER } from '../../../copilot-engine/src/guide.ts';
-import { Dialogue, type Offer } from '../../../copilot-engine/src/dialogue.ts';
+import { Guide, shortQuote, type Manual, NO_ANSWER } from '../../../copilot-engine/src/guide.ts';
+import { Dialogue, ownQuestion, type Offer } from '../../../copilot-engine/src/dialogue.ts';
 import { flowFromPage, readInPage, type PageForm } from '../../../copilot-engine/src/page.ts';
 import type { Flow, Model } from '../../../copilot-engine/src/types.ts';
 import { forDisplay, forSpeech } from '../../../copilot-engine/src/guard.ts';
 import { Verifier, WANTS_VERIFY, type ReturnCard } from '../../../copilot-engine/src/verify.ts';
 import { DomFiller } from './dom-filler.ts';
 import { stackForLanguage } from './voice-choice.ts';
+import { watchAgent } from './agent-watch.ts';
 import { API_BASE } from './config.ts';
-import { callId, loadSiteConfig, newCall, RemoteDeskModel, RemoteJudge, RemoteModel, RemoteRetriever, RemoteVerify, report, setDeskBusiness, setDeskStack, setReplyLanguage, toReplyLanguage, warmUp } from './remote.ts';
+import { callId, loadSiteConfig, newCall, RemoteDeskModel, RemoteJudge, RemoteModel, RemoteRetriever, RemoteSmartModel, RemoteVerify, report, setBrainPick, setDeskBusiness, setDeskStack, setReplyLanguage, toReplyLanguage, warmUp } from './remote.ts';
 import { beginCall, endCall, failure, happened, logTurn, markDesk, notePage, noteVoice, type DeskMark } from './calllog.ts';
 
 export type Config = {
@@ -54,6 +55,8 @@ export type Config = {
 };
 export type Language = { code: string; name: string; native: string };
 export type VoiceStack = { id: string; label: string; languages: Language[] };
+// One Brain the picker offers (#97): the local model always, a smart one only when the server put this request in scope.
+export type BrainOption = { id: 'local' | 'smart' | 'smart-always'; label: string; smart: boolean };
 // The document an answer was quoted from, shown by the site's source viewer while snapshot.source is set. doc is the
 // library id (GET /api/library/doc?doc=…); page is the printed PDF's page (PDF sources), anchor the section (articles).
 export type Source = { label: string; title: string; credit: string; doc: string; page?: number; anchor?: string; href: string; quote: string[]; found: boolean | null };
@@ -85,6 +88,9 @@ export type Snapshot = {
   language: string;                    // the caller's pick ('' = not picked: the agent asks and goes by what it hears)
   languages: Language[];               // what the picker offers: every allowed stack's before a call, the call's stack's during one
   spokenLanguage: string;              // the language the recogniser last heard on this call ('' before the first turn)
+  brains: BrainOption[];               // what the Brain picker offers: the local model always, smart ones in scope only (#97)
+  brain: string;                       // the pick ('local' by default, rides on the desk request like the stack)
+  owner: boolean;                      // the owner is signed in on this page (the cookie the sign-in set)
 };
 
 type Mode = 'form' | 'guide' | 'ask';
@@ -96,7 +102,8 @@ const subs = new Set<() => void>();
 function blank(): Snapshot {
   return { mounted: false, open: false, voice: false, mic: canHear() ? 'off' : 'unavailable', textInput: false, status: 'idle', busy: false,
     heard: '', mode: 'form', modes: [], business: '', can: [], large: false, messages: [], startedAt: 0, wait: null, source: null, account: null,
-    voiceStacks: [], stack: '', language: '', languages: [], spokenLanguage: '' };
+    voiceStacks: [], stack: '', language: '', languages: [], spokenLanguage: '', brains: [{ id: 'local', label: 'LFM3 (local, default)', smart: false }],
+    brain: 'local', owner: false };
 }
 function set(p: Partial<Snapshot>) {
   snap = { ...snap, ...p };
@@ -150,8 +157,14 @@ let lastSearchMs: number | undefined;
 
 // Until the agent picks up, the caller hears a soft ringback made here (two short tones every 3 s, no audio file, no
 // browser speech). With no agent after AGENT_WAIT_MS, the call carries on as text instead of sitting on "Connecting…".
-// A cold local worker can take over 20 seconds to register while loading speech models.
+// A cold local worker can take over 20 seconds to register while loading speech models. On the VPS the agent sleeps between
+// calls and the server wakes it before it hands out the token (sablier.ts), so the ringing starts before the token is asked for.
 const AGENT_WAIT_MS = 45_000;
+// The voice agent can leave a call that is still going (its container replaced, a crash). A new agent only joins a room
+// when it is created, so the page opens a fresh room and carries on, twice at most (#67).
+const AGENT_REJOINS = 2;
+let agentRejoins = 0;
+let agentWatch: ReturnType<typeof watchAgent> | null = null; // decides whether the agent has really left (agent-watch.ts)
 let ring: { ctx: AudioContext; timer: ReturnType<typeof setInterval> } | null = null;
 let agentTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -202,10 +215,13 @@ function sayIt(text: string) {
   if (room && agent) void room.localParticipant.performRpc({ destinationIdentity: agent, method: 'agent.say', payload: JSON.stringify({ text }) }).catch(e => { report('voice', `agent.say: ${(e as Error).message}`); failure('rpc', `agent.say: ${(e as Error).message}`, { method: 'agent.say', text }); });
 }
 // A library search can take several seconds: on a call, the caller hears that it is looking rather than silence.
+// A search that answers within a moment says nothing first; one that runs on gets a short line that is never the one
+// before it (code picks it: a topic line when the question's topic is known, never a claim that anything was found).
+const WAIT_MS = 1200;
 async function searched(text: string) {
-  if (room && snap.voice) sayNow('Let me check the tax guides.');
   const t0 = performance.now();
-  try { return await libraryReply(text); } finally { lastSearchMs = Math.round(performance.now() - t0); }
+  const timer = room && snap.voice ? setTimeout(() => sayNow(talk().waitLine(text)), WAIT_MS) : undefined;
+  try { return await libraryReply(text); } finally { clearTimeout(timer); lastSearchMs = Math.round(performance.now() - t0); }
 }
 
 function agentIdentity(): string {
@@ -225,7 +241,7 @@ function agentState(state: string | undefined) {
 // Small talk is answered at once and never searched: "can you hear me", "hello?", "are you there", "sorry, what?",
 // "wait", "thanks", "can I ask you about taxes?", "what can you help with?". Every part of what was said has to be small talk, so "hello, how do I file an extension" is a question.
 const SMALL_TALK: [RegExp, string][] = [
-  [/^(hello|hallo|hi|hey|hey there|hi there|hello there|um|uh|hmm|testing|test|testing testing|mic check)$/, 'here'],
+  [/^(hello|hallo|hi|hey|hey there|hi there|hello there|testing|test|testing testing|mic check)$/, 'here'],
   [/^(can|could|do|did) you (hear|here|understand) me( now| ok| okay| alright| at all)?$|^(are|r) you (there|still there|listening|hearing me|with me|on)$|^(is )?(anyone|anybody|somebody|someone) (there|home)$|^is (this|it) (working|on)$|^hello can you hear me$/, 'hear'],
   [/^(sorry|pardon|pardon me|what|what was that|come again|say that again|say again|can you repeat that|could you repeat that|repeat that|repeat|huh|excuse me|i didn't catch that|i didnt catch that|sorry what)$/, 'repeat'],
   [/^(wait|hold on|hang on|one sec|one second|one moment|just a sec|just a second|just a moment|give me a sec|give me a second|wait a second|wait a minute|hold on a sec|hold on a second|sorry wait)$/, 'wait'],
@@ -258,7 +274,8 @@ function helpLine(): string {
 }
 
 // From the caller's tap on "Start voice call": the microphone first, and nothing is said until they have answered.
-async function startVoice() {
+async function startVoice(rejoin = false) {
+  if (!rejoin) agentRejoins = 0;
   const seq = ++voiceSeq;
   set({ status: 'waiting' });
   let lk: LiveKit;
@@ -278,6 +295,7 @@ async function startVoice() {
     return;
   }
   if (seq !== voiceSeq || !snap.open) { micTrack.stop(); micTrack = null; return; }
+  startRing();
   let grant: { url: string; token: string; stack: string; language: string };
   try {
     const r = await fetch(`${API_BASE}/api/voice/token`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(voiceAsk()) });
@@ -291,6 +309,7 @@ async function startVoice() {
     toText("Voice isn't available right now, so let's carry on by typing. Your answers go in the box below.");
     return;
   }
+  if (seq !== voiceSeq) return; // hung up while the agent woke: stopVoice has let go of the microphone and the ringing
   const rm = new lk.Room({ adaptiveStream: false, dynacast: false });
   room = rm;
   // The agent says which speech models it runs; the call id it gets back puts its own spans in this call's session.
@@ -326,7 +345,33 @@ async function startVoice() {
     document.body.appendChild(el);
   });
   rm.on(lk.RoomEvent.ParticipantAttributesChanged, (_changed, p) => { if (p.isAgent) agentState(p.attributes['lk.agent.state']); });
-  rm.on(lk.RoomEvent.Disconnected, () => { if (room === rm && snap.voice) toText("The voice line dropped, so let's carry on by typing."); });
+  // A disconnect event for the agent is not the agent leaving: livekit-client sends one for every remote participant when it
+  // reconnects. The page waits for the reconnect to finish, then checks the room before it opens a new one (#95).
+  const watch = agentWatch = watchAgent(rm, () => {
+    if (room !== rm || !snap.voice) return;
+    failure('agent-lost', 'the voice agent left the call', { rejoin: agentRejoins + 1 });
+    if (agentRejoins >= AGENT_REJOINS) { toText("The voice line dropped, so let's carry on by typing."); return; }
+    agentRejoins++;
+    stopVoice(); void startVoice(true);
+  });
+  rm.on(lk.RoomEvent.ParticipantDisconnected, p => { if (p.isAgent && room === rm && snap.voice) watch.agentLeft(); });
+  rm.on(lk.RoomEvent.ParticipantConnected, p => { if (p.isAgent) watch.agentJoined(); });
+  rm.on(lk.RoomEvent.Reconnecting, () => watch.reconnecting());
+  rm.on(lk.RoomEvent.Reconnected, () => watch.reconnected());
+  rm.on(lk.RoomEvent.Disconnected, async () => {
+    if (room !== rm || !snap.voice) return;
+    // Our own connection to the server dropped for good: connect this room again with the same token before giving up on the call.
+    if (agentRejoins < AGENT_REJOINS) {
+      agentRejoins++;
+      failure('voice-reconnect', 'the connection dropped; connecting the same room again', { rejoin: agentRejoins });
+      try {
+        await rm.connect(grant.url, grant.token);
+        if (room === rm && micTrack) { await rm.localParticipant.publishTrack(micTrack, { source: lk.Track.Source.Microphone }); if (muted) await micTrack.mute(); }
+        return;
+      } catch (e) { report('voice', `reconnect: ${(e as Error).message}`); }
+    }
+    if (room === rm && snap.voice) toText("The voice line dropped, so let's carry on by typing.");
+  });
   // What the agent heard, live on screen ("heard: …"). A secret answer is never shown.
   rm.registerTextStreamHandler('lk.transcription', async (reader, from) => {
     if (from.identity !== rm.localParticipant.identity) return;
@@ -334,7 +379,6 @@ async function startVoice() {
     if (room === rm && snap.voice) set({ heard: verifier?.secretOpen() ? '••••' : text.trim() });
   });
   try {
-    startRing();
     agentTimer = setTimeout(() => {
       if (room !== rm || agentIdentity()) return;
       report('voice', `no agent after ${AGENT_WAIT_MS} ms`);
@@ -415,11 +459,45 @@ async function loadVoiceOptions() {
     const current = stackLanguages(o.stack);
     set({ languages, language: snap.language || (current.length === 1 ? current[0].code : '') });
   } catch { /* no voice options: the call still starts on the server's default */ }
+  void loadBrainOptions();
+}
+
+// What the Brain picker offers on this page (#97): the server builds the list for this request's scope, so signing in as the
+// owner (or moving to a development host) changes what is here after the next load. A failure keeps the local option only.
+// The owner's auth is the cookie `/api/owner` set: the token itself is never kept in the page.
+async function loadBrainOptions() {
+  try {
+    const r = await fetch(`${API_BASE}/api/brain/options`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ brain: snap.brain }) });
+    if (!r.ok) return;
+    const o: { scope: string; pick: string; options: BrainOption[] } = await r.json();
+    const smartGone = !o.options.some(b => b.id === snap.brain);
+    set({ brains: o.options, brain: smartGone ? 'local' : snap.brain, owner: o.scope === 'owner' });
+    setBrainPick(smartGone ? null : snap.brain);
+  } catch { /* no brain options: the picker shows the local model only */ }
+}
+
+// The owner's sign-in on the page (#97): the token is typed into the field, POSTed once, and only the cookie it sets comes
+// back. The token is never written to page source, a URL, localStorage or the snapshot. An empty token signs out.
+async function ownerSignIn(token: string): Promise<boolean> {
+  try {
+    const r = await fetch(`${API_BASE}/api/owner`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ token }) });
+    if (!r.ok) return false;
+    void loadBrainOptions();
+    return true;
+  } catch { return false; }
+}
+
+// The pick for the next turn (#97). `local` clears the pick; anything else rides on the desk requests until changed.
+function setBrain(id: string) {
+  if (!snap.brains.some(b => b.id === id)) return; // not offered on this page: ignored
+  set({ brain: id });
+  setBrainPick(id === 'local' ? null : id);
 }
 
 function stopVoice() {
   voiceSeq++;
   stopRing();
+  agentWatch?.stop(); agentWatch = null;
   const rm = room; room = null; collect = null;
   void rm?.disconnect();
   micTrack?.stop(); micTrack = null;
@@ -439,7 +517,8 @@ function toText(msg?: string) {
 const IDLE_MS = 290_000;
 let modelUsedAt = 0;
 const remoteModel = new RemoteModel();
-const remoteDesk = new RemoteDeskModel();
+const remoteSmart = new RemoteSmartModel();
+const remoteDesk = new RemoteDeskModel(remoteSmart);
 async function timed<T>(call: () => Promise<T>): Promise<T> {
   const t0 = Date.now();
   const cold = t0 - modelUsedAt > IDLE_MS;
@@ -453,6 +532,9 @@ async function timed<T>(call: () => Promise<T>): Promise<T> {
 const model: Model = { name: 'remote', understand: input => timed(() => remoteModel.understand(input)) };
 // The desk's model turn (LFM3).
 const deskModel: ChatModel = { name: remoteDesk.name, chat: (m, t, o) => timed(() => remoteDesk.chat(m, t, o)) };
+// The hosted model for a hard desk turn: only when the server says this request may use one (a development host or the owner).
+// Questions and long turns still go to the local model first; the desk escalates only where code rejects the local model's answer.
+const deskHeavy = { heavy: remoteSmart as ChatModel, hybrid: true, route: () => false };
 function warm() {
   if (Date.now() - modelUsedAt < IDLE_MS) return;
   void warmUp().then(() => { modelUsedAt = Date.now(); });
@@ -505,7 +587,7 @@ function startFormNow() {
   if (parts++) flow.intro = `Thanks. On to the next part.`;
   firstEl = document.querySelector(`[data-copilot-id="${form.fields[0].id}"]`);
   const filler = new DomFiller(form);
-  desk = new Desk(flow, { model: deskModel, hooks: filler, answer: answerFor, unknown: manual ? manual.unknown ?? NO_ANSWER : undefined, finish: flow.doneMessage });
+  desk = new Desk(flow, { model: deskModel, ...deskHeavy, hooks: filler, answer: answerFor, unknown: manual ? manual.unknown ?? NO_ANSWER : undefined, finish: flow.doneMessage });
   const draft = takeDraft();
   if (draft) {
     // Back on a form left half filled during this call: its answers go back in and the open question is asked.
@@ -649,19 +731,29 @@ function deskRoute(text: string): { reply: string; links: Message['links'] } | n
 // viewer, or the manual's; null when nothing answers. The links and source go on the reply's message.
 let answered: { links: Message['links']; source?: Source } | null = null;
 function takeAnswered() { const a = answered; answered = null; return a; }
-async function answerFor(q: string): Promise<string | null> {
+let saidNow = ''; // what the visitor said this turn, before the desk model rewrote it
+async function answerFor(q0: string): Promise<string | null> {
   if (!lookup) return null;
   if (cfg?.desk) {
-    // The model chose to look this up; code asks back first when the question is too vague to quote an answer to.
-    const ask = snap.mode === 'ask' ? talk().clarify(q) : null;
+    // The model chose to look this up. A fragment is attached to the question before it, then code asks back first
+    // when the question is too vague to quote an answer to.
+    const asking = snap.mode === 'ask';
+    const q = asking ? talk().resolve(q0) : q0;
+    const ask = asking ? talk().clarify(q) : null;
     if (ask) return ask;
-    const r = await searched(q);
+    lookup.also = asking ? ownQuestion(saidNow) : ''; // the visitor's own words are searched too
+    let r: Awaited<ReturnType<typeof searched>>;
+    try { r = await searched(q); } finally { lookup.also = ''; }
     if (r.asked) return r.reply; // asked which of two meanings: nothing was quoted
-    if (!lookup.last) return null;
+    if (!lookup.last) {
+      // Nothing answers: the first time the plain "I don't know"; after that something else, never the same line twice.
+      const near = lookup.lastNearest;
+      return asking ? talk().refusal(q, near && { src: near.cite?.title.split(', ')[0] ?? 'the guides', quote: shortQuote(near.text, q) }) : null;
+    }
     answered = { links: r.links, source: r.source };
     return r.reply;
   }
-  const reply = await lookup.lookup(q);
+  const reply = await lookup.lookup(q0);
   const p = lookup.last;
   if (!p) return null;
   answered = { links: p.cite ? [{ text: p.cite.title, href: p.cite.url }] : [] };
@@ -676,7 +768,7 @@ function talk(): Dialogue { return (talking ??= new Dialogue({ offers: cfg?.desk
 function askDesk(): Desk {
   if (!asker) {
     asker = new Desk({ id: 'ask', business: cfg!.business, scope: (cfg!.manual?.title ?? 'documents').toLowerCase(), intro: cfg!.desk!.greeting, doneMessage: '', fields: [] },
-      { model: deskModel, answer: answerFor, unknown: manual ? manual.unknown ?? NO_ANSWER : undefined });
+      { model: deskModel, ...deskHeavy, answer: answerFor, unknown: manual ? manual.unknown ?? NO_ANSWER : undefined });
     asker.start();
   }
   return asker;
@@ -702,7 +794,7 @@ async function libraryReply(text: string): Promise<{ reply: string; links: Messa
     const d = talk();
     const repeated = lookup!.lastRepeat;
     if (!repeated) d.note(text, src.title, quote);
-    return { reply: d.phrase({ src: src.title, where, quote, found: !!found, repeated, question: text }), links, source: snap.source ?? src };
+    return { reply: d.phrase({ src: src.title, where, quote, found: !!found, repeated, question: text, closest: lookup!.lastClosest }), links, source: snap.source ?? src };
   }
   return {
     reply: found ? `I've opened ${src.title}${where ? `, ${where}` : ''}. The highlighted part says: ${quote}`
@@ -986,6 +1078,7 @@ async function send(text: string, voice?: Record<string, unknown>): Promise<stri
   if (!cfg || snap.busy || !text) return '';
   set({ busy: true, status: 'thinking' });
   const turnAt = Date.now();
+  saidNow = text;
   // a form still loading (see startForm) is read before this answer goes in
   for (let i = 0; waitingForm && i < 60; i++) await new Promise(r => setTimeout(r, 100));
   // What a caller says to a secret question (date of birth, last four, zip) is never shown on screen.
@@ -1157,6 +1250,8 @@ addEventListener('pagehide', () => { if (snap.open) endCall('left', formOn()); }
 
 const api = {
   mount, unmount: () => unmount(), start, end, toggleMic, setMode, showSource, closeSource, setLanguage, setStack,
+  // The Brain picker (#97): the pick for the next turn, and the owner's sign-in on the page (the token is typed, never stored).
+  setBrain, ownerSignIn,
   // The site's router, so the copilot changes page without a reload (and the call stays on): copilot.onNavigate(p => navigate(p)).
   onNavigate: (fn: (path: string) => void) => { navigateFn = fn; },
   // The staff app's session, so the copilot can look clients up by name (read-only).

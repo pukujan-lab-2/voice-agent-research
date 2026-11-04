@@ -11,12 +11,34 @@ import {
   FormInput,
 } from "lucide-react";
 import { useCopilot } from "@/hooks/useCopilot";
-import type { CopilotMessage, CopilotSnapshot } from "@/lib/copilot";
+import type { CopilotMessage, CopilotSnapshot, CopilotBrainOption } from "@/lib/copilot";
 import { cn } from "@/lib/utils";
 import { SourceChip } from "@/components/tax/SourceChip";
 import { ReturnCard } from "@/components/tax/ReturnCard";
 
 /* ---------- helpers ---------- */
+
+/** The Brain picker (#97): which model decides. The server lists smart options only for a request in scope; a visitor
+ *  sees the local model only, and the server refuses a smart pick regardless of what this select sends. */
+function BrainPicker({ snapshot }: { snapshot: CopilotSnapshot }) {
+  const brains = snapshot.brains ?? [];
+  if (brains.length < 1) return null;
+  return (
+    <span className="copilot-voice-picker">
+      <select
+        className="copilot-select"
+        aria-label="Brain"
+        data-testid="call-brain"
+        value={snapshot.brain ?? "local"}
+        onChange={(e) => window.copilot?.setBrain?.(e.target.value)}
+      >
+        {brains.map((b: CopilotBrainOption) => (
+          <option key={b.id} value={b.id}>{b.label}</option>
+        ))}
+      </select>
+    </span>
+  );
+}
 
 /** The caller's language (and, when the business offers several, the voice stack), by the call button and during a call. */
 function VoicePicker({ snapshot, inCall }: { snapshot: CopilotSnapshot; inCall: boolean }) {
@@ -56,8 +78,45 @@ function VoicePicker({ snapshot, inCall }: { snapshot: CopilotSnapshot; inCall: 
   );
 }
 
-function StatusIcon({ status }: { status: string }) {
-  if (status === "speaking")
+/** The owner's sign-in on the page (#97): the token is typed once, POSTed, and only the cookie the server sets comes back.
+ *  The token is never kept in the page's source, a URL, localStorage or the snapshot; the field clears on submit. */
+function OwnerSignIn({ snapshot }: { snapshot: CopilotSnapshot }) {
+  const [token, setToken] = useState("");
+  const [state, setState] = useState<"idle" | "wrong" | "ok">("idle");
+  if (!snapshot.owner && state !== "idle" && state !== "wrong") setState("idle");
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const ok = token ? await window.copilot?.ownerSignIn?.(token) : await window.copilot?.ownerSignIn?.("");
+    setState(ok ? "ok" : "wrong");
+    setToken("");
+  };
+  return (
+    <form className="copilot-owner-signin" onSubmit={submit} data-testid="owner-signin">
+      {snapshot.owner || state === "ok" ? (
+        <>
+          <span className="copilot-owner-state" data-testid="owner-state">Owner</span>
+          <button type="submit" className="copilot-owner-btn" data-testid="owner-signout">Sign out</button>
+        </>
+      ) : (
+        <>
+          <input
+            type="password"
+            className="copilot-owner-input"
+            placeholder="Owner token"
+            aria-label="Owner token"
+            value={token}
+            onChange={(e) => { setToken(e.target.value); if (state === "wrong") setState("idle"); }}
+            autoComplete="off"
+          />
+          <button type="submit" className="copilot-owner-btn" data-testid="owner-submit" disabled={!token}>Sign in</button>
+          {state === "wrong" && <span className="copilot-owner-wrong">Wrong token</span>}
+        </>
+      )}
+    </form>
+  );
+}
+
+function StatusIcon({ status }: { status: string }) {  if (status === "speaking")
     return (
       <span className="copilot-bars" aria-hidden="true">
         <span /><span /><span /><span />
@@ -246,6 +305,7 @@ export function CopilotWidget() {
           Start voice call
         </button>
         <VoicePicker snapshot={snapshot} inCall={false} />
+        <BrainPicker snapshot={snapshot} />
         <button
           type="button"
           className="copilot-btn-ghost"
@@ -374,6 +434,7 @@ export function CopilotWidget() {
         </div>
         <div className="copilot-controls-row">
           {snapshot.voice && <VoicePicker snapshot={snapshot} inCall />}
+          <BrainPicker snapshot={snapshot} />
           <button
             type="button"
             className={cn(
@@ -539,6 +600,8 @@ export function CopilotWidget() {
           Fictional demo. You review the form and press the final button.
         </div>
       )}
+
+      {expanded && <OwnerSignIn snapshot={snapshot} />}
     </div>
   );
 

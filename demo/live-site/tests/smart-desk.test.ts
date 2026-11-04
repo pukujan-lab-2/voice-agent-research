@@ -1,0 +1,272 @@
+// Smart model slots on the live backend (#79): a hosted model may answer a hard desk turn only for a development host or the owner,
+// under a daily cap, with a timeout that leaves the local answer in place, and never under a model name the product may not use.
+// The local model and the hosted gateway are stubbed at fetch; nothing leaves the machine.
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { createApi, type ApiEnv } from '../api.ts';
+import type { SpanSpec } from '../tracing.ts';
+
+type Seen = { url: string; auth: string | null; body: Record<string, any> };
+let seen: Seen[] = [];
+let gateway: (init: RequestInit) => Promise<Response> = async () => reply('cb/deepseek-v4.1-flash');
+const reply = (model: string, content = 'smart says hi') => new Response(JSON.stringify({ model, choices: [{ message: { content } }] }), { status: 200 });
+globalThis.fetch = (async (url: string | URL, init: RequestInit = {}) => {
+  const u = String(url);
+  if (u.startsWith('http://llm.test') || u.startsWith('http://gw.test')) {
+    seen.push({ url: u, auth: new Headers(init.headers).get('authorization'), body: JSON.parse(String(init.body)) });
+    if (u.startsWith('http://llm.test')) return reply('lfm3', 'local says hi');
+    return gateway(init);
+  }
+  return new Response(JSON.stringify({ rows: [] }), { status: 200 });
+}) as typeof fetch;
+
+const BASE: ApiEnv = { OPENROUTER_JEV_KEY: 'k', OCTO_KEY: 'k', OCTO_WORKSPACE: 'ws', OCTO_BASE: 'http://octo.test/api', SIGNING_SECRET: 's', STATE_STORE: 'memory', RATE_PER_MIN: '1000',
+  DESK_URL: 'http://llm.test/v1' };
+const SMART: ApiEnv = { ...BASE, DESK_HYBRID: '1', SLOT_DESK_PROVIDER: 'inferhub', SLOT_DESK_MODEL: 'deepseek-v4.1-flash', INFERHUB_BASE_URL: 'http://gw.test/v1', INFERHUB_API_KEY: 'lease-key-for-test' };
+const messages = [{ role: 'system', content: 'You are the desk.' }, { role: 'user', content: 'hello there' }];
+const VISITOR = 'https://copilot.example.com', DEV = 'http://localhost:8787';
+const spans: SpanSpec[] = [];
+const make = (env: ApiEnv) => createApi(env, { trace: s => { spans.push(s); } });
+type Reply = { status: number; headers: Headers } & Record<string, any>;
+const desk = async (api: ReturnType<typeof make>, origin: string, extra: Record<string, unknown> = {}, headers: Record<string, string> = {}): Promise<Reply> => {
+  const r = await api.handle(new Request(`${origin}/api/desk`, { method: 'POST', headers, body: JSON.stringify({ messages, tools: [], ...extra }) }), '1.2.3.4');
+  return { status: r.status, headers: r.headers, ...(await r.json() as object) };
+};
+const gatewayCalls = () => seen.filter(s => s.url.startsWith('http://gw.test'));
+const reset = () => { seen = []; spans.length = 0; gateway = async () => reply('cb/deepseek-v4.1-flash'); };
+
+test('with no smart slot configured nothing arms: the local model answers and a smart ask is refused', async () => {
+  reset();
+  const api = make(BASE);
+  const a = await desk(api, DEV);
+  assert.equal(a.content, 'local says hi'); assert.equal(a.smart, false); assert.equal(a.provider, 'local'); assert.equal(a.slot, 'desk');
+  const b = await desk(api, DEV, { smart: true });
+  assert.equal(b.status, 409); assert.equal(b.reason, 'off');
+  assert.equal(gatewayCalls().length, 0);
+});
+
+test('DESK_KEY reaches the local model as its bearer key', async () => {
+  reset();
+  await desk(make({ ...BASE, DESK_KEY: 'desk-key-for-test' }), VISITOR);
+  assert.equal(seen[0].auth, 'Bearer desk-key-for-test');
+  reset();
+  await desk(make(BASE), VISITOR);
+  assert.equal(seen[0].auth, null);
+});
+
+test('the hybrid is the default: an ordinary visitor gets the smart model on a hard turn (#101), while smart-always still needs scope', async () => {
+  reset();
+  const api = make(SMART);
+  const a = await desk(api, VISITOR);
+  assert.equal(a.smart, true, 'the page may ask: the hybrid is on for everyone');
+  const b = await desk(api, VISITOR, { smart: true });
+  assert.equal(b.status, 200); assert.equal(b.provider, 'inferhub');
+  // "smart always" (every turn) is the owner's or a development host's reach, not a visitor's
+  const always = await desk(api, VISITOR, { brain: 'smart-always' });
+  assert.equal(always.status, 200); assert.equal(always.provider, 'local', 'falls back to the local model, not an error');
+  const alwaysOwner = await desk(api, VISITOR, { brain: 'smart-always' }, { 'x-owner-token': '' });
+  assert.equal(alwaysOwner.provider, 'local');
+  // a visitor claiming a development host from behind a proxy is still a visitor for smart-always
+  const proxied = await desk(api, DEV, { brain: 'smart-always' }, { 'cf-connecting-ip': '8.8.8.8' });
+  assert.equal(proxied.provider, 'local');
+  assert.equal(gatewayCalls().length, 1, 'only the hard-turn escalation reached the gateway');
+});
+
+test('DESK_HYBRID=0 turns the escalation off explicitly; a missing key turns it off too', async () => {
+  reset();
+  assert.equal((await desk(make({ ...SMART, DESK_HYBRID: '0' }), DEV, { smart: true })).reason, 'off');
+  assert.equal((await desk(make({ ...SMART, INFERHUB_API_KEY: '' }), DEV, { smart: true })).reason, 'no-key');
+  assert.equal(gatewayCalls().length, 0);
+});
+
+test('the owner: a token in a header or the cookie, only with the owner switch on, set by /api/owner', async () => {
+  reset();
+  const OWN: ApiEnv = { ...SMART, SMART_OWNER: '1', OWNER_TOKEN: 'owner-secret-for-test' };
+  const api = make(OWN);
+  // smart-always (every turn) is the owner's reach: the token in a header or the cookie
+  assert.equal((await desk(api, VISITOR, { brain: 'smart-always' }, { 'x-owner-token': 'owner-secret-for-test' })).provider, 'inferhub');
+  assert.equal((await desk(api, VISITOR, { brain: 'smart-always' }, { cookie: 'a=b; copilot_owner=owner-secret-for-test' })).provider, 'inferhub');
+  assert.equal((await desk(api, VISITOR, { brain: 'smart-always' }, { cookie: 'copilot_owner=wrong' })).provider, 'local');
+  // the owner switch is off (or no token is set): the right token means nothing for smart-always, and /api/owner does not exist
+  const off = make({ ...SMART, OWNER_TOKEN: 'owner-secret-for-test' });
+  assert.equal((await desk(off, VISITOR, { brain: 'smart-always' })).provider, 'local');
+  const post = (a: ReturnType<typeof make>, token: unknown) => a.handle(new Request(`${VISITOR}/api/owner`, { method: 'POST', body: JSON.stringify({ token }) }), '7.7.7.7');
+  assert.equal((await post(off, 'owner-secret-for-test')).status, 404);
+  const ok = await post(api, 'owner-secret-for-test');
+  assert.equal(ok.status, 200);
+  const cookie = ok.headers.get('set-cookie')!;
+  assert.match(cookie, /^copilot_owner=owner-secret-for-test; /); assert.match(cookie, /HttpOnly/); assert.match(cookie, /Secure/); assert.match(cookie, /SameSite=Lax/);
+  assert.equal((await post(api, 'wrong')).status, 403);
+  assert.match((await post(api, '')).headers.get('set-cookie')!, /Max-Age=0/);
+});
+
+test('wrong owner tokens are limited to ten an hour per visitor', async () => {
+  reset();
+  const api = make({ ...SMART, SMART_OWNER: '1', OWNER_TOKEN: 'owner-secret-for-test' });
+  const post = (token: string) => api.handle(new Request(`${VISITOR}/api/owner`, { method: 'POST', body: JSON.stringify({ token }) }), '6.6.6.6');
+  for (let i = 0; i < 10; i++) assert.equal((await post(`guess${i}`)).status, 403);
+  assert.equal((await post('guess11')).status, 429);
+});
+
+test('the daily cap stops smart calls and tells the page to stop asking', async () => {
+  reset();
+  const api = make({ ...SMART, SLOT_DESK_DAILY_CAP: '2' });
+  assert.equal((await desk(api, DEV, { smart: true })).status, 200);
+  const second = await desk(api, DEV, { smart: true });
+  assert.equal(second.status, 200); assert.equal(second.smart, false, 'the last call under the cap says the next one is refused');
+  const third = await desk(api, DEV, { smart: true });
+  assert.equal(third.status, 409); assert.equal(third.reason, 'cap');
+  assert.equal((await desk(api, DEV)).smart, false);
+  assert.equal(gatewayCalls().length, 2);
+});
+
+test('a smart model that is too slow loses the turn within its timeout (the local answer stands)', async () => {
+  reset();
+  gateway = init => new Promise((_, no) => init.signal?.addEventListener('abort', () => no(init.signal!.reason)));
+  const api = make({ ...SMART, SLOT_DESK_TIMEOUT_MS: '500' });
+  const t0 = Date.now();
+  const r = await desk(api, DEV, { smart: true });
+  assert.equal(r.status, 409); assert.equal(r.reason, 'timeout');
+  assert.ok(Date.now() - t0 < 2000, 'gave up at the timeout, not later');
+  assert.equal((await desk(api, DEV)).content, 'local says hi', 'the local model is untouched');
+});
+
+test('a smart model that errors is a refusal the page survives, and it is not retried as a different model', async () => {
+  reset();
+  gateway = async () => new Response('boom', { status: 400 });
+  const r = await desk(make(SMART), DEV, { smart: true });
+  assert.equal(r.status, 409); assert.equal(r.reason, 'error');
+});
+
+test('an answer whose reported model is Claude or Gemma is dropped, whatever the gateway mapped the name to', async () => {
+  for (const name of ['claude-sonnet-5', 'google/gemma-3-27b']) {
+    reset();
+    gateway = async () => reply(name, 'must not be used');
+    const r = await desk(make(SMART), DEV, { smart: true });
+    assert.equal(r.status, 409); assert.equal(r.reason, 'banned-model'); assert.equal(r.content, undefined);
+  }
+});
+
+test('a banned or misspelt slot stops the server from starting, naming the slot', () => {
+  assert.throws(() => make({ ...SMART, SLOT_DESK_MODEL: 'cb/claude-opus' }), /"desk".*not allowed/);
+  assert.throws(() => make({ ...SMART, SLOT_EVAL_PROVIDER: 'nope' }), /"eval".*unknown provider/);
+});
+
+test('every desk span carries the slot, provider, scope and model, for local answers and smart escalations alike', async () => {
+  reset();
+  const api = make(SMART);
+  await desk(api, VISITOR);
+  await desk(api, VISITOR, { smart: true });
+  await desk(api, VISITOR, { brain: 'smart-always' }); // scope-gated: falls back to the local model
+  await new Promise(r => setTimeout(r, 30));
+  const a = spans.filter(s => s.name === 'desk').map(s => s.attributes!);
+  assert.equal(a.length, 3);
+  assert.deepEqual([a[0]['llm.model_name'], a[0]['copilot.slot'], a[0]['copilot.provider'], a[0]['copilot.scope']], ['lfm3', 'desk', 'local', 'visitor']);
+  assert.deepEqual([a[1]['llm.model_name'], a[1]['copilot.slot'], a[1]['copilot.provider'], a[1]['copilot.escalation']], ['cb/deepseek-v4.1-flash', 'desk', 'inferhub', 'smart']);
+  assert.deepEqual([a[2]['copilot.brain'], a[2]['llm.model_name'], a[2]['copilot.scope']], ['smart-always', 'lfm3', 'visitor'], 'the refused smart-always pick is on the span with the model that really answered');
+});
+
+// ---- vendor routes, a rejected key, and no key (#89)
+const respond = (map: Record<string, number | 'hang'>) => async (init: RequestInit): Promise<Response> => {
+  const m = JSON.parse(String(init.body)).model as string;
+  const v = map[m];
+  if (v === 'hang') return new Promise((_, no) => init.signal?.addEventListener('abort', () => no(init.signal!.reason)));
+  return v === undefined ? reply(m) : new Response(JSON.stringify({ error: { code: 'x', message: 'no' } }), { status: v });
+};
+const gatewayModels = () => gatewayCalls().map(g => g.body.model as string);
+const ROUTES = ['deepseek-v4.1-flash', 'cb/deepseek-v4.1-flash', 'cbcn/deepseek-v4.1-flash', 'ali/deepseek-v4.1-flash', 'cp/cline-pass/deepseek-v4.1-flash', 'ocg/deepseek-v4.1-flash'];
+const captureLog = async <T>(run: () => Promise<T>): Promise<{ out: T; lines: string[] }> => {
+  const lines: string[] = [], real = console.error;
+  console.error = (...a: unknown[]) => { lines.push(a.join(' ')); };
+  try { return { out: await run(), lines }; } finally { console.error = real; }
+};
+
+test('a route that answers 402, 429 or 5xx is passed over for the next vendor route, in order, and the answer names the route that served', async () => {
+  reset();
+  gateway = respond({ [ROUTES[0]]: 402, [ROUTES[1]]: 429, [ROUTES[2]]: 502 });
+  const api = make({ ...SMART, SLOT_DESK_DAILY_CAP: '1' });
+  const r = await desk(api, DEV, { smart: true });
+  assert.equal(r.status, 200); assert.equal(r.model, ROUTES[3]);
+  assert.deepEqual(gatewayModels(), ROUTES.slice(0, 4));
+  assert.deepEqual(r.tried, [{ model: ROUTES[0], why: '402' }, { model: ROUTES[1], why: '429' }, { model: ROUTES[2], why: '502' }]);
+  assert.equal(r.smart, false, 'the walk down the routes used one call of the daily cap, not four');
+  await new Promise(res => setTimeout(res, 30));
+  const a = spans.find(s => s.name === 'desk')!.attributes!;
+  assert.equal(a['llm.model_name'], ROUTES[3]); assert.equal(a['copilot.smart_tried'], `${ROUTES[0]}:402, ${ROUTES[1]}:429, ${ROUTES[2]}:502`);
+});
+
+test('when every route fails the turn goes on with the local answer, and the slot stays on', async () => {
+  reset();
+  gateway = respond(Object.fromEntries(ROUTES.map(m => [m, 402])));
+  const api = make(SMART);
+  const r = await desk(api, DEV, { smart: true });
+  assert.equal(r.status, 409); assert.equal(r.reason, 'exhausted'); assert.equal(r.tried.length, 6);
+  assert.equal(gatewayCalls().length, 6);
+  assert.equal((await desk(api, DEV)).smart, true, 'not a key problem, so the page may ask again');
+});
+
+test('the slot\'s time budget covers the whole walk: a hanging second route ends it at the timeout', async () => {
+  reset();
+  gateway = respond({ [ROUTES[0]]: 402, [ROUTES[1]]: 'hang' });
+  const t0 = Date.now();
+  const r = await desk(make({ ...SMART, SLOT_DESK_TIMEOUT_MS: '600' }), DEV, { smart: true });
+  assert.equal(r.reason, 'timeout'); assert.ok(Date.now() - t0 < 2000);
+  assert.deepEqual(gatewayModels(), ROUTES.slice(0, 2), 'no third route after the deadline');
+});
+
+test('a 400 would fail the same way on every route, so the walk stops at once', async () => {
+  reset();
+  gateway = respond({ [ROUTES[0]]: 400 });
+  const r = await desk(make(SMART), DEV, { smart: true });
+  assert.equal(r.reason, 'error'); assert.equal(gatewayCalls().length, 1);
+});
+
+test('a rejected or expired key (401 or 403) stops smart calls for ten minutes, logs why without the key, and the span is an error', async () => {
+  for (const status of [401, 403]) {
+    reset();
+    gateway = respond({ [ROUTES[0]]: status });
+    const api = make(SMART);
+    const { out: r, lines } = await captureLog(async () => {
+      const first = await desk(api, DEV, { smart: true });
+      assert.equal((await desk(api, DEV)).smart, false, 'the page is told to stop asking');
+      assert.equal((await desk(api, DEV, { smart: true })).reason, 'auth');
+      await new Promise(res => setTimeout(res, 30));
+      return first;
+    });
+    assert.equal(r.status, 409); assert.equal(r.reason, 'auth');
+    assert.equal(gatewayCalls().length, 1, 'no hammering: later requests never reach InferHub');
+    const log = lines.join('\n');
+    assert.match(log, new RegExp(`rejected the key \\(HTTP ${status}\\)`)); assert.match(log, /vault lease/); assert.match(log, /local model answers/);
+    assert.ok(!log.includes('lease-key-for-test'), 'the key is never logged');
+    const failed = spans.filter(s => s.name === 'desk' && s.attributes!['copilot.smart_refused'] === 'auth');
+    assert.ok(failed.length >= 1 && failed.every(s => s.error === true), 'the refused request is an error span in Phoenix');
+  }
+});
+
+test('after the ten minutes the slot is tried again', async () => {
+  const { createSmart } = await import('../smart.ts');
+  const { loadSlots } = await import('../../../copilot-engine/src/slots.ts');
+  reset();
+  gateway = respond({ [ROUTES[0]]: 401 });
+  let clock = Date.parse('2026-11-02T00:00:00Z');
+  const slots = loadSlots(undefined, SMART as Record<string, string>);
+  const sm = createSmart(SMART as Record<string, string>, slots, { now: () => clock });
+  await assert.rejects(() => sm.call('desk', messages as never, []), (e: { reason: string }) => e.reason === 'auth');
+  assert.deepEqual(sm.check('desk', 'dev-host'), { ok: false, reason: 'auth' });
+  clock += 9 * 60_000;
+  assert.equal(sm.check('desk', 'dev-host').ok, false);
+  clock += 2 * 60_000;
+  assert.equal(sm.check('desk', 'dev-host').ok, true);
+});
+
+test('with no key the smart slot stays off, and the log says which key is missing, once, at start', async () => {
+  reset();
+  const { out: api, lines } = await captureLog(async () => make({ ...SMART, INFERHUB_API_KEY: '' }));
+  assert.match(lines.join('\n'), /smart desk: inferhub needs INFERHUB_API_KEY, which is not set; the local model answers/);
+  assert.equal((await desk(api, DEV)).smart, false);
+  assert.equal((await desk(api, DEV, { smart: true })).reason, 'no-key');
+  assert.equal(gatewayCalls().length, 0);
+  // not turned on (DESK_HYBRID=0): nothing to complain about
+  const quiet = await captureLog(async () => make({ ...SMART, INFERHUB_API_KEY: '', DESK_HYBRID: '0' }));
+  assert.equal(quiet.lines.length, 0);
+});
