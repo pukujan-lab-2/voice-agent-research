@@ -56,6 +56,29 @@ Starting revision, material inputs/configuration, runtime, exact command or prom
 
 No checkpoints yet.
 
+### 2026-11-04 19:54:01 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["none"],"completed":["merged main into the branch; #49's commits replaced by main's squashed copy; #50's own config change kept; stack check moved before smart escalation"],"decisions":["no new decisions"],"evidence":["npm run check exit 0: 159, 51 and 81 pass, 0 fail; PR diff vs main 11 files +319/-9"],"next_action":"PR #50 merges through CI; then site key and allowed domains on the config (#121 phase 0)","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0042","timestamp":"2026-11-04T19:54:01Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"693156c68690c8b22497781e2711ce82acc745786712a93f8c261d81de065c14","request_id":"962cee6fc0804086862152753b64be24","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0042"} -->
+
+Completed:
+- merged main into the branch; #49's commits replaced by main's squashed copy; #50's own config change kept; stack check moved before smart escalation
+
+Evidence:
+- npm run check exit 0: 159, 51 and 81 pass, 0 fail; PR diff vs main 11 files +319/-9
+
+Decisions:
+- no new decisions
+
+Changed:
+- none
+
+Blocked/uncertain:
+- none
+
+Next:
+- PR #50 merges through CI; then site key and allowed domains on the config (#121 phase 0)
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
