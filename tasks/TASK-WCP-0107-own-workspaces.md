@@ -86,6 +86,29 @@ Blocked/uncertain:
 Next:
 - open the pull request with Closes #127, confirm CI is green, arm auto-merge
 
+### 2026-11-04 23:50:48 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["tasks/TASK-WCP-0107..0111"],"completed":["Records for WCP-0107 to WCP-0111 now say completed with their merging PRs (#135 to #139)"],"decisions":["no new decisions"],"evidence":["Each PR shows merged on GitHub with the commit named in its record"],"next_action":"Merge this records PR, then run continuity worktree remove for WCP-0107 to WCP-0111","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0107","timestamp":"2026-11-04T23:50:48Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"5701177158dabc497fc0e1178aa6a0d1dd9eaed46094719820abf588d1eb149b","request_id":"f2366181448c4a8f9300de35514b1649","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0107"} -->
+
+Completed:
+- Records for WCP-0107 to WCP-0111 now say completed with their merging PRs (#135 to #139)
+
+Evidence:
+- Each PR shows merged on GitHub with the commit named in its record
+
+Decisions:
+- no new decisions
+
+Changed:
+- tasks/TASK-WCP-0107..0111
+
+Blocked/uncertain:
+- none
+
+Next:
+- Merge this records PR, then run continuity worktree remove for WCP-0107 to WCP-0111
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
