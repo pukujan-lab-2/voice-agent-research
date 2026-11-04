@@ -1,15 +1,17 @@
 """The voice agent's side of the call record (#17): OpenTelemetry spans to Phoenix through Octo, with the same OTLP
 endpoint and auth as the page's traces (tracing.ts), under the page's call id, so a call is one Phoenix session.
 
-  voice.turn      each turn: what was heard, the speech model and its confidence, the language heard, and the timings
+  voice.turn      each turn: the speech model and its confidence, the language heard, and the timings
                   from the moment the caller stopped talking (end-of-turn wait, speech to text, deciding, first audio),
                   with the barge-ins since the last turn. turn.id matches the page's span of the same turn.
   voice.failure   an error (speech to text, voice, a failed RPC call to the page, a stall the watchdog caught), with whether it was retried
   voice.call      when the room closes: the voice stack, the language, turns, barge-ins, failures and why it closed
 
-Nothing is masked (each business decides what it keeps), and Octo is the one store (docs/decisions/0004): there is no
-local file. Off without OCTO_KEY and OCTO_WORKSPACE, or with OCTO_TRACES=off; server.ts hands those to the agent.
+What the caller said and what was replied never go in a span (#129): the page records each turn's words in the call's
+locked record, and the turn spans share its turn.id. Octo is the one store (docs/decisions/0004): there is no local file. Off without OCTO_KEY and OCTO_WORKSPACE, or with OCTO_TRACES=off; server.ts hands those to the agent.
 """
+from __future__ import annotations
+
 import asyncio, os, time
 
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
@@ -86,7 +88,9 @@ class CallTelemetry:
         attrs.update({'turn.id': row.get('turn', ''), 'turn.n': self.turns, 'voice.barge_ins': self.barge_ins_since_turn,
                       **{f'voice.{k}': v for k, v in self.stack.items()}})
         self.barge_ins_since_turn = 0
-        self._span('voice.turn', 'CHAIN', start, end, attrs, row.get('heard', ''), row.get('reply', ''), error=not row.get('reply'))
+        attrs['voice.heard_chars'] = len(row.get('heard') or '')
+        attrs['voice.reply_chars'] = len(row.get('reply') or '')
+        self._span('voice.turn', 'CHAIN', start, end, attrs, error=not row.get('reply'))
 
     def failure(self, kind: str, message: str, **attrs):
         self.failures += 1

@@ -55,9 +55,9 @@ await registry.put('demo-shop', { desk: { greeting: 'A demo' } });
 const clinicWs = (await registry.get('clinic-test'))?.workspace?.id ?? '';
 
 const env = { OPENROUTER_JEV_KEY: 'k', OCTO_KEY: SHARED_KEY, OCTO_WORKSPACE: SHARED, OCTO_ACCOUNT_KEY: ACCOUNT_KEY, OCTO_BASE: BASE, DESK_URL: DESK, SIGNING_SECRET: 's', SITE_ORIGINS: 'https://copilot.test' };
-const traced: { name: string; session: string | null | undefined; ws: string | undefined }[] = [];
+const traced: { name: string; session: string | null | undefined; ws: string | undefined; spec: SpanSpec }[] = [];
 const transit = new FakeTransit();
-const api = createApi(env, { vault: new CallVault(transit), trace: (s: SpanSpec, session, ws) => { traced.push({ name: s.name, session, ws }); } });
+const api = createApi(env, { vault: new CallVault(transit), trace: (s: SpanSpec, session, ws) => { traced.push({ name: s.name, session, ws, spec: s }); } });
 const fromClinic = { origin: ORIGIN, 'x-site-key': KEY };
 const post = (path: string, body: unknown, headers: Record<string, string> = fromClinic, a = api) =>
   a.handle(new Request(`https://copilot.test${path}`, { method: 'POST', headers: { ...headers, 'x-session-id': 'call-0001-abcdef' }, body: JSON.stringify(body) }), '1.2.3.4');
@@ -92,6 +92,13 @@ test('a test business runs a chat end to end in its own workspace, and the share
   assert.equal(row.v.sealed, 'a256gcm.v1', 'locked by its own key (#128)');
   assert.doesNotMatch(JSON.stringify(own.copilot_kv), /Ana|baby|booking/, 'no call text is readable in Octo');
   assert.deepEqual(traced.map(t => [t.name, t.ws]).sort(), [['desk', clinicWs], ['turn', clinicWs]], 'its traces go to its workspace');
+  assert.doesNotMatch(JSON.stringify(traced.map(t => t.spec)), /appointment|baby|Ana/, 'no call text reaches a trace (#129)');
+  const turn = traced.find(t => t.name === 'turn')!.spec.attributes!;
+  assert.match(String(turn['call.record']), /^call-record\/clinic-test\/call-0001-abcdef\/[0-9a-f]{18}$/, 'the turn span points at its record');
+  assert.doesNotMatch(JSON.stringify(own.copilot_call_turns), /appointment|baby/, 'the record is locked in its workspace');
+  const record = await api.callRecord('clinic-test', 'call-0001-abcdef');
+  assert.ok(record.some(r => r.entry.span === 'turn' && r.entry['input.value'] === 'I need an appointment'), 'and opens for its business');
+  assert.ok(record.some(r => r.entry.span === 'desk' && /baby/.test(r.entry['input.value'] ?? '')), 'the desk turn is in it too');
   assert.deepEqual(await dump(SHARED), before, 'the shared workspace is exactly as it was');
   assert.doesNotMatch(JSON.stringify(before), /Welcome to the clinic|appointment/, 'and held only the registry entry for it');
 });
@@ -129,4 +136,20 @@ test('a live server without OpenBao refuses to save a call record rather than st
   const r = await post('/api/session', { op: 'set', business: 'clinic-test', id: 'session-0004-abcdef', snapshot: { v: 1, flow: 'f', values: { name: 'Sam' }, log: [] } }, fromClinic, noKeys);
   assert.equal(r.status, 503);
   assert.deepEqual(await dump(clinicWs), before);
+});
+
+test('call-record entries past the business retention are not read and the sweep deletes them (#129)', async () => {
+  const sql = dbs.get(clinicWs)!;
+  await sql(`update copilot_call_turns set at = now() - interval '31 days' where call = 'call-0001-abcdef' and sealed->>'iv' = (select sealed->>'iv' from copilot_call_turns where call = 'call-0001-abcdef' order by at, id limit 1)`);
+  const kept = (await sql(`select count(*)::int n from copilot_call_turns`) as { n: number }[])[0].n;
+  const read = await api.callRecord('clinic-test', 'call-0001-abcdef');
+  assert.equal(read.length, kept - 1, 'the 31-day-old entry is not read under the 30-day default');
+  assert.deepEqual(await api.sweepRecords(), { 'clinic-test': 1 });
+  assert.equal((await sql(`select count(*)::int n from copilot_call_turns`) as { n: number }[])[0].n, kept - 1);
+
+  await registry.put('clinic-test', { ...(await registry.get('clinic-test'))!, retention: { days: 1 } });
+  await sql(`update copilot_call_turns set at = now() - interval '2 days'`);
+  const fresh = createApi(env, { vault: new CallVault(transit) }); // the first one holds the config for a minute
+  assert.deepEqual(await fresh.callRecord('clinic-test', 'call-0001-abcdef'), [], 'a business that keeps one day sees nothing older');
+  assert.deepEqual(await fresh.sweepRecords(), { 'clinic-test': kept - 1 });
 });
