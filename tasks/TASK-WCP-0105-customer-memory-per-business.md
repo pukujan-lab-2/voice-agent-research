@@ -61,6 +61,29 @@ Starting revision, material inputs/configuration, runtime, exact command or prom
 
 No checkpoints yet.
 
+### 2026-11-04 19:46:11 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["none"],"completed":["customer keys carry the business id and an HMAC under its secret; desk refuses customer memory without both; three new tests; opt-in recorded in 0021"],"decisions":["no new decisions"],"evidence":["npm run check exit 0; desk-memory.test.ts 9 pass"],"next_action":"open the PR; then phase 0 site key and allowed domains (#121)","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0105","timestamp":"2026-11-04T19:46:11Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"7b71def8a529454384064d597834e9ac4c0917ad699ef288c074838b20623456","request_id":"bfc1c3e2725d48c58b7f82f36df51ded","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0105"} -->
+
+Completed:
+- customer keys carry the business id and an HMAC under its secret; desk refuses customer memory without both; three new tests; opt-in recorded in 0021
+
+Evidence:
+- npm run check exit 0; desk-memory.test.ts 9 pass
+
+Decisions:
+- no new decisions
+
+Changed:
+- none
+
+Blocked/uncertain:
+- none
+
+Next:
+- open the PR; then phase 0 site key and allowed domains (#121)
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
