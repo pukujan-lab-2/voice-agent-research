@@ -41,3 +41,49 @@ Anyone building the tenancy work in #121 has one written answer to who owns what
 
 - Research saved in Octo as `research/multi-tenant-roles-and-data-tiers-2026-11-04.md`.
 - `copilot-engine/src/memory.ts:87-90` keys customer memory without the business id.
+
+### 2026-11-04 19:34:49 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["none"],"completed":["decision 0021 and index row; epic #121 filed; PR #122 opened"],"decisions":["no new decisions"],"evidence":["npm run check exit 0 locally"],"next_action":"merge PR #122 through CI, then phase 0 memory re-key from #121","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0104","timestamp":"2026-11-04T19:34:49Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"4e98d05b875087ceef50836dda425e4dd3ab2ffd81c1b2e0adb66c7b34dbda59","request_id":"50dbde593bec4199a2dff209ff00f10b","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0104"} -->
+
+Completed:
+- decision 0021 and index row; epic #121 filed; PR #122 opened
+
+Evidence:
+- npm run check exit 0 locally
+
+Decisions:
+- no new decisions
+
+Changed:
+- none
+
+Blocked/uncertain:
+- none
+
+Next:
+- merge PR #122 through CI, then phase 0 memory re-key from #121
+
+### 2026-11-04 19:34:56 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["none"],"completed":["decision 0021 and index row; epic #121 filed; PR #122 opened"],"decisions":["no new decisions"],"evidence":["npm run check exit 0 locally"],"next_action":"merge PR #122 through CI, then phase 0 memory re-key from #121","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0104","timestamp":"2026-11-04T19:34:56Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"4e98d05b875087ceef50836dda425e4dd3ab2ffd81c1b2e0adb66c7b34dbda59","request_id":"50dbde593bec4199a2dff209ff00f10b","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0104"} -->
+
+Completed:
+- decision 0021 and index row; epic #121 filed; PR #122 opened
+
+Evidence:
+- npm run check exit 0 locally
+
+Decisions:
+- no new decisions
+
+Changed:
+- none
+
+Blocked/uncertain:
+- none
+
+Next:
+- merge PR #122 through CI, then phase 0 memory re-key from #121
