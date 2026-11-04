@@ -28,11 +28,14 @@ import { DomFiller } from './dom-filler.ts';
 import { stackForLanguage } from './voice-choice.ts';
 import { watchAgent } from './agent-watch.ts';
 import { API_BASE } from './config.ts';
-import { callId, newCall, RemoteDeskModel, RemoteJudge, RemoteModel, RemoteRetriever, RemoteSmartModel, RemoteVerify, report, setBrainPick, setDeskStack, setReplyLanguage, toReplyLanguage, warmUp } from './remote.ts';
+import { callId, loadSiteConfig, newCall, RemoteDeskModel, RemoteJudge, RemoteModel, RemoteRetriever, RemoteSmartModel, RemoteVerify, report, setBrainPick, setDeskBusiness, setDeskStack, setReplyLanguage, toReplyLanguage, warmUp } from './remote.ts';
 import { beginCall, endCall, failure, happened, logTurn, markDesk, notePage, noteVoice, type DeskMark } from './calllog.ts';
 
 export type Config = {
   business: string;
+  // Take the rest of the config from the server (GET /api/copilot/config), where the business keeps it in Octo; what the
+  // page passes here wins. Lets a big site send only its id.
+  remote?: boolean;
   form?: string; // the form's name in the copilot's intro; leave out on a page with no form
   can?: string[];
   large?: boolean;
@@ -1187,7 +1190,14 @@ let carried = false;
 // The booking pages the sites link to: a form finished there makes the call's outcome "booked".
 const bookPaths: string[] = [];
 let leaving: ReturnType<typeof setTimeout> | undefined;
+let mounting = 0;
 function mount(c: Config) {
+  if (!c.remote) { mountNow(c); return; }
+  const mine = ++mounting;
+  void loadSiteConfig(c.business).then(site => { if (mine === mounting) mountNow({ ...site, ...c } as Config); });
+}
+function mountNow(c: Config) {
+  setDeskBusiness(c.business);
   carried = !!leaving && snap.open;
   clearTimeout(leaving); leaving = undefined;
   if (carried) detach(); else unmount(true);
@@ -1219,6 +1229,7 @@ function detach() {
 }
 
 function unmount(now = false) {
+  mounting++; // a config still loading for a page we are leaving is dropped
   if (!now && snap.open && cfg) {
     // Maybe a page change: wait for the next page to mount before ending the call.
     detach();

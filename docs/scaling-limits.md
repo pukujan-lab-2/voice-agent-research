@@ -47,3 +47,19 @@ Measured with `demo/live-site/tests/state-load.ts` (heap held by the call state 
 A call costs about 100 bytes, so memory was never the main problem at 1,000 concurrent calls; the problems were that a restart or a second instance lost every lock, and that nothing capped the maps. Heap figures from a garbage-collected process move by a few MB between runs, so read them as "a few MB at most", not as exact. Before this change the old cleanup scanned every entry on each new call past 5,000, which made 100,000 calls too slow to finish in the same run.
 
 Known limits: the Octo store sweeps expired rows and the oldest past 200,000 every 64 writes from each instance, not on a timer. A visitor who floods `/api/session` can push real snapshots out of the cap; the rate limit slows that to 40 a minute per address. Octo has no key-value surface with expiry, so the table is ours; a proposal is filed on the Octo repository (octo-database#457).
+
+## One business's config (issue #103)
+
+A business's copilot config (its pages, voice stacks, desk and manual settings) used to ride in the page and be sent with requests. It now lives in Octo, one row per business in the table `copilot_sites`, and the backend loads it on demand.
+
+| What | Limit | Why |
+|---|---|---|
+| Config size | 256,000 characters (JSON) | A form-heavy site keeps its forms in the form index (#104), not here. |
+| Configs held in memory per instance | 200, each for 60 seconds | A config that changed in Octo reaches every instance within a minute; a business with no config is asked about again after 10 seconds. |
+| Business id | lower-case letters, digits and dashes, up to 40 | It is checked before it reaches SQL and is the only key, so one business can't read or write another's row, snapshot or lock. Tested with two businesses that share page paths, form ids and session ids. |
+| Voice stacks | `/api/desk` refuses (403) a stack outside the business's `voice.stacks` | Only when the request names its business; a request that doesn't is held to the old checks. |
+| Resume snapshots | refused (404) for a business with no config | A stranger can't open a key space of their own. |
+
+Store a config with `npm run site-config -- put <business> <file.json>` in `demo/live-site` (it uses the Octo key the server uses). A page can mount with only `{ business, remote: true }` and take the rest from `GET /api/copilot/config?business=`; what the page passes wins.
+
+Known limit: the config endpoint is public by design (it holds what the page already shows), so it must never hold a secret. Writing a config needs the Octo key, which only the owner has.

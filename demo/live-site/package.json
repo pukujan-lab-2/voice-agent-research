@@ -12,7 +12,8 @@
     "test": "node --no-warnings build.ts && node tests/scenes.ts",
     "test:offline": "node --no-warnings build.ts && node tests/scenes.ts --offline",
     "test:voice-matrix": "node --no-warnings tests/voice-matrix.ts",
-    "test:deploy-sequence": "node --no-warnings tests/deploy-sequence.ts"
+    "test:deploy-sequence": "node --no-warnings tests/deploy-sequence.ts",
+    "site-config": "node --no-warnings tools/site-config.ts"
   },
   "devDependencies": {
     "playwright-core": "^1.64.1"

@@ -16,6 +16,19 @@ export function newCall() { callId = crypto.randomUUID(); deskStack = ''; }
 // The voice stack the call runs on, so the server can send the desk's tool calls to the stack's own model (stacks.json "thinks").
 let deskStack = '';
 export function setDeskStack(stack: string) { deskStack = stack; }
+// The business the page is for, sent with desk requests so the server can hold the call to that business's allowed stacks.
+let deskBusiness = '';
+export function setDeskBusiness(business: string) { deskBusiness = business; }
+
+// A business's config from the server (its pages, voice stacks, desk and manual settings), for a page that mounts with
+// only { business, remote: true }. Null when the business has none or the server can't be reached.
+export async function loadSiteConfig(business: string): Promise<Record<string, unknown> | null> {
+  try {
+    const r = await fetch(`${API_BASE}/api/copilot/config?business=${encodeURIComponent(business)}`);
+    if (!r.ok) throw new Error(`/api/copilot/config: ${r.status}`);
+    return (await r.json()).config ?? null;
+  } catch (e) { failure('backend', (e as Error).message, { path: '/api/copilot/config' }); return null; }
+}
 
 // Every failed backend call goes to the call's traces as it happens (the caller's turn then carries on without it).
 async function post(path: string, body: unknown): Promise<any> {
@@ -148,7 +161,7 @@ export class RemoteDeskModel implements ChatModel {
     messages = inLanguage(messages);
     const t0 = Date.now();
     const r = await fetch(`${API_BASE}/api/desk`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-session-id': callId },
-      body: JSON.stringify({ messages, tools, max_tokens: opts.maxTokens, temperature: opts.temperature, stack: deskStack, ...(brainPick ? { brain: brainPick } : {}) }) });
+      body: JSON.stringify({ messages, tools, max_tokens: opts.maxTokens, temperature: opts.temperature, stack: deskStack, business: deskBusiness || undefined, ...(brainPick ? { brain: brainPick } : {}) }) });
     if (r.status === 503) this.off.add(deskStack);
     if (!r.ok) { failure('desk-model', `/api/desk: ${r.status}`, { path: '/api/desk', fallback: 'code rules' }); throw new Error(`/api/desk: ${r.status}`); }
     const j = await r.json();
