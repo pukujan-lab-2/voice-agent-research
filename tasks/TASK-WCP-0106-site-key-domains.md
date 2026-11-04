@@ -63,6 +63,29 @@ Not needed.
 
 No checkpoints yet.
 
+### 2026-11-04 20:05:20 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["none"],"completed":["Site key and allowed origins in each business's config; API, voice token and socket refuse other sites; voice tokens last 10 minutes"],"decisions":["no new decisions"],"evidence":["npm run check exit 0; site-gate.test.ts 6 pass; site-config.test.ts 5 pass on pglite; commit d98fb92"],"next_action":"Open the pull request with Closes #125 and arm auto-merge","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0106","timestamp":"2026-11-04T20:05:20Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"9b57d9eef7f94ef6ddf56190542ad49b3f7195bf238608ae4e5214a51f55497b","request_id":"d74f01bb30004f3f92067a1f744598ab","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0106"} -->
+
+Completed:
+- Site key and allowed origins in each business's config; API, voice token and socket refuse other sites; voice tokens last 10 minutes
+
+Evidence:
+- npm run check exit 0; site-gate.test.ts 6 pass; site-config.test.ts 5 pass on pglite; commit d98fb92
+
+Decisions:
+- no new decisions
+
+Changed:
+- none
+
+Blocked/uncertain:
+- none
+
+Next:
+- Open the pull request with Closes #125 and arm auto-merge
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
