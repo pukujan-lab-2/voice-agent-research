@@ -1,8 +1,8 @@
 # TASK-WCP-0110 — Call Audio
 
-<!-- continuity:task {"acceptance":["Each voice call's audio is recorded from the LiveKit room and stored encrypted with that call's key","A business can turn recording off in its config; it is on by default","A plain-code test: a recorded call's audio in storage is ciphertext (playback through a valid grant is tested in #131)"],"depends_on":["WCP-0108"],"goal":"Record each voice call's audio and store it locked with the call's key","id":"WCP-0110","issue_url":"https://github.com/pukujan-lab-2/voice-agent-research/issues/130","next_action":"open the pull request with Closes #130, confirm CI is green and arm auto-merge","owner":"owner","priority":"P1","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"active","why":"Voice calls keep only text, though the owner's direction is to record every call in full; decision 0021 settles that audio is locked like transcripts and played back only through a grant (#130)"} -->
+<!-- continuity:task {"acceptance":["Each voice call's audio is recorded from the LiveKit room and stored encrypted with that call's key","A business can turn recording off in its config; it is on by default","A plain-code test: a recorded call's audio in storage is ciphertext (playback through a valid grant is tested in #131)"],"depends_on":["WCP-0108"],"goal":"Record each voice call's audio and store it locked with the call's key","id":"WCP-0110","issue_url":"https://github.com/pukujan-lab-2/voice-agent-research/issues/130","next_action":"None for this task","owner":"owner","priority":"P1","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"completed","why":"Voice calls keep only text, though the owner's direction is to record every call in full; decision 0021 settles that audio is locked like transcripts and played back only through a grant (#130)"} -->
 
-- Status: active
+- Status: completed (merged in #138 as 5e15c81)
 - Owner: owner
 - Priority: P1
 - Depends on: WCP-0108 (#128, merged)

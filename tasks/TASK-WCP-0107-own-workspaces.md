@@ -1,8 +1,8 @@
 # TASK-WCP-0107 — Own Workspaces
 
-<!-- continuity:task {"acceptance": ["Adding an outside business to the registry creates its Octo workspace and stores the workspace id in that business's registry entry; a retried add reuses the same workspace", "A put can never point a business at a workspace the factory did not create for it, or move a business off its own workspace", "That business's config, resume sessions and traces are read and written in its own workspace", "A plain-code test runs a test business's chat end to end in its own workspace, and the shared workspace gains no rows for it", "Demo businesses keep working on the shared workspace with their prefix"], "depends_on": [], "goal": "Give each outside business its own Octo workspace, created from its config", "id": "WCP-0107", "issue_url": "https://github.com/pukujan-lab-2/voice-agent-research/issues/127", "next_action": "create the worktree with continuity worktree create WCP-0107, then add workspace creation to the registry put", "owner": "owner", "priority": "P1", "protocol_version": "0.1.0-draft", "schema": "project-continuity.task.v1", "status": "active", "why": "Every business lives in one shared Octo workspace told apart by a prefix; one wrong query shows a business another's callers. Outside businesses can't go live until each has its own (#127, decision 0021 settlement 1)"} -->
+<!-- continuity:task {"acceptance":["Adding an outside business to the registry creates its Octo workspace and stores the workspace id in that business's registry entry; a retried add reuses the same workspace","A put can never point a business at a workspace the factory did not create for it, or move a business off its own workspace","That business's config, resume sessions and traces are read and written in its own workspace","A plain-code test runs a test business's chat end to end in its own workspace, and the shared workspace gains no rows for it","Demo businesses keep working on the shared workspace with their prefix"],"depends_on":[],"goal":"Give each outside business its own Octo workspace, created from its config","id":"WCP-0107","issue_url":"https://github.com/pukujan-lab-2/voice-agent-research/issues/127","next_action":"None for this task","owner":"owner","priority":"P1","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"completed","why":"Every business lives in one shared Octo workspace told apart by a prefix; one wrong query shows a business another's callers. Outside businesses can't go live until each has its own (#127, decision 0021 settlement 1)"} -->
 
-- Status: active
+- Status: completed (merged in #135 as c4313e6)
 - Owner: owner
 - Priority: P1
 - Depends on: none
@@ -85,6 +85,29 @@ Blocked/uncertain:
 
 Next:
 - open the pull request with Closes #127, confirm CI is green, arm auto-merge
+
+### 2026-11-04 23:50:48 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["tasks/TASK-WCP-0107..0111"],"completed":["Records for WCP-0107 to WCP-0111 now say completed with their merging PRs (#135 to #139)"],"decisions":["no new decisions"],"evidence":["Each PR shows merged on GitHub with the commit named in its record"],"next_action":"Merge this records PR, then run continuity worktree remove for WCP-0107 to WCP-0111","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0107","timestamp":"2026-11-04T23:50:48Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"5701177158dabc497fc0e1178aa6a0d1dd9eaed46094719820abf588d1eb149b","request_id":"f2366181448c4a8f9300de35514b1649","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0107"} -->
+
+Completed:
+- Records for WCP-0107 to WCP-0111 now say completed with their merging PRs (#135 to #139)
+
+Evidence:
+- Each PR shows merged on GitHub with the commit named in its record
+
+Decisions:
+- no new decisions
+
+Changed:
+- tasks/TASK-WCP-0107..0111
+
+Blocked/uncertain:
+- none
+
+Next:
+- Merge this records PR, then run continuity worktree remove for WCP-0107 to WCP-0111
 
 ## Handoff
 
