@@ -66,9 +66,28 @@ export class CallRecords {
     return (await this.sql(`select distinct business from ${this.table}`) as { business: string }[]).map(r => r.business);
   }
 
-  // Deletes a business's entries older than its retention; returns how many went.
-  async sweep(business: string, days: number): Promise<number> {
+  // Deletes a business's entries older than its retention; returns the call of each entry that went.
+  async sweep(business: string, days: number): Promise<string[]> {
     await this.ensure();
-    return (await this.sql(`delete from ${this.table} where business = $1 and at <= now() - $2::int * interval '1 day' returning id`, [business, days])).length;
+    return (await this.sql(`delete from ${this.table} where business = $1 and at <= now() - $2::int * interval '1 day' returning call`, [business, days]) as { call: string }[]).map(r => r.call);
+  }
+
+  async has(business: string, call: string): Promise<boolean> {
+    await this.ensure();
+    return (await this.sql(`select 1 from ${this.table} where business = $1 and call = $2 limit 1`, [business, call])).length > 0;
+  }
+
+  // A business's calls with entries here, for erasing the business (#132).
+  async calls(business: string): Promise<string[]> {
+    await this.ensure();
+    return (await this.sql(`select distinct call from ${this.table} where business = $1`, [business]) as { call: string }[]).map(r => r.call);
+  }
+
+  // Deletes a call's entries, or with no call every entry of the business (#132); returns how many went.
+  async forget(business: string, call?: string): Promise<number> {
+    await this.ensure();
+    return call === undefined
+      ? (await this.sql(`delete from ${this.table} where business = $1 returning id`, [business])).length
+      : (await this.sql(`delete from ${this.table} where business = $1 and call = $2 returning id`, [business, call])).length;
   }
 }

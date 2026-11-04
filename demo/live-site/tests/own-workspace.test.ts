@@ -168,14 +168,15 @@ test('call-record entries past the business retention are not read and the sweep
   const fresh = createApi(env, { vault: new CallVault(transit) }); // the first one holds the config for a minute
   assert.deepEqual(await fresh.callRecord('clinic-test', 'call-0001-abcdef'), [], 'a business that keeps one day sees nothing older');
   assert.deepEqual(await fresh.sweepRecords(), { 'clinic-test': kept - 1 });
+  assert.ok(transit.requests.some(r => r.op === 'destroy' && r.name.startsWith('biz-clinic-test.call.')), 'a call with nothing left loses its key too (#132)');
 });
 
 test("a voice call's recording from the agent is locked with the call's key in its business's workspace (#130)", async () => {
   const audio = new TextEncoder().encode('OggS the caller said my baby has a fever');
-  const room = 'call-0a1b2c3d.clinic-test', call = 'call-0001-abcdef';
+  const room = 'call-0a1b2c3d.clinic-test', call = 'call-0002-abcdef';
   const send = async (headers: Record<string, string>, body: Uint8Array = audio, a = api) =>
     a.handle(new Request('https://copilot.test/api/call-audio', { method: 'POST', headers: { 'content-type': 'audio/ogg', ...headers }, body: body as BodyInit }), '10.0.0.5');
-  assert.equal(await audioSignature('s', room, call, new TextEncoder().encode('OggS fake audio')),
+  assert.equal(await audioSignature('s', room, 'call-0001-abcdef', new TextEncoder().encode('OggS fake audio')),
     '5e364d6973d7e9e0413de5f9d1155b4212a86a758a68a07bc1aa6d46bbdaf130', 'the same signature the agent computes (speech/tests/test_recording.py)');
   const sig = await audioSignature('s', room, call, audio);
 
@@ -191,7 +192,7 @@ test("a voice call's recording from the agent is locked with the call's key in i
   assert.equal(stored.ws, clinicWs, 'the recording is in the clinic\'s own workspace');
   assert.doesNotMatch(Buffer.from(stored.bytes).toString('latin1'), /fever|OggS/, 'and is ciphertext');
   const row = ((await dump(clinicWs)).copilot_call_audio as { key: string }[])[0];
-  assert.match(row.key, /^vault:v1:/, 'its data key is kept only locked by the business key');
+  assert.match(row.key, /^vault:v1:\S+ vault:v1:\S+$/, 'both halves of its data key are kept only locked');
   assert.deepEqual((await api.callAudio('clinic-test', call))?.audio, audio, 'it opens for its business');
 
   // A business that turned recording off: nothing is kept, and its calls aren't put in a recorded room.
@@ -203,4 +204,68 @@ test("a voice call's recording from the agent is locked with the call's key in i
   assert.equal(await api.recordingFor('quiet-clinic'), null);
   assert.equal(await api.recordingFor('clinic-test'), 'clinic-test');
   assert.equal(await api.recordingFor('clinic-test', 'other-clinic'), null, 'a site key only records its own business');
+});
+
+test('one call, one caller and a whole business are erased by destroying their keys, and a backup taken before stays locked (#132)', async () => {
+  const sql = dbs.get(clinicWs)!;
+  const say = (call: string, text: string) => api.handle(new Request('https://copilot.test/api/trace', { method: 'POST',
+    headers: { ...fromClinic, 'x-session-id': call }, body: JSON.stringify({ business: 'clinic-test', spans: [{ name: 'turn', start: Date.now() - 1000, end: Date.now(), input: text }] }) }), '1.2.3.4');
+  for (const [call, text] of [['call-0003-abcdef', 'My son set this up for me'], ['call-0004-abcdef', 'Please cancel my visit'], ['call-0005-abcdef', 'Is the clinic open']])
+    assert.equal((await say(call, text)).status, 200);
+  await new Promise(r => setTimeout(r, 20)); // records are written after the reply
+  for (const call of ['call-0003-abcdef', 'call-0004-abcdef', 'call-0005-abcdef']) assert.equal((await api.callRecord('clinic-test', call)).length, 1);
+  assert.ok(await api.callAudio('clinic-test', 'call-0002-abcdef'), 'the recording from #130 is there');
+
+  // A backup of Octo taken now: the rows and the recording's file.
+  type Turn = { id: string; business: string; call: string; at: unknown; sealed: unknown };
+  type Audio = { business: string; call: string; at: unknown; file_id: string; mime: string; bytes: number; key: string; iv: string };
+  const turns = await sql('select * from copilot_call_turns') as Turn[], audios = await sql('select * from copilot_call_audio') as Audio[];
+  const backupFiles = new Map([...files].map(([id, f]) => [id, { ws: f.ws, bytes: f.bytes.slice() }]));
+  const restore = async () => {
+    for (const r of turns) await sql('insert into copilot_call_turns (id, business, call, at, sealed) values ($1, $2, $3, $4, $5::jsonb) on conflict do nothing', [r.id, r.business, r.call, r.at, JSON.stringify(r.sealed)]);
+    for (const r of audios) await sql('insert into copilot_call_audio (business, call, at, file_id, mime, bytes, key, iv) values ($1, $2, $3, $4, $5, $6, $7, $8) on conflict do nothing', [r.business, r.call, r.at, r.file_id, r.mime, r.bytes, r.key, r.iv]);
+    for (const [id, f] of backupFiles) files.set(id, f);
+  };
+  const rows = async (call: string) => (await sql('select count(*)::int n from copilot_call_turns where call = $1', [call]) as { n: number }[])[0].n;
+
+  // One call.
+  assert.deepEqual(await api.eraseCall('clinic-test', 'call-0004-abcdef'), { records: 1, recordings: 0 });
+  assert.equal(await rows('call-0004-abcdef'), 0, 'its rows are gone from Octo');
+  await restore();
+  assert.equal(await rows('call-0004-abcdef'), 1, 'the backup is back in Octo');
+  assert.deepEqual(await api.callRecord('clinic-test', 'call-0004-abcdef'), [], 'and does not open');
+  await assert.rejects(new CallVault(transit).open('clinic-test', 'call-0004-abcdef', turns.find(t => t.call === 'call-0004-abcdef')!.sealed as never), /not found/);
+  assert.equal((await api.callRecord('clinic-test', 'call-0005-abcdef')).length, 1, 'other calls still open');
+
+  // One caller, who was on two calls: the one with a recording and one with a turn.
+  const caller = 'ab'.repeat(16);
+  await api.linkCaller('clinic-test', caller, 'call-0002-abcdef');
+  await api.linkCaller('clinic-test', caller, 'call-0003-abcdef');
+  await assert.rejects(api.linkCaller('clinic-test', '555-0100', 'call-0003-abcdef'), /bad caller link/, 'a caller is a keyed hash, never a phone number');
+  await sql(`insert into copilot_kv (k, v) values ($1, '{"v":1}'::jsonb)`, [`cust:clinic-test:${caller}`]);
+  assert.deepEqual(await api.eraseCaller('clinic-test', caller), { calls: 2, records: 1, recordings: 1 });
+  assert.equal(await rows('call-0003-abcdef'), 0);
+  assert.equal(files.size, 0, 'the recording file is removed from Octo');
+  assert.equal((await sql('select count(*)::int n from copilot_kv where k = $1', [`cust:clinic-test:${caller}`]) as { n: number }[])[0].n, 0, 'and their customer record');
+  assert.equal((await sql('select count(*)::int n from copilot_call_callers') as { n: number }[])[0].n, 0, 'and the links');
+  await restore();
+  assert.deepEqual(await api.callRecord('clinic-test', 'call-0003-abcdef'), [], "the caller's record from the backup does not open");
+  await assert.rejects(api.callAudio('clinic-test', 'call-0002-abcdef'), /not found/, 'nor does their recording');
+  assert.equal((await api.callRecord('clinic-test', 'call-0005-abcdef')).length, 1, "another caller's call still opens");
+
+  // The whole business, only with its id typed again.
+  await assert.rejects(api.eraseBusiness('clinic-test', 'yes'), /type the business id/);
+  assert.equal((await api.callRecord('clinic-test', 'call-0005-abcdef')).length, 1, 'nothing happened without it');
+  const session = ((await dump(clinicWs)).copilot_kv as { k: string; v: unknown }[]).find(r => r.k === 'sess:clinic-test:session-0001-abcdef')!;
+  const erased = await api.eraseBusiness('clinic-test', 'clinic-test');
+  assert.equal(erased.sessions, 1, 'its resume snapshot is gone');
+  assert.equal(transit.keys.has('biz-clinic-test'), false, 'its key is gone from the key store');
+  assert.deepEqual([...transit.keys.keys()].filter(k => k.startsWith('biz-clinic-test.')), [], 'and so is every call key');
+  const left = await dump(clinicWs);
+  assert.deepEqual([left.copilot_call_turns, left.copilot_call_audio, left.copilot_call_callers], [[], [], []], 'no call rows are left in its workspace');
+  await restore();
+  await sql('insert into copilot_kv (k, v) values ($1, $2::jsonb)', [session.k, JSON.stringify(session.v)]);
+  for (const call of ['call-0003-abcdef', 'call-0004-abcdef', 'call-0005-abcdef']) assert.deepEqual(await api.callRecord('clinic-test', call), [], `${call} from the backup does not open`);
+  const back = await post('/api/session', { op: 'get', business: 'clinic-test', id: 'session-0001-abcdef' });
+  assert.equal((await back.json() as { snapshot: unknown }).snapshot, null, 'nor does the resume snapshot');
 });

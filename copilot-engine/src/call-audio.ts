@@ -68,16 +68,39 @@ export class CallAudio {
     return (await this.sql(`select distinct business from ${this.table}`) as { business: string }[]).map(r => r.business);
   }
 
-  // Deletes a business's recordings older than its retention, files first; returns how many went.
-  async sweep(business: string, days: number): Promise<number> {
+  // Deletes a business's recordings older than its retention, files first; returns the call of each that went.
+  async sweep(business: string, days: number): Promise<string[]> {
     await this.ensure();
     const old = await this.sql(`select call, file_id from ${this.table} where business = $1 and at <= now() - $2::int * interval '1 day'`, [business, days]) as { call: string; file_id: string }[];
-    let n = 0;
-    for (const o of old) {
-      // The row holds the only copy of the data key: once it is gone the file can't be opened, even if removing it failed.
+    return this.drop(business, old);
+  }
+
+  // The row holds the only copy of the data key: once it is gone the file can't be opened, even if removing it failed.
+  private async drop(business: string, rows: { call: string; file_id: string }[]): Promise<string[]> {
+    const gone: string[] = [];
+    for (const o of rows) {
       await this.files.remove(o.file_id).catch(() => {});
-      n += (await this.sql(`delete from ${this.table} where business = $1 and call = $2 and file_id = $3 returning call`, [business, o.call, o.file_id])).length;
+      gone.push(...(await this.sql(`delete from ${this.table} where business = $1 and call = $2 and file_id = $3 returning call`, [business, o.call, o.file_id]) as { call: string }[]).map(r => r.call));
     }
-    return n;
+    return gone;
+  }
+
+  async has(business: string, call: string): Promise<boolean> {
+    await this.ensure();
+    return (await this.sql(`select 1 from ${this.table} where business = $1 and call = $2`, [business, call])).length > 0;
+  }
+
+  async calls(business: string): Promise<string[]> {
+    await this.ensure();
+    return (await this.sql(`select call from ${this.table} where business = $1`, [business]) as { call: string }[]).map(r => r.call);
+  }
+
+  // Deletes a call's recording, or with no call every recording of the business, files first (#132); returns how many went.
+  async forget(business: string, call?: string): Promise<number> {
+    await this.ensure();
+    const rows = (call === undefined
+      ? await this.sql(`select call, file_id from ${this.table} where business = $1`, [business])
+      : await this.sql(`select call, file_id from ${this.table} where business = $1 and call = $2`, [business, call])) as { call: string; file_id: string }[];
+    return (await this.drop(business, rows)).length;
   }
 }

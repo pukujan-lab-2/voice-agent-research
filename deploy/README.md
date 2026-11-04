@@ -75,6 +75,16 @@ The containers read `~/apps/copilot.env` on the VPS (mode 600, never in git):
 | `OPENBAO_ADDR`, `OPENBAO_ROLE_ID`, `OPENBAO_SECRET_ID` | OpenBao on the VPS (server-management `vps/openbao/`): `http://openbao:8200` and the `copilot` AppRole. Without them the site refuses to save a call record (503) rather than store it readable (#128) |
 | `COPILOT_API_URL` (agent) | Where the voice agent sends a recorded call's audio, signed with `SIGNING_SECRET`; set in `docker-compose.agent.yml` to `http://copilot-web:8787`. A business's calls are recorded unless its config says `recording: { audio: false }`; the site locks the audio with the call's key (#130) |
 
+## Erasing a call, a caller or a business
+
+A caller who asks to be forgotten, or a business that leaves, is erased by destroying a key in OpenBao (#132). Each call's data key is made from two OpenBao keys, the business's `biz-<business>` and the call's own `biz-<business>.call.<hash>`, so destroying either one locks every copy of the call, Octo's backups included. The site then removes the rows and files from Octo. Run it in the web container, which has the AppRole:
+
+```bash
+docker exec -it copilot-web node --no-warnings tools/erase.ts call <business> <call id>
+```
+
+`caller <business> <caller hash>` erases every call linked to that caller, and `business <business>` erases them all after the business id is typed again. A destroyed key can't be brought back. The hourly retention sweep also destroys the key of each call it empties. OpenBao's own snapshots still hold a destroyed key until they age out (server-management `vps/openbao/`).
+
 ## Model slots (the desk hybrid is the default)
 
 [Decision 0017](../docs/decisions/0017-smart-model-slots-for-development.md) as amended (2026-11-02, #101): LFM3 answers every ordinary turn and does the talking; a hard desk turn escalates to the slot's smart hosted model **by default, for every visitor** — no sign-in, no opt-in. `DESK_HYBRID=0` turns the escalation off. "Smart always" (every turn) still needs a development host or the owner's token. [`demo/live-site/model-slots.json`](../demo/live-site/model-slots.json) names, per slot, a provider and a model. The server validates it when it starts and stops with a message naming the slot if something is wrong. The shipped file names `local` for every slot, which keeps everything on LFM3; the VPS env sets the `desk` slot.
