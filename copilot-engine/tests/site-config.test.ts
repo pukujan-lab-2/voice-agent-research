@@ -44,6 +44,8 @@ test('bad configs and bad ids are refused and nothing is written', async () => {
   await assert.rejects(s.put('acme', { blob: 'x'.repeat(260_000) }), /limit is/);
   await assert.rejects(s.put('acme', { voice: { stacks: ['a', 5 as never] } }), /voice.stacks/);
   await assert.rejects(s.put('acme', { voice: { stacks: ['a'], default: 'b' } }), /voice.default/);
+  for (const days of [0, 3651, 1.5, '30']) await assert.rejects(s.put('acme', { retention: { days } as never }), /retention/, `retention ${days}`);
+  await s.put('acme-keeps', { retention: { days: 365 } });
   assert.equal(await s.get('acme'), null);
 });
 

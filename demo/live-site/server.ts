@@ -228,6 +228,12 @@ export async function start(opts: { port?: number; host?: string; offline?: bool
   if (opts.offline) env.OFFLINE = '1';
   const tracing = opts.offline ? undefined : createTracer(env);
   const api = createApi(env, { slots: readSlots(env), offlinePassages: offlinePassages(), matchNames: nameMatcher(), trace: tracing?.trace, score: tracing?.score, ownHostHeader: true });
+  // Call-record entries past each business's retention are deleted once an hour (#129).
+  const sweeper = setInterval(() => void api.sweepRecords().then(gone => {
+    const n = Object.values(gone).reduce((a, b) => a + b, 0);
+    if (n) console.error(`${new Date().toISOString()} call records: deleted ${n} past retention`);
+  }), 3_600_000);
+  sweeper.unref();
   // The site gate for what this server answers itself. A socket can't carry the site key, so /rtc is checked like a
   // preflight (an origin some business lists); the voice token it needs was handed out only after the key was checked.
   const gateOf = (req: http.IncomingMessage, socket = false) => api.gate(new Request('http://local/', { method: socket ? 'OPTIONS' : 'POST', headers: siteHeaders(req) }));
@@ -306,7 +312,7 @@ export async function start(opts: { port?: number; host?: string; offline?: bool
   });
   await new Promise<void>(r => server.listen(opts.port ?? 0, opts.host ?? '127.0.0.1', r));
   const url = `http://${opts.host ?? '127.0.0.1'}:${(server.address() as { port: number }).port}`;
-  return { url, mode: api.mode, close: () => new Promise<void>(r => { server.closeAllConnections(); server.close(() => r()); }).then(() => tracing?.flush()) };
+  return { url, mode: api.mode, close: () => new Promise<void>(r => { clearInterval(sweeper); server.closeAllConnections(); server.close(() => r()); }).then(() => tracing?.flush()) };
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

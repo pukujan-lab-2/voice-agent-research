@@ -121,6 +121,12 @@ export class SiteConfigs implements Sites {
       const other = await this.byKey(site.key!);
       if (other && other.business !== business) throw new Error('site.key already belongs to another business');
     }
+    const keep = (config as { retention?: unknown }).retention;
+    if (keep !== undefined) {
+      const days = (keep as { days?: unknown })?.days;
+      if (!keep || typeof keep !== 'object' || Array.isArray(keep) || Object.keys(keep).some(k => k !== 'days') || !Number.isInteger(days) || (days as number) < 1 || (days as number) > 3650)
+        throw new Error('retention must be { days } with days a whole number from 1 to 3650 (how long its calls are kept)');
+    }
     const ws = config.workspace;
     if (ws !== undefined && (!ws || typeof ws !== 'object' || Array.isArray(ws) || Object.keys(ws).some(k => k !== 'id'))) throw new Error('workspace must be {} or { id }');
     await this.ensure();
@@ -172,6 +178,13 @@ export class SiteConfigs implements Sites {
     const ok = (await this.sql(`select 1 from ${this.table} where config->'site'->'origins' ? $1 limit 1`, [origin])).length > 0;
     await this.cache.set(`origin:${origin}`, { ok }, ok ? this.ttlMs : Math.min(this.ttlMs, 10_000));
     return ok;
+  }
+
+  // Every business in the registry and its own workspace, if it has one (for the call-record sweeper, #129).
+  async list(): Promise<{ business: string; workspace?: string }[]> {
+    await this.ensure();
+    return (await this.sql(`select business, config->'workspace'->>'id' as ws from ${this.table} order by business`) as { business: string; ws: string | null }[])
+      .map(r => ({ business: r.business, ...(r.ws ? { workspace: r.ws } : {}) }));
   }
 
   async remove(business: string): Promise<void> {

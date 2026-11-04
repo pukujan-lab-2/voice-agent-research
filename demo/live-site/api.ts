@@ -30,6 +30,7 @@ import { maskPII } from '../../copilot-engine/src/guard.ts';
 import { MemoryStore, SESSION_TTL_MS, type Store } from '../../copilot-engine/src/memory.ts';
 import { OctoStore } from '../../copilot-engine/src/octo-store.ts';
 import { CallVault, isSealed, OpenBaoKeys } from '../../copilot-engine/src/call-vault.ts';
+import { CallRecords, retentionDays } from '../../copilot-engine/src/call-records.ts';
 import { octoSql } from '../../copilot-engine/src/octo-workspaces.ts';
 import { loadSlots, SLOT_NAMES, type Slots } from '../../copilot-engine/src/slots.ts';
 import { createSmart, SmartError, type Scope } from './smart.ts';
@@ -99,6 +100,10 @@ function deskTools(raw: unknown): unknown[] | null {
   const tools = raw.filter((t: any) => t?.type === 'function' && DESK_TOOLS.has(t.function?.name));
   return tools.length === raw.length && JSON.stringify(tools).length < 8000 ? tools : null;
 }
+
+// Span attributes that hold a caller's words or the copilot's answer (#129); they go to the call record, never a trace.
+// tracing.ts's CALL_TEXT_KEYS is the same list (that file is Node only).
+const CALL_TEXT = /^(input\.value|output\.value|tool\.parameters|correction\.(before|after))$/;
 
 const WARM_FIELD: Field = { name: 'warm', label: 'warm-up', question: 'Say hello.', kind: 'text' };
 
@@ -262,6 +267,37 @@ export function createApi(env: ApiEnv, opts: { slots?: Slots; offlinePassages?: 
     }
     return s;
   };
+  // The call record (#129): every turn's words, locked, in the business's workspace; traces keep only a pointer to it.
+  const records = new Map<string, CallRecords>();
+  const recordsAt = (ws: string | undefined): CallRecords | null => {
+    if (!vault || offline) return null;
+    const k = ws ?? '';
+    let r = records.get(k);
+    if (!r) {
+      r = new CallRecords(ws ? sqlAt(ws) : sql, vault);
+      if (records.size >= 500) records.delete(records.keys().next().value!);
+      records.set(k, r);
+    }
+    return r;
+  };
+  // Span attributes that carry what a caller said or what the copilot answered. They never reach a trace: each span's
+  // go into the call record as one entry, and the span keeps `call.record`, a pointer to it. Without a key store, a call
+  // id or a business, the words are dropped, never sent.
+  const sealSpan = async (s: SpanSpec, business: string | undefined, call: string | null | undefined, ws: string | undefined): Promise<SpanSpec> => {
+    const attributes = { ...(s.attributes ?? {}) }, entry: Record<string, string> = {};
+    for (const k of Object.keys(attributes)) if (CALL_TEXT.test(k)) { if (attributes[k] !== '') entry[k] = String(attributes[k]); delete attributes[k]; }
+    const book = business && call && BUSINESS_ID.test(business) ? recordsAt(ws) : null;
+    if (Object.keys(entry).length && book) {
+      try { attributes['call.record'] = await book.add(business!, call!, { span: s.name, ...entry }); }
+      catch (e) { log(`call record: could not save a ${s.name} entry for ${business}: ${(e as Error).message}`); attributes['call.record.error'] = 'not saved'; }
+    }
+    const children = s.children ? await Promise.all(s.children.map(c => sealSpan(c, business, call, ws))) : undefined;
+    return { ...s, attributes, ...(children ? { children } : {}) };
+  };
+  const traceSealed = (s: SpanSpec, business: string | undefined, session: string | null, ws: string | undefined) => {
+    if (opts.trace) void sealSpan(s, business, session, ws).then(t => opts.trace!(t, session, ws), e => log(`trace: ${(e as Error).message}`));
+  };
+
   // The copilot's own origins (SITE_ORIGINS, comma-separated): always its own site, whatever host a proxy passes on.
   const ownOrigins = (env.SITE_ORIGINS ?? '').split(',').map(o => o.trim()).filter(isOrigin);
 
@@ -542,7 +578,7 @@ export function createApi(env: ApiEnv, opts: { slots?: Slots; offlinePassages?: 
         const children = kids && Array.isArray(sp.children) ? sp.children.slice(0, 40).map((c: unknown) => spec(c, false)).filter(Boolean) as SpanSpec[] : [];
         return { name: clip(sp.name, 60) || 'widget', kind, start, end, error: !!sp.error, attributes, children };
       };
-      for (const sp of Array.isArray(b.spans) ? b.spans.slice(0, 10) : []) { const s = spec(sp, true); if (s) opts.trace?.(s, session, ws); }
+      for (const sp of Array.isArray(b.spans) ? b.spans.slice(0, 10) : []) { const s = spec(sp, true); if (s) traceSealed(s, b.business, session, ws); }
       return json({ ok: true });
     }
     if (path === '/api/score') {
@@ -604,11 +640,30 @@ export function createApi(env: ApiEnv, opts: { slots?: Slots; offlinePassages?: 
       attributes[`retrieval.documents.${i}.document.id`] = clip(p.id, 200);
       attributes[`retrieval.documents.${i}.document.content`] = clip(p.text, 1000);
     });
-    opts.trace!({ name: path.slice(5), kind, start, end: Date.now(), error: r.status >= 400, attributes }, session, ws);
+    traceSealed({ name: path.slice(5), kind, start, end: Date.now(), error: r.status >= 400, attributes }, b?.business, session, ws);
   }
 
   let siteMedia: { at: number; slots: Record<string, unknown> } | null = null;
   return {
+    // Deletes every business's call-record entries past its retention (#129): the shared workspace and each business's
+    // own. server.ts runs it every hour. Returns how many entries went, per business.
+    async sweepRecords(): Promise<Record<string, number>> {
+      const gone: Record<string, number> = {};
+      const own = sites instanceof SiteConfigs ? (await sites.list()).map(r => r.workspace).filter((w): w is string => !!w) : [];
+      for (const ws of [undefined, ...new Set(own)]) {
+        const book = recordsAt(ws);
+        if (!book) continue;
+        try {
+          for (const business of await book.businesses()) gone[business] = (gone[business] ?? 0) + await book.sweep(business, retentionDays(await sites?.get(business)));
+        } catch (e) { log(`call record sweep (${ws ?? 'shared'}): ${(e as Error).message}`); }
+      }
+      return gone;
+    },
+    // A call's record as its business keeps it, within its retention. Not served over HTTP: who may read is #131.
+    async callRecord(business: string, call: string) {
+      const book = recordsAt(await workspaceOf(business));
+      return book ? book.read(business, call, retentionDays(await sites?.get(business))) : [];
+    },
     // For tests only (never over HTTP): which client a call was verified as.
     verifiedAs: clientOf,
     mode: offline ? 'offline (keyword search, word-overlap judge, rules)' : `live (Octo RAG, Jev ${env.LLAMA_URL ? '+ local LFM' : '+ rules'})`,
