@@ -1,8 +1,8 @@
 # TASK-WCP-0083 — Model Slots
 
-<!-- continuity:task {"acceptance":["A bad slot file or env stops the start with a message naming the slot","No file and no env: every slot is the local model","Models named claude, gemma or openrouter/free are rejected","Decision 0017 and the deploy README section exist"],"depends_on":[],"goal":"A validated model-slot file names a provider and model per task","id":"WCP-0083","issue_url":"https://github.com/pukujan-lab-2/voice-agent-research/issues/78","next_action":"Open the pull request; then build the live wiring (#79) on this","owner":"owner","priority":"P2","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"active","why":"The owner wants smart models in development with LFM3 the default (#78, parent #77)"} -->
+<!-- continuity:task {"acceptance":["A bad slot file or env stops the start with a message naming the slot","No file and no env: every slot is the local model","Models named claude, gemma or openrouter/free are rejected","Decision 0017 and the deploy README section exist"],"depends_on":[],"goal":"A validated model-slot file names a provider and model per task","id":"WCP-0083","issue_url":"https://github.com/pukujan-lab-2/voice-agent-research/issues/78","next_action":"None for this task","owner":"owner","priority":"P2","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"completed","why":"The owner wants smart models in development with LFM3 the default (#78, parent #77)"} -->
 
-- Status: active
+- Status: completed (merged in #83 as 7e56827)
 - Owner: owner
 - Priority: P2
 - Depends on: none

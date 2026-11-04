@@ -1,8 +1,8 @@
 # TASK-WCP-0082 — Deploys Keep Calls
 
-<!-- continuity:task {"acceptance":["The old voice agent drains and the new one starts first","The site, LiveKit, the bridges and the Pro speech server wait for open calls, bounded","Each deploy records whether it waited, how long and for how many calls","A scratch-project test shows a call survives a deploy and the next call goes to the new container","After merge, a deploy during a live test call does not cut it"],"depends_on":[],"goal":"A deploy never cuts a live call: drain the agent, wait for calls before other restarts, record the wait","id":"WCP-0082","issue_url":"https://github.com/pukujan-lab-2/voice-agent-research/issues/76","next_action":"Run npm run check, open the pull request with Closes #76, then run a live test call across a deploy","owner":"owner","priority":"P1","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"active","why":"Every merge deploys (decision 0016) and calls were cut by it (#67, #76)"} -->
+<!-- continuity:task {"acceptance":["The old voice agent drains and the new one starts first","The site, LiveKit, the bridges and the Pro speech server wait for open calls, bounded","Each deploy records whether it waited, how long and for how many calls","A scratch-project test shows a call survives a deploy and the next call goes to the new container","After merge, a deploy during a live test call does not cut it"],"depends_on":[],"goal":"A deploy never cuts a live call: drain the agent, wait for calls before other restarts, record the wait","id":"WCP-0082","issue_url":"https://github.com/pukujan-lab-2/voice-agent-research/issues/76","next_action":"None for this task","owner":"owner","priority":"P1","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"completed","why":"Every merge deploys (decision 0016) and calls were cut by it (#67, #76)"} -->
 
-- Status: active
+- Status: completed (merged in #94 as 67432b8)
 - Owner: owner
 - Priority: P1
 - Depends on: none

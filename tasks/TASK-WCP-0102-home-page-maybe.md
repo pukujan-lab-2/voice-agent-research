@@ -1,8 +1,8 @@
 # TASK-WCP-0102 — Home Page Maybe
 
-<!-- continuity:task {"acceptance":["replace this with observable, task-specific acceptance checks"],"depends_on":[],"goal":"The Maybe home page is a React page that reads its pictures and films from Octo","id":"WCP-0102","issue_url":"https://github.com/pukujan-lab-2/voice-agent-research/issues/109","next_action":"define scope and observable acceptance checks, then begin bounded work","owner":"owner","priority":"P2","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"active","why":"The home page was one HTML file with media beside it, so changing a photo meant redeploying the page (#109)"} -->
+<!-- continuity:task {"acceptance":["replace this with observable, task-specific acceptance checks"],"depends_on":[],"goal":"The Maybe home page is a React page that reads its pictures and films from Octo","id":"WCP-0102","issue_url":"https://github.com/pukujan-lab-2/voice-agent-research/issues/109","next_action":"None for this task","owner":"owner","priority":"P2","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"completed","why":"The home page was one HTML file with media beside it, so changing a photo meant redeploying the page (#109)"} -->
 
-- Status: active
+- Status: completed (merged in #116 as 98c0952; #109 stays open for work beyond this task)
 - Owner: owner
 - Priority: P2
 - Depends on: none

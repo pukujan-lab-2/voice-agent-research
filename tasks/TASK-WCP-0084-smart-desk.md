@@ -1,8 +1,8 @@
 # TASK-WCP-0084 — Smart Desk
 
-<!-- continuity:task {"acceptance":["An ordinary visitor never reaches a smart model","A development host or the owner does, for hard turns only, under a daily cap","A slow or failing smart model leaves the local answer in place","Every desk span names the slot, provider and model"],"depends_on":[],"goal":"Hard desk turns can use a smart model, only for development hosts and the owner, with a daily cap","id":"WCP-0084","issue_url":"https://github.com/pukujan-lab-2/voice-agent-research/issues/79","next_action":"Open the pull request, merge, then deploy and test on the VPS","owner":"owner","priority":"P2","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"active","why":"The live backend cannot use a keyed or hybrid model, and smart slots must never reach an ordinary visitor (#79, parent #77)"} -->
+<!-- continuity:task {"acceptance":["An ordinary visitor never reaches a smart model","A development host or the owner does, for hard turns only, under a daily cap","A slow or failing smart model leaves the local answer in place","Every desk span names the slot, provider and model"],"depends_on":[],"goal":"Hard desk turns can use a smart model, only for development hosts and the owner, with a daily cap","id":"WCP-0084","issue_url":"https://github.com/pukujan-lab-2/voice-agent-research/issues/79","next_action":"None for this task","owner":"owner","priority":"P2","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"completed","why":"The live backend cannot use a keyed or hybrid model, and smart slots must never reach an ordinary visitor (#79, parent #77)"} -->
 
-- Status: active
+- Status: completed (merged in #84 as 29c6e56)
 - Owner: owner
 - Priority: P2
 - Depends on: none

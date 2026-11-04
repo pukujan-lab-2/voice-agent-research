@@ -1,8 +1,8 @@
 # TASK-WCP-0040 — Prompt Budget
 
-<!-- continuity:task {"acceptance":["A form of up to 24 fields produces the same prompt as before and the existing tests pass unchanged","A 300-field form and a 100-turn call keep every model request under 10,000 characters","No collected value is lost or filled into the wrong field"],"depends_on":[],"goal":"The model's prompt stays a fixed size however many fields the form has","id":"WCP-0040","issue_url":"https://github.com/Pukujan-lab/voice-agent-research/issues/101","next_action":"Merge the pull request, then start the bounded-server-state leaf (#102)","owner":"owner","priority":"P2","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"active","why":"A 300-field form puts hundreds of field lines in front of a small model on every turn (#101)"} -->
+<!-- continuity:task {"acceptance":["A form of up to 24 fields produces the same prompt as before and the existing tests pass unchanged","A 300-field form and a 100-turn call keep every model request under 10,000 characters","No collected value is lost or filled into the wrong field"],"depends_on":[],"goal":"The model's prompt stays a fixed size however many fields the form has","id":"WCP-0040","issue_url":"https://github.com/Pukujan-lab/voice-agent-research/issues/101","next_action":"None for this task","owner":"owner","priority":"P2","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"completed","why":"A 300-field form puts hundreds of field lines in front of a small model on every turn (#101)"} -->
 
-- Status: active
+- Status: completed (merged in #30 as c2720d2)
 - Owner: owner
 - Priority: P2
 - Depends on: none

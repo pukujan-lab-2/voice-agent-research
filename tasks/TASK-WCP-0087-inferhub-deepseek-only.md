@@ -1,8 +1,8 @@
 # TASK-WCP-0087 — Inferhub Deepseek Only
 
-<!-- continuity:task {"acceptance":["litellm is gone and inferhub takes only deepseek-v4.1-flash or its vendor routes","A smart call walks the vendor routes on 402, 429, 5xx and timeouts, then the local answer stands","A missing, rejected or expired key fails closed with a log line and an error span","deploy/README.md documents routes, the 30-day lease, renewal and spend"],"depends_on":[],"goal":"Slots call InferHub's DeepSeek V4.1 Flash only, through the vault lease, with fallbacks","id":"WCP-0087","issue_url":"https://github.com/pukujan-lab-2/voice-agent-research/issues/89","next_action":"Merge, set the VPS env from the lease, deploy, live call, update the table on #77","owner":"owner","priority":"P2","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"active","why":"Owner direction: direct InferHub, one model, a 30-day vault lease that must fail closed (#89, parent #77)"} -->
+<!-- continuity:task {"acceptance":["litellm is gone and inferhub takes only deepseek-v4.1-flash or its vendor routes","A smart call walks the vendor routes on 402, 429, 5xx and timeouts, then the local answer stands","A missing, rejected or expired key fails closed with a log line and an error span","deploy/README.md documents routes, the 30-day lease, renewal and spend"],"depends_on":[],"goal":"Slots call InferHub's DeepSeek V4.1 Flash only, through the vault lease, with fallbacks","id":"WCP-0087","issue_url":"https://github.com/pukujan-lab-2/voice-agent-research/issues/89","next_action":"None for this task","owner":"owner","priority":"P2","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"completed","why":"Owner direction: direct InferHub, one model, a 30-day vault lease that must fail closed (#89, parent #77)"} -->
 
-- Status: active
+- Status: completed (merged in #91 as a0f5597)
 - Owner: owner
 - Priority: P2
 - Depends on: none
