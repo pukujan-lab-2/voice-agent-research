@@ -68,6 +68,29 @@ Not needed.
 
 No checkpoints yet.
 
+### 2026-11-04 23:28:22 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["copilot-engine/src/call-audio.ts, call-vault.ts, site-config.ts, demo/live-site/api.ts, server.ts, widget/sdk.ts, speech/agent.py, speech/recording.py, deploy agent compose and Dockerfile, tests"],"completed":["Voice calls are recorded by the agent and stored locked with the call's key in the business's workspace; recording.audio switch in config"],"decisions":["Record with LiveKit Agents' own session recorder, not Egress; the site names recorded rooms call-<id>.<business>; playback waits for grants (#131)"],"evidence":["npm run check passes; own-workspace test shows a signed recording stored as ciphertext in the clinic's workspace and opened only for it, bad signatures refused, recording off keeps nothing"],"next_action":"Open the PR with Closes #130 and arm auto-merge","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0110","timestamp":"2026-11-04T23:28:22Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"9c07740ccf3c65edc6c5d4780b6d9c4feefbd0b815bdd95f6079b81bc2a13449","request_id":"019b9972f78d4510ad7f2b1d021147cc","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0110"} -->
+
+Completed:
+- Voice calls are recorded by the agent and stored locked with the call's key in the business's workspace; recording.audio switch in config
+
+Evidence:
+- npm run check passes; own-workspace test shows a signed recording stored as ciphertext in the clinic's workspace and opened only for it, bad signatures refused, recording off keeps nothing
+
+Decisions:
+- Record with LiveKit Agents' own session recorder, not Egress; the site names recorded rooms call-<id>.<business>; playback waits for grants (#131)
+
+Changed:
+- copilot-engine/src/call-audio.ts, call-vault.ts, site-config.ts, demo/live-site/api.ts, server.ts, widget/sdk.ts, speech/agent.py, speech/recording.py, deploy agent compose and Dockerfile, tests
+
+Blocked/uncertain:
+- none
+
+Next:
+- Open the PR with Closes #130 and arm auto-merge
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
