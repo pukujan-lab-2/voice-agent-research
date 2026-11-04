@@ -159,6 +159,29 @@ Blocked/uncertain:
 Next:
 - Merge #23
 
+### 2026-11-04 20:42:54 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["tasks/TASK-WCP-{0024,0025,0026,0040,0041,0042,0071,0074,0081-voice-stops-hearing,0082-deploys-keep-calls,0083,0084,0085,0086,0087,0102,0103}-*.md"],"completed":["The 17 task records whose PRs had merged still said active, which blocked worktree cleanup; they now say completed with the merging PR and commit (PR #134, issue #133)"],"decisions":["Source issues #19, #20, #21, #103 and #109 stay open for work beyond these tasks"],"evidence":["continuity validate reports the same 25 errors before and after these edits; none come from them"],"next_action":"Merge #134, then run continuity worktree remove for the 17 tasks","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0024","timestamp":"2026-11-04T20:42:54Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"db45226b6e6ac8b7ae3b85396396ba93a372fab685d69813230160d0bd9511ca","request_id":"ec4a036f5bb94984a80b591fdd3ecb42","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0024"} -->
+
+Completed:
+- The 17 task records whose PRs had merged still said active, which blocked worktree cleanup; they now say completed with the merging PR and commit (PR #134, issue #133)
+
+Evidence:
+- continuity validate reports the same 25 errors before and after these edits; none come from them
+
+Decisions:
+- Source issues #19, #20, #21, #103 and #109 stay open for work beyond these tasks
+
+Changed:
+- tasks/TASK-WCP-{0024,0025,0026,0040,0041,0042,0071,0074,0081-voice-stops-hearing,0082-deploys-keep-calls,0083,0084,0085,0086,0087,0102,0103}-*.md
+
+Blocked/uncertain:
+- none
+
+Next:
+- Merge #134, then run continuity worktree remove for the 17 tasks
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
