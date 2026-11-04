@@ -29,6 +29,7 @@ import type { Field, FieldKind, Flow, Model } from '../../copilot-engine/src/typ
 import { maskPII } from '../../copilot-engine/src/guard.ts';
 import { MemoryStore, SESSION_TTL_MS, type Store } from '../../copilot-engine/src/memory.ts';
 import { OctoStore } from '../../copilot-engine/src/octo-store.ts';
+import { CallVault, isSealed, OpenBaoKeys } from '../../copilot-engine/src/call-vault.ts';
 import { octoSql } from '../../copilot-engine/src/octo-workspaces.ts';
 import { loadSlots, SLOT_NAMES, type Slots } from '../../copilot-engine/src/slots.ts';
 import { createSmart, SmartError, type Scope } from './smart.ts';
@@ -36,7 +37,10 @@ import { BUSINESS_ID, isOrigin, siteGate, type Gate, SiteConfigs, type Sites } f
 
 export type ApiEnv = {
   OPENROUTER_JEV_KEY?: string; OCTO_KEY?: string; OCTO_WORKSPACE?: string; OCTO_ACCOUNT_KEY?: string; JEV_URL?: string; OCTO_BASE?: string; OCTO_TIMEOUT_MS?: string; OCTO_TRACES?: string;
-  SITE_ORIGINS?: string; SIGNING_SECRET?: string; LLAMA_URL?: string; DESK_URL?: string; DESK_KEY?: string; DESK_MODEL?: string; LFM3_AUDIO_URL?: string; OFFLINE?: string; JEV_DAILY_CAP?: string; RATE_PER_MIN?: string; STATE_STORE?: string;
+  SITE_ORIGINS?: string; SIGNING_SECRET?: string;
+  // OpenBao, which keeps each business's key for its call records (#128): its address and the copilot's AppRole.
+  OPENBAO_ADDR?: string; OPENBAO_ROLE_ID?: string; OPENBAO_SECRET_ID?: string;
+  LLAMA_URL?: string; DESK_URL?: string; DESK_KEY?: string; DESK_MODEL?: string; LFM3_AUDIO_URL?: string; OFFLINE?: string; JEV_DAILY_CAP?: string; RATE_PER_MIN?: string; STATE_STORE?: string;
   // Smart model slots (decision 0017, deploy/README.md): DESK_HYBRID=1 lets the desk ask the `desk` slot's hosted model on a hard turn,
   // for a development host or the owner only (SMART_OWNER=1 with OWNER_TOKEN, SMART_DEV_HOSTS adds host names). Keys are named by the slot.
   DESK_HYBRID?: string; SMART_OWNER?: string; OWNER_TOKEN?: string; SMART_DEV_HOSTS?: string; SMART_DAILY_CAP?: string;
@@ -103,6 +107,8 @@ export function createApi(env: ApiEnv, opts: { slots?: Slots; offlinePassages?: 
   // snapshots; limits: rate-limit counters (hot path, so per instance). Default: Octo for the first two when live, a capped
   // in-process store otherwise or when STATE_STORE=memory.
   stores?: { calls?: Store; sessions?: Store; limits?: Store };
+  // Locks each call's record before it is stored (#128). Default: OpenBao when OPENBAO_ADDR is set.
+  vault?: CallVault;
   // Each business's config (voice stacks allowed, pages, desk). Default: the Octo table copilot_sites when live, none offline.
   sites?: Sites;
   // ownHostHeader: the host the visitor asked for comes in x-own-host (server.ts sets it; a request from outside can't).
@@ -229,6 +235,11 @@ export function createApi(env: ApiEnv, opts: { slots?: Slots; offlinePassages?: 
   const limits = opts.stores?.limits ?? new MemoryStore(Date.now, { max: 20_000 });
   const callStore = opts.stores?.calls ?? (inOcto ? octoStore() : new MemoryStore(Date.now, { max: 20_000 }));
   const sessionStore = opts.stores?.sessions ?? (inOcto ? octoStore() : new MemoryStore(Date.now, { max: 20_000 }));
+  // A call's raw record reaches Octo only locked by its business's key (decision 0021, #128). Without OpenBao, a server that
+  // keeps sessions in Octo refuses to save them rather than store them readable.
+  const vault = opts.vault ?? (env.OPENBAO_ADDR && env.OPENBAO_ROLE_ID && env.OPENBAO_SECRET_ID
+    ? new CallVault(new OpenBaoKeys({ addr: env.OPENBAO_ADDR, roleId: env.OPENBAO_ROLE_ID, secretId: env.OPENBAO_SECRET_ID })) : null);
+  const mustSeal = inOcto && !opts.stores?.sessions;
 
   // An outside business's own workspace (decision 0021, #127) is reached with the account-wide key; with none set, its
   // requests fail rather than fall back to the shared workspace. Its sessions and traces go there; demo businesses stay
@@ -388,13 +399,21 @@ export function createApi(env: ApiEnv, opts: { slots?: Slots; offlinePassages?: 
     if (sites && !(await sites.get(b.business))) return json({ error: 'unknown business' }, 404);
     const sessionStore = sessionsAt(await workspaceOf(b.business));
     const key = `sess:${b.business}:${b.id}`;
-    if (b.op === 'get') return json({ snapshot: (await sessionStore.get(key)) ?? null });
+    if (!vault && mustSeal && b.op !== 'delete') return json({ error: 'call records need the key store' }, 503);
+    if (b.op === 'get') {
+      const v = await sessionStore.get(key);
+      if (!isSealed(v)) return json({ snapshot: v ?? null });
+      if (!vault) return json({ error: 'call records need the key store' }, 503);
+      try { return json({ snapshot: await vault.open(b.business, b.id, v) }); }
+      catch (e) { log(`session: could not open a record of ${b.business}: ${(e as Error).message}`); return json({ snapshot: null }); }
+    }
     if (b.op === 'delete') { await sessionStore.delete(key); return json({ ok: true }); }
     if (b.op !== 'set') return json({ error: 'bad session request' }, 400);
     const snap = b.snapshot;
     const strings = (o: unknown) => !!o && typeof o === 'object' && !Array.isArray(o) && Object.keys(o).length <= 2000 && Object.values(o).every(v => typeof v === 'string' && v.length <= 1000);
     if (!snap || snap.v !== 1 || typeof snap.flow !== 'string' || !strings(snap.values) || !Array.isArray(snap.log) || JSON.stringify(snap).length > 16_000) return json({ error: 'bad snapshot' }, 400);
-    await sessionStore.set(key, { ...snap, savedAt: Date.now() }, SESSION_TTL_MS);
+    const record = { ...snap, savedAt: Date.now() };
+    await sessionStore.set(key, vault ? await vault.seal(b.business, b.id, record) : record, SESSION_TTL_MS);
     return json({ ok: true });
   }
 

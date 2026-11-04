@@ -72,6 +72,7 @@ The containers read `~/apps/copilot.env` on the VPS (mode 600, never in git):
 | `OCTO_KEY`, `OCTO_WORKSPACE` | `octo_db_chatbots`, `octo_db_chatbots_workspace` |
 | `SIGNING_SECRET` | random, made on the VPS |
 | `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `LIVEKIT_KEYS` | random, made on the VPS; `LIVEKIT_KEYS` is `key: secret` |
+| `OPENBAO_ADDR`, `OPENBAO_ROLE_ID`, `OPENBAO_SECRET_ID` | OpenBao on the VPS (server-management `vps/openbao/`): `http://openbao:8200` and the `copilot` AppRole. Without them the site refuses to save a call record (503) rather than store it readable (#128) |
 
 ## Model slots (the desk hybrid is the default)
 
