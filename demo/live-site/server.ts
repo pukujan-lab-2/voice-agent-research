@@ -141,9 +141,13 @@ function voiceOptions(ask: VoiceAsk) {
     languages: STACKS.stacks[id].languages.map(code => ({ code, ...STACKS.languages[code] })) })) };
 }
 
+// How long a voice token can be used to join (#125). LiveKit refreshes the token of a caller already in the room, so
+// a longer call is not cut; a token copied off a page is useless after this.
+export const VOICE_TOKEN_S = 600;
+
 // A LiveKit access token (HS256 JWT) for one caller in a new room; the agent is dispatched to every new room. The call's
 // stack and the caller's language ride on the caller's attributes; the page may change its language mid-call.
-function voiceToken(ask: VoiceAsk = {}): { url: string; token: string; room: string; stack: string; language: string } {
+export function voiceToken(ask: VoiceAsk = {}): { url: string; token: string; room: string; stack: string; language: string } {
   const picked = pickStack(ask);
   const stack = typeof ask.language === 'string' && picked.by !== 'owner'
     ? stackForLanguage(picked.allowed.map(id => ({ id, languages: STACKS.stacks[id].languages.map(code => ({ code })) })), picked.stack, ask.language)
@@ -152,7 +156,7 @@ function voiceToken(ask: VoiceAsk = {}): { url: string; token: string; room: str
   const room = `call-${crypto.randomUUID().slice(0, 8)}`;
   const now = Math.floor(Date.now() / 1000);
   const b64 = (o: object) => Buffer.from(JSON.stringify(o)).toString('base64url');
-  const body = `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64({ iss: LIVEKIT.key, sub: `caller-${crypto.randomUUID().slice(0, 8)}`, nbf: now - 5, exp: now + 3600,
+  const body = `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64({ iss: LIVEKIT.key, sub: `caller-${crypto.randomUUID().slice(0, 8)}`, nbf: now - 5, exp: now + VOICE_TOKEN_S,
     attributes: { 'copilot.stack': stack, 'copilot.language': language },
     video: { room, roomJoin: true, canPublish: true, canSubscribe: true, canPublishData: true, canUpdateOwnMetadata: true } })}`;
   return { url: LIVEKIT_PUBLIC || LIVEKIT.url, room, stack, language, token: `${body}.${crypto.createHmac('sha256', LIVEKIT.secret).update(body).digest('base64url')}` };
@@ -201,6 +205,16 @@ const HEADERS = { 'X-Robots-Tag': 'noindex, nofollow', 'Referrer-Policy': 'no-re
 const TYPES: Record<string, string> = { '.mp4': 'video/mp4', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.ico': 'image/x-icon', '.woff2': 'font/woff2', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
   '.json': 'application/json', '.txt': 'text/plain; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png' };
 
+// What the site gate (api.ts) needs from a request: its Origin, the site key, and the host the visitor asked for.
+function siteHeaders(req: http.IncomingMessage): Record<string, string> {
+  const h: Record<string, string> = {};
+  const own = req.headers['x-forwarded-host'] ?? req.headers.host;
+  if (typeof req.headers.origin === 'string') h.origin = req.headers.origin;
+  if (typeof req.headers['x-site-key'] === 'string') h['x-site-key'] = req.headers['x-site-key'];
+  if (typeof own === 'string') h['x-own-host'] = own.split(',')[0].trim();
+  return h;
+}
+
 // Behind the Cloudflare Tunnel every request comes from localhost (or, deployed, from the tunnel's container: TRUST_PROXY=1);
 // the visitor's address is in CF-Connecting-IP.
 function visitor(req: http.IncomingMessage): string {
@@ -213,7 +227,10 @@ export async function start(opts: { port?: number; host?: string; offline?: bool
   const env = loadEnv();
   if (opts.offline) env.OFFLINE = '1';
   const tracing = opts.offline ? undefined : createTracer(env);
-  const api = createApi(env, { slots: readSlots(env), offlinePassages: offlinePassages(), matchNames: nameMatcher(), trace: tracing?.trace, score: tracing?.score });
+  const api = createApi(env, { slots: readSlots(env), offlinePassages: offlinePassages(), matchNames: nameMatcher(), trace: tracing?.trace, score: tracing?.score, ownHostHeader: true });
+  // The site gate for what this server answers itself. A socket can't carry the site key, so /rtc is checked like a
+  // preflight (an origin some business lists); the voice token it needs was handed out only after the key was checked.
+  const gateOf = (req: http.IncomingMessage, socket = false) => api.gate(new Request('http://local/', { method: socket ? 'OPTIONS' : 'POST', headers: siteHeaders(req) }));
   const dist = path.join(here, 'dist');
   agentTrace = Object.fromEntries(Object.entries({ OCTO_KEY: env.OCTO_KEY, OCTO_WORKSPACE: env.OCTO_WORKSPACE, OCTO_BASE: env.OCTO_BASE,
     OCTO_TRACES: opts.offline ? 'off' : env.OCTO_TRACES }).filter((e): e is [string, string] => !!e[1]));
@@ -222,6 +239,8 @@ export async function start(opts: { port?: number; host?: string; offline?: bool
     const url = new URL(req.url ?? '/', 'http://local');
     for (const [k, v] of Object.entries(HEADERS)) res.setHeader(k, v);
     if (req.method === 'POST' && (url.pathname === '/api/voice/token' || url.pathname === '/api/voice/options')) {
+      const gate = await gateOf(req).catch(() => ({ ok: false as const, status: 502, error: 'backend error' }));
+      if (!gate.ok) { res.writeHead(gate.status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify({ error: gate.error })); return; }
       const chunks: Buffer[] = [];
       for await (const c of req) chunks.push(c as Buffer);
       let ask: VoiceAsk = {};
@@ -230,14 +249,18 @@ export async function start(opts: { port?: number; host?: string; offline?: bool
         void voiceUp();
         if (!(await waker.ready(AGENT_WAKE_S))) console.warn(`voice: the agent did not wake within ${AGENT_WAKE_S}s; handing out the token anyway`);
       } else waker.poke();  // the widget loaded: the agent starts while the visitor reads
-      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...gate.headers });
       res.end(JSON.stringify(url.pathname === '/api/voice/token' ? voiceToken(ask) : voiceOptions(ask))); return;
     }
     if (req.method === 'GET' && url.pathname === '/api/voice/calls') {
       res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
       res.end(JSON.stringify({ calls: await openCalls() })); return;
     }
-    if (LIVEKIT_PUBLIC && url.pathname.startsWith('/rtc')) { rtcRequest(req, res); return; }
+    if (LIVEKIT_PUBLIC && url.pathname.startsWith('/rtc')) {
+      const gate = await gateOf(req, true).catch(() => null);
+      if (!gate?.ok) { res.writeHead(403); res.end(); return; }
+      rtcRequest(req, res); return;
+    }
     if (url.pathname.startsWith('/api/')) {
       const chunks: Buffer[] = [];
       for await (const c of req) chunks.push(c as Buffer);
@@ -249,7 +272,7 @@ export async function start(opts: { port?: number; host?: string; offline?: bool
         headers: { 'content-type': 'application/json', ...(typeof req.headers.authorization === 'string' ? { authorization: req.headers.authorization } : {}),
           ...(typeof req.headers['x-session-id'] === 'string' ? { 'x-session-id': req.headers['x-session-id'] } : {}),
           ...(typeof req.headers['x-owner-token'] === 'string' ? { 'x-owner-token': req.headers['x-owner-token'] } : {}),
-          ...(typeof req.headers.cookie === 'string' ? { cookie: req.headers.cookie } : {}) },
+          ...(typeof req.headers.cookie === 'string' ? { cookie: req.headers.cookie } : {}), ...siteHeaders(req) },
         body: req.method === 'POST' ? Buffer.concat(chunks) : undefined }), visitor(req));
       res.writeHead(r.status, Object.fromEntries(r.headers));
       res.end(Buffer.from(await r.arrayBuffer()));
@@ -278,7 +301,9 @@ export async function start(opts: { port?: number; host?: string; offline?: bool
     if (req.method === 'HEAD') { res.end(); return; }
     fs.createReadStream(file).pipe(res);
   });
-  if (LIVEKIT_PUBLIC) server.on('upgrade', rtcUpgrade);
+  if (LIVEKIT_PUBLIC) server.on('upgrade', (req: http.IncomingMessage, socket: net.Socket, head: Buffer) => {
+    void gateOf(req, true).then(g => g.ok ? rtcUpgrade(req, socket, head) : (socket.end('HTTP/1.1 403 Forbidden\r\n\r\n'), undefined), () => socket.destroy());
+  });
   await new Promise<void>(r => server.listen(opts.port ?? 0, opts.host ?? '127.0.0.1', r));
   const url = `http://${opts.host ?? '127.0.0.1'}:${(server.address() as { port: number }).port}`;
   return { url, mode: api.mode, close: () => new Promise<void>(r => { server.closeAllConnections(); server.close(() => r()); }).then(() => tracing?.flush()) };

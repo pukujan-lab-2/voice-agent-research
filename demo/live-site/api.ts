@@ -31,11 +31,11 @@ import { MemoryStore, SESSION_TTL_MS, type Store } from '../../copilot-engine/sr
 import { OctoStore } from '../../copilot-engine/src/octo-store.ts';
 import { loadSlots, SLOT_NAMES, type Slots } from '../../copilot-engine/src/slots.ts';
 import { createSmart, SmartError, type Scope } from './smart.ts';
-import { BUSINESS_ID, SiteConfigs, type Sites } from '../../copilot-engine/src/site-config.ts';
+import { BUSINESS_ID, isOrigin, siteGate, type Gate, SiteConfigs, type Sites } from '../../copilot-engine/src/site-config.ts';
 
 export type ApiEnv = {
   OPENROUTER_JEV_KEY?: string; OCTO_KEY?: string; OCTO_WORKSPACE?: string; JEV_URL?: string; OCTO_BASE?: string; OCTO_TIMEOUT_MS?: string; OCTO_TRACES?: string;
-  SIGNING_SECRET?: string; LLAMA_URL?: string; DESK_URL?: string; DESK_KEY?: string; DESK_MODEL?: string; LFM3_AUDIO_URL?: string; OFFLINE?: string; JEV_DAILY_CAP?: string; RATE_PER_MIN?: string; STATE_STORE?: string;
+  SITE_ORIGINS?: string; SIGNING_SECRET?: string; LLAMA_URL?: string; DESK_URL?: string; DESK_KEY?: string; DESK_MODEL?: string; LFM3_AUDIO_URL?: string; OFFLINE?: string; JEV_DAILY_CAP?: string; RATE_PER_MIN?: string; STATE_STORE?: string;
   // Smart model slots (decision 0017, deploy/README.md): DESK_HYBRID=1 lets the desk ask the `desk` slot's hosted model on a hard turn,
   // for a development host or the owner only (SMART_OWNER=1 with OWNER_TOKEN, SMART_DEV_HOSTS adds host names). Keys are named by the slot.
   DESK_HYBRID?: string; SMART_OWNER?: string; OWNER_TOKEN?: string; SMART_DEV_HOSTS?: string; SMART_DAILY_CAP?: string;
@@ -103,7 +103,9 @@ export function createApi(env: ApiEnv, opts: { slots?: Slots; offlinePassages?: 
   // in-process store otherwise or when STATE_STORE=memory.
   stores?: { calls?: Store; sessions?: Store; limits?: Store };
   // Each business's config (voice stacks allowed, pages, desk). Default: the Octo table copilot_sites when live, none offline.
-  sites?: Sites } = {}) {
+  sites?: Sites;
+  // ownHostHeader: the host the visitor asked for comes in x-own-host (server.ts sets it; a request from outside can't).
+  ownHostHeader?: boolean } = {}) {
   const offline = env.OFFLINE === '1';
   if (!offline && !(env.OPENROUTER_JEV_KEY && env.OCTO_KEY && env.OCTO_WORKSPACE)) throw new Error('missing OPENROUTER_JEV_KEY, OCTO_KEY or OCTO_WORKSPACE (or set OFFLINE=1)');
   const jevUrl = env.JEV_URL || JEV_URL;
@@ -228,6 +230,8 @@ export function createApi(env: ApiEnv, opts: { slots?: Slots; offlinePassages?: 
   const sessionStore = opts.stores?.sessions ?? (inOcto ? octoStore() : new MemoryStore(Date.now, { max: 20_000 }));
 
   const sites: Sites | null = opts.sites ?? (offline ? null : new SiteConfigs(sql));
+  // The copilot's own origins (SITE_ORIGINS, comma-separated): always its own site, whatever host a proxy passes on.
+  const ownOrigins = (env.SITE_ORIGINS ?? '').split(',').map(o => o.trim()).filter(isOrigin);
 
   // Per-visitor rate limit (a window of one minute from the visitor's first request) and a daily cap on Jev calls.
   const perMin = Number(env.RATE_PER_MIN) || 40;
@@ -566,9 +570,26 @@ export function createApi(env: ApiEnv, opts: { slots?: Slots; offlinePassages?: 
     // For tests only (never over HTTP): which client a call was verified as.
     verifiedAs: clientOf,
     mode: offline ? 'offline (keyword search, word-overlap judge, rules)' : `live (Octo RAG, Jev ${env.LLAMA_URL ? '+ local LFM' : '+ rules'})`,
+    // Every /api request passes the site gate first: the copilot's own site as before, another site only with its
+    // business's site key and from one of that business's origins (decision 0021). Allowed cross-site answers carry
+    // that origin's CORS headers; a key's business is the only one its requests may name.
+    gate(req: Request) {
+      return siteGate(sites, { origin: req.headers.get('origin'), host: (opts.ownHostHeader ? req.headers.get('x-own-host') : null) ?? new URL(req.url).host,
+        own: ownOrigins, key: req.headers.get('x-site-key'), preflight: req.method === 'OPTIONS' });
+    },
     async handle(req: Request, ip = ''): Promise<Response> {
       const path = new URL(req.url).pathname;
       if (path === '/api/health') return json({ ok: true, mode: offline ? 'offline' : 'live' });
+      let gate: Gate;
+      try { gate = await this.gate(req); } catch (e) { log(`${path} site gate failed: ${(e as Error).message}`); return json({ error: 'backend error' }, 502); }
+      if (!gate.ok) { log(`${path} ${gate.status} site not allowed`); return json({ error: gate.error }, gate.status); }
+      if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: gate.headers });
+      const r = await this.serve(req, ip, gate.business);
+      for (const [k, v] of Object.entries(gate.headers)) r.headers.set(k, v);
+      return r;
+    },
+    async serve(req: Request, ip: string, siteBusiness?: string): Promise<Response> {
+      const path = new URL(req.url).pathname;
       if (/^\/api\/(site|forms|slots|portal|staff|files|newsletter)(\/|$)/.test(path)) {
         if (!practice) return json({ error: 'the practice backend needs Octo (live mode)' }, 503);
         return practice.handle(req, ip || req.headers.get('cf-connecting-ip') || 'local');
@@ -592,6 +613,7 @@ export function createApi(env: ApiEnv, opts: { slots?: Slots; offlinePassages?: 
         if (await limited(ip || req.headers.get('cf-connecting-ip') || 'local')) return json({ error: 'slow down' }, 429);
         const business = clip(new URL(req.url).searchParams.get('business'), 60);
         if (!BUSINESS_ID.test(business)) return json({ error: 'bad business' }, 400);
+        if (siteBusiness && business !== siteBusiness) return json({ error: 'this site key is for another business' }, 403);
         try {
           const config = sites ? await sites.get(business) : null;
           if (!config) return json({ error: 'unknown business' }, 404);
@@ -621,6 +643,7 @@ export function createApi(env: ApiEnv, opts: { slots?: Slots; offlinePassages?: 
       if (raw.length > (path === '/api/desk' ? 64_000 : 32_000)) { log(`${path} 413`); return json({ error: 'too large' }, 413); }
       let b: any;
       try { b = JSON.parse(raw); } catch { log(`${path} 400 bad json`); return json({ error: 'bad json' }, 400); }
+      if (siteBusiness && b && typeof b.business === 'string' && b.business !== siteBusiness) return json({ error: 'this site key is for another business' }, 403);
       const sid = req.headers.get('x-session-id');
       const session = sid && /^[\w-]{8,64}$/.test(sid) ? sid : null;
       const started = Date.now();
