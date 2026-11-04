@@ -18,7 +18,7 @@ The copilot is one factory that many businesses adopt. The build is tracked in [
 What this settles:
 
 1. **One workspace per outside adopter, on shared tables (the pool model).** Octo enforces the fence with row-level security under a runtime role that is not a superuser, the workspace set per transaction. A dedicated database is a later paid tier, same code and config. The factory's own demo businesses may keep sharing the "Chatbots factory" workspace by prefix.
-2. **Code flows out; data never flows across.** One business's calls, cases or memory are never read for another. Using a business's data to improve the product for everyone needs that business's yes in its config.
+2. **Code flows out; data never flows across.** One business's calls, cases or memory are never read for another. Using a business's data to improve the product for everyone is opt-in: off until that business turns it on in its config (the owner's choice, 2026-11-04).
 3. **The raw record is kept in full and encrypted.** Every call is recorded unmasked, as today. Raw transcripts (and audio, once recorded) are encrypted by the app under a per-session key wrapped by the business's own key, and stored in Octo object storage; trace spans carry a pointer, not the text. Destroying a key is how a call, a caller or a business is erased. Each business sets its retention.
 4. **Raw calls are opened only by grant.** A business's admin grants a named person access for a purpose and a time limit; every open is logged and visible to the business. An emergency path exists, logged and reviewed.
 5. **Improvement uses a separate cleaned copy.** Built from the raw record with personal details replaced by a stable per-business pseudonym and near-duplicates removed; pass/fail on leaks is a plain-code re-scan. Datasets and replay cases are built only from this copy.
@@ -37,4 +37,4 @@ The owner asked what each workspace and adopter should own against the factory, 
 - The per-business config (#28) gains workspace, domains, site key, plan, model and stack allow-lists, retention, data-sharing yes/no, and raw-access grants.
 - Returning-customer memory (`copilot-engine/src/memory.ts:87-90`) is re-keyed to business id plus a verified subject under a per-business key.
 - New pieces: OpenBao for keys (its backups off the VPS), Presidio with a GLiNER model for the cleaned copy, rate limits per policy, llama.cpp lanes. Billing (Lago) waits until there is something to bill.
-- For counsel: whether key destruction meets erasure law, call-recording consent by region, health-data duties for a clinic adopter, and the default for cross-business data use.
+- For counsel: whether key destruction meets erasure law, call-recording consent by region, and health-data duties for a clinic adopter (a business associate agreement with the clinic and with every vendor that sees its calls).

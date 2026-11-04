@@ -10,7 +10,7 @@ import { shortQuote, type Passage, type SearchFilter } from './guide.ts';
 import { ownQuestion } from './dialogue.ts';
 import { filterFrom, SEARCH_HINT, withSearchTools, type SiteSearch } from './search-site.ts';
 import { LOOKUP_HINT, type Caller, type Lookups } from './lookups.ts';
-import { customerKey, newSessionId, SESSION_TTL_MS, type CustomerRecord, type SessionSnapshot, type Store } from './memory.ts';
+import { businessSecret, customerKey, newSessionId, SESSION_TTL_MS, type CustomerRecord, type SessionSnapshot, type Store } from './memory.ts';
 
 // Environment settings in Node; none in the browser.
 const ENV: Record<string, string | undefined> = (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env ?? {};
@@ -480,6 +480,7 @@ export class Desk {
   private scope: string; // the business a snapshot belongs to: part of its key, so one business never reads another's
   private sessions?: Store;
   private customers?: Store;
+  private customerSecret = ''; // this business's secret for its customer keys (memory.ts customerKey)
   private mem = { asked: false, awaiting: false, lookedUp: false, forget: false, returning: false };
   private notes: string[] = []; // things code must say this turn (from inside confirm)
   private misheard = false; // the caller corrected a misheard value: every remaining step scores RISK_MISHEARD higher
@@ -500,7 +501,7 @@ export class Desk {
   private unknown: string;
   private finish?: string;
 
-  constructor(flow: Flow, opts: { model?: ChatModel; heavy?: ChatModel; hybrid?: boolean; docs?: Docs; answer?: (question: string, filter?: SearchFilter) => Promise<string | null>; search?: SiteSearch; lookups?: Lookups; caller?: () => Caller; unknown?: string; finish?: string; hooks?: Partial<Hooks>; route?: (said: string, d: Desk) => boolean; sessions?: Store; customers?: Store; fullFormFields?: number; scope?: string } = {}) {
+  constructor(flow: Flow, opts: { model?: ChatModel; heavy?: ChatModel; hybrid?: boolean; docs?: Docs; answer?: (question: string, filter?: SearchFilter) => Promise<string | null>; search?: SiteSearch; lookups?: Lookups; caller?: () => Caller; unknown?: string; finish?: string; hooks?: Partial<Hooks>; route?: (said: string, d: Desk) => boolean; sessions?: Store; customers?: Store; customerSecret?: string; fullFormFields?: number; scope?: string } = {}) {
     this.flow = flow;
     this.scope = id(opts.scope ?? '');
     this.windowed = flow.fields.length > (opts.fullFormFields ?? FULL_FORM_FIELDS);
@@ -509,6 +510,14 @@ export class Desk {
     this.finish = opts.finish;
     this.sessions = opts.sessions;
     this.customers = opts.customers;
+    if (this.customers) {
+      // Customer memory belongs to one business: without its id and a secret, records could cross businesses or be
+      // guessed back from their keys, so the desk refuses to start. customerSecret is the business's own secret;
+      // otherwise one is derived from the master DESK_MEMORY_SECRET.
+      if (!this.scope) throw new Error('customer memory needs the business id (scope)');
+      this.customerSecret = opts.customerSecret ?? (ENV.DESK_MEMORY_SECRET ? businessSecret(ENV.DESK_MEMORY_SECRET, this.scope) : '');
+      if (!this.customerSecret) throw new Error('customer memory needs customerSecret or DESK_MEMORY_SECRET');
+    }
     this.chatModel = opts.model;
     // Hybrid (a hosted model for hard turns) is off unless DESK_HYBRID=1 or the caller says so (the page, which has no env, and
     // only for a model it knows is allowed): the default path is the local model only.
@@ -680,15 +689,16 @@ export class Desk {
     if (f.kind === 'serial' || f.kind === 'text' || f.kind === 'choice') return false; // never serials, symptoms, visit reasons
     return (f as Field & { remember?: boolean }).remember ?? (f.kind === 'name' || f.kind === 'phone' || f.kind === 'email');
   }
+  private custKey(kind: 'phone' | 'email', value: string): string { return customerKey(this.scope, this.customerSecret, kind, value); }
   private contactKeys(): string[] {
-    return this.flow.fields.filter(f => (f.kind === 'phone' || f.kind === 'email') && this.values[f.name]).map(f => customerKey(f.kind as 'phone' | 'email', this.values[f.name]));
+    return this.flow.fields.filter(f => (f.kind === 'phone' || f.kind === 'email') && this.values[f.name]).map(f => this.custKey(f.kind as 'phone' | 'email', this.values[f.name]));
   }
   private async forgetCustomer(): Promise<void> {
     // Delete under every contact the record holds, not only the ones given on this call.
     const keys = new Set(this.contactKeys());
     for (const k of [...keys]) {
       const rec = (await this.customers!.get(k).catch(() => undefined)) as CustomerRecord | undefined;
-      for (const f of this.flow.fields) if ((f.kind === 'phone' || f.kind === 'email') && rec?.values[f.name]) keys.add(customerKey(f.kind, rec.values[f.name]));
+      for (const f of this.flow.fields) if ((f.kind === 'phone' || f.kind === 'email') && rec?.values[f.name]) keys.add(this.custKey(f.kind, rec.values[f.name]));
     }
     for (const k of keys) await this.customers!.delete(k);
     this.queue = this.queue.filter(q => !q.reuse);
@@ -703,7 +713,7 @@ export class Desk {
     if (this.mem.lookedUp) return;
     this.mem.lookedUp = true;
     let rec: CustomerRecord | undefined;
-    try { rec = (await this.customers.get(customerKey(f.kind, this.values[f.name]))) as CustomerRecord | undefined; } catch { rec = undefined; }
+    try { rec = (await this.customers.get(this.custKey(f.kind, this.values[f.name]))) as CustomerRecord | undefined; } catch { rec = undefined; }
     if (!rec || rec.v !== 1) return;
     const offers = this.flow.fields.filter(g => rec!.values[g.name] && this.rememberable(g) && this.values[g.name] === undefined && this.pending?.field !== g.name && !this.queue.some(q => q.field === g.name));
     if (!offers.length) return;

@@ -1,7 +1,7 @@
 // Memory for the desk: call resume (short-lived session snapshots) and opt-in returning-customer records.
 // Stores are pluggable: an in-memory Map, a JSON file (tests), or anything that implements Store (an Octo
-// workspace store later). Customer records are keyed by a salted hash of the normalized phone or email, so the
-// store never holds a contact detail as a key.
+// workspace store later). Customer records are keyed by the business and an HMAC of the normalized phone or email
+// under that business's secret, so the store never holds a contact detail as a key and no business reads another's.
 // No top-level Node imports: the desk also runs in the browser (the live site), where only the Store types and
 // newSessionId are used. The Node-only parts (the file store, the customer key's hash) load Node's modules when called.
 const node = <T>(id: string): T => (globalThis as unknown as { process: { getBuiltinModule(id: string): T } }).process.getBuiltinModule(id);
@@ -84,10 +84,22 @@ export function newSessionId(): string {
   return btoa(String.fromCharCode(...b)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
-// Key for a returning customer: hash of the normalized phone digits or lower-cased email.
-export function customerKey(kind: 'phone' | 'email', value: string, salt = globalThis.process?.env?.DESK_MEMORY_SALT ?? 'desk-v2'): string {
+const hmac = (key: string, data: string) => node<typeof import('node:crypto')>('node:crypto').createHmac('sha256', key).update(data).digest('hex');
+
+// One business's secret for its customer keys, derived from the master secret (DESK_MEMORY_SECRET) until each business's
+// own key lives in a key store (decision 0021).
+export function businessSecret(master: string, business: string): string {
+  if (!master || !business) throw new Error('businessSecret needs a master secret and a business id');
+  return hmac(master, `desk-customer|${business}`);
+}
+
+// Key for a returning customer at one business: the business id, then an HMAC of the normalized phone digits or
+// lower-cased email under that business's secret. A phone number is a small space, so without the secret the hash
+// can't be guessed back; and the same caller at two businesses gets two unrelated keys.
+export function customerKey(business: string, secret: string, kind: 'phone' | 'email', value: string): string {
+  if (!business || !secret) throw new Error('customerKey needs a business id and its secret');
   const norm = kind === 'phone' ? value.replace(/\D/g, '').replace(/^1(?=\d{10}$)/, '') : value.trim().toLowerCase();
-  return 'cust:' + node<typeof import('node:crypto')>('node:crypto').createHash('sha256').update(`${salt}|${kind}|${norm}`).digest('hex');
+  return `cust:${business}:${hmac(secret, `${kind}|${norm}`)}`;
 }
 
 export type SessionSnapshot = {
