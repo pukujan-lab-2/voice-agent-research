@@ -63,6 +63,29 @@ Not needed.
 
 No checkpoints yet.
 
+### 2026-11-04 23:03:28 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["copilot-engine/src/call-vault.ts, demo/live-site/api.ts, demo/live-site/server.ts, deploy/docker-compose.vps.yml, deploy/README.md, tests"],"completed":["A call's resume record now reaches Octo locked: each call has its own data key, stored only locked by its business's OpenBao key; OpenBao runs on the VPS (server-management PRs 137, 138)"],"decisions":["Static-key auto-unseal per the owner (weaker against someone with the VPS disk); without OpenBao a live server answers 503 rather than store a readable record"],"evidence":["npm run check exit 0: 168 + 51 + 93 JS tests, Python and replay gates pass; new call-vault.test.ts (5) and own-workspace.test.ts (6) show Octo rows hold no call text and another business's key cannot open a record"],"next_action":"open the pull request with Closes #128, confirm CI is green, arm auto-merge, then check a saved call on the VPS before and after a copilot restart","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0108","timestamp":"2026-11-04T23:03:28Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"db2a3cfba0183db5e9ca796b95a6534a4500709098890b16b1d49b31afb2461d","request_id":"8e24e07c7f7f4b46996308b919d0c7a4","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0108"} -->
+
+Completed:
+- A call's resume record now reaches Octo locked: each call has its own data key, stored only locked by its business's OpenBao key; OpenBao runs on the VPS (server-management PRs 137, 138)
+
+Evidence:
+- npm run check exit 0: 168 + 51 + 93 JS tests, Python and replay gates pass; new call-vault.test.ts (5) and own-workspace.test.ts (6) show Octo rows hold no call text and another business's key cannot open a record
+
+Decisions:
+- Static-key auto-unseal per the owner (weaker against someone with the VPS disk); without OpenBao a live server answers 503 rather than store a readable record
+
+Changed:
+- copilot-engine/src/call-vault.ts, demo/live-site/api.ts, demo/live-site/server.ts, deploy/docker-compose.vps.yml, deploy/README.md, tests
+
+Blocked/uncertain:
+- none
+
+Next:
+- open the pull request with Closes #128, confirm CI is green, arm auto-merge, then check a saved call on the VPS before and after a copilot restart
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
