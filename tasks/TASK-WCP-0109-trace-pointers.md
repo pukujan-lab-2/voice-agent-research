@@ -62,6 +62,29 @@ Not needed.
 
 No checkpoints yet.
 
+### 2026-11-04 23:15:42 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["copilot-engine/src/call-records.ts, demo/live-site/api.ts, demo/live-site/tracing.ts, demo/live-site/server.ts, demo/live-site/speech/telemetry.py, copilot-engine/src/site-config.ts, tests"],"completed":["Call text moved out of traces into the locked call record; retention.days per business with an hourly sweep"],"decisions":["Voice agent turn spans keep character counts only; the page span of the same turn holds the pointer"],"evidence":["npm run check passes; own-workspace tests show no span holds the words, the pointer opens for its business, and entries past retention are unread and swept"],"next_action":"Open the PR with Closes #129 and arm auto-merge","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0109","timestamp":"2026-11-04T23:15:42Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"fb705d488bbbff29c9892e8ba842086e6665d21c969a9a966e5ce516471d03a9","request_id":"e045b758ca1d47798cc00d83130b1a44","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0109"} -->
+
+Completed:
+- Call text moved out of traces into the locked call record; retention.days per business with an hourly sweep
+
+Evidence:
+- npm run check passes; own-workspace tests show no span holds the words, the pointer opens for its business, and entries past retention are unread and swept
+
+Decisions:
+- Voice agent turn spans keep character counts only; the page span of the same turn holds the pointer
+
+Changed:
+- copilot-engine/src/call-records.ts, demo/live-site/api.ts, demo/live-site/tracing.ts, demo/live-site/server.ts, demo/live-site/speech/telemetry.py, copilot-engine/src/site-config.ts, tests
+
+Blocked/uncertain:
+- none
+
+Next:
+- Open the PR with Closes #129 and arm auto-merge
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
