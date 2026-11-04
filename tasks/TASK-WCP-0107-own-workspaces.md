@@ -63,6 +63,29 @@ Not needed.
 
 No checkpoints yet.
 
+### 2026-11-04 22:02:56 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["copilot-engine/src/octo-workspaces.ts, copilot-engine/src/site-config.ts, demo/live-site/api.ts, demo/live-site/tracing.ts, demo/live-site/server.ts, demo/live-site/tools/site-config.ts, tests"],"completed":["An outside business added to the registry with workspace: {} now gets its own Octo workspace; its config, resume sessions and traces are read and written there, and demo businesses stay on the shared workspace"],"decisions":["The factory reaches business workspaces with the account-wide key; the workspace's own first key is dropped until keys live in OpenBao (#128). No live workspace was created: Octo allows one a day and deletion needs the owner's MFA session"],"evidence":["Lint, typecheck, knip and JS tests pass locally (163 + 51 + 91 tests, 0 failures); new own-workspace.test.ts (4) and site-config.test.ts (8) pass on PGlite with Octo faked at fetch"],"next_action":"open the pull request with Closes #127, confirm CI is green, arm auto-merge","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0107","timestamp":"2026-11-04T22:02:56Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"4e0fb14c57c7abe69d398c9b8b6ab1fb1b7eb8ad1d8d96a7cd69b73b7bfac521","request_id":"870dfebdda4c4d75afbdd15212868d97","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0107"} -->
+
+Completed:
+- An outside business added to the registry with workspace: {} now gets its own Octo workspace; its config, resume sessions and traces are read and written there, and demo businesses stay on the shared workspace
+
+Evidence:
+- Lint, typecheck, knip and JS tests pass locally (163 + 51 + 91 tests, 0 failures); new own-workspace.test.ts (4) and site-config.test.ts (8) pass on PGlite with Octo faked at fetch
+
+Decisions:
+- The factory reaches business workspaces with the account-wide key; the workspace's own first key is dropped until keys live in OpenBao (#128). No live workspace was created: Octo allows one a day and deletion needs the owner's MFA session
+
+Changed:
+- copilot-engine/src/octo-workspaces.ts, copilot-engine/src/site-config.ts, demo/live-site/api.ts, demo/live-site/tracing.ts, demo/live-site/server.ts, demo/live-site/tools/site-config.ts, tests
+
+Blocked/uncertain:
+- none
+
+Next:
+- open the pull request with Closes #127, confirm CI is green, arm auto-merge
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
