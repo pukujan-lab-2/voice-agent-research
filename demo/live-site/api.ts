@@ -29,12 +29,13 @@ import type { Field, FieldKind, Flow, Model } from '../../copilot-engine/src/typ
 import { maskPII } from '../../copilot-engine/src/guard.ts';
 import { MemoryStore, SESSION_TTL_MS, type Store } from '../../copilot-engine/src/memory.ts';
 import { OctoStore } from '../../copilot-engine/src/octo-store.ts';
+import { octoSql } from '../../copilot-engine/src/octo-workspaces.ts';
 import { loadSlots, SLOT_NAMES, type Slots } from '../../copilot-engine/src/slots.ts';
 import { createSmart, SmartError, type Scope } from './smart.ts';
 import { BUSINESS_ID, isOrigin, siteGate, type Gate, SiteConfigs, type Sites } from '../../copilot-engine/src/site-config.ts';
 
 export type ApiEnv = {
-  OPENROUTER_JEV_KEY?: string; OCTO_KEY?: string; OCTO_WORKSPACE?: string; JEV_URL?: string; OCTO_BASE?: string; OCTO_TIMEOUT_MS?: string; OCTO_TRACES?: string;
+  OPENROUTER_JEV_KEY?: string; OCTO_KEY?: string; OCTO_WORKSPACE?: string; OCTO_ACCOUNT_KEY?: string; JEV_URL?: string; OCTO_BASE?: string; OCTO_TIMEOUT_MS?: string; OCTO_TRACES?: string;
   SITE_ORIGINS?: string; SIGNING_SECRET?: string; LLAMA_URL?: string; DESK_URL?: string; DESK_KEY?: string; DESK_MODEL?: string; LFM3_AUDIO_URL?: string; OFFLINE?: string; JEV_DAILY_CAP?: string; RATE_PER_MIN?: string; STATE_STORE?: string;
   // Smart model slots (decision 0017, deploy/README.md): DESK_HYBRID=1 lets the desk ask the `desk` slot's hosted model on a hard turn,
   // for a development host or the owner only (SMART_OWNER=1 with OWNER_TOKEN, SMART_DEV_HOSTS adds host names). Keys are named by the slot.
@@ -97,7 +98,7 @@ function deskTools(raw: unknown): unknown[] | null {
 
 const WARM_FIELD: Field = { name: 'warm', label: 'warm-up', question: 'Say hello.', kind: 'text' };
 
-export function createApi(env: ApiEnv, opts: { slots?: Slots; offlinePassages?: Record<string, LibraryPassage[]>; matchNames?: NameMatcher; trace?: ExportTrace; score?: (s: EvalScore) => Promise<'annotation' | 'span'>;
+export function createApi(env: ApiEnv, opts: { slots?: Slots; offlinePassages?: Record<string, LibraryPassage[]>; matchNames?: NameMatcher; trace?: ExportTrace; score?: (s: EvalScore, workspace?: string) => Promise<'annotation' | 'span'>;
   // Where state lives. calls: caller verification (shared, so a restart or a second instance keeps a lock); sessions: resume
   // snapshots; limits: rate-limit counters (hot path, so per instance). Default: Octo for the first two when live, a capped
   // in-process store otherwise or when STATE_STORE=memory.
@@ -229,7 +230,27 @@ export function createApi(env: ApiEnv, opts: { slots?: Slots; offlinePassages?: 
   const callStore = opts.stores?.calls ?? (inOcto ? octoStore() : new MemoryStore(Date.now, { max: 20_000 }));
   const sessionStore = opts.stores?.sessions ?? (inOcto ? octoStore() : new MemoryStore(Date.now, { max: 20_000 }));
 
-  const sites: Sites | null = opts.sites ?? (offline ? null : new SiteConfigs(sql));
+  // An outside business's own workspace (decision 0021, #127) is reached with the account-wide key; with none set, its
+  // requests fail rather than fall back to the shared workspace. Its sessions and traces go there; demo businesses stay
+  // on the shared workspace with their prefix.
+  const sqlAt = (ws: string) => {
+    if (!env.OCTO_ACCOUNT_KEY) throw new Error('no account-wide Octo key (OCTO_ACCOUNT_KEY) to reach a business workspace');
+    return octoSql({ base: env.OCTO_BASE, key: env.OCTO_ACCOUNT_KEY }, ws);
+  };
+  const sites: Sites | null = opts.sites ?? (offline ? null : new SiteConfigs(sql, { workspaces: { sqlFor: sqlAt } }));
+  const workspaceOf = async (business: unknown): Promise<string | undefined> =>
+    sites && typeof business === 'string' && BUSINESS_ID.test(business) ? (await sites.get(business))?.workspace?.id || undefined : undefined;
+  const ownStores = new Map<string, Store>();
+  const sessionsAt = (ws: string | undefined): Store => {
+    if (!ws) return sessionStore;
+    let s = ownStores.get(ws);
+    if (!s) {
+      s = new OctoStore(sqlAt(ws), { max: 200_000 });
+      if (ownStores.size >= 500) ownStores.delete(ownStores.keys().next().value!);
+      ownStores.set(ws, s);
+    }
+    return s;
+  };
   // The copilot's own origins (SITE_ORIGINS, comma-separated): always its own site, whatever host a proxy passes on.
   const ownOrigins = (env.SITE_ORIGINS ?? '').split(',').map(o => o.trim()).filter(isOrigin);
 
@@ -365,6 +386,7 @@ export function createApi(env: ApiEnv, opts: { slots?: Slots; offlinePassages?: 
   async function sessionApi(b: any): Promise<Response> {
     if (!BUSINESS_ID.test(b.business ?? '') || !SESSION.test(b.id ?? '')) return json({ error: 'bad session request' }, 400);
     if (sites && !(await sites.get(b.business))) return json({ error: 'unknown business' }, 404);
+    const sessionStore = sessionsAt(await workspaceOf(b.business));
     const key = `sess:${b.business}:${b.id}`;
     if (b.op === 'get') return json({ snapshot: (await sessionStore.get(key)) ?? null });
     if (b.op === 'delete') { await sessionStore.delete(key); return json({ ok: true }); }
@@ -376,7 +398,8 @@ export function createApi(env: ApiEnv, opts: { slots?: Slots; offlinePassages?: 
     return json({ ok: true });
   }
 
-  async function route(path: string, b: any, ip = '', session: string | null = null, scope: Scope = null): Promise<Response> {
+  // ws: the workspace of the business this request is for, when it has its own; its traces go there.
+  async function route(path: string, b: any, ip = '', session: string | null = null, scope: Scope = null, ws?: string): Promise<Response> {
     if (path === '/api/verify') return verify(b, ip);
     if (path === '/api/session') return sessionApi(b);
     if (path === '/api/account/status') return accountStatus(b);
@@ -500,7 +523,7 @@ export function createApi(env: ApiEnv, opts: { slots?: Slots; offlinePassages?: 
         const children = kids && Array.isArray(sp.children) ? sp.children.slice(0, 40).map((c: unknown) => spec(c, false)).filter(Boolean) as SpanSpec[] : [];
         return { name: clip(sp.name, 60) || 'widget', kind, start, end, error: !!sp.error, attributes, children };
       };
-      for (const sp of Array.isArray(b.spans) ? b.spans.slice(0, 10) : []) { const s = spec(sp, true); if (s) opts.trace?.(s, session); }
+      for (const sp of Array.isArray(b.spans) ? b.spans.slice(0, 10) : []) { const s = spec(sp, true); if (s) opts.trace?.(s, session, ws); }
       return json({ ok: true });
     }
     if (path === '/api/score') {
@@ -509,7 +532,7 @@ export function createApi(env: ApiEnv, opts: { slots?: Slots; offlinePassages?: 
       if (!/^[\w-]{8,64}$/.test(call) || !name) return json({ error: 'call and name are required' }, 400);
       if (!opts.score) return json({ error: 'tracing is off' }, 503);
       const as = await opts.score({ call, name, turn: clip(b.turn, 64) || undefined, score: Number.isFinite(b.score) ? Number(b.score) : undefined,
-        label: clip(b.label, 120) || undefined, explanation: clip(b.explanation, 4000) || undefined });
+        label: clip(b.label, 120) || undefined, explanation: clip(b.explanation, 4000) || undefined }, ws);
       return json({ ok: true, as });
     }
     if (path === '/api/log') {
@@ -529,7 +552,7 @@ export function createApi(env: ApiEnv, opts: { slots?: Slots; offlinePassages?: 
   });
 
   // One trace per backend call, after it answered, so tracing never slows a reply.
-  async function traceCall(path: string, b: any, r: Response, start: number, session: string | null, scope: Scope) {
+  async function traceCall(path: string, b: any, r: Response, start: number, session: string | null, scope: Scope, ws?: string) {
     const kind: SpanSpec['kind'] = path === '/api/search' ? 'RETRIEVER' : 'LLM';
     const out = await r.text();
     let o: any = {};
@@ -562,7 +585,7 @@ export function createApi(env: ApiEnv, opts: { slots?: Slots; offlinePassages?: 
       attributes[`retrieval.documents.${i}.document.id`] = clip(p.id, 200);
       attributes[`retrieval.documents.${i}.document.content`] = clip(p.text, 1000);
     });
-    opts.trace!({ name: path.slice(5), kind, start, end: Date.now(), error: r.status >= 400, attributes }, session);
+    opts.trace!({ name: path.slice(5), kind, start, end: Date.now(), error: r.status >= 400, attributes }, session, ws);
   }
 
   let siteMedia: { at: number; slots: Record<string, unknown> } | null = null;
@@ -617,7 +640,8 @@ export function createApi(env: ApiEnv, opts: { slots?: Slots; offlinePassages?: 
         try {
           const config = sites ? await sites.get(business) : null;
           if (!config) return json({ error: 'unknown business' }, 404);
-          const r = json({ config }); r.headers.set('Cache-Control', 'public, max-age=60'); return r;
+          const { workspace: _, ...open } = config; // where its data lives is the server's business, not the page's
+          const r = json({ config: open }); r.headers.set('Cache-Control', 'public, max-age=60'); return r;
         } catch (e) { log(`${path} failed: ${(e as Error).message}`); return json({ error: 'backend error' }, 502); }
       }
       if (path.startsWith('/api/library/') && path !== '/api/library/search' && req.method === 'GET') {
@@ -649,9 +673,10 @@ export function createApi(env: ApiEnv, opts: { slots?: Slots; offlinePassages?: 
       const started = Date.now();
       try {
         const scope = smart.scope(req);
-        const r = await route(path, b, ip || req.headers.get('cf-connecting-ip') || 'local', session, scope);
+        const ws = await workspaceOf(siteBusiness ?? b?.business);
+        const r = await route(path, b, ip || req.headers.get('cf-connecting-ip') || 'local', session, scope, ws);
         if (r.status >= 400) log(`${path} ${r.status}`);
-        if (opts.trace && ['/api/understand', '/api/desk', '/api/search', '/api/judge', '/api/sentences'].includes(path)) void traceCall(path, b, r.clone(), started, session, scope).catch(() => {});
+        if (opts.trace && ['/api/understand', '/api/desk', '/api/search', '/api/judge', '/api/sentences'].includes(path)) void traceCall(path, b, r.clone(), started, session, scope, ws).catch(() => {});
         return r;
       } catch (e) {
         log(`${path} failed: ${(e as Error).stack ?? e}`);
