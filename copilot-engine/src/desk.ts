@@ -206,9 +206,16 @@ export function normalizeEmail(raw: string): { value?: string; problem?: string 
   let t = raw.trim().toLowerCase();
   const spoken = spokenToEmail(t);
   if (spoken) t = spoken;
-  t = t.replace(/\s*\bat\b\s*/g, '@').replace(/\s*\bdot\b\s*/g, '.').replace(/\s+/g, '').replace(/\.+$/, '');
-  if (!validEmail(t)) return { problem: "I didn't get a complete email address. Could you say it like name at example dot com?" };
-  return { value: t };
+  const whole = t.replace(/\s*\bat\b\s*/g, '@').replace(/\s*\bdot\b\s*/g, '.').replace(/\s+/g, '').replace(/\.+$/, '');
+  if (validEmail(whole)) return { value: whole };
+  // Said inside a sentence ("actually it's just one dot, siobhan dot oc at example dot com") or spelled out
+  // ("M-A-R-I-S-O-L dot E at E-X-A-M-P-L-E dot C-O-M"): the last address in the words, other words kept apart.
+  // Each clause on its own, so "just one dot, siobhan dot oc ..." doesn't join "one" to the address.
+  for (const part of raw.split(/[,;!?\u2014\u2013]|\.\s/).reverse()) {
+    const near = joinSpelled(part).toLowerCase().replace(/\s+(?:at|at sign)\s+/g, '@').replace(/\s+dot\s+/g, '.').match(/[a-z0-9._%+-]+@[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,}/g);
+    if (near) return { value: near[near.length - 1] };
+  }
+  return { problem: "I didn't get a complete email address. Could you say it like name at example dot com?" };
 }
 
 export function normalizeSerial(raw: string, example = '1334-592C-LSD3'): { value?: string; problem?: string } {
@@ -261,6 +268,9 @@ export function normalize(f: Field, raw: string): { value?: string; problem?: st
 
 const orList = (a: string[]) => a.length <= 1 ? a.join('') : `${a.slice(0, -1).join(', ')} or ${a[a.length - 1]}`;
 const spellWord = (w: string) => w.replace(/[^A-Za-z]/g, '').toUpperCase().split('').join('-');
+// A name spelled word by word, saying the marks inside it: "Okonkwo-Reyes" is O-K-O-N-K-W-O, hyphen, R-E-Y-E-S (#160).
+const MARKS: Record<string, string> = { '-': 'hyphen', "'": 'apostrophe', '\u2019': 'apostrophe' };
+const spellName = (v: string) => v.split(/\s+/).map(w => w.split(/([-'\u2019])/).filter(Boolean).map(p => MARKS[p] ?? spellWord(p)).filter(Boolean).join(', ')).join(', ');
 const groupChars = (s: string) => (s.match(/.{1,4}/g) ?? []).map(g => g.split('').join(' ')).join(', ');
 const COMMON_DOMAINS = /^(gmail|yahoo|hotmail|outlook|icloud|aol|proton|protonmail|live|msn|comcast)\.(com|net|me)$/;
 
@@ -271,7 +281,7 @@ export function readback(f: Field, v: string, n = 0, brisk = false): string {
   const pick = (a: string[]) => a[n % a.length];
   if (brisk) return briskReadback(f, v);
   switch (f.kind) {
-    case 'name': { const sp = v.split(/\s+/).map(spellWord).join(', '); return pick([`I have ${v}, that's ${sp}. Did I get that right?`, `Let me spell that back: ${v}, ${sp}. Is that right?`, `So that's ${v}, spelled ${sp}. Is that correct?`]); }
+    case 'name': { const sp = spellName(v); return pick([`I have ${v}, that's ${sp}. Did I get that right?`, `Let me spell that back: ${v}, ${sp}. Is that right?`, `So that's ${v}, spelled ${sp}. Is that correct?`]); }
     case 'phone': { const d = v.replace(/\D/g, ''); const g = [d.slice(0, 3), d.slice(3, 6), d.slice(6)].map(x => x.split('').join(' ')).join(', '); return pick([`I have ${g}. Is that right?`, `Let me read that back: ${g}. Is that correct?`]); }
     case 'email': {
       const [local, dom] = v.split('@');
@@ -284,14 +294,14 @@ export function readback(f: Field, v: string, n = 0, brisk = false): string {
     case 'code': return pick([`I have ${v}, that's ${spellOut(v)}. Is that right?`, `Let me read that back: ${spellOut(v)}. Is that correct?`]);
     case 'date': case 'when': return pick([`I have ${formatDate(v)} for the ${f.label}. Is that right?`, `So that's ${formatDate(v)}, is that right?`]);
     case 'digits': return pick([`I have ${spellOut(v)}. Is that right?`, `Let me read that back: ${spellOut(v)}. Is that correct?`]);
-    default: if (f.spell) return `I have "${v}", spelled ${v.split(/\s+/).map(spellWord).join(', ')}. Is that right?`;
+    default: if (f.spell) return `I have "${v}", spelled ${spellName(v)}. Is that right?`;
       return pick([`I'll put down "${v}" for the ${f.label}. Is that right?`, `So for the ${f.label}: "${v}". Is that right?`]);
   }
 }
 
 function briskReadback(f: Field, v: string): string {
   switch (f.kind) {
-    case 'name': return `${v}, ${v.split(/\s+/).map(spellWord).join(', ')}, right?`;
+    case 'name': return `${v}, ${spellName(v)}, right?`;
     case 'phone': { const d = v.replace(/\D/g, ''); return `${[d.slice(0, 3), d.slice(3, 6), d.slice(6)].map(x => x.split('').join(' ')).join(', ')}, right?`; }
     case 'email': { const r = readback(f, v); const m = r.match(/that's (.*)\. Is that right\?$/); return `${v}, ${m ? m[1] : ''}, right?`.replace(', , ', ', '); }
     case 'serial': return `${formatSerial(v)}, ${groupChars(v)}, right?`;
@@ -402,6 +412,9 @@ const RISK_LOCK = 56;     // from here up, code fills only after a recorded clea
 const RISK_TWICE = 76;    // from here up, the yes is asked twice (and so is a skip)
 const RISK_PERSON = 91;   // from here up, a person approves; the desk never fills it
 const RISK_MISHEARD = 15; // added to every remaining step once the caller has corrected a misheard value
+const NOTHING_MORE = "That's all I found on it in the guides, and I can't find more there.";
+const SAY_AGAIN = /\b(repeat|again|say that|one more time|didn'?t (catch|hear|get) (that|it)|come again|pardon)\b/i;
+const GIVE_UP_AFTER = 3;  // misses on one field before the desk leaves it for the caller to type (#160)
 // Defaults when the business sets none: a pick from a short list is low, anything typed is read back, a secret locked.
 function defaultRisk(f: Field): number {
   return f.secret ? 60 : f.kind === 'choice' || f.kind === 'when' ? 25 : 40;
@@ -1010,6 +1023,14 @@ Caller: "Thanks, that helps." -> no tool; say "You're welcome. Anything else?"`;
 
   // One question looked up: the site's own answer, else a quote from the business's passages; null when nothing answers.
   private async lookup(q: string, filter?: SearchFilter): Promise<{ text: string; id: string } | null> {
+    const found = await this.find(q, filter);
+    // The same words as the last answer: reading them again doesn't help, so say there is nothing more (#160).
+    if (found && found.text === this.lastAnswer && !SAY_AGAIN.test(this.lastUser)) return { text: NOTHING_MORE, id: found.id };
+    this.lastAnswer = found?.text ?? '';
+    return found;
+  }
+  private lastAnswer = '';
+  private async find(q: string, filter?: SearchFilter): Promise<{ text: string; id: string } | null> {
     if (this.answer) { const t = await this.answer(q, filter); return t ? { text: t, id: 'site' } : null; }
     const p = this.docs ? await this.docs(q) : null;
     return p ? { text: shortQuote(p.text, q, 140), id: p.id } : null;
@@ -1021,6 +1042,22 @@ Caller: "Thanks, that helps." -> no tool; say "You're welcome. Anything else?"`;
     this.values[f.name] = '';
     this.events.push({ turn: this.n, type: 'skipped', field: f.name });
     if (this.current === f.name) this.moveOn();
+  }
+
+  // Times this field went wrong: an unusable value, words the caller didn't say, a no to the read-back, or the same
+  // rejected value read back again.
+  private misses(f: Field): number {
+    return this.events.filter(e => e.field === f.name && ['problem', 'ungrounded', 'reject', 'repeat'].includes(e.type)).length;
+  }
+  // The way out of a loop (#160): from the third miss on one field the desk stops asking, leaves it blank for the
+  // caller to type into the form when they check it, says so, and moves on.
+  private giveUp(f: Field): string | null {
+    if (this.misses(f) < GIVE_UP_AFTER) return null;
+    if (this.pending?.field === f.name) this.pending = null;
+    this.values[f.name] = '';
+    this.events.push({ turn: this.n, type: 'left_for_person', field: f.name });
+    if (this.current === f.name) this.moveOn();
+    return `I'm sorry, I keep getting the ${f.label.toLowerCase()} wrong. I'll leave it blank, and you can type it in yourself when you check the form.`;
   }
 
   // ----- applying the model's tool calls -----
@@ -1074,6 +1111,12 @@ Caller: "Thanks, that helps." -> no tool; say "You're welcome. Anything else?"`;
         let nv = normalize(f, String(a.value ?? ''));
         // The model miscopied what was said (two letters swapped, a stray digit): if the rules read a valid value
         // straight from the customer's words, use that one instead.
+        // An email is copied from what was said, so when the customer's own words hold a whole address, code's reading
+        // wins: the grounding check below compares letters only and lets "siobhan...oc" or a dropped ".e" through (#160).
+        if (f.kind === 'email') {
+          const rv = normalizeEmail(said).value;
+          if (rv && rv !== nv.value) { ev({ type: 'rule_value', field: f.name, value: rv, detail: String(a.value ?? '') }); nv = { value: rv }; }
+        }
         if (f.kind !== 'text' && f.kind !== 'choice' && (!nv.value || !this.grounded(f, nv.value))) {
           const rv = this.ruleParse(f, said);
           if (rv && rv !== nv.value && this.grounded(f, rv)) { ev({ type: 'rule_value', field: f.name, value: rv, detail: String(a.value ?? '') }); nv = { value: rv }; }
@@ -1085,7 +1128,12 @@ Caller: "Thanks, that helps." -> no tool; say "You're welcome. Anything else?"`;
           if (rv && rv !== nv.value && this.grounded(f, rv)) { ev({ type: 'rule_value', field: f.name, value: rv, detail: String(a.value ?? '') }); nv = { value: rv }; }
         }
         if (!nv.value && (f.kind === 'serial' || f.kind === 'phone') && !/\d|\b(zero|oh|one|two|three|four|five|six|seven|eight|nine)\b/i.test(said)) { ev({ type: 'ungrounded', field: f.name, value: String(a.value ?? '') }); rec(c, 'Not used: the customer did not say that.'); continue; }
-        if (!nv.value) { ev({ type: 'problem', field: f.name, detail: nv.problem }); rec(c, `Not valid: ${nv.problem}`); tails.push(`${nv.problem} ${/\?$/.test(nv.problem ?? '') ? '' : f.kind === 'name' ? 'Could you spell it for me?' : f.kind === 'serial' ? 'Could you read it again, in groups of four?' : f.question}${this.offer(f)}`); questionTail = true; acted = true; continue; }
+        if (!nv.value) {
+          ev({ type: 'problem', field: f.name, detail: nv.problem }); rec(c, `Not valid: ${nv.problem}`);
+          const out = this.giveUp(f);
+          if (out) { tails.push(out); keptNow = true; acted = true; continue; }
+          tails.push(`${nv.problem} ${/\?$/.test(nv.problem ?? '') ? '' : f.kind === 'name' ? 'Could you spell it for me?' : f.kind === 'serial' ? 'Could you read it again, in groups of four?' : f.question}${this.offer(f)}`); questionTail = true; acted = true; continue;
+        }
         const value = nv.value; // non-empty from here; a const keeps that narrowing inside the callbacks below
         // A field that isn't open, proposed from words the caller didn't say ("yes" read as a serial, a guessed tax
         // year): ignored without a word, and it doesn't stop the net below from reading the open field's answer.
@@ -1094,6 +1142,8 @@ Caller: "Thanks, that helps." -> no tool; say "You're welcome. Anything else?"`;
         }
         if (!this.grounded(f, nv.value)) {
           ev({ type: 'ungrounded', field: f.name, value: nv.value }); rec(c, 'Not used: the customer did not say that. Ask them to say or spell it.');
+          const out = this.giveUp(f);
+          if (out) { tails.push(out); keptNow = true; acted = true; continue; }
           tails.push((f.kind === 'name' || f.kind === 'email' ? `Sorry, could you spell the ${f.label} for me, letter by letter?` : `Sorry, could you say the ${f.label} once more?`) + this.offer(f));
           questionTail = true; acted = true; continue;
         }
@@ -1109,6 +1159,12 @@ Caller: "Thanks, that helps." -> no tool; say "You're welcome. Anything else?"`;
         // A fix to one item of a read-back: re-read it with the new value.
         if (this.pending && (this.pending.field === f.name || this.pending.group?.some(g => g.field === f.name))) {
           const p = this.pending;
+          // The same value the caller just said no to, read back again: a miss, and from the third the desk stops.
+          if (p.field === f.name && p.value === nv.value && !clearYes(said)) {
+            ev({ type: 'repeat', field: f.name, value: nv.value });
+            const out = this.giveUp(f);
+            if (out) { tails.push(out); keptNow = true; rec(c, 'Left blank for the customer to type.'); continue; }
+          }
           if (p.field === f.name) this.setPending(f, nv.value, p.group);
           else this.setPending(this.field(p.field)!, p.value, p.group!.map(g => g.field === f.name ? { field: f.name, value } : g));
           proposedNow = true;
@@ -1142,6 +1198,8 @@ Caller: "Thanks, that helps." -> no tool; say "You're welcome. Anything else?"`;
         ev({ type: 'reject', field: f.name, value: this.pending.value }); rec(c, 'Cleared. Ask for it again.'); this.mishear(f);
         this.pending = null;
         this.current = f.name;
+        const out = this.giveUp(f);
+        if (out) { tails.push(out); keptNow = true; continue; }
         tails.push((f.kind === 'name' || f.kind === 'email' ? `Sorry about that. Could you spell it for me, letter by letter?` : f.kind === 'serial' ? 'Sorry about that. Could you read it again, slowly, in groups of four?' : `Sorry about that. ${f.question}`) + this.offer(f));
         questionTail = true;
       } else if (c.name === 'go_to_field') {

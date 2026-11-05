@@ -542,3 +542,57 @@ test('a question desk looks up a question its model refused to answer, and says 
   await e.turn('Thanks, that helps.');
   assert.equal(looked.length, before);
 });
+
+// ---- found by the simulated callers (#160) ----
+const contact = { id: 'contact', business: 'Brindlewick', scope: 'the form', intro: 'Hi.', doneMessage: 'Done.', fields: [
+  { name: 'fullname', label: 'Full name', kind: 'name' as const, question: "What's your full name?" },
+  { name: 'mail', label: 'Email', kind: 'email' as const, question: 'And your email address?' },
+  { name: 'tel', label: 'Phone', kind: 'phone' as const, question: "What's the best phone number?" },
+] };
+
+test("the caller's own words win over the model's miscopied email (#160)", async () => {
+  for (const [said, wrong, right] of [
+    ["Sure, it's siobhan dot oc at example dot com.", 'siobhan...oc@example.com', 'siobhan.oc@example.com'],
+    ['marisol dot e at example dot com', 'marisol@example.com', 'marisol.e@example.com'],
+    ['Hmm, actually just one dot, siobhan dot oc at example dot com.', 'siobhan...oc@example.com', 'siobhan.oc@example.com'],
+  ]) {
+    const d = new Desk(contact, { model: stub(() => ({ calls: [call('propose_value', { field: 'mail', value: wrong })] })) });
+    d.start();
+    d.current = 'mail';
+    await d.turn(said);
+    assert.equal(d.pending?.value, right, said);
+  }
+  assert.equal(normalizeEmail('M-A-R-I-S-O-L dot E at E-X-A-M-P-L-E dot C-O-M.').value, 'marisol.e@example.com');
+});
+
+test('a name read-back says its hyphens and apostrophes (#160)', () => {
+  assert.match(readback(contact.fields[0], 'Adebayo Okonkwo-Reyes'), /O-K-O-N-K-W-O, hyphen, R-E-Y-E-S/);
+  assert.match(readback(contact.fields[0], "Siobhan O'Callaghan"), /O, apostrophe, C-A-L-L-A-G-H-A-N/);
+  assert.match(readback(contact.fields[0], 'J. R. Smith'), /J, R, S-M-I-T-H/);
+});
+
+test('after the third miss on a field the desk leaves it for the caller to type and moves on (#160)', async () => {
+  // The model keeps proposing the same wrong value; the caller keeps saying no.
+  const d = new Desk(contact, { model: stub(s => /^no/i.test(s) ? { calls: [call('propose_value', { field: 'tel', value: '617-555-0100' })] } : { calls: [call('propose_value', { field: 'tel', value: '617-555-0100' })] }) });
+  d.start();
+  d.current = 'tel';
+  let r = await d.turn('six one seven five five five zero one zero zero');
+  assert.equal(d.pending?.field, 'tel');
+  for (let i = 0; i < 3 && d.pending; i++) r = await d.turn('no, that is not it, six one seven five five five zero one zero zero');
+  assert.equal(d.pending, null, 'no fourth read-back of the same value');
+  assert.equal(d.values.tel, '', 'left blank, not kept');
+  assert.match(r, /type it in yourself/);
+  assert.ok(d.events.some(e => e.type === 'left_for_person' && e.field === 'tel'));
+  assert.equal(d.submitted, 0);
+});
+
+test('the question desk does not read the same quote twice unless asked to (#160)', async () => {
+  const quote = 'The manual says: "You qualify for an automatic waiver if all of the following apply."';
+  const d = new Desk(taxDesk, { answer: async () => quote, model: stub(s => ({ calls: [call('answer_question', { question: s })] })) });
+  d.start();
+  assert.match(await d.turn('do I qualify for a waiver?'), /automatic waiver/);
+  const again = await d.turn('what are the conditions?');
+  assert.doesNotMatch(again, /automatic waiver/);
+  assert.match(again, /can't find more/);
+  assert.match(await d.turn('can you repeat that?'), /automatic waiver/);
+});
