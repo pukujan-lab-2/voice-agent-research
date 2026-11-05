@@ -71,3 +71,26 @@ Blocked/uncertain:
 
 Next:
 - Merge the pull request once CI passes
+
+### 2026-11-05 02:51:37 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["none"],"completed":["Records for WCP-0114 and WCP-0115 say completed with their merges"],"decisions":["no new decisions"],"evidence":["#148 merged as 8ca3bce; #151 merged as b5fc9c5"],"next_action":"None for this task","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0115","timestamp":"2026-11-05T02:51:37Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"df14b4a9ca4eb533fc15198dabfb556e4fb6f02a74c5f5239005832d40832399","request_id":"0e7a8719af1449fcbe2aad127f07bdab","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0115"} -->
+
+Completed:
+- Records for WCP-0114 and WCP-0115 say completed with their merges
+
+Evidence:
+- #148 merged as 8ca3bce; #151 merged as b5fc9c5
+
+Decisions:
+- no new decisions
+
+Changed:
+- none
+
+Blocked/uncertain:
+- none
+
+Next:
+- None for this task
