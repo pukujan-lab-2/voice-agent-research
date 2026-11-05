@@ -1,8 +1,8 @@
 # TASK-WCP-0112 — Raw Access Grants
 
-<!-- continuity:task {"acceptance":["A grant names who, which calls and until when; the business's owner or an admin gives and revokes it from /business/access","Every read of a raw call writes an entry to that business's access log under the reader's Octo identity, emergency reads included","A plain-code test: every open of a raw call shows in the log, and an expired or revoked grant opens nothing"],"depends_on":["WCP-0108"],"goal":"Raw calls open only for a signed-in Octo member of the business's workspace who holds a grant, with every read logged under their Octo identity","id":"WCP-0112","issue_url":"https://github.com/pukujan-lab-2/voice-agent-research/issues/131","next_action":"open the pull request with Closes #131, confirm CI is green and arm auto-merge","owner":"owner","priority":"P1","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"active","why":"Decision 0021 settles that raw calls open only by a grant the business gives and revokes, every read is logged where the business sees it, and an emergency path is logged the same way (#131)"} -->
+<!-- continuity:task {"acceptance":["A grant names who, which calls and until when; the business's owner or an admin gives and revokes it from /business/access","Every read of a raw call writes an entry to that business's access log under the reader's Octo identity, emergency reads included","A plain-code test: every open of a raw call shows in the log, and an expired or revoked grant opens nothing"],"depends_on":["WCP-0108"],"goal":"Raw calls open only for a signed-in Octo member of the business's workspace who holds a grant, with every read logged under their Octo identity","id":"WCP-0112","issue_url":"https://github.com/pukujan-lab-2/voice-agent-research/issues/131","next_action":"None for this task","owner":"owner","priority":"P1","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"completed","why":"Decision 0021 settles that raw calls open only by a grant the business gives and revokes, every read is logged where the business sees it, and an emergency path is logged the same way (#131)"} -->
 
-- Status: active
+- Status: completed (merged in #143 as 1d9cb3a)
 - Owner: owner
 - Priority: P1
 - Depends on: WCP-0108 (#128, merged); octo-database#82 (merged as octo-database#83)
@@ -47,7 +47,7 @@ A business can see and limit who reads its callers' words: its own people sign i
 ## Related records
 
 - Leaf: #131. Parent: #121. Depends on: #128 (merged as #136), octo-database#82.
-- Primary writer: Claude Code session for the owner / branch `task/WCP-0112-raw-access-grants` / as of 2026-11-05 open.
+- Primary writer: Claude Code session for the owner / branch `task/WCP-0112-raw-access-grants` / as of 2026-11-05 merged.
 - PR and receipt: on #131.
 
 ## Checkpoint log
