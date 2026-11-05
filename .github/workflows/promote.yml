@@ -29,6 +29,7 @@ jobs:
     timeout-minutes: 5
     permissions:
       contents: write
+      actions: write   # to start the after-deploy replay (below)
     steps:
       - uses: actions/checkout@v4
         with:
@@ -37,6 +38,7 @@ jobs:
       - name: Fast-forward production
         env:
           SHA: ${{ github.event.workflow_run.head_sha }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           git fetch --quiet origin production
@@ -51,3 +53,7 @@ jobs:
           fi
           git push origin "$SHA:refs/heads/production"
           echo "production moved to ${SHA:0:12}; Komodo deploys it within about 5 minutes." >> "$GITHUB_STEP_SUMMARY"
+          # A push made with GITHUB_TOKEN starts no other workflow, so after-deploy's push trigger never sees this one
+          # (#154). A workflow dispatch is the exception GitHub allows: start the replay on production, after the wait.
+          gh workflow run after-deploy.yml --ref production -f wait=12
+          echo "after-deploy started for ${SHA:0:12}." >> "$GITHUB_STEP_SUMMARY"

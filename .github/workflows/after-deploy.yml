@@ -1,6 +1,8 @@
 name: After deploy
 
-# When `production` moves, Komodo deploys within about 5 minutes (deploy/README.md). This waits for that, then replays
+# When `production` moves, Komodo deploys within about 5 minutes (deploy/README.md). promote.yml starts this with a
+# 12-minute wait after it moves production (its push can't trigger the push event, #154); a person pushing production
+# by hand triggers it through `push`. It waits for the deploy, then replays
 # every case against the public site and records the result in Phoenix as an eval span on the deploy. The site does
 # not report its commit yet, so the wait is a fixed time; run it by hand with wait 0 to check the site as it is now.
 # The voice test needs a Mac (macOS `say`, Chrome for Testing), so it runs from the Pro: see deploy/pro/voice-check.sh.
