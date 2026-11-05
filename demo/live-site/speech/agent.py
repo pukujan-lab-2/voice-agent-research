@@ -314,7 +314,7 @@ async def load_stack(http: aiohttp.ClientSession, stack: str) -> None:
     one's load, which can take a few seconds to a minute, so a call waits for it here and not in the middle of its greeting."""
     t = time.perf_counter()
     try:
-        async with http.post(f'{SPEECH}/load', params={'stack': stack}, timeout=aiohttp.ClientTimeout(total=300)) as r:
+        async with http.post(f'{SPEECH}/load', params={'stack': stack, 'call': 1}, timeout=aiohttp.ClientTimeout(total=300)) as r:  # call=1: this one swaps even if another app's stack was used lately
             r.raise_for_status()
             swap = (await r.json()).get('swap') or {}
         print('stack', stack, 'ready in', round(time.perf_counter() - t, 1), 's', 'swap:', swap.get('unloaded') or '-', '->', swap.get('loaded') or '-', flush=True)
