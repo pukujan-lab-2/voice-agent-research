@@ -22,16 +22,16 @@ class TaxDeskTools(ToolKitBase):
         super().__init__(db)
 
     @is_tool(ToolType.WRITE)
-    def quote_passage(self, page: str, quote: str, passage: str) -> str:
+    def quote_passage(self, page: str, sentences: list[str], passage: str) -> str:
         """
         Record a quote the desk read out from one of the business's pages.
 
         Args:
             page: The cited passage's id
-            quote: The sentences read out
+            sentences: The sentences read out
             passage: The cited passage's full text
         """
-        self.db.quotes.append(Quote(page=page, quote=quote, passage=passage))
+        self.db.quotes.append(Quote(page=page, sentences=sentences, passage=passage))
         return "recorded"
 
     @is_tool(ToolType.WRITE)
@@ -64,8 +64,8 @@ class TaxDeskTools(ToolKitBase):
 
     # ---- checks for env assertions (code only, no judge) ----
     def assert_quotes_verbatim(self) -> bool:
-        """Every quote is word for word in the passage it cites."""
-        return all(words(q.quote) in words(q.passage) for q in self.db.quotes)
+        """Every sentence quoted is word for word in the passage it cites."""
+        return all(words(x) in words(q.passage) for q in self.db.quotes for x in q.sentences)
 
     def assert_cited(self, page: str) -> bool:
         """Some quote cites this page."""

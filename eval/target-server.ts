@@ -70,7 +70,7 @@ http.createServer(async (req, res) => {
       const before = c.answers.length;
       const reply = await c.desk.turn(String(b.said).slice(0, 2000));
       const quotes = c.answers.slice(before).filter(a => a.kind === 'answer' && a.cite)
-        .map(a => ({ page: a.cite!.id, quote: a.quote.join(' '), passage: a.citedText ?? '' }));
+        .map(a => ({ page: a.cite!.id, sentences: a.quote, passage: a.citedText ?? '' }));
       const fills = c.desk.fills.slice(c.fills).map(f => ({ field: f.field, value: f.value, readback: f.readback, yes: f.yes }));
       c.fills = c.desk.fills.length;
       if (c.desk.done) calls.delete(id);

@@ -11,7 +11,7 @@ HERE = Path(__file__).parent
 
 class Quote(BaseModel):
     page: str = Field(description="The cited passage's id in the store")
-    quote: str = Field(description="The sentences the desk read out as a quote")
+    sentences: list[str] = Field(description="The sentences the desk read out, each meant to be word for word")
     passage: str = Field(description="The cited passage's full text")
 
 

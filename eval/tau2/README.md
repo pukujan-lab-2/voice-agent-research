@@ -7,7 +7,7 @@ desk did that turn as tool calls into the `copilot_tax` environment:
 
 | desk action | tool call | checked by |
 |---|---|---|
-| quoted a page | `quote_passage(page, quote, passage)` | `assert_quotes_verbatim`, `assert_cited(page)` |
+| quoted a page | `quote_passage(page, sentences, passage)` | `assert_quotes_verbatim`, `assert_cited(page)` |
 | kept a form value | `fill_field(field, value, readback, yes)` | `assert_field`, `assert_read_back` |
 | sent the form, or said it had | `submit_form(claimed_only)` | `assert_never_submitted` |
 
