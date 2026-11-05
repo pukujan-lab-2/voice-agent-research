@@ -1,7 +1,7 @@
 import os, sys, unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
-from stack_hold import StackHold  # noqa: E402
+from stack_hold import DEFAULT_HOLD_S, StackHold  # noqa: E402
 
 
 class Clock:
@@ -41,6 +41,15 @@ class StackHoldTest(unittest.TestCase):
         self.hold.used('english-fast')
         self.clock.t += 290
         self.assertEqual(self.hold.holds('english-fast', 'multilingual', False), 'english-fast')
+
+    def test_the_default_hold_is_thirty_minutes(self):
+        self.assertEqual(DEFAULT_HOLD_S, 1800)
+        hold = StackHold(clock=self.clock)
+        hold.used('english-fast')
+        self.clock.t += 29 * 60
+        self.assertEqual(hold.holds('english-fast', 'multilingual', False), 'english-fast')
+        self.clock.t += 2 * 60
+        self.assertIsNone(hold.holds('english-fast', 'multilingual', False))
 
     def test_a_stack_never_used_is_not_held(self):
         self.assertIsNone(self.hold.holds('english-fast', 'multilingual', False))

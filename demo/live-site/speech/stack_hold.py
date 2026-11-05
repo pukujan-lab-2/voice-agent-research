@@ -6,7 +6,7 @@ already there"). With a call on english-fast that is not a no-op: the call's mod
 11 to 14 s for them to come back, past the agent's 10 s timeout (the 2026-11-05 call: swaps at 19:50:07, 19:54:07 and 20:26:07 local,
 each followed by a speech timeout in the agent's log).
 
-A plain /load now leaves the resident stack alone while it is in use or was used within `hold_s`. A call's own load (the agent adds
+A plain /load now leaves the resident stack alone while it is in use or was used within `hold_s` (30 minutes by default). A call's own load (the agent adds
 call=1), and every real speech-to-text and text-to-speech request, still swap: a person is waiting for those.
 No server imports, so the logic has its own unit tests (speech/tests/test_stack_hold.py).
 """
@@ -16,8 +16,13 @@ import time
 from typing import Callable
 
 
+# Thirty minutes: long enough that a call's models are still resident for the next call after a break, and for the NYC map's
+# four-minute keeper to be held through it all. The owner's call (2026-11-05): calls over the NYC map's warm-up.
+DEFAULT_HOLD_S = 1800.0
+
+
 class StackHold:
-    def __init__(self, hold_s: float = 300.0, clock: Callable[[], float] = time.monotonic):
+    def __init__(self, hold_s: float = DEFAULT_HOLD_S, clock: Callable[[], float] = time.monotonic):
         self.hold_s, self._clock = hold_s, clock
         self._last: dict[str, float] = {}
 

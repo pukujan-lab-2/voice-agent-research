@@ -32,7 +32,7 @@ import numpy as np
 import soundfile as sf
 
 from activity import Activity
-from stack_hold import StackHold
+from stack_hold import DEFAULT_HOLD_S, StackHold
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 MODELS = os.path.join(HERE, 'models')
@@ -312,7 +312,7 @@ class Stacks:
         self.cond = threading.Condition()
         self.last_swap: dict = {}
         # A plain /load leaves a stack in use alone for this long after its last request (stack_hold.py); a call's own load does not wait.
-        self.hold = StackHold(float(os.environ.get('SPEECH_HOLD_S', 300)))
+        self.hold = StackHold(float(os.environ.get('SPEECH_HOLD_S', DEFAULT_HOLD_S)))
 
     def _build(self, name: str):
         if name == 'parakeet-tdt-0.6b-v2':
