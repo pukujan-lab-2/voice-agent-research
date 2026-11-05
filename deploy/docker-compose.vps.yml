@@ -31,8 +31,10 @@ services:
     environment:
       LIVEKIT_URL: ws://copilot-livekit:7880
       LIVEKIT_PUBLIC_URL: ${LIVEKIT_PUBLIC_URL:-wss://copilot.design-bakery.com}
-      # The copilot's own site: always allowed, whatever host the tunnel passes on (#125). Other sites need a site key.
-      SITE_ORIGINS: ${SITE_ORIGINS:-https://copilot.design-bakery.com}
+      # The owner's own sites: always allowed, whatever host the tunnel passes on (#125). The design-bakery.com site calls
+      # this server from its own origin (the call's signalling and its token), so it is named here; without it the gate
+      # answers 403 and every call from that site drops at once. Other sites need a site key.
+      SITE_ORIGINS: ${SITE_ORIGINS:-https://copilot.design-bakery.com,https://www.design-bakery.com,https://design-bakery.com}
       SPEECH_URL: http://host.docker.internal:18799
       LLAMA_URL: http://host.docker.internal:18099
       LFM3_AUDIO_URL: http://host.docker.internal:18798
