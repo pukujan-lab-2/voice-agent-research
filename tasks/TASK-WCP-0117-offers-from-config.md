@@ -49,3 +49,26 @@ A business's desk only ever names the offers that business set up, and a broken 
 ## Checkpoint log
 
 No checkpoints yet.
+
+### 2026-11-05 04:01:36 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["copilot-engine/src/desk.ts, types.ts, site-config.ts, demo/live-site/widget/sdk.ts, tests"],"completed":["The question desk's offer and verify lines come from the business's config; malformed desk.offers are refused when stored (#156)"],"decisions":["The prompt's tax-flavoured examples stay until step 3 moves prompts to their own file"],"evidence":["npm run check exit 0, 337 tests passing, including a new prompt test and config refusals"],"next_action":"Merge the pull request, then start step 2 (closed action list) on its own issue","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0117","timestamp":"2026-11-05T04:01:36Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"dff646e359590159367eefd1abd05667d1b4b0ee1a65bb1e1bc390f699e8c694","request_id":"d476150246224fc7b070c231cc7e908a","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0117"} -->
+
+Completed:
+- The question desk's offer and verify lines come from the business's config; malformed desk.offers are refused when stored (#156)
+
+Evidence:
+- npm run check exit 0, 337 tests passing, including a new prompt test and config refusals
+
+Decisions:
+- The prompt's tax-flavoured examples stay until step 3 moves prompts to their own file
+
+Changed:
+- copilot-engine/src/desk.ts, types.ts, site-config.ts, demo/live-site/widget/sdk.ts, tests
+
+Blocked/uncertain:
+- none
+
+Next:
+- Merge the pull request, then start step 2 (closed action list) on its own issue
