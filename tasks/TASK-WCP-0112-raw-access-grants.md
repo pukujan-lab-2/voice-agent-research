@@ -100,6 +100,29 @@ Blocked/uncertain:
 Next:
 - let PR 143 merge, then wire add and remove to Octo's one-time-code flow when it exists
 
+### 2026-11-05 00:44:23 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["tasks/TASK-WCP-0112-raw-access-grants.md"],"completed":["WCP-0112 marked completed after #143 merged and closed #131"],"decisions":["no new decisions"],"evidence":["no external evidence recorded"],"next_action":"None for this task","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0112","timestamp":"2026-11-05T00:44:23Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"5cdd82178e422591fd5d435c8602c2619995f16c2c3204b88c59bf33db6f32eb","request_id":"3be4851c7521447c922eb3570dc80bf6","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0112"} -->
+
+Completed:
+- WCP-0112 marked completed after #143 merged and closed #131
+
+Evidence:
+- no external evidence recorded
+
+Decisions:
+- no new decisions
+
+Changed:
+- tasks/TASK-WCP-0112-raw-access-grants.md
+
+Blocked/uncertain:
+- none
+
+Next:
+- None for this task
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
