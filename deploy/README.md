@@ -92,7 +92,7 @@ A business's people open its raw calls at `/business/access?business=<business>`
 - The workspace's owner or an admin gives a grant: a member's Octo email, which calls (or all), what for, and until when (90 days at most). They can revoke it at any time.
 - Anyone with a live grant reads a call's record or plays its recording. The access log entry is written first, under their Octo identity, and nothing opens if it can't be written. Refused tries are logged too.
 - The workspace owner can open a call without a grant by writing a reason (20 characters or more). That entry is marked as an emergency, and the page highlights it.
-- The owner and admins see the workspace's members and the whole log there. Adding and removing members is Octo's, not the copilot's.
+- The owner and admins see the workspace's members and the whole log there. Adding and removing members from this page is coming soon: it will go through Octo's member routes (octo-database#83) once they take an owner's or admin's own sign-in with a one-time code.
 
 The grants and the log are the tables `copilot_access_grants` and `copilot_access_log` in the business's own workspace. The page needs the business to have its own workspace, OpenBao, and the copilot's public address in `SITE_ORIGINS`, because Octo sends the person back to `<that address>/api/access/callback`.
 

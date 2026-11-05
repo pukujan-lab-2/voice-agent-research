@@ -66,7 +66,16 @@ pre { white-space: pre-wrap; word-break: break-word; font-size: 13px; }
 
   <section id="members" hidden>
     <h2>Members</h2>
-    <p class="muted">The people in this business's Octo workspace. Adding and removing them is done in Octo.</p>
+    <p class="muted">The people in this business's Octo workspace.</p>
+    <!-- Adding and removing members goes through Octo's member routes (octo-database#83). They will take the owner's or an
+         admin's own sign-in with a one-time code; until Octo has that, this stays switched off. -->
+    <form id="memberForm" aria-disabled="true">
+      <label>Email<input name="email" type="email" disabled></label>
+      <label>Role<input name="role" value="member" disabled></label>
+      <button type="button" disabled>Add</button>
+      <button type="button" class="plain" disabled>Remove</button>
+    </form>
+    <p class="muted">Adding and removing people here is coming soon.</p>
     <table><thead><tr><th>Email</th><th>Name</th><th>Role</th></tr></thead><tbody id="memberRows"></tbody></table>
   </section>
 
