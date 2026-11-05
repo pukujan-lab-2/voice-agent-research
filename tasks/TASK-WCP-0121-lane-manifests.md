@@ -50,3 +50,26 @@ Each lane has a folder whose manifest says exactly what it runs, and a fix writt
 ## Checkpoint log
 
 No checkpoints yet.
+
+### 2026-11-05 17:55:00 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["agent/, package.json, .github/workflows/ci.yml, .gitignore"],"completed":["Each model lane (strong, hybrid, small) has its own folder and manifest under agent/lanes; a loader in agent/common refuses a bad manifest; import-linter fails the check when one lane imports another or common imports a lane (#164)"],"decisions":["Used import-linter for the boundary and pydantic for the manifest instead of writing our own; guards, fixes and pass bars start empty until step 6 moves each fix into its lane"],"evidence":["npm run test:agent: 12 tests pass and both import contracts are kept; both break when a cross-lane import is added (tried, then undone); npm run check exit 0"],"next_action":"Merge the pull request; then file step 3, the voice stack and language folders","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0121","timestamp":"2026-11-05T17:55:00Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"68fb5e28d65168f79dfab51940ff0eb8fe705636b2949626d20e39d72e28d92b","request_id":"cb0c24859594452c8dd4b3632e920ae0","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0121"} -->
+
+Completed:
+- Each model lane (strong, hybrid, small) has its own folder and manifest under agent/lanes; a loader in agent/common refuses a bad manifest; import-linter fails the check when one lane imports another or common imports a lane (#164)
+
+Evidence:
+- npm run test:agent: 12 tests pass and both import contracts are kept; both break when a cross-lane import is added (tried, then undone); npm run check exit 0
+
+Decisions:
+- Used import-linter for the boundary and pydantic for the manifest instead of writing our own; guards, fixes and pass bars start empty until step 6 moves each fix into its lane
+
+Changed:
+- agent/, package.json, .github/workflows/ci.yml, .gitignore
+
+Blocked/uncertain:
+- none
+
+Next:
+- Merge the pull request; then file step 3, the voice stack and language folders
