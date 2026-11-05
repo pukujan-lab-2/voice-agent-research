@@ -49,3 +49,26 @@ A deploy that brings back a fixed bad answer is caught within about 15 minutes, 
 ## Checkpoint log
 
 No checkpoints yet.
+
+### 2026-11-05 02:55:05 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":[".github/workflows/promote.yml, .github/workflows/after-deploy.yml"],"completed":["promote.yml starts after-deploy with a workflow dispatch after it moves production (#154)"],"decisions":["no new decisions"],"evidence":["after-deploy had only two hand-started runs while promote ran five times on 2026-11-05; npm run check exit 0"],"next_action":"Merge the pull request, then confirm the next deploy starts an after-deploy run","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0116","timestamp":"2026-11-05T02:55:05Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"9f0ecaa397bb2b26f29a23ff557cc5c100b4c3280b96959d768a15197a10e39d","request_id":"71d3c90e624c4d3481dfa958d8fd14f9","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0116"} -->
+
+Completed:
+- promote.yml starts after-deploy with a workflow dispatch after it moves production (#154)
+
+Evidence:
+- after-deploy had only two hand-started runs while promote ran five times on 2026-11-05; npm run check exit 0
+
+Decisions:
+- no new decisions
+
+Changed:
+- .github/workflows/promote.yml, .github/workflows/after-deploy.yml
+
+Blocked/uncertain:
+- none
+
+Next:
+- Merge the pull request, then confirm the next deploy starts an after-deploy run
