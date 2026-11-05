@@ -9,6 +9,10 @@ export type OctoMe = { principal: string; email: string; workspace: string | nul
 // Where the copilot keeps its client registration (one per redirect address), so Octo isn't asked again on each sign-in.
 export interface ClientStore { get(key: string): Promise<unknown>; set(key: string, value: unknown): Promise<void> }
 
+// A refusal from Octo, with its status, so the page can say what went wrong (a wrong code is 403, nobody to remove 404).
+export class OctoError extends Error { status: number; constructor(status: number, message: string) { super(message); this.status = status; } }
+export type MemberRole = 'admin' | 'operator' | 'member';
+
 const b64url = (b: Uint8Array) => { let s = ''; for (const c of b) s += String.fromCharCode(c); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
 
 export class OctoSignIn {
@@ -21,7 +25,7 @@ export class OctoSignIn {
   private async req(path: string, init: RequestInit = {}): Promise<Record<string, any>> {
     const r = await fetch(`${this.octo}${path}`, { ...init, signal: AbortSignal.timeout(this.timeoutMs) });
     const text = await r.text();
-    if (!r.ok) throw new Error(`octo ${path.split('?')[0]}: ${r.status} ${text.slice(0, 120)}`);
+    if (!r.ok) throw new OctoError(r.status, `octo ${path.split('?')[0].replace(/\/workspaces\/[^/]+/, '/workspaces/:id')}: ${r.status} ${text.slice(0, 120)}`);
     return text ? JSON.parse(text) : {};
   }
 
@@ -39,11 +43,12 @@ export class OctoSignIn {
     return String(r.client_id);
   }
 
-  // Where to send the person, and the secret half of PKCE the callback needs back.
-  async start(state: string): Promise<{ url: string; verifier: string }> {
+  // Where to send the person, and the secret half of PKCE the callback needs back. Reading needs `read` only; an owner or
+  // admin who adds and removes members signs in with `read write delete` (Octo wants `write` to add, `delete` to remove).
+  async start(state: string, scope = 'read'): Promise<{ url: string; verifier: string }> {
     const verifier = b64url(crypto.getRandomValues(new Uint8Array(32)));
     const challenge = b64url(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier))));
-    const q = new URLSearchParams({ response_type: 'code', client_id: await this.clientId(), redirect_uri: this.redirect, scope: 'read', state,
+    const q = new URLSearchParams({ response_type: 'code', client_id: await this.clientId(), redirect_uri: this.redirect, scope, state,
       code_challenge: challenge, code_challenge_method: 'S256', resource: await this.target() });
     return { url: `${this.octo}/oauth/authorize?${q}`, verifier };
   }
@@ -63,5 +68,19 @@ export class OctoSignIn {
   async members(token: string, workspace: string): Promise<{ members: { email: string; role: string; displayName?: string }[]; pending: { email: string; role: string }[] }> {
     const r = await this.req(`/api/workspaces/${encodeURIComponent(workspace)}/members`, { headers: { authorization: `Bearer ${token}` } });
     return { members: r.members ?? [], pending: r.pending ?? [] };
+  }
+
+  // Adding or removing a member (octo-database#83, #86): Octo hands an owner's or admin's token a one-time code, good for
+  // 10 minutes on this workspace's member routes only. The person reads it on the page and types it back; with an
+  // authenticator enrolled (mfaRequired), their current TOTP code goes with it.
+  async memberCode(token: string, workspace: string): Promise<{ code: string; expiresAt: string; mfaRequired: boolean }> {
+    const r = await this.req(`/api/workspaces/${encodeURIComponent(workspace)}/members/confirm-challenge`, { method: 'POST', headers: { authorization: `Bearer ${token}` } });
+    return { code: String(r.code), expiresAt: String(r.expiresAt), mfaRequired: Boolean(r.mfaRequired) };
+  }
+
+  async changeMember(token: string, workspace: string, op: 'add' | 'remove', m: { email: string; role?: MemberRole; code: string; mfaCode?: string }): Promise<Record<string, any>> {
+    const body = { email: m.email, ...(op === 'add' && m.role ? { role: m.role } : {}), confirmSecret: m.code, ...(m.mfaCode ? { mfaCode: m.mfaCode } : {}) };
+    return this.req(`/api/workspaces/${encodeURIComponent(workspace)}/members`, { method: op === 'add' ? 'POST' : 'DELETE',
+      headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify(body) });
   }
 }

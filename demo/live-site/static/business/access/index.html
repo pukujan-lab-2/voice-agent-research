@@ -21,7 +21,7 @@ table { border-collapse: collapse; width: 100%; } th, td { border-bottom: 1px so
 tr.flag td { background: var(--flag); color: var(--flag-ink); }
 form { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); align-items: end; }
 label { display: grid; gap: 2px; font-size: 13px; color: var(--muted); }
-input, textarea, button { font: inherit; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--ink); }
+input, textarea, select, button { font: inherit; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--ink); }
 button { background: var(--accent); color: #fff; border: 0; cursor: pointer; } button.plain { background: transparent; color: var(--accent); border: 1px solid var(--line); }
 pre { white-space: pre-wrap; word-break: break-word; font-size: 13px; }
 [hidden] { display: none !important; }
@@ -67,15 +67,24 @@ pre { white-space: pre-wrap; word-break: break-word; font-size: 13px; }
   <section id="members" hidden>
     <h2>Members</h2>
     <p class="muted">The people in this business's Octo workspace.</p>
-    <!-- Adding and removing members goes through Octo's member routes (octo-database#83). They will take the owner's or an
-         admin's own sign-in with a one-time code; until Octo has that, this stays switched off. -->
-    <form id="memberForm" aria-disabled="true">
-      <label>Email<input name="email" type="email" disabled></label>
-      <label>Role<input name="role" value="member" disabled></label>
-      <button type="button" disabled>Add</button>
-      <button type="button" class="plain" disabled>Remove</button>
-    </form>
-    <p class="muted">Adding and removing people here is coming soon.</p>
+    <!-- Adding and removing members goes through Octo's member routes (octo-database#83) with a one-time code Octo gives
+         the owner's or admin's sign-in (#86). The code is shown here and typed back. -->
+    <div id="manage" hidden>
+      <p><button id="manageLogin" class="plain">Sign in again to add or remove people</button></p>
+    </div>
+    <div id="memberBox" hidden>
+      <p><button id="getCode" class="plain">Get a code from Octo</button> <span id="code"></span></p>
+      <form id="memberForm">
+        <label>Email<input name="email" type="email" required></label>
+        <label>Role (when adding)<select name="role"><option>member</option><option>operator</option><option>admin</option></select></label>
+        <label>Code shown above<input name="code" required autocomplete="off"></label>
+        <label id="mfaBox" hidden>Authenticator code<input name="mfaCode" inputmode="numeric" autocomplete="one-time-code"></label>
+        <button name="op" value="add">Add</button>
+        <button name="op" value="remove" class="plain">Remove</button>
+      </form>
+      <p id="memberErr" class="bad" hidden></p>
+      <p id="mfaTip" class="muted" hidden>Tip: turn on an authenticator app for your Octo account. Without it, the code shown here is the only check, and this site's server sees it too.</p>
+    </div>
     <table><thead><tr><th>Email</th><th>Name</th><th>Role</th></tr></thead><tbody id="memberRows"></tbody></table>
   </section>
 
@@ -117,6 +126,7 @@ async function load() {
   }));
   if (s.members) {
     $('members').hidden = false;
+    $('manage').hidden = s.canManage; $('memberBox').hidden = !s.canManage;
     $('memberRows').replaceChildren(...s.members.members.map(m => row([m.email, m.displayName, m.role])), ...s.members.pending.map(m => row([m.email, '(not signed in yet)', m.role])));
   }
   if (s.log) {
@@ -142,6 +152,24 @@ $('grantForm').onsubmit = async ev => {
   $('grantErr').hidden = true;
   const r = await post('grant', { email: f.get('email'), calls: calls.length ? calls : null, purpose: f.get('purpose'), until: `${f.get('until')}T23:59:59Z` });
   if (!r.ok) return fail($('grantErr'), r);
+  ev.target.reset(); load();
+};
+$('manageLogin').onclick = () => { location.href = `/api/access/login?business=${encodeURIComponent(business)}&manage=1`; };
+$('getCode').onclick = async () => {
+  $('memberErr').hidden = true;
+  const r = await post('member-code', {});
+  if (!r.ok) return fail($('memberErr'), r);
+  const c = await r.json();
+  $('code').textContent = `Code: ${c.code} (good once, until ${new Date(c.expiresAt).toLocaleTimeString()})`;
+  $('mfaBox').hidden = !c.mfaRequired; $('mfaTip').hidden = c.mfaRequired;
+};
+$('memberForm').onsubmit = async ev => {
+  ev.preventDefault();
+  const f = new FormData(ev.target), op = ev.submitter?.value === 'remove' ? 'remove' : 'add';
+  $('memberErr').hidden = true;
+  const r = await post('member', { op, email: f.get('email'), ...(op === 'add' ? { role: f.get('role') } : {}), code: f.get('code'), ...(f.get('mfaCode') ? { mfaCode: f.get('mfaCode') } : {}) });
+  $('code').textContent = '';
+  if (!r.ok) { await fail($('memberErr'), r); load(); return; }
   ev.target.reset(); load();
 };
 $('logout').onclick = async () => { await post('logout', {}); location.reload(); };
