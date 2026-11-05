@@ -3,7 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createApi } from '../api.ts';
-import { voiceToken, VOICE_TOKEN_S } from '../server.ts';
+import { loadEnv, voiceToken, VOICE_TOKEN_S } from '../server.ts';
 import type { Sites, SiteConfig } from '../../../copilot-engine/src/site-config.ts';
 
 globalThis.fetch = (async () => new Response(JSON.stringify({ rows: [] }), { status: 200 })) as unknown as typeof fetch;
@@ -76,4 +76,21 @@ test('a voice token can be used to join for ten minutes, by a caller with a rand
   assert.equal(VOICE_TOKEN_S, 600);
   assert.ok(c.exp - c.nbf <= VOICE_TOKEN_S + 5, `exp is ${c.exp - c.nbf} s after nbf`);
   assert.notEqual(c.sub, claims(b.token).sub, 'caller ids are random');
+});
+
+// SITE_ORIGINS is set on the container (deploy/docker-compose.vps.yml) and must reach the gate: loadEnv only forwards the
+// names it lists, and for a while it did not list this one, so every named origin was refused on the live site.
+test("the deployed SITE_ORIGINS reaches the gate", async () => {
+  const before = process.env.SITE_ORIGINS;
+  process.env.SITE_ORIGINS = 'https://www.owner.test,https://owner.test';
+  try {
+    const env = loadEnv();
+    assert.equal(env.SITE_ORIGINS, 'https://www.owner.test,https://owner.test');
+    const owner = createApi({ ...env, OPENROUTER_JEV_KEY: 'k', OCTO_KEY: 'k', OCTO_WORKSPACE: 'ws', OCTO_BASE: 'http://octo.test/api', SIGNING_SECRET: 's' }, { sites });
+    for (const origin of ['https://www.owner.test', 'https://owner.test'])
+      assert.equal((await owner.gate(new Request('http://copilot.test/rtc', { method: 'OPTIONS', headers: { origin } }))).ok, true, origin);
+    assert.equal((await owner.gate(new Request('http://copilot.test/rtc', { method: 'OPTIONS', headers: { origin: 'https://stranger.test' } }))).ok, false, 'a stranger is still refused');
+  } finally {
+    if (before === undefined) delete process.env.SITE_ORIGINS; else process.env.SITE_ORIGINS = before;
+  }
 });
