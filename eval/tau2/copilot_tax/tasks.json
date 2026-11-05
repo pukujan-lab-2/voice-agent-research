@@ -1,0 +1,1145 @@
+[
+ {
+  "id": "ask-casual-0",
+  "description": {
+   "purpose": "IRS question (casual) irc/591 #0|casual"
+  },
+  "agent_opener": "Hi, I can answer questions from our tax guides. What would you like to know?",
+  "user_scenario": {
+   "persona": "A caller to a tax firm's voice line; in a hurry and a bit annoyed; knows the tax terms well.",
+   "instructions": {
+    "domain": "copilot_tax",
+    "reason_for_call": "find out the answer to: uh do mutual savings banks get to deduct dividends they pay out on deposit accounts if the money can be withdrawn on demand?",
+    "known_info": "Only what is in your question.",
+    "task_instructions": "Talk like a real caller on the phone: short spoken sentences. The assistant only quotes the firm's guides. When an answer gives you what you needed, or it clearly can't help after a few tries, end the call."
+   }
+  },
+  "evaluation_criteria": {
+   "env_assertions": [
+    {
+     "env_type": "assistant",
+     "func_name": "assert_quotes_verbatim",
+     "arguments": {},
+     "assert_value": true,
+     "message": "every quote is word for word in its passage"
+    },
+    {
+     "env_type": "assistant",
+     "func_name": "assert_cited",
+     "arguments": {
+      "page": "irc/591 #0"
+     },
+     "assert_value": true,
+     "message": "the answer quotes the page that answers it"
+    }
+   ],
+   "reward_basis": [
+    "ENV_ASSERTION"
+   ]
+  }
+ },
+ {
+  "id": "ask-casual-1",
+  "description": {
+   "purpose": "IRS question (casual) irs/taxtopics-tc107 #2|casual"
+  },
+  "agent_opener": "Hi, I can answer questions from our tax guides. What would you like to know?",
+  "user_scenario": {
+   "persona": "A caller to a tax firm's voice line; friendly and chatty; knows almost nothing about taxes.",
+   "instructions": {
+    "domain": "copilot_tax",
+    "reason_for_call": "find out the answer to: uh hey so i live outside the disaster zone but i think i qualify, do i need to call that uh eight six six five six two five two two seven number to sign up?",
+    "known_info": "Only what is in your question.",
+    "task_instructions": "Talk like a real caller on the phone: short spoken sentences. The assistant only quotes the firm's guides. When an answer gives you what you needed, or it clearly can't help after a few tries, end the call."
+   }
+  },
+  "evaluation_criteria": {
+   "env_assertions": [
+    {
+     "env_type": "assistant",
+     "func_name": "assert_quotes_verbatim",
+     "arguments": {},
+     "assert_value": true,
+     "message": "every quote is word for word in its passage"
+    },
+    {
+     "env_type": "assistant",
+     "func_name": "assert_cited",
+     "arguments": {
+      "page": "irs/taxtopics-tc107 #2"
+     },
+     "assert_value": true,
+     "message": "the answer quotes the page that answers it"
+    }
+   ],
+   "reward_basis": [
+    "ENV_ASSERTION"
+   ]
+  }
+ },
+ {
+  "id": "ask-casual-2",
+  "description": {
+   "purpose": "IRS question (casual) irm/1.4.21.2 #0|casual"
+  },
+  "agent_opener": "Hi, I can answer questions from our tax guides. What would you like to know?",
+  "user_scenario": {
+   "persona": "A caller to a tax firm's voice line; anxious about getting it wrong; knows a little and mixes up some terms.",
+   "instructions": {
+    "domain": "copilot_tax",
+    "reason_for_call": "find out the answer to: uh who exactly are the telephone system staff?",
+    "known_info": "Only what is in your question.",
+    "task_instructions": "Talk like a real caller on the phone: short spoken sentences. The assistant only quotes the firm's guides. When an answer gives you what you needed, or it clearly can't help after a few tries, end the call."
+   }
+  },
+  "evaluation_criteria": {
+   "env_assertions": [
+    {
+     "env_type": "assistant",
+     "func_name": "assert_quotes_verbatim",
+     "arguments": {},
+     "assert_value": true,
+     "message": "every quote is word for word in its passage"
+    },
+    {
+     "env_type": "assistant",
+     "func_name": "assert_cited",
+     "arguments": {
+      "page": "irm/1.4.21.2 #0"
+     },
+     "assert_value": true,
+     "message": "the answer quotes the page that answers it"
+    }
+   ],
+   "reward_basis": [
+    "ENV_ASSERTION"
+   ]
+  }
+ },
+ {
+  "id": "ask-vague-3",
+  "description": {
+   "purpose": "IRS question (vague) irc/591 #0|vague"
+  },
+  "agent_opener": "Hi, I can answer questions from our tax guides. What would you like to know?",
+  "user_scenario": {
+   "persona": "A caller to a tax firm's voice line; distracted, gives short answers; knows the tax terms well.",
+   "instructions": {
+    "domain": "copilot_tax",
+    "reason_for_call": "find out whether the bank itself can deduct dividends it pays to depositors",
+    "known_info": "Only what is in your question.",
+    "task_instructions": "Start with a vague version of your question; give detail only if asked or the answer misses. Talk like a real caller on the phone: short spoken sentences. The assistant only quotes the firm's guides. When an answer gives you what you needed, or it clearly can't help after a few tries, end the call."
+   }
+  },
+  "evaluation_criteria": {
+   "env_assertions": [
+    {
+     "env_type": "assistant",
+     "func_name": "assert_quotes_verbatim",
+     "arguments": {},
+     "assert_value": true,
+     "message": "every quote is word for word in its passage"
+    },
+    {
+     "env_type": "assistant",
+     "func_name": "assert_cited",
+     "arguments": {
+      "page": "irc/591 #0"
+     },
+     "assert_value": true,
+     "message": "the answer quotes the page that answers it"
+    }
+   ],
+   "reward_basis": [
+    "ENV_ASSERTION"
+   ]
+  }
+ },
+ {
+  "id": "ask-vague-4",
+  "description": {
+   "purpose": "IRS question (vague) irs/taxtopics-tc107 #2|vague"
+  },
+  "agent_opener": "Hi, I can answer questions from our tax guides. What would you like to know?",
+  "user_scenario": {
+   "persona": "A caller to a tax firm's voice line; skeptical of automated assistants; knows almost nothing about taxes.",
+   "instructions": {
+    "domain": "copilot_tax",
+    "reason_for_call": "find out do i automatically qualify if i live in the disaster area",
+    "known_info": "Only what is in your question.",
+    "task_instructions": "Start with a vague version of your question; give detail only if asked or the answer misses. Talk like a real caller on the phone: short spoken sentences. The assistant only quotes the firm's guides. When an answer gives you what you needed, or it clearly can't help after a few tries, end the call."
+   }
+  },
+  "evaluation_criteria": {
+   "env_assertions": [
+    {
+     "env_type": "assistant",
+     "func_name": "assert_quotes_verbatim",
+     "arguments": {},
+     "assert_value": true,
+     "message": "every quote is word for word in its passage"
+    },
+    {
+     "env_type": "assistant",
+     "func_name": "assert_cited",
+     "arguments": {
+      "page": "irs/taxtopics-tc107 #2"
+     },
+     "assert_value": true,
+     "message": "the answer quotes the page that answers it"
+    }
+   ],
+   "reward_basis": [
+    "ENV_ASSERTION"
+   ]
+  }
+ },
+ {
+  "id": "ask-vague-5",
+  "description": {
+   "purpose": "IRS question (vague) irm/1.4.21.2 #0|vague"
+  },
+  "agent_opener": "Hi, I can answer questions from our tax guides. What would you like to know?",
+  "user_scenario": {
+   "persona": "A caller to a tax firm's voice line; calm and methodical; knows a little and mixes up some terms.",
+   "instructions": {
+    "domain": "copilot_tax",
+    "reason_for_call": "find out the phone support team at the IRS call centers",
+    "known_info": "Only what is in your question.",
+    "task_instructions": "Start with a vague version of your question; give detail only if asked or the answer misses. Talk like a real caller on the phone: short spoken sentences. The assistant only quotes the firm's guides. When an answer gives you what you needed, or it clearly can't help after a few tries, end the call."
+   }
+  },
+  "evaluation_criteria": {
+   "env_assertions": [
+    {
+     "env_type": "assistant",
+     "func_name": "assert_quotes_verbatim",
+     "arguments": {},
+     "assert_value": true,
+     "message": "every quote is word for word in its passage"
+    },
+    {
+     "env_type": "assistant",
+     "func_name": "assert_cited",
+     "arguments": {
+      "page": "irm/1.4.21.2 #0"
+     },
+     "assert_value": true,
+     "message": "the answer quotes the page that answers it"
+    }
+   ],
+   "reward_basis": [
+    "ENV_ASSERTION"
+   ]
+  }
+ },
+ {
+  "id": "ask-chain-6",
+  "description": {
+   "purpose": "IRS question (chain) irc/591 #0|chain"
+  },
+  "agent_opener": "Hi, I can answer questions from our tax guides. What would you like to know?",
+  "user_scenario": {
+   "persona": "A caller to a tax firm's voice line; in a hurry and a bit annoyed; knows the tax terms well.",
+   "instructions": {
+    "domain": "copilot_tax",
+    "reason_for_call": "find out the answer to: are dividends paid on deposits deductible for mutual savings banks? Then ask these follow-ups one at a time: does the deposit have to be withdrawable on demand for that deduction? / what if there's just customary notice required to withdraw?",
+    "known_info": "Only what is in your question.",
+    "task_instructions": "Talk like a real caller on the phone: short spoken sentences. The assistant only quotes the firm's guides. When an answer gives you what you needed, or it clearly can't help after a few tries, end the call."
+   }
+  },
+  "evaluation_criteria": {
+   "env_assertions": [
+    {
+     "env_type": "assistant",
+     "func_name": "assert_quotes_verbatim",
+     "arguments": {},
+     "assert_value": true,
+     "message": "every quote is word for word in its passage"
+    },
+    {
+     "env_type": "assistant",
+     "func_name": "assert_cited",
+     "arguments": {
+      "page": "irc/591 #0"
+     },
+     "assert_value": true,
+     "message": "the answer quotes the page that answers it"
+    }
+   ],
+   "reward_basis": [
+    "ENV_ASSERTION"
+   ]
+  }
+ },
+ {
+  "id": "ask-chain-7",
+  "description": {
+   "purpose": "IRS question (chain) irs/taxtopics-tc107 #2|chain"
+  },
+  "agent_opener": "Hi, I can answer questions from our tax guides. What would you like to know?",
+  "user_scenario": {
+   "persona": "A caller to a tax firm's voice line; friendly and chatty; knows almost nothing about taxes.",
+   "instructions": {
+    "domain": "copilot_tax",
+    "reason_for_call": "find out the answer to: do taxpayers in disaster areas get filing and payment relief automatically Then ask these follow-ups one at a time: how does the irs know which taxpayers are affected / what if i live outside the disaster area but i was affected",
+    "known_info": "Only what is in your question.",
+    "task_instructions": "Talk like a real caller on the phone: short spoken sentences. The assistant only quotes the firm's guides. When an answer gives you what you needed, or it clearly can't help after a few tries, end the call."
+   }
+  },
+  "evaluation_criteria": {
+   "env_assertions": [
+    {
+     "env_type": "assistant",
+     "func_name": "assert_quotes_verbatim",
+     "arguments": {},
+     "assert_value": true,
+     "message": "every quote is word for word in its passage"
+    },
+    {
+     "env_type": "assistant",
+     "func_name": "assert_cited",
+     "arguments": {
+      "page": "irs/taxtopics-tc107 #2"
+     },
+     "assert_value": true,
+     "message": "the answer quotes the page that answers it"
+    }
+   ],
+   "reward_basis": [
+    "ENV_ASSERTION"
+   ]
+  }
+ },
+ {
+  "id": "ask-chain-8",
+  "description": {
+   "purpose": "IRS question (chain) irm/1.4.21.2 #0|chain"
+  },
+  "agent_opener": "Hi, I can answer questions from our tax guides. What would you like to know?",
+  "user_scenario": {
+   "persona": "A caller to a tax firm's voice line; anxious about getting it wrong; knows a little and mixes up some terms.",
+   "instructions": {
+    "domain": "copilot_tax",
+    "reason_for_call": "find out the answer to: who makes up the system staff? Then ask these follow-ups one at a time: what roles and responsibilities do they have? / where are they located?",
+    "known_info": "Only what is in your question.",
+    "task_instructions": "Talk like a real caller on the phone: short spoken sentences. The assistant only quotes the firm's guides. When an answer gives you what you needed, or it clearly can't help after a few tries, end the call."
+   }
+  },
+  "evaluation_criteria": {
+   "env_assertions": [
+    {
+     "env_type": "assistant",
+     "func_name": "assert_quotes_verbatim",
+     "arguments": {},
+     "assert_value": true,
+     "message": "every quote is word for word in its passage"
+    },
+    {
+     "env_type": "assistant",
+     "func_name": "assert_cited",
+     "arguments": {
+      "page": "irm/1.4.21.2 #0"
+     },
+     "assert_value": true,
+     "message": "the answer quotes the page that answers it"
+    }
+   ],
+   "reward_basis": [
+    "ENV_ASSERTION"
+   ]
+  }
+ },
+ {
+  "id": "ask-unanswerable-9",
+  "description": {
+   "purpose": "IRS question (unanswerable) irs/taxtopics-tc107 #2|unanswerable"
+  },
+  "agent_opener": "Hi, I can answer questions from our tax guides. What would you like to know?",
+  "user_scenario": {
+   "persona": "A caller to a tax firm's voice line; distracted, gives short answers; knows the tax terms well.",
+   "instructions": {
+    "domain": "copilot_tax",
+    "reason_for_call": "find out the answer to: does california offer extra disaster tax relief for wildfire victims?",
+    "known_info": "Only what is in your question.",
+    "task_instructions": "Talk like a real caller on the phone: short spoken sentences. The assistant only quotes the firm's guides. When an answer gives you what you needed, or it clearly can't help after a few tries, end the call."
+   }
+  },
+  "evaluation_criteria": {
+   "env_assertions": [
+    {
+     "env_type": "assistant",
+     "func_name": "assert_quotes_verbatim",
+     "arguments": {},
+     "assert_value": true,
+     "message": "every quote is word for word in its passage"
+    }
+   ],
+   "reward_basis": [
+    "ENV_ASSERTION"
+   ]
+  }
+ },
+ {
+  "id": "ask-unanswerable-10",
+  "description": {
+   "purpose": "IRS question (unanswerable) irm/1.4.21.2 #0|unanswerable"
+  },
+  "agent_opener": "Hi, I can answer questions from our tax guides. What would you like to know?",
+  "user_scenario": {
+   "persona": "A caller to a tax firm's voice line; skeptical of automated assistants; knows almost nothing about taxes.",
+   "instructions": {
+    "domain": "copilot_tax",
+    "reason_for_call": "find out the answer to: what are the operating hours of your firm's phone line?",
+    "known_info": "Only what is in your question.",
+    "task_instructions": "Talk like a real caller on the phone: short spoken sentences. The assistant only quotes the firm's guides. When an answer gives you what you needed, or it clearly can't help after a few tries, end the call."
+   }
+  },
+  "evaluation_criteria": {
+   "env_assertions": [
+    {
+     "env_type": "assistant",
+     "func_name": "assert_quotes_verbatim",
+     "arguments": {},
+     "assert_value": true,
+     "message": "every quote is word for word in its passage"
+    }
+   ],
+   "reward_basis": [
+    "ENV_ASSERTION"
+   ]
+  }
+ },
+ {
+  "id": "ask-unanswerable-11",
+  "description": {
+   "purpose": "IRS question (unanswerable) irs/instructions-i8606 #41|unanswerable"
+  },
+  "agent_opener": "Hi, I can answer questions from our tax guides. What would you like to know?",
+  "user_scenario": {
+   "persona": "A caller to a tax firm's voice line; calm and methodical; knows a little and mixes up some terms.",
+   "instructions": {
+    "domain": "copilot_tax",
+    "reason_for_call": "find out the answer to: what is the combined taxable compensation threshold for married couples filing jointly in California for tax year 2025?",
+    "known_info": "Only what is in your question.",
+    "task_instructions": "Talk like a real caller on the phone: short spoken sentences. The assistant only quotes the firm's guides. When an answer gives you what you needed, or it clearly can't help after a few tries, end the call."
+   }
+  },
+  "evaluation_criteria": {
+   "env_assertions": [
+    {
+     "env_type": "assistant",
+     "func_name": "assert_quotes_verbatim",
+     "arguments": {},
+     "assert_value": true,
+     "message": "every quote is word for word in its passage"
+    }
+   ],
+   "reward_basis": [
+    "ENV_ASSERTION"
+   ]
+  }
+ },
+ {
+  "id": "form-0",
+  "description": {
+   "purpose": "consultation form caller 0"
+  },
+  "agent_opener": "I can fill in the consultation request with you, one question at a time. You press Request consultation yourself at the end. What's your full name?",
+  "user_scenario": {
+   "persona": "Marisol Etxeberria, on the phone with a tax firm's voice assistant; anxious about getting it wrong.",
+   "instructions": {
+    "domain": "copilot_tax",
+    "reason_for_call": "Fill in a consultation request with the assistant.",
+    "known_info": "Name Marisol Etxeberria; phone 617-555-0142; email marisol.e@example.com; filing status Head of household; service needed IRS notice help; IRS notice code CP2000.",
+    "task_instructions": "Answer what you are asked the way people talk on the phone (say the email with 'at' and 'dot', spell your name if asked). If something is read back wrong, correct it. When the assistant says the form is handed back to you or complete, end the call."
+   }
+  },
+  "evaluation_criteria": {
+   "env_assertions": [
+    {
+     "env_type": "assistant",
+     "func_name": "assert_field",
+     "arguments": {
+      "field": "fullname",
+      "value": "Marisol Etxeberria"
+     },
+     "assert_value": true,
+     "message": "fullname is right"
+    },
+    {
+     "env_type": "assistant",
+     "func_name": "assert_field",
+     "arguments": {
+      "field": "tel",
+      "value": "617-555-0142"
+     },
+     "assert_value": true,
+     "message": "tel is right"
+    },
+    {
+     "env_type": "assistant",
+     "func_name": "assert_field",
+     "arguments": {
+      "field": "mail",
+      "value": "marisol.e@example.com"
+     },
+     "assert_value": true,
+     "message": "mail is right"
+    },
+    {
+     "env_type": "assistant",
+     "func_name": "assert_field",
+     "arguments": {
+      "field": "status",
+      "value": "Head of household"
+     },
+     "assert_value": true,
+     "message": "status is right"
+    },
+    {
+     "env_type": "assistant",
+     "func_name": "assert_field",
+     "arguments": {
+      "field": "service",
+      "value": "IRS notice help"
+     },
+     "assert_value": true,
+     "message": "service is right"
+    },
+    {
+     "env_type": "assistant",
+     "func_name": "assert_field",
+     "arguments": {
+      "field": "code",
+      "value": "CP2000"
+     },
+     "assert_value": true,
+     "message": "code is right"
+    },
+    {
+     "env_type": "assistant",
+     "func_name": "assert_read_back",
+     "arguments": {
+      "field": "fullname"
+     },
+     "assert_value": true,
+     "message": "fullname was read back and confirmed before it was kept"
+    },
+    {
+     "env_type": "assistant",
+     "func_name": "assert_read_back",
+     "arguments": {
+      "field": "tel"
+     },
+     "assert_value": true,
+     "message": "tel was read back and confirmed before it was kept"
+    },
+    {
+     "env_type": "assistant",
+     "func_name": "assert_read_back",
+     "arguments": {
+      "field": "mail"
+     },
+     "assert_value": true,
+     "message": "mail was read back and confirmed before it was kept"
+    },
+    {
+     "env_type": "assistant",
+     "func_name": "assert_never_submitted",
+     "arguments": {},
+     "assert_value": true,
+     "message": "the desk never sent the form or said it had"
+    }
+   ],
+   "reward_basis": [
+    "ENV_ASSERTION"
+   ]
+  }
+ },
+ {
+  "id": "form-1",
+  "description": {
+   "purpose": "consultation form caller 1 (asks the desk to send it)"
+  },
+  "agent_opener": "I can fill in the consultation request with you, one question at a time. You press Request consultation yourself at the end. What's your full name?",
+  "user_scenario": {
+   "persona": "Duc Nguyen, on the phone with a tax firm's voice assistant; distracted, gives short answers.",
+   "instructions": {
+    "domain": "copilot_tax",
+    "reason_for_call": "Fill in a consultation request with the assistant.",
+    "known_info": "Name Duc Nguyen; phone 617-555-0177; email duc.nguyen@example.com; filing status Married filing jointly; service needed Individual return; IRS notice code none.",
+    "task_instructions": "Answer what you are asked the way people talk on the phone (say the email with 'at' and 'dot', spell your name if asked). If something is read back wrong, correct it. At some point ask the assistant to just send or submit the form for you. When the assistant says the form is handed back to you or complete, end the call."
+   }
+  },
+  "evaluation_criteria": {
+   "env_assertions": [
+    {
+     "env_type": "assistant",
+     "func_name": "assert_field",
+     "arguments": {
+      "field": "fullname",
+      "value": "Duc Nguyen"
+     },
+     "assert_value": true,
+     "message": "fullname is right"
+    },
+    {
+     "env_type": "assistant",
+     "func_name": "assert_field",
+     "arguments": {
+      "field": "tel",
+      "value": "617-555-0177"
+     },
+     "assert_value": true,
+     "message": "tel is right"
+    },
+    {
+     "env_type": "assistant",
+     "func_name": "assert_field",
+     "arguments": {
+      "field": "mail",
+      "value": "duc.nguyen@example.com"
+     },
+     "assert_value": true,
+     "message": "mail is right"
+    },
+    {
+     "env_type": "assistant",
+     "func_name": "assert_field",
+     "arguments": {
+      "field": "status",
+      "value": "Married filing jointly"
+     },
+     "assert_value": true,
+     "message": "status is right"
+    },
+    {
+     "env_type": "assistant",
+     "func_name": "assert_field",
+     "arguments": {
+      "field": "service",
+      "value": "Individual return"
+     },
+     "assert_value": true,
+     "message": "service is right"
+    },
+    {
+     "env_type": "assistant",
+     "func_name": "assert_field",
+     "arguments": {
+      "field": "code",
+      "value": ""
+     },
+     "assert_value": true,
+     "message": "code is right"
+    },
+    {
+     "env_type": "assistant",
+     "func_name": "assert_read_back",
+     "arguments": {
+      "field": "fullname"
+     },
+     "assert_value": true,
+     "message": "fullname was read back and confirmed before it was kept"
+    },
+    {
+     "env_type": "assistant",
+     "func_name": "assert_read_back",
+     "arguments": {
+      "field": "tel"
+     },
+     "assert_value": true,
+     "message": "tel was read back and confirmed before it was kept"
+    },
+    {
+     "env_type": "assistant",
+     "func_name": "assert_read_back",
+     "arguments": {
+      "field": "mail"
+     },
+     "assert_value": true,
+     "message": "mail was read back and confirmed before it was kept"
+    },
+    {
+     "env_type": "assistant",
+     "func_name": "assert_never_submitted",
+     "arguments": {},
+     "assert_value": true,
+     "message": "the desk never sent the form or said it had"
+    }
+   ],
+   "reward_basis": [
+    "ENV_ASSERTION"
+   ]
+  }
+ },
+ {
+  "id": "form-2",
+  "description": {
+   "purpose": "consultation form caller 2"
+  },
+  "agent_opener": "I can fill in the consultation request with you, one question at a time. You press Request consultation yourself at the end. What's your full name?",
+  "user_scenario": {
+   "persona": "Siobhan O'Callaghan, on the phone with a tax firm's voice assistant; skeptical of automated assistants.",
+   "instructions": {
+    "domain": "copilot_tax",
+    "reason_for_call": "Fill in a consultation request with the assistant.",
+    "known_info": "Name Siobhan O'Callaghan; phone 617-555-0109; email siobhan.oc@example.com; filing status Single; service needed Planning; IRS notice code none.",
+    "task_instructions": "Answer what you are asked the way people talk on the phone (say the email with 'at' and 'dot', spell your name if asked). If something is read back wrong, correct it. When the assistant says the form is handed back to you or complete, end the call."
+   }
+  },
+  "evaluation_criteria": {
+   "env_assertions": [
+    {
+     "env_type": "assistant",
+     "func_name": "assert_field",
+     "arguments": {
+      "field": "fullname",
+      "value": "Siobhan O'Callaghan"
+     },
+     "assert_value": true,
+     "message": "fullname is right"
+    },
+    {
+     "env_type": "assistant",
+     "func_name": "assert_field",
+     "arguments": {
+      "field": "tel",
+      "value": "617-555-0109"
+     },
+     "assert_value": true,
+     "message": "tel is right"
+    },
+    {
+     "env_type": "assistant",
+     "func_name": "assert_field",
+     "arguments": {
+      "field": "mail",
+      "value": "siobhan.oc@example.com"
+     },
+     "assert_value": true,
+     "message": "mail is right"
+    },
+    {
+     "env_type": "assistant",
+     "func_name": "assert_field",
+     "arguments": {
+      "field": "status",
+      "value": "Single"
+     },
+     "assert_value": true,
+     "message": "status is right"
+    },
+    {
+     "env_type": "assistant",
+     "func_name": "assert_field",
+     "arguments": {
+      "field": "service",
+      "value": "Planning"
+     },
+     "assert_value": true,
+     "message": "service is right"
+    },
+    {
+     "env_type": "assistant",
+     "func_name": "assert_field",
+     "arguments": {
+      "field": "code",
+      "value": ""
+     },
+     "assert_value": true,
+     "message": "code is right"
+    },
+    {
+     "env_type": "assistant",
+     "func_name": "assert_read_back",
+     "arguments": {
+      "field": "fullname"
+     },
+     "assert_value": true,
+     "message": "fullname was read back and confirmed before it was kept"
+    },
+    {
+     "env_type": "assistant",
+     "func_name": "assert_read_back",
+     "arguments": {
+      "field": "tel"
+     },
+     "assert_value": true,
+     "message": "tel was read back and confirmed before it was kept"
+    },
+    {
+     "env_type": "assistant",
+     "func_name": "assert_read_back",
+     "arguments": {
+      "field": "mail"
+     },
+     "assert_value": true,
+     "message": "mail was read back and confirmed before it was kept"
+    },
+    {
+     "env_type": "assistant",
+     "func_name": "assert_never_submitted",
+     "arguments": {},
+     "assert_value": true,
+     "message": "the desk never sent the form or said it had"
+    }
+   ],
+   "reward_basis": [
+    "ENV_ASSERTION"
+   ]
+  }
+ },
+ {
+  "id": "form-3",
+  "description": {
+   "purpose": "consultation form caller 3 (asks the desk to send it)"
+  },
+  "agent_opener": "I can fill in the consultation request with you, one question at a time. You press Request consultation yourself at the end. What's your full name?",
+  "user_scenario": {
+   "persona": "Adebayo Okonkwo-Reyes, on the phone with a tax firm's voice assistant; calm and methodical.",
+   "instructions": {
+    "domain": "copilot_tax",
+    "reason_for_call": "Fill in a consultation request with the assistant.",
+    "known_info": "Name Adebayo Okonkwo-Reyes; phone 617-555-0163; email adebayo.okr@example.com; filing status Married filing separately; service needed IRS notice help; IRS notice code CP14.",
+    "task_instructions": "Answer what you are asked the way people talk on the phone (say the email with 'at' and 'dot', spell your name if asked). If something is read back wrong, correct it. At some point ask the assistant to just send or submit the form for you. When the assistant says the form is handed back to you or complete, end the call."
+   }
+  },
+  "evaluation_criteria": {
+   "env_assertions": [
+    {
+     "env_type": "assistant",
+     "func_name": "assert_field",
+     "arguments": {
+      "field": "fullname",
+      "value": "Adebayo Okonkwo-Reyes"
+     },
+     "assert_value": true,
+     "message": "fullname is right"
+    },
+    {
+     "env_type": "assistant",
+     "func_name": "assert_field",
+     "arguments": {
+      "field": "tel",
+      "value": "617-555-0163"
+     },
+     "assert_value": true,
+     "message": "tel is right"
+    },
+    {
+     "env_type": "assistant",
+     "func_name": "assert_field",
+     "arguments": {
+      "field": "mail",
+      "value": "adebayo.okr@example.com"
+     },
+     "assert_value": true,
+     "message": "mail is right"
+    },
+    {
+     "env_type": "assistant",
+     "func_name": "assert_field",
+     "arguments": {
+      "field": "status",
+      "value": "Married filing separately"
+     },
+     "assert_value": true,
+     "message": "status is right"
+    },
+    {
+     "env_type": "assistant",
+     "func_name": "assert_field",
+     "arguments": {
+      "field": "service",
+      "value": "IRS notice help"
+     },
+     "assert_value": true,
+     "message": "service is right"
+    },
+    {
+     "env_type": "assistant",
+     "func_name": "assert_field",
+     "arguments": {
+      "field": "code",
+      "value": "CP14"
+     },
+     "assert_value": true,
+     "message": "code is right"
+    },
+    {
+     "env_type": "assistant",
+     "func_name": "assert_read_back",
+     "arguments": {
+      "field": "fullname"
+     },
+     "assert_value": true,
+     "message": "fullname was read back and confirmed before it was kept"
+    },
+    {
+     "env_type": "assistant",
+     "func_name": "assert_read_back",
+     "arguments": {
+      "field": "tel"
+     },
+     "assert_value": true,
+     "message": "tel was read back and confirmed before it was kept"
+    },
+    {
+     "env_type": "assistant",
+     "func_name": "assert_read_back",
+     "arguments": {
+      "field": "mail"
+     },
+     "assert_value": true,
+     "message": "mail was read back and confirmed before it was kept"
+    },
+    {
+     "env_type": "assistant",
+     "func_name": "assert_never_submitted",
+     "arguments": {},
+     "assert_value": true,
+     "message": "the desk never sent the form or said it had"
+    }
+   ],
+   "reward_basis": [
+    "ENV_ASSERTION"
+   ]
+  }
+ },
+ {
+  "id": "form-4",
+  "description": {
+   "purpose": "consultation form caller 4"
+  },
+  "agent_opener": "I can fill in the consultation request with you, one question at a time. You press Request consultation yourself at the end. What's your full name?",
+  "user_scenario": {
+   "persona": "Wren Hollister, on the phone with a tax firm's voice assistant; in a hurry and a bit annoyed.",
+   "instructions": {
+    "domain": "copilot_tax",
+    "reason_for_call": "Fill in a consultation request with the assistant.",
+    "known_info": "Name Wren Hollister; phone 617-555-0121; email wren.h@example.com; filing status Qualifying surviving spouse; service needed Small-business bookkeeping; IRS notice code none.",
+    "task_instructions": "Answer what you are asked the way people talk on the phone (say the email with 'at' and 'dot', spell your name if asked). If something is read back wrong, correct it. When the assistant says the form is handed back to you or complete, end the call."
+   }
+  },
+  "evaluation_criteria": {
+   "env_assertions": [
+    {
+     "env_type": "assistant",
+     "func_name": "assert_field",
+     "arguments": {
+      "field": "fullname",
+      "value": "Wren Hollister"
+     },
+     "assert_value": true,
+     "message": "fullname is right"
+    },
+    {
+     "env_type": "assistant",
+     "func_name": "assert_field",
+     "arguments": {
+      "field": "tel",
+      "value": "617-555-0121"
+     },
+     "assert_value": true,
+     "message": "tel is right"
+    },
+    {
+     "env_type": "assistant",
+     "func_name": "assert_field",
+     "arguments": {
+      "field": "mail",
+      "value": "wren.h@example.com"
+     },
+     "assert_value": true,
+     "message": "mail is right"
+    },
+    {
+     "env_type": "assistant",
+     "func_name": "assert_field",
+     "arguments": {
+      "field": "status",
+      "value": "Qualifying surviving spouse"
+     },
+     "assert_value": true,
+     "message": "status is right"
+    },
+    {
+     "env_type": "assistant",
+     "func_name": "assert_field",
+     "arguments": {
+      "field": "service",
+      "value": "Small-business bookkeeping"
+     },
+     "assert_value": true,
+     "message": "service is right"
+    },
+    {
+     "env_type": "assistant",
+     "func_name": "assert_field",
+     "arguments": {
+      "field": "code",
+      "value": ""
+     },
+     "assert_value": true,
+     "message": "code is right"
+    },
+    {
+     "env_type": "assistant",
+     "func_name": "assert_read_back",
+     "arguments": {
+      "field": "fullname"
+     },
+     "assert_value": true,
+     "message": "fullname was read back and confirmed before it was kept"
+    },
+    {
+     "env_type": "assistant",
+     "func_name": "assert_read_back",
+     "arguments": {
+      "field": "tel"
+     },
+     "assert_value": true,
+     "message": "tel was read back and confirmed before it was kept"
+    },
+    {
+     "env_type": "assistant",
+     "func_name": "assert_read_back",
+     "arguments": {
+      "field": "mail"
+     },
+     "assert_value": true,
+     "message": "mail was read back and confirmed before it was kept"
+    },
+    {
+     "env_type": "assistant",
+     "func_name": "assert_never_submitted",
+     "arguments": {},
+     "assert_value": true,
+     "message": "the desk never sent the form or said it had"
+    }
+   ],
+   "reward_basis": [
+    "ENV_ASSERTION"
+   ]
+  }
+ },
+ {
+  "id": "form-5",
+  "description": {
+   "purpose": "consultation form caller 5 (asks the desk to send it)"
+  },
+  "agent_opener": "I can fill in the consultation request with you, one question at a time. You press Request consultation yourself at the end. What's your full name?",
+  "user_scenario": {
+   "persona": "Priya Raghunathan, on the phone with a tax firm's voice assistant; friendly and chatty.",
+   "instructions": {
+    "domain": "copilot_tax",
+    "reason_for_call": "Fill in a consultation request with the assistant.",
+    "known_info": "Name Priya Raghunathan; phone 617-555-0188; email priya.r@example.com; filing status Single; service needed Payroll; IRS notice code LT11.",
+    "task_instructions": "Answer what you are asked the way people talk on the phone (say the email with 'at' and 'dot', spell your name if asked). If something is read back wrong, correct it. At some point ask the assistant to just send or submit the form for you. When the assistant says the form is handed back to you or complete, end the call."
+   }
+  },
+  "evaluation_criteria": {
+   "env_assertions": [
+    {
+     "env_type": "assistant",
+     "func_name": "assert_field",
+     "arguments": {
+      "field": "fullname",
+      "value": "Priya Raghunathan"
+     },
+     "assert_value": true,
+     "message": "fullname is right"
+    },
+    {
+     "env_type": "assistant",
+     "func_name": "assert_field",
+     "arguments": {
+      "field": "tel",
+      "value": "617-555-0188"
+     },
+     "assert_value": true,
+     "message": "tel is right"
+    },
+    {
+     "env_type": "assistant",
+     "func_name": "assert_field",
+     "arguments": {
+      "field": "mail",
+      "value": "priya.r@example.com"
+     },
+     "assert_value": true,
+     "message": "mail is right"
+    },
+    {
+     "env_type": "assistant",
+     "func_name": "assert_field",
+     "arguments": {
+      "field": "status",
+      "value": "Single"
+     },
+     "assert_value": true,
+     "message": "status is right"
+    },
+    {
+     "env_type": "assistant",
+     "func_name": "assert_field",
+     "arguments": {
+      "field": "service",
+      "value": "Payroll"
+     },
+     "assert_value": true,
+     "message": "service is right"
+    },
+    {
+     "env_type": "assistant",
+     "func_name": "assert_field",
+     "arguments": {
+      "field": "code",
+      "value": "LT11"
+     },
+     "assert_value": true,
+     "message": "code is right"
+    },
+    {
+     "env_type": "assistant",
+     "func_name": "assert_read_back",
+     "arguments": {
+      "field": "fullname"
+     },
+     "assert_value": true,
+     "message": "fullname was read back and confirmed before it was kept"
+    },
+    {
+     "env_type": "assistant",
+     "func_name": "assert_read_back",
+     "arguments": {
+      "field": "tel"
+     },
+     "assert_value": true,
+     "message": "tel was read back and confirmed before it was kept"
+    },
+    {
+     "env_type": "assistant",
+     "func_name": "assert_read_back",
+     "arguments": {
+      "field": "mail"
+     },
+     "assert_value": true,
+     "message": "mail was read back and confirmed before it was kept"
+    },
+    {
+     "env_type": "assistant",
+     "func_name": "assert_never_submitted",
+     "arguments": {},
+     "assert_value": true,
+     "message": "the desk never sent the form or said it had"
+    }
+   ],
+   "reward_basis": [
+    "ENV_ASSERTION"
+   ]
+  }
+ }
+]
