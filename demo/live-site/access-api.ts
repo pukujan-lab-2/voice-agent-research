@@ -6,13 +6,16 @@
 //   POST /api/access/revoke            { business, id } (owner or admin)
 //   POST /api/access/open              { business, call, emergency? } a call's record, through RawAccess.open (logged first)
 //   POST /api/access/audio             { business, call, emergency? } a call's recording, the same way
+//   POST /api/access/member-code       { business } Octo's one-time code for adding or removing a member (owner or admin)
+//   POST /api/access/member            { business, op: add | remove, email, role?, code, mfaCode? } through Octo's member routes
 //   POST /api/access/logout
 // Every request asks Octo again who the person is and their live role in the business's workspace, so a removed member
-// is out at once. Nothing opens before that check and the log entry. Adding and removing members is Octo's own (#83's
-// routes need a person's own Octo session), so it isn't here. POSTs need the header x-access: 1, which another site
-// can't send without a preflight this server never answers.
+// is out at once. Nothing opens before that check and the log entry. Adding and removing members goes to Octo's own member
+// routes (octo-database#83) with the owner's or admin's token, signed in for it with `read write delete` (login?manage=1),
+// and the one-time code Octo gives that token (#86), typed back by the person. Each try is in the access log.
+// POSTs need the header x-access: 1, which another site can't send without a preflight this server never answers.
 import { AccessDenied, RawAccess, ROLES, type Role, type Who } from '../../copilot-engine/src/raw-access.ts';
-import { OctoSignIn, type ClientStore, type OctoMe } from '../../copilot-engine/src/octo-signin.ts';
+import { OctoError, OctoSignIn, type ClientStore, type MemberRole, type OctoMe } from '../../copilot-engine/src/octo-signin.ts';
 import type { Sql } from '../../copilot-engine/src/octo-store.ts';
 import { BUSINESS_ID } from '../../copilot-engine/src/site-config.ts';
 
@@ -32,6 +35,9 @@ export type AccessDeps = {
 const COOKIE = 'copilot_access';
 const SESSION_MS = 3_600_000, PENDING_MS = 600_000, MAX_SESSIONS = 5_000;
 const CALL = /^[\w.-]{1,64}$/;
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MEMBER_ROLES: MemberRole[] = ['admin', 'operator', 'member'];
+const MANAGE_SCOPE = 'read write delete';
 const json = (body: unknown, status = 200, headers: Record<string, string> = {}) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...headers } });
 const token = () => [...crypto.getRandomValues(new Uint8Array(24))].map(b => b.toString(16).padStart(2, '0')).join('');
@@ -48,8 +54,8 @@ class Expiring<T> {
 }
 
 export function createAccess(d: AccessDeps) {
-  const pending = new Expiring<{ business: string; verifier: string; origin: string }>(MAX_SESSIONS);
-  const sessions = new Expiring<{ token: string; business: string }>(MAX_SESSIONS);
+  const pending = new Expiring<{ business: string; verifier: string; origin: string; manage: boolean }>(MAX_SESSIONS);
+  const sessions = new Expiring<{ token: string; business: string; manage: boolean }>(MAX_SESSIONS);
   const signers = new Map<string, OctoSignIn>();
   const signer = (origin: string) => {
     const redirect = `${origin}/api/access/callback`;
@@ -66,7 +72,7 @@ export function createAccess(d: AccessDeps) {
   const back = (business: string, note?: string) => `/business/access?business=${encodeURIComponent(business)}${note ? `&note=${encodeURIComponent(note)}` : ''}`;
 
   // The signed-in person for this business, checked live with Octo, or why not.
-  const whoFor = async (req: Request, business: string, origin: string): Promise<{ who: Who; token: string; ws: string } | Response> => {
+  const whoFor = async (req: Request, business: string, origin: string): Promise<{ who: Who; token: string; ws: string; manage: boolean } | Response> => {
     const s = sessions.get(cookie(req));
     if (!s || s.business !== business) return json({ error: 'sign in', signin: true }, 401);
     const ws = await d.workspaceOf(business);
@@ -74,7 +80,7 @@ export function createAccess(d: AccessDeps) {
     let me: OctoMe;
     try { me = await signer(origin).me(s.token); } catch { sessions.delete(cookie(req)); return json({ error: 'sign in again', signin: true }, 401); }
     if (me.workspace !== ws || !ROLES.includes(me.role as Role) || !me.principal || !me.email) return json({ error: 'you are not a member of this business’s workspace' }, 403);
-    return { who: { principal: me.principal, email: me.email, role: me.role as Role }, token: s.token, ws };
+    return { who: { principal: me.principal, email: me.email, role: me.role as Role }, token: s.token, ws, manage: s.manage };
   };
 
   return {
@@ -86,8 +92,9 @@ export function createAccess(d: AccessDeps) {
         if (req.method === 'GET' && path === 'login') {
           const business = u.searchParams.get('business') ?? '';
           if (!BUSINESS_ID.test(business) || !await d.workspaceOf(business)) return json({ error: 'unknown business' }, 404);
-          const state = token(), { url, verifier } = await signer(origin).start(state);
-          pending.set(state, { business, verifier, origin }, PENDING_MS);
+          const manage = u.searchParams.get('manage') === '1';
+          const state = token(), { url, verifier } = await signer(origin).start(state, manage ? MANAGE_SCOPE : 'read');
+          pending.set(state, { business, verifier, origin, manage }, PENDING_MS);
           return new Response(null, { status: 302, headers: { Location: url, 'Cache-Control': 'no-store' } });
         }
         if (req.method === 'GET' && path === 'callback') {
@@ -102,7 +109,7 @@ export function createAccess(d: AccessDeps) {
             return new Response(null, { status: 302, headers: { Location: back(p.business, 'pick this business’s workspace when Octo asks') } });
           }
           const sid = token(), ms = Math.min(SESSION_MS, until - Date.now());
-          sessions.set(sid, { token: t, business: p.business }, ms);
+          sessions.set(sid, { token: t, business: p.business, manage: p.manage }, ms);
           return new Response(null, { status: 302, headers: { Location: back(p.business), 'Set-Cookie': setCookie(sid, ms), 'Cache-Control': 'no-store' } });
         }
         if (req.method === 'GET' && path === 'state') {
@@ -112,7 +119,7 @@ export function createAccess(d: AccessDeps) {
           if (w instanceof Response) return w;
           const ra = accessAt(w.ws), admin = w.who.role === 'owner' || w.who.role === 'admin';
           const members = admin ? await signer(origin).members(w.token, w.ws).catch(e => { d.log(`access: members of ${business}: ${(e as Error).message}`); return null; }) : null;
-          return json({ me: { email: w.who.email, role: w.who.role }, members, grants: admin ? await ra.grants(business) : (await ra.grants(business)).filter(g => g.email === w.who.email),
+          return json({ me: { email: w.who.email, role: w.who.role }, members, canManage: admin && w.manage, grants: admin ? await ra.grants(business) : (await ra.grants(business)).filter(g => g.email === w.who.email),
             log: admin ? await ra.log(business) : null });
         }
         if (req.method !== 'POST') return json({ error: 'not found' }, 404);
@@ -136,6 +143,26 @@ export function createAccess(d: AccessDeps) {
           return json({ grant: await ra.grant(business, w.who, { email: String(b.email ?? ''), calls: b.calls ?? null, purpose: String(b.purpose ?? ''), until }) });
         }
         if (path === 'revoke') return json({ revoked: await ra.revoke(business, w.who, String(b.id ?? '')) });
+        if (path === 'member-code' || path === 'member') {
+          if (w.who.role !== 'owner' && w.who.role !== 'admin') return json({ error: 'only the owner or an admin adds or removes members' }, 403);
+          if (!w.manage) return json({ error: 'sign in again to manage members', signin: true, manage: true }, 401);
+          if (path === 'member-code') return json(await signer(origin).memberCode(w.token, w.ws));
+          const op = b.op === 'add' || b.op === 'remove' ? b.op as 'add' | 'remove' : null, email = String(b.email ?? '').trim().toLowerCase();
+          const role = b.role === undefined ? undefined : MEMBER_ROLES.find(r => r === b.role);
+          const code = String(b.code ?? '').trim(), mfaCode = b.mfaCode ? String(b.mfaCode).trim() : undefined;
+          if (!op || !EMAIL.test(email) || (b.role !== undefined && !role) || !code || code.length > 64 || (mfaCode && !/^\d{6,8}$/.test(mfaCode)))
+            return json({ error: 'say add or remove, an email, a role of admin, operator or member, and the code' }, 400);
+          const what = op === 'add' ? `${email} as ${role ?? 'member'}` : email;
+          try {
+            const r = await signer(origin).changeMember(w.token, w.ws, op, { email, role, code, mfaCode });
+            await ra.note(business, w.who, `member ${op}`, `${what}${r.status ? ` (${r.status})` : ''}`, true);
+            return json(r);
+          } catch (e) {
+            if (!(e instanceof OctoError) || e.status >= 500) throw e;
+            await ra.note(business, w.who, `member ${op}`, `${what}: refused by Octo (${e.status})`, false);
+            return json({ error: e.status === 404 ? 'nobody with that email is a member' : e.status === 403 || e.status === 412 ? 'Octo refused: check the code (each is good once, for 10 minutes) and the authenticator code' : `Octo refused (${e.status})` }, e.status === 404 ? 404 : 403);
+          }
+        }
         if (path === 'open' || path === 'audio') {
           const call = typeof b.call === 'string' ? b.call : '';
           if (!CALL.test(call)) return json({ error: 'bad call' }, 400);

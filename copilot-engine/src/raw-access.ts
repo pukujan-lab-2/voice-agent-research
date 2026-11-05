@@ -69,6 +69,12 @@ export class RawAccess {
     return n > 0;
   }
 
+  // A change made through Octo for this business, such as adding or removing a member, logged under the person who made it.
+  async note(business: string, who: Who, action: string, reason: string, ok: boolean): Promise<void> {
+    await this.ensure();
+    await this.write(business, who, { action, reason, ok });
+  }
+
   async grants(business: string): Promise<Grant[]> {
     await this.ensure();
     return (await this.sql(`select id, email, calls, purpose, until, by, at, revoked_at, revoked_by from copilot_access_grants where business = $1 order by at desc limit 200`, [business]) as Grant[])
