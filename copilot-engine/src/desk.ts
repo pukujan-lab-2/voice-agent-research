@@ -817,6 +817,9 @@ Customer: "Do you take walk-ins?" -> answer_question("Do you take walk-ins?"); s
   // The question desk (no form): the model talks, and every fact comes from answer_question.
   private askPrompt(): string {
     const docs = this.flow.scope || `${this.flow.business}'s documents`;
+    // What may be offered comes from the business's config, never from wording here (#156).
+    const offers = this.flow.offers?.length ? ` Code offers ${this.flow.offers.join(', ')} when they fit, so don't offer them yourself.` : '';
+    const verify = this.flow.verify ? " Don't bring up verifying who they are unless they ask about their own records." : ' Never ask who they are or offer to look up their records.';
     return `You are the front-desk assistant at ${this.flow.business}, on a call or a chat. You answer questions only from the ${docs}, through the answer_question tool.
 
 What you told the caller you can do: "${this.flow.intro}"
@@ -829,7 +832,7 @@ How you work:
 - Anything unrelated to ${this.flow.business}: say kindly that you can only help with questions the ${docs} answer.
 - If the caller says goodbye or wants to stop, call end_call.
 - If you can't tell what the caller means, ask what they mean in one short sentence. Don't guess, and don't praise the question ("great question").
-- Never offer anything that isn't in what you told the caller you can do. Don't bring up verifying who they are unless they ask to check on their return.
+- Never offer anything that isn't in what you told the caller you can do.${offers}${verify}
 
 Examples:
 Caller: "Hi, can I ask you about taxes?" -> no tool; say "Of course, go ahead. What would you like to know?"

@@ -48,6 +48,11 @@ test('bad configs and bad ids are refused and nothing is written', async () => {
   await s.put('acme-keeps', { retention: { days: 365 } });
   for (const recording of [{}, { audio: 'no' }, { audio: false, video: true }, false]) await assert.rejects(s.put('acme', { recording } as never), /recording/);
   await s.put('acme-quiet', { recording: { audio: false } });
+  const offer = { when: 'payment plan', href: '/plan', label: 'the payment plan request', say: 'I can open it with you. Want me to?' };
+  for (const [bad, why] of [[{ ...offer, when: '(' }, /valid regular/], [{ ...offer, href: 'https://evil.example' }, /path on the site/], [{ ...offer, href: '//evil.example' }, /path on the site/],
+    [{ ...offer, say: ' ' }, /say must/], [{ ...offer, label: undefined }, /label must/]] as const)
+    await assert.rejects(s.put('acme', { desk: { offers: [bad] } } as never), why, `offer ${JSON.stringify(bad)}`);
+  await s.put('acme-offers', { desk: { offers: [offer] } });
   assert.equal(await s.get('acme'), null);
 });
 

@@ -250,6 +250,20 @@ test('a question desk never lets the model state a fact itself', async () => {
   assert.equal(asked.length, 1);
 });
 
+test("a question desk's prompt names only its own business's offers (#156)", async () => {
+  const prompts: string[] = [];
+  const model: ChatModel = { name: 'spy', async chat(messages) { prompts.push(messages[0].content ?? ''); return { content: 'Sure.', calls: [], ms: 1, model: 'spy' }; } };
+  const clinic = new Desk({ ...taxDesk, business: 'Acme Clinic', offers: ['the new-patient form', 'book a visit'] }, { answer: async () => null, model });
+  clinic.start(); await clinic.turn('hello');
+  assert.match(prompts[0], /Code offers the new-patient form, book a visit when they fit/);
+  assert.match(prompts[0], /Never ask who they are or offer to look up their records/);
+  assert.doesNotMatch(prompts[0], /check on their return|verifying/i, "no tax desk's offers for a clinic");
+  const tax = new Desk({ ...taxDesk, verify: true }, { answer: async () => null, model });
+  tax.start(); await tax.turn('hello');
+  assert.match(prompts[1], /unless they ask about their own records/);
+  assert.doesNotMatch(prompts[1], /Code offers/, 'no offers in the config, none named');
+});
+
 test('a question desk falls back to looking up when the model is down', async () => {
   const d = new Desk(taxDesk, { answer: async () => 'IRS FAQ says: "Yes."', model: stub(() => 'fail') });
   d.start();
