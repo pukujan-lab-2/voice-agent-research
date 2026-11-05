@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Call access</title>
+<!-- A business's own page for its raw calls (#131): its people sign in with Octo; the owner or an admin gives grants;
+     everyone with a grant opens a call; every open is in the log below. Standalone: no app styles. Everything the
+     server sends is put in the page as text, never as HTML. -->
+<style>
+:root { --ink: #1d2230; --muted: #5d6475; --line: #dfe3ea; --accent: #3d63dd; --bg: #f6f7f9; --card: #fff; --flag: #fff4d6; --flag-ink: #5a4300; --bad: #b42318; }
+@media (prefers-color-scheme: dark) { :root { --ink: #e7e9ee; --muted: #a2a9b8; --line: #343a48; --accent: #8aa4ff; --bg: #15181f; --card: #1d212b; --flag: #3a3016; --flag-ink: #f3d98a; --bad: #ff8a80; } }
+* { box-sizing: border-box; }
+body { margin: 0; font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--ink); background: var(--bg); overflow-x: hidden; }
+.wrap { max-width: 960px; margin: 0 auto; padding: 24px 16px 60px; }
+h1 { font-size: 26px; margin: 4px 0 12px; } h2 { font-size: 19px; margin: 0 0 10px; }
+section { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin: 16px 0; overflow-x: auto; }
+.muted { color: var(--muted); } .bad { color: var(--bad); }
+table { border-collapse: collapse; width: 100%; } th, td { border-bottom: 1px solid var(--line); padding: 6px 8px; text-align: left; vertical-align: top; font-size: 14px; }
+tr.flag td { background: var(--flag); color: var(--flag-ink); }
+form { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); align-items: end; }
+label { display: grid; gap: 2px; font-size: 13px; color: var(--muted); }
+input, textarea, button { font: inherit; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--ink); }
+button { background: var(--accent); color: #fff; border: 0; cursor: pointer; } button.plain { background: transparent; color: var(--accent); border: 1px solid var(--line); }
+pre { white-space: pre-wrap; word-break: break-word; font-size: 13px; }
+[hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Call access</h1>
+  <p id="who" class="muted"></p>
+  <p id="note" class="bad" hidden></p>
+
+  <section id="signin" hidden>
+    <p>Sign in with Octo and pick this business's workspace. Only its members get in.</p>
+    <button id="login">Sign in with Octo</button>
+  </section>
+
+  <section id="open" hidden>
+    <h2>Open a call</h2>
+    <form id="openForm">
+      <label>Call id<input name="call" required pattern="[\w.\-]{1,64}"></label>
+      <label id="emergencyBox" hidden>Emergency reason (owner only, logged and shown to the business)<textarea name="emergency" rows="2"></textarea></label>
+      <button name="what" value="record">Read the record</button>
+      <button name="what" value="audio" class="plain">Play the recording</button>
+    </form>
+    <p id="openErr" class="bad" hidden></p>
+    <audio id="player" controls hidden></audio>
+    <pre id="record" hidden></pre>
+  </section>
+
+  <section id="grants" hidden>
+    <h2>Grants</h2>
+    <form id="grantForm">
+      <label>Member's Octo email<input name="email" type="email" required></label>
+      <label>Calls (ids, comma separated; empty for all)<input name="calls"></label>
+      <label>What for<input name="purpose" required minlength="3" maxlength="300"></label>
+      <label>Until<input name="until" type="date" required></label>
+      <button>Give access</button>
+    </form>
+    <p id="grantErr" class="bad" hidden></p>
+    <table><thead><tr><th>Who</th><th>Calls</th><th>What for</th><th>Until</th><th>Given by</th><th></th></tr></thead><tbody id="grantRows"></tbody></table>
+  </section>
+
+  <section id="members" hidden>
+    <h2>Members</h2>
+    <p class="muted">The people in this business's Octo workspace. Adding and removing them is done in Octo.</p>
+    <table><thead><tr><th>Email</th><th>Name</th><th>Role</th></tr></thead><tbody id="memberRows"></tbody></table>
+  </section>
+
+  <section id="log" hidden>
+    <h2>Access log</h2>
+    <p class="muted">Every time anyone opened a call, or tried to. Emergency opens are highlighted.</p>
+    <table><thead><tr><th>When</th><th>Who</th><th>Role</th><th>What</th><th>Call</th><th>Reason</th><th>Result</th></tr></thead><tbody id="logRows"></tbody></table>
+  </section>
+
+  <p><button id="logout" class="plain" hidden>Sign out</button></p>
+</div>
+<script>
+const $ = id => document.getElementById(id);
+const q = new URLSearchParams(location.search);
+const business = q.get('business') || '';
+if (q.get('note')) { $('note').textContent = q.get('note'); $('note').hidden = false; }
+
+const row = cells => { const tr = document.createElement('tr'); for (const c of cells) { const td = document.createElement('td'); if (c instanceof Node) td.append(c); else td.textContent = c ?? ''; tr.append(td); } return tr; };
+const when = s => s ? new Date(s).toLocaleString() : '';
+const post = (path, body) => fetch(`/api/access/${path}`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-access': '1' }, body: JSON.stringify({ business, ...body }) });
+const fail = async (el, r) => { el.textContent = (await r.json().catch(() => ({}))).error || `failed (${r.status})`; el.hidden = false; };
+
+async function load() {
+  if (!/^[a-z0-9][a-z0-9-]{0,39}$/.test(business)) { $('who').textContent = 'This address needs ?business=<your business id>.'; return; }
+  $('login').onclick = () => { location.href = `/api/access/login?business=${encodeURIComponent(business)}`; };
+  const r = await fetch(`/api/access/state?business=${encodeURIComponent(business)}`);
+  const s = await r.json().catch(() => ({}));
+  if (!r.ok) { $('signin').hidden = !s.signin; $('who').textContent = s.signin ? '' : s.error || 'Something went wrong.'; return; }
+  $('who').textContent = `Signed in as ${s.me.email} (${s.me.role}) for ${business}.`;
+  $('open').hidden = false; $('logout').hidden = false; $('grants').hidden = false;
+  $('emergencyBox').hidden = s.me.role !== 'owner';
+  const admin = s.me.role === 'owner' || s.me.role === 'admin';
+  $('grantForm').hidden = !admin;
+  $('grantRows').replaceChildren(...s.grants.map(g => {
+    let act = '';
+    if (g.revoked_at) act = `revoked ${when(g.revoked_at)}`;
+    else if (admin) { act = document.createElement('button'); act.className = 'plain'; act.textContent = 'Revoke'; act.onclick = async () => { await post('revoke', { id: g.id }); load(); }; }
+    return row([g.email, g.calls ? g.calls.join(', ') : 'all', g.purpose, when(g.until), g.by, act]);
+  }));
+  if (s.members) {
+    $('members').hidden = false;
+    $('memberRows').replaceChildren(...s.members.members.map(m => row([m.email, m.displayName, m.role])), ...s.members.pending.map(m => row([m.email, '(not signed in yet)', m.role])));
+  }
+  if (s.log) {
+    $('log').hidden = false;
+    $('logRows').replaceChildren(...s.log.map(e => { const tr = row([when(e.at), e.email, e.role, e.emergency ? `${e.action} (emergency)` : e.action, e.call, e.reason, e.ok ? 'opened' : 'refused']); if (e.emergency) tr.className = 'flag'; return tr; }));
+  }
+}
+
+$('openForm').onsubmit = async ev => {
+  ev.preventDefault();
+  const f = new FormData(ev.target), what = ev.submitter?.value || 'record';
+  const emergency = String(f.get('emergency') || '').trim();
+  $('openErr').hidden = true; $('record').hidden = true; $('player').hidden = true;
+  const r = await post(what === 'audio' ? 'audio' : 'open', { call: f.get('call'), ...(emergency ? { emergency } : {}) });
+  if (!r.ok) { await fail($('openErr'), r); load(); return; }
+  if (what === 'audio') { $('player').src = URL.createObjectURL(await r.blob()); $('player').hidden = false; }
+  else { $('record').textContent = JSON.stringify((await r.json()).entries, null, 2); $('record').hidden = false; }
+  load();
+};
+$('grantForm').onsubmit = async ev => {
+  ev.preventDefault();
+  const f = new FormData(ev.target), calls = String(f.get('calls') || '').split(',').map(c => c.trim()).filter(Boolean);
+  $('grantErr').hidden = true;
+  const r = await post('grant', { email: f.get('email'), calls: calls.length ? calls : null, purpose: f.get('purpose'), until: `${f.get('until')}T23:59:59Z` });
+  if (!r.ok) return fail($('grantErr'), r);
+  ev.target.reset(); load();
+};
+$('logout').onclick = async () => { await post('logout', {}); location.reload(); };
+load();
+</script>
+</body>
+</html>

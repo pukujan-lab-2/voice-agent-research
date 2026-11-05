@@ -16,10 +16,12 @@
 //   POST /api/session     a resume snapshot for a dropped call, by business and session: { op: get | set | delete, business, id,
 //                         snapshot? }, kept 30 minutes in the shared store (Octo when live)
 //   POST /api/account/status  the verified caller's (fictional) return status card
+//   /api/access/…         the business's own people: Octo sign-in, grants, the access log, opening a raw call (access-api.ts, #131)
 //   GET  /api/library/…   the tax library, all from Octo: search, docs (the list), doc?doc= (one source: its sections, or
 //                         the article body of a web-page source), pdf?doc= (a publication's printed PDF), faq
 // Nothing here decides what the copilot does; it only answers those questions. Requests are size- and rate-limited, and
 // Jev calls have a daily cap, so the open demo can't be used as a free model relay.
+import { createAccess } from './access-api.ts';
 import { createPractice } from './practice-api.ts';
 import type { EvalScore, ExportTrace, SpanKind, SpanSpec } from './tracing.ts';
 import { lfm3AudioChat, OpenAIChat, type ChatMsg } from '../../copilot-engine/src/desk.ts';
@@ -737,6 +739,14 @@ export function createApi(env: ApiEnv, opts: { slots?: Slots; offlinePassages?: 
     traceSealed({ name: path.slice(5), kind, start, end: Date.now(), error: r.status >= 400, attributes }, b?.business, session, ws);
   }
 
+  // Who may open a raw call, and the log of every time someone did (#131). Needs a business's own workspace and OpenBao.
+  const access = offline || !vault ? null : createAccess({
+    octo: octoBase.replace(/\/api\/?$/, ''), own: ownOrigins, log, workspaceOf, sqlAt, clients: sessionStore,
+    host: req => (opts.ownHostHeader ? req.headers.get('x-own-host') : null) ?? new URL(req.url).host,
+    record: async (business, call) => (await recordsAt(await workspaceOf(business))?.read(business, call, retentionDays(await sites?.get(business)))) ?? [],
+    audio: async (business, call) => (await audioAt(await workspaceOf(business))?.open(business, call, retentionDays(await sites?.get(business)))) ?? null,
+  });
+
   let siteMedia: { at: number; slots: Record<string, unknown> } | null = null;
   return {
     // Deletes every business's call-record entries and recordings past its retention (#129, #130), and the key of each
@@ -766,7 +776,7 @@ export function createApi(env: ApiEnv, opts: { slots?: Slots; offlinePassages?: 
       }
       return gone;
     },
-    // A call's record as its business keeps it, within its retention. Not served over HTTP: who may read is #131.
+    // A call's record as its business keeps it, within its retention. Over HTTP only through /api/access/open (#131).
     async callRecord(business: string, call: string) {
       const book = recordsAt(await workspaceOf(business));
       return book ? book.read(business, call, retentionDays(await sites?.get(business))) : [];
@@ -778,7 +788,7 @@ export function createApi(env: ApiEnv, opts: { slots?: Slots; offlinePassages?: 
       try { return recordsAudio(await sites?.get(business)) && (await sites?.get(business)) ? business : null; }
       catch (e) { log(`recording check for ${business}: ${(e as Error).message}`); return null; }
     },
-    // A call's recording, opened, within its business's retention. Not served over HTTP: playback is through a grant (#131).
+    // A call's recording, opened, within its business's retention. Over HTTP only through /api/access/audio (#131).
     async callAudio(business: string, call: string) {
       const store = audioAt(await workspaceOf(business));
       return store ? store.open(business, call, retentionDays(await sites?.get(business))) : null;
@@ -842,6 +852,8 @@ export function createApi(env: ApiEnv, opts: { slots?: Slots; offlinePassages?: 
     async handle(req: Request, ip = ''): Promise<Response> {
       const path = new URL(req.url).pathname;
       if (path === '/api/health') return json({ ok: true, mode: offline ? 'offline' : 'live' });
+      // The business's own page, on the copilot's own site only; it has its own sign-in, so the site gate doesn't apply.
+      if (path.startsWith('/api/access/')) return access ? access.handle(req) : json({ error: 'business access needs Octo and the key store (live mode)' }, 503);
       let gate: Gate;
       try { gate = await this.gate(req); } catch (e) { log(`${path} site gate failed: ${(e as Error).message}`); return json({ error: 'backend error' }, 502); }
       if (!gate.ok) { log(`${path} ${gate.status} site not allowed`); return json({ error: gate.error }, gate.status); }

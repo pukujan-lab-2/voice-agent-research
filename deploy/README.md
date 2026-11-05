@@ -85,6 +85,17 @@ docker exec -it copilot-web node --no-warnings tools/erase.ts call <business> <c
 
 `caller <business> <caller hash>` erases every call linked to that caller, and `business <business>` erases them all after the business id is typed again. A destroyed key can't be brought back. The hourly retention sweep also destroys the key of each call it empties. OpenBao's own snapshots still hold a destroyed key until they age out (server-management `vps/openbao/`).
 
+## Who may open a raw call
+
+A business's people open its raw calls at `/business/access?business=<business>` on the copilot's own site (#131). They sign in with Octo and pick the business's own workspace; the copilot keeps no key of its own for this, registers itself with Octo's OAuth server the first time, and holds the person's one-hour token on the server only. Every request asks Octo again for their live role there, so someone removed in Octo is out at once.
+
+- The workspace's owner or an admin gives a grant: a member's Octo email, which calls (or all), what for, and until when (90 days at most). They can revoke it at any time.
+- Anyone with a live grant reads a call's record or plays its recording. The access log entry is written first, under their Octo identity, and nothing opens if it can't be written. Refused tries are logged too.
+- The workspace owner can open a call without a grant by writing a reason (20 characters or more). That entry is marked as an emergency, and the page highlights it.
+- The owner and admins see the workspace's members and the whole log there. Adding and removing members is Octo's, not the copilot's.
+
+The grants and the log are the tables `copilot_access_grants` and `copilot_access_log` in the business's own workspace. The page needs the business to have its own workspace, OpenBao, and the copilot's public address in `SITE_ORIGINS`, because Octo sends the person back to `<that address>/api/access/callback`.
+
 ## Model slots (the desk hybrid is the default)
 
 [Decision 0017](../docs/decisions/0017-smart-model-slots-for-development.md) as amended (2026-11-02, #101): LFM3 answers every ordinary turn and does the talking; a hard desk turn escalates to the slot's smart hosted model **by default, for every visitor** — no sign-in, no opt-in. `DESK_HYBRID=0` turns the escalation off. "Smart always" (every turn) still needs a development host or the owner's token. [`demo/live-site/model-slots.json`](../demo/live-site/model-slots.json) names, per slot, a provider and a model. The server validates it when it starts and stops with a message naming the slot if something is wrong. The shipped file names `local` for every slot, which keeps everything on LFM3; the VPS env sets the `desk` slot.
