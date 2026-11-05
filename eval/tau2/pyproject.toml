@@ -1,0 +1,11 @@
+[project]
+name = "copilot-tau2"
+version = "0.1.0"
+description = "The shipped tax desk under tau2-bench simulated callers (issue #158)"
+requires-python = ">=3.12,<3.14"
+# Pinned to the v2.0.0 commit (MIT). Install outside the checkout:
+#   UV_PROJECT_ENVIRONMENT=~/.cache/acs/deps/tau2-venv uv sync
+dependencies = ["tau2 @ git+https://github.com/sierra-research/tau2-bench@989d3285ae669e49503324bdb9981bf14fccedeb"]
+
+[tool.uv]
+package = false

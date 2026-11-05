@@ -1,0 +1,44 @@
+{
+ "base": [
+  "ask-casual-0",
+  "ask-casual-1",
+  "ask-casual-2",
+  "ask-vague-3",
+  "ask-vague-4",
+  "ask-vague-5",
+  "ask-chain-6",
+  "ask-chain-7",
+  "ask-chain-8",
+  "ask-unanswerable-9",
+  "ask-unanswerable-10",
+  "ask-unanswerable-11",
+  "form-0",
+  "form-1",
+  "form-2",
+  "form-3",
+  "form-4",
+  "form-5"
+ ],
+ "ask": [
+  "ask-casual-0",
+  "ask-casual-1",
+  "ask-casual-2",
+  "ask-vague-3",
+  "ask-vague-4",
+  "ask-vague-5",
+  "ask-chain-6",
+  "ask-chain-7",
+  "ask-chain-8",
+  "ask-unanswerable-9",
+  "ask-unanswerable-10",
+  "ask-unanswerable-11"
+ ],
+ "form": [
+  "form-0",
+  "form-1",
+  "form-2",
+  "form-3",
+  "form-4",
+  "form-5"
+ ]
+}
