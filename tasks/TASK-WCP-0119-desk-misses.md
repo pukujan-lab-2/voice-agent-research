@@ -50,3 +50,26 @@ A caller with a dotted email or a hyphenated name gets it read back right, and a
 ## Checkpoint log
 
 No checkpoints yet.
+
+### 2026-11-05 05:35:26 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["copilot-engine/src/desk.ts, copilot-engine/tests/desk.test.ts"],"completed":["The desk keeps spoken emails right, says hyphens and apostrophes in name read-backs, leaves a field for the caller after three misses, and doesn't repeat a quote (#160)"],"decisions":["A field missed three times is left blank for the caller to type into the form, since the desk never submits and the caller checks the form anyway"],"evidence":["tau2 rerun: all three failed form callers now pass, and one question task; the three left fail only on retrieval's page choice; npm run check exit 0, 341 tests passing"],"next_action":"Merge the pull request; track the wrong-page citations under the retrieval work","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0119","timestamp":"2026-11-05T05:35:26Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"73a0bc3875176a41fe789a381b3c33150b135b06d17296d2e60df5312f2a91af","request_id":"9c00dd20786743b7bfa3c4324d14588d","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0119"} -->
+
+Completed:
+- The desk keeps spoken emails right, says hyphens and apostrophes in name read-backs, leaves a field for the caller after three misses, and doesn't repeat a quote (#160)
+
+Evidence:
+- tau2 rerun: all three failed form callers now pass, and one question task; the three left fail only on retrieval's page choice; npm run check exit 0, 341 tests passing
+
+Decisions:
+- A field missed three times is left blank for the caller to type into the form, since the desk never submits and the caller checks the form anyway
+
+Changed:
+- copilot-engine/src/desk.ts, copilot-engine/tests/desk.test.ts
+
+Blocked/uncertain:
+- none
+
+Next:
+- Merge the pull request; track the wrong-page citations under the retrieval work
