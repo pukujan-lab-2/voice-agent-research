@@ -5,6 +5,7 @@
 import json
 import os
 import sys
+import time
 from pathlib import Path
 
 from tau2.data_model.simulation import TextRunConfig
@@ -43,7 +44,7 @@ registry.register_agent_factory(factory("ask"), "copilot_desk_ask")
 registry.register_agent_factory(factory("form"), "copilot_desk_form")
 
 ids = arg("--tasks", "").split(",") if "--tasks" in sys.argv else [t.id for t in get_tasks(split)]
-out = Path(os.environ.get("ACS_CACHE_DIR", Path.home() / ".cache/acs")) / "scratch/tau2-runs"
+out = Path(os.environ.get("ACS_CACHE_DIR", Path.home() / ".cache/acs")) / "scratch/tau2-runs" / time.strftime("%Y%m%d-%H%M%S")  # a fresh folder: tau2 asks before resuming an old one
 for mode in ("ask", "form"):
     mine = [i for i in ids if i.startswith(mode)]
     if not mine:

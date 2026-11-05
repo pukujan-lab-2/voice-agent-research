@@ -27,7 +27,7 @@ DESK_URL=http://127.0.0.1:18099/v1 node --no-warnings ../target-server.ts --corp
 ~/.cache/acs/deps/tau2-venv/bin/python run.py --split base     # or --split ask|form, --tasks id,id, --trials N
 ```
 
-Results go to `~/.cache/acs/scratch/tau2-runs/`; `tau2 view` reads them. litellm logs "model isn't mapped" for the free
+Results go to a new timestamped folder under `~/.cache/acs/scratch/tau2-runs/`; `tau2 view` reads them. litellm logs "model isn't mapped" for the free
 caller's cost; that is harmless (it costs nothing).
 
 Not here yet: caller verification tasks, persona cards from real calls, the realism gate and voice.
