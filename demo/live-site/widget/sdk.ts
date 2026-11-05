@@ -767,7 +767,8 @@ let talking: Dialogue | null = null;
 function talk(): Dialogue { return (talking ??= new Dialogue({ offers: cfg?.desk?.offers, book: cfg?.desk?.book })); }
 function askDesk(): Desk {
   if (!asker) {
-    asker = new Desk({ id: 'ask', business: cfg!.business, scope: (cfg!.manual?.title ?? 'documents').toLowerCase(), intro: cfg!.desk!.greeting, doneMessage: '', fields: [] },
+    asker = new Desk({ id: 'ask', business: cfg!.business, scope: (cfg!.manual?.title ?? 'documents').toLowerCase(), intro: cfg!.desk!.greeting, doneMessage: '', fields: [],
+      offers: [...(cfg!.desk!.offers ?? []).map(o => o.label), ...(cfg!.desk!.book ? [cfg!.desk!.book.text.toLowerCase()] : [])], verify: !!cfg!.verify },
       { model: deskModel, ...deskHeavy, answer: answerFor, unknown: manual ? manual.unknown ?? NO_ANSWER : undefined });
     asker.start();
   }

@@ -130,6 +130,20 @@ export class SiteConfigs implements Sites {
     const tr = (config as { traces?: unknown }).traces;
     if (tr !== undefined && (!tr || typeof tr !== 'object' || Array.isArray(tr) || Object.keys(tr).some(k => k !== 'words') || typeof (tr as { words?: unknown }).words !== 'boolean'))
       throw new Error('traces must be { words: true | false } (whether its traces keep what callers said and what was answered; on when left out)');
+    // The desk's offers are the one list of what it may offer (#156), so a bad one is refused here, not met on a call.
+    const offers = (config as { desk?: { offers?: unknown } }).desk?.offers;
+    if (offers !== undefined) {
+      if (!Array.isArray(offers) || offers.length > 50) throw new Error('desk.offers must be a list of up to 50 offers');
+      offers.forEach((o: { when?: unknown; href?: unknown; label?: unknown; say?: unknown }, i) => {
+        const bad = (why: string) => new Error(`desk.offers[${i}]: ${why}`);
+        if (!o || typeof o !== 'object') throw bad('must be { when, href, label, say }');
+        if (typeof o.when !== 'string' || !o.when) throw bad('when must be a regular expression');
+        try { new RegExp(o.when, 'i'); } catch { throw bad('when is not a valid regular expression'); }
+        if (typeof o.href !== 'string' || !/^\/(?!\/)/.test(o.href)) throw bad('href must be a path on the site, like /book');
+        if (typeof o.label !== 'string' || !o.label.trim()) throw bad('label must name the form');
+        if (typeof o.say !== 'string' || !o.say.trim()) throw bad('say must be what the desk says to offer it');
+      });
+    }
     const rec = (config as { recording?: unknown }).recording;
     if (rec !== undefined && (!rec || typeof rec !== 'object' || Array.isArray(rec) || Object.keys(rec).some(k => k !== 'audio') || typeof (rec as { audio?: unknown }).audio !== 'boolean'))
       throw new Error('recording must be { audio: true | false } (whether its voice calls are recorded; on when left out)');

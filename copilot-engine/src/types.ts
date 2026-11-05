@@ -29,6 +29,8 @@ export interface Flow {
   doneMessage: string;
   reviewAsk?: string; // what the review card asks; default offers to submit
   typeOffer?: string; // added after a second miss on a read-back field, e.g. "You can also type it with Keyboard."
+  offers?: string[]; // what code offers on the question desk, from the business's config (its forms and booking)
+  verify?: boolean; // the business checks who a caller is before their records (the config's `verify` block)
   fields: Field[];
 }
 
