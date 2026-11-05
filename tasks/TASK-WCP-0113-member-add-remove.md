@@ -53,6 +53,29 @@ A business's owner or admin adds and removes the people who work with its calls 
 
 No checkpoints yet.
 
+### 2026-11-05 00:55:22 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["copilot-engine/src/octo-signin.ts, raw-access.ts, demo/live-site/access-api.ts, static/business/access/index.html, tests, deploy/README.md, task record"],"completed":["An owner or admin adds and removes members from /business/access with Octo's one-time code, and each try is in the access log under their Octo principal"],"decisions":["Plain reading keeps the read scope; only signing in to manage members asks for read write delete"],"evidence":["npm run check exit 0; access-api.test.ts covers the manage sign-in scope, add, a reused code, a missing member, remove, a plain member refused, and the requests the Octo client sends"],"next_action":"None for this task","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0113","timestamp":"2026-11-05T00:55:22Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"7bf2321ea05317889a49e39f12b9f8b424ce9eb6b168199e32af148c4bd9277e","request_id":"65fbebd023d043d6a6e87f9aca65c3d7","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0113"} -->
+
+Completed:
+- An owner or admin adds and removes members from /business/access with Octo's one-time code, and each try is in the access log under their Octo principal
+
+Evidence:
+- npm run check exit 0; access-api.test.ts covers the manage sign-in scope, add, a reused code, a missing member, remove, a plain member refused, and the requests the Octo client sends
+
+Decisions:
+- Plain reading keeps the read scope; only signing in to manage members asks for read write delete
+
+Changed:
+- copilot-engine/src/octo-signin.ts, raw-access.ts, demo/live-site/access-api.ts, static/business/access/index.html, tests, deploy/README.md, task record
+
+Blocked/uncertain:
+- none
+
+Next:
+- None for this task
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
