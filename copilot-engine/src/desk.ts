@@ -5,7 +5,7 @@
 // If the model fails or times out, that turn runs on the v1 rules (the same guard functions the Copilot uses).
 // It runs in Node (tests, the desk simulator) and in the browser (the live site), so it reads no Node-only globals.
 import type { Field, Flow, Hooks } from './types.ts';
-import { formatDate, formatSerial, parseName, spellOut, spokenDigits, spokenToCode, spokenToDate, spokenToEmail, spokenToPhone, spokenToSerial, stripFiller, validEmail, validSerial, yesNo } from './guard.ts';
+import { dropOffers, formatDate, formatSerial, parseName, spellOut, spokenDigits, spokenToCode, spokenToDate, spokenToEmail, spokenToPhone, spokenToSerial, stripFiller, validEmail, validSerial, yesNo } from './guard.ts';
 import { shortQuote, type Passage, type SearchFilter } from './guide.ts';
 import { ownQuestion } from './dialogue.ts';
 import { filterFrom, SEARCH_HINT, withSearchTools, type SiteSearch } from './search-site.ts';
@@ -1416,14 +1416,17 @@ Caller: "Thanks, that helps." -> no tool; say "You're welcome. Anything else?"`;
 
   allFilled(): boolean { return !this.answerOnly && this.flow.fields.every(f => this.values[f.name] !== undefined); }
 
-  // Model text is kept only where it is safe: no claims of saving or submitting, no numbers nobody said, no read-backs
-  // of its own, and short.
+  // Model text is kept only where it is safe: no claims of saving or submitting, no offers of its own, no numbers
+  // nobody said, no read-backs of its own, and short.
   private cleanModelText(content: string, haveTail: boolean, confirmedNow: boolean): string {
     // A stray thinking tag ("…taxes?</thinkYes, go ahead."): keep what came before it.
     const cut = (content ?? '').split(/<\/?think>?/i);
     let t = (cut.find(x => x.trim()) ?? '').replace(/[*_#`>]+/g, '').replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, '').replace(/\s+/g, ' ').trim();
     if (!t) return '';
     const known = new Set((this.userText() + ' ' + Object.values(this.values).join(' ')).match(/\d+/g) ?? []);
+    // Offers in its own words ("just say the word", "I can help you check") go; code writes the real ones (#38).
+    t = dropOffers(t);
+    if (!t) return '';
     let sents = t.split(/(?<=[.!?])\s+/).filter(s => s.trim());
     sents = sents.filter(s => !(CLAIMS.test(s) && !(confirmedNow && !/submit/i.test(s))));
     // Internal talk ("I need to fill preferredtime", "let me fill in visit type next") is not for the caller.

@@ -249,3 +249,18 @@ export function maskPII(text: string): string {
     .replace(/\b((january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2}(st|nd|rd|th)?,?\s+\d{2,4})\b/gi, '•• •• ••••')
     .replace(/\b(last (four|4)|ssn|social( security)?|born|birthday|date of birth|dob)\b([^.?!]{0,40}?)(\d(?:[\s,-]*\d){3,})/gi, (_m, a, _b, _c, mid) => `${a}${mid}••••`);
 }
+
+// Offers the model makes in its own words (#38): "just say the word", "I can help you check", "I'll send you". The
+// desk's real offers are written by code (the form offer, typing a value, remembering details), so a model sentence
+// that offers anything is dropped. The eval's invented-offer rule flags the same list, so the guard and the check agree.
+export const OFFERS = [
+  /\bjust say the word\b/i,
+  /\bif you'?d like to proceed\b/i,
+  /\bI can (?:help you )?(?:check|look up|pull up|schedule|book|send|email|call|text|transfer|file|submit|track)\b/i,
+  /\bcheck(?:ing)? on your (?:return|refund|account|status)\b/i,
+  /\b(?:I'?ll|I will|let me) (?:send|email|call|text|schedule|book|check on)\b/i,
+];
+
+// Drops each sentence of the model's text that makes an offer.
+export const dropOffers = (text: string): string =>
+  text.split(/(?<=[.!?])\s+/).filter(s => !OFFERS.some(r => r.test(s))).join(' ').trim();

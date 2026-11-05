@@ -863,7 +863,7 @@
   "expect": {
    "kind": "no-offer"
   },
-  "status": "open",
+  "status": "guarded",
   "history": [
    {
     "role": "user",
@@ -937,7 +937,7 @@
   "expect": {
    "kind": "no-offer"
   },
-  "status": "open",
+  "status": "guarded",
   "history": [
    {
     "role": "user",

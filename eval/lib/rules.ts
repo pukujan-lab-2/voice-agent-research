@@ -1,6 +1,7 @@
 // The rules that flag a suspect turn. Plain code over a call's spans: no model judges anything (decision 0005).
 // Each rule returns the turns it flags with the evidence a reader needs. Limits sit at the top so they are easy to move.
 import type { Call, Turn } from './spans.ts';
+import { OFFERS } from '../../copilot-engine/src/guard.ts';
 
 export const LIMITS = {
   firstAudioMs: 4000,   // the caller waited longer than this for the first sound
@@ -79,13 +80,8 @@ export const vagueAnsweredByQuote: Rule = call => call.turns
   .map(t => flag(t, 'vague-answered-by-quote', `Vague input (${content(t.input).join(' ') || 'no content words'}) answered with a quote from ${t.href.split('#')[0].split('/').pop()}, not a question`));
 
 // 4. A reply in the model's own words (no tool call, no quote) that offers something nobody told it it can do.
-export const OFFERS = [
-  /\bjust say the word\b/i,
-  /\bif you'?d like to proceed\b/i,
-  /\bI can (?:help you )?(?:check|look up|pull up|schedule|book|send|email|call|text|transfer|file|submit|track)\b/i,
-  /\bcheck(?:ing)? on your (?:return|refund|account|status)\b/i,
-  /\b(?:I'?ll|I will|let me) (?:send|email|call|text|schedule|book|check on)\b/i,
-];
+// The list lives with the desk's guard (copilot-engine/src/guard.ts), so what is flagged is what the desk drops.
+export { OFFERS };
 export const inventedOffer: Rule = call => call.turns
   .filter(t => !t.desk && !t.quote && !isUnknown(t.reply))
   .flatMap(t => { const m = OFFERS.map(r => t.reply.match(r)).find(Boolean); return m ? [flag(t, 'invented-offer', `Offers "${m[0]}", which the copilot was not told it can do`)] : []; });
