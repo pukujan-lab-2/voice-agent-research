@@ -47,3 +47,26 @@ A pull request fails CI only when call text really leaks, not when encrypted byt
 ## Checkpoint log
 
 No checkpoints yet.
+
+### 2026-11-05 17:58:39 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["copilot-engine/tests/call-vault.test.ts, demo/live-site/tests/own-workspace.test.ts"],"completed":["The leak checks leave out a sealed record's random iv, ct and key, so base64 that spells a name no longer fails CI (#166)"],"decisions":["Blank only the three random fields instead of loosening the word patterns, so every readable field is still searched"],"evidence":["A sealed row with Ana in its ciphertext passes and a plain Ana still fails; npm run check exit 0"],"next_action":"Merge the pull request","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0122","timestamp":"2026-11-05T17:58:39Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"de37f46a019984215ff58c894a0277cc7749fc4269024706bf8b0d4c68eac244","request_id":"2df80e61cd5942a4a978e799e17df56b","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0122"} -->
+
+Completed:
+- The leak checks leave out a sealed record's random iv, ct and key, so base64 that spells a name no longer fails CI (#166)
+
+Evidence:
+- A sealed row with Ana in its ciphertext passes and a plain Ana still fails; npm run check exit 0
+
+Decisions:
+- Blank only the three random fields instead of loosening the word patterns, so every readable field is still searched
+
+Changed:
+- copilot-engine/tests/call-vault.test.ts, demo/live-site/tests/own-workspace.test.ts
+
+Blocked/uncertain:
+- none
+
+Next:
+- Merge the pull request
