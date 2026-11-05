@@ -29,12 +29,13 @@ import asyncio, contextlib, inspect, json, os, re, time, uuid
 import aiohttp
 from livekit import rtc
 from livekit.agents import (
-    Agent, AgentServer, AgentSession, APIConnectOptions, JobContext, JobProcess, StopResponse, cli, stt, tts,
+    Agent, AgentServer, AgentSession, APIConnectionError, APIConnectOptions, APITimeoutError, JobContext, JobProcess, StopResponse, cli, stt, tts,
 )
 from livekit.agents.types import DEFAULT_API_CONNECT_OPTIONS
 from livekit.plugins import silero
 from livekit.plugins.turn_detector.english import EnglishModel
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
+from speech_errors import as_retryable
 from stall_watchdog import StallWatchdog
 from recording import audio_signature, room_business
 from telemetry import CallTelemetry
@@ -134,11 +135,15 @@ class LocalSTT(stt.STT):
         frame = rtc.combine_audio_frames(buffer)
         t = time.perf_counter()
         v = self._voice
-        async with self._http.post(f'{SPEECH}/stt', params={'sr': frame.sample_rate, 'stack': v.stack, 'lang': v.picked}, data=_pcm_float(frame),
-                                   headers={'content-type': 'application/octet-stream'},
-                                   timeout=aiohttp.ClientTimeout(total=self._timeout(conn_options))) as r:
-            r.raise_for_status()
-            j = await r.json()
+        try:
+            async with self._http.post(f'{SPEECH}/stt', params={'sr': frame.sample_rate, 'stack': v.stack, 'lang': v.picked}, data=_pcm_float(frame),
+                                       headers={'content-type': 'application/octet-stream'},
+                                       timeout=aiohttp.ClientTimeout(total=self._timeout(conn_options))) as r:
+                r.raise_for_status()
+                j = await r.json()
+        except Exception as e:  # noqa: BLE001 - a transport failure must be one LiveKit retries, or its pump stops and the call goes deaf
+            raise_retryable(e, 'speech-to-text')
+            raise
         text = j.get('text', '')
         self.last_confidence = j.get('confidence')
         # The language the recogniser heard (or was told): the turn detector, the voice and the turn's record go by it.
@@ -148,6 +153,13 @@ class LocalSTT(stt.STT):
         self.last_ms = round((time.perf_counter() - t) * 1000)
         return stt.SpeechEvent(type=stt.SpeechEventType.FINAL_TRANSCRIPT,
                                alternatives=[stt.SpeechData(language=j.get('language') or v.language, text=text)])
+
+
+def raise_retryable(error: BaseException, what: str) -> None:
+    """Raises LiveKit's retryable timeout or connection error for a transport failure (speech_errors.py); returns for anything else."""
+    out = as_retryable(error, APITimeoutError, APIConnectionError, what)
+    if out is not error:
+        raise out from error
 
 
 def _pcm_float(frame: rtc.AudioFrame) -> bytes:
@@ -183,13 +195,17 @@ class _LocalStream(tts.ChunkedStream):
         t: LocalTTS = self._tts  # type: ignore[assignment]
         output_emitter.initialize(request_id=uuid.uuid4().hex, sample_rate=t.sample_rate, num_channels=1,
                                   mime_type='audio/pcm', frame_size_ms=40, stream=False)
-        async with t._http.post(f'{SPEECH}/tts', json={'text': self._input_text, 'stack': t._voice.stack, 'lang': t._voice.language},
-                                timeout=aiohttp.ClientTimeout(total=60, sock_read=self._conn_options.timeout)) as r:
-            r.raise_for_status()
-            async for chunk in r.content.iter_any():
-                if t.first_ms is None:
-                    t.first_ms = round((time.perf_counter() - self._started_time) * 1000)
-                output_emitter.push(chunk)
+        try:
+            async with t._http.post(f'{SPEECH}/tts', json={'text': self._input_text, 'stack': t._voice.stack, 'lang': t._voice.language},
+                                    timeout=aiohttp.ClientTimeout(total=60, sock_read=self._conn_options.timeout)) as r:
+                r.raise_for_status()
+                async for chunk in r.content.iter_any():
+                    if t.first_ms is None:
+                        t.first_ms = round((time.perf_counter() - self._started_time) * 1000)
+                    output_emitter.push(chunk)
+        except Exception as e:  # noqa: BLE001 - same as the recogniser: a timeout here is retried, not fatal
+            raise_retryable(e, 'text-to-speech')
+            raise
         output_emitter.flush()
 
 
