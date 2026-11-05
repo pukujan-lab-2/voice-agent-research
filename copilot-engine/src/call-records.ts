@@ -1,6 +1,7 @@
 // The call record (decision 0021 settlement 3, #129): every turn's words, what the caller said and what the copilot
-// answered, kept in the business's own Octo workspace and locked by the call's key (call-vault.ts). Traces carry only a
-// pointer to an entry here, never the words. Each business sets how long its calls are kept (`retention.days` in its
+// answered, kept in the business's own Octo workspace and locked by the call's key (call-vault.ts). Traces keep the
+// words too, so evals and fixes can read them, unless the business sets `traces: { words: false }`; then a trace
+// carries only a pointer to an entry here. Each business sets how long its calls are kept (`retention.days` in its
 // config); older entries can't be read and are deleted by sweep(). No Node imports: it also runs in a Pages Function.
 import type { CallVault, Sealed } from './call-vault.ts';
 import type { Sql } from './octo-store.ts';
@@ -12,6 +13,11 @@ export const MAX_RETENTION_DAYS = 3650;
 export function retentionDays(config: object | null | undefined): number {
   const d = ((config as { retention?: { days?: unknown } } | null | undefined)?.retention)?.days;
   return Number.isInteger(d) && (d as number) >= 1 && (d as number) <= MAX_RETENTION_DAYS ? d as number : DEFAULT_RETENTION_DAYS;
+}
+
+// Whether a business's traces keep its calls' words: yes unless its config says `traces: { words: false }`.
+export function traceWords(config: object | null | undefined): boolean {
+  return ((config as { traces?: { words?: unknown } } | null | undefined)?.traces)?.words !== false;
 }
 
 // A pointer to one entry, as a trace carries it: call-record/<business>/<call>/<entry id>.

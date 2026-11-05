@@ -37,8 +37,18 @@ class Tracer:
 
 
 class TurnSpanTest(unittest.TestCase):
-    def test_a_voice_turn_span_keeps_no_words(self):
-        # What was said lives only in the call's locked record (#129); the span keeps the turn id that points at it.
+    def test_a_voice_turn_span_keeps_the_words(self):
+        # Evals and fixes read what was heard and replied from the trace; the page's call record has them too.
+        t = CallTelemetry('room-1', {'stt': 'lfm3-audio'})
+        t._tracer = Tracer()
+        t.turn({'turn': 't-1', 'heard': 'my baby has a fever', 'reply': 'I can book you for today'}, 1.0, 2.0)
+        span = t._tracer.spans[-1]
+        self.assertEqual(span.attributes['input.value'], 'my baby has a fever')
+        self.assertEqual(span.attributes['output.value'], 'I can book you for today')
+
+    def test_trace_words_off_keeps_no_words(self):
+        os.environ['OCTO_TRACE_WORDS'] = 'off'
+        self.addCleanup(os.environ.pop, 'OCTO_TRACE_WORDS', None)
         t = CallTelemetry('room-1', {'stt': 'lfm3-audio'})
         t._tracer = Tracer()
         t.link('call-0001')

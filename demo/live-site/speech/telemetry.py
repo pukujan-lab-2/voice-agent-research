@@ -7,8 +7,8 @@ endpoint and auth as the page's traces (tracing.ts), under the page's call id, s
   voice.failure   an error (speech to text, voice, a failed RPC call to the page, a stall the watchdog caught), with whether it was retried
   voice.call      when the room closes: the voice stack, the language, turns, barge-ins, failures and why it closed
 
-What the caller said and what was replied never go in a span (#129): the page records each turn's words in the call's
-locked record, and the turn spans share its turn.id. Octo is the one store (docs/decisions/0004): there is no local file. Off without OCTO_KEY and OCTO_WORKSPACE, or with OCTO_TRACES=off; server.ts hands those to the agent.
+voice.turn keeps what was heard and replied (input.value, output.value) so evals and fixes can read them; the page also
+records each turn's words in the call's locked record under the same turn.id. OCTO_TRACE_WORDS=off leaves the words out. Octo is the one store (docs/decisions/0004): there is no local file. Off without OCTO_KEY and OCTO_WORKSPACE, or with OCTO_TRACES=off; server.ts hands those to the agent.
 """
 from __future__ import annotations
 
@@ -90,7 +90,9 @@ class CallTelemetry:
         self.barge_ins_since_turn = 0
         attrs['voice.heard_chars'] = len(row.get('heard') or '')
         attrs['voice.reply_chars'] = len(row.get('reply') or '')
-        self._span('voice.turn', 'CHAIN', start, end, attrs, error=not row.get('reply'))
+        words = os.environ.get('OCTO_TRACE_WORDS') != 'off'
+        self._span('voice.turn', 'CHAIN', start, end, attrs, row.get('heard', '') if words else '', row.get('reply', '') if words else '',
+                   error=not row.get('reply'))
 
     def failure(self, kind: str, message: str, **attrs):
         self.failures += 1

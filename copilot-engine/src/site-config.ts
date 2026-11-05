@@ -127,6 +127,9 @@ export class SiteConfigs implements Sites {
       if (!keep || typeof keep !== 'object' || Array.isArray(keep) || Object.keys(keep).some(k => k !== 'days') || !Number.isInteger(days) || (days as number) < 1 || (days as number) > 3650)
         throw new Error('retention must be { days } with days a whole number from 1 to 3650 (how long its calls are kept)');
     }
+    const tr = (config as { traces?: unknown }).traces;
+    if (tr !== undefined && (!tr || typeof tr !== 'object' || Array.isArray(tr) || Object.keys(tr).some(k => k !== 'words') || typeof (tr as { words?: unknown }).words !== 'boolean'))
+      throw new Error('traces must be { words: true | false } (whether its traces keep what callers said and what was answered; on when left out)');
     const rec = (config as { recording?: unknown }).recording;
     if (rec !== undefined && (!rec || typeof rec !== 'object' || Array.isArray(rec) || Object.keys(rec).some(k => k !== 'audio') || typeof (rec as { audio?: unknown }).audio !== 'boolean'))
       throw new Error('recording must be { audio: true | false } (whether its voice calls are recorded; on when left out)');
