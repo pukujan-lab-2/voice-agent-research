@@ -4,7 +4,7 @@
               file  ->  {"text", "language", "ms"}; lang is the caller's pick, left out to let the recogniser tell
   POST /tts   {"text", "stack", "lang"}  ->  streamed 16-bit PCM at X-Sample-Rate Hz, first sound as soon as it is made
   POST /log   one JSON line per call turn (the widget's timings), appended to speech/turns.jsonl
-  POST /load?stack=        swap a stack's models in (and the others' out) ahead of its first request
+  POST /load?stack=        swap a stack's models in (and the others' out) ahead of its first request; without call=1 it leaves a stack in use alone (stack_hold.py)
   GET  /health             which stack is resident and what it loaded, and whether a request is in flight (inflight, idle_s)
 
 STT is NVIDIA Parakeet TDT 0.6B v2 (CC-BY-4.0, sherpa-onnx int8; docs/decisions/0002): about 0.4-1 s for a sentence
@@ -32,6 +32,7 @@ import numpy as np
 import soundfile as sf
 
 from activity import Activity
+from stack_hold import StackHold
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 MODELS = os.path.join(HERE, 'models')
@@ -310,6 +311,8 @@ class Stacks:
         self.busy: dict[str, int] = {}     # requests running on each stack
         self.cond = threading.Condition()
         self.last_swap: dict = {}
+        # A plain /load leaves a stack in use alone for this long after its last request (stack_hold.py); a call's own load does not wait.
+        self.hold = StackHold(float(os.environ.get('SPEECH_HOLD_S', 300)))
 
     def _build(self, name: str):
         if name == 'parakeet-tdt-0.6b-v2':
@@ -364,12 +367,21 @@ class Stacks:
             if self.active != stack or any(n not in self.made for n in (STACKS['stacks'][stack]['listens'], STACKS['stacks'][stack]['speaks'])):
                 self._swap(stack)
             self.busy[stack] = self.busy.get(stack, 0) + 1
+            self.hold.used(stack)
         try:
             yield stack
         finally:
             with self.cond:
                 self.busy[stack] -= 1
+                self.hold.used(stack)
                 self.cond.notify_all()
+
+    def held_by(self, stack: str) -> str | None:
+        """The resident stack a keep-warm load of `stack` must leave alone, or None (stack_hold.py)."""
+        stack = stack if stack in STACKS['stacks'] else STACKS['default']
+        with self.cond:
+            resident = self.active
+            return self.hold.holds(resident, stack, bool(resident and self.busy.get(resident, 0)))
 
     def part(self, stack: str, kind: str):
         """The stack's listener or voice. Call inside use(stack)."""
@@ -441,6 +453,12 @@ def handler(stacks: Stacks, turns_path: str):
             if path == '/load':
                 # Swap a stack's models in (and the others' out) ahead of its first request: the agent asks before it greets.
                 t = time.time()
+                # A keep-warm load (another app's, every few minutes) must not unload the models a call is using; the agent's own
+                # load before it greets adds call=1 and swaps as before (stack_hold.py).
+                held = None if q.get('call') == '1' else stacks.held_by(q.get('stack', ''))
+                if held:
+                    log(f"load {q.get('stack', '')} held: {held} is in use")
+                    return self.json(200, {'ok': True, 'stack': held, 'held': True, 'loaded': sorted(stacks.made), 'ms': 0, 'swap': {}})
                 with stacks.use(q.get('stack', '')) as stack:
                     pass
                 return self.json(200, {'ok': True, 'stack': stack, 'loaded': sorted(stacks.made), 'ms': round((time.time() - t) * 1000), 'swap': stacks.last_swap})
