@@ -54,6 +54,29 @@ A business can see and limit who reads its callers' words: its own people sign i
 
 No checkpoints yet.
 
+### 2026-11-05 00:35:59 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["copilot-engine/src/raw-access.ts, octo-signin.ts, demo/live-site/access-api.ts, api.ts, server.ts, static/business/access/index.html, deploy/README.md, tests"],"completed":["A business's people sign in with Octo at /business/access; the owner or an admin gives and revokes grants; every open of a raw call is logged under the reader's Octo principal before it unlocks, and the owner has a flagged emergency path (#131)"],"decisions":["Adding and removing members stays in Octo: octo-database#83's add and remove routes refuse OAuth tokens, so the page lists members only"],"evidence":["npm run check exit 0; raw-access.test.ts shows revoked, expired and other-business grants open nothing and every try is logged; access-api.test.ts shows a member removed in Octo refused at once"],"next_action":"open the pull request with Closes #131, confirm CI is green and arm auto-merge","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0112","timestamp":"2026-11-05T00:35:59Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"f313ae0ee54adec16478c0b132d6edeb5ae03a485be73779721a31d7e5ecb454","request_id":"64c3f9b9fd6e40ca8c697ec8b5a3643f","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0112"} -->
+
+Completed:
+- A business's people sign in with Octo at /business/access; the owner or an admin gives and revokes grants; every open of a raw call is logged under the reader's Octo principal before it unlocks, and the owner has a flagged emergency path (#131)
+
+Evidence:
+- npm run check exit 0; raw-access.test.ts shows revoked, expired and other-business grants open nothing and every try is logged; access-api.test.ts shows a member removed in Octo refused at once
+
+Decisions:
+- Adding and removing members stays in Octo: octo-database#83's add and remove routes refuse OAuth tokens, so the page lists members only
+
+Changed:
+- copilot-engine/src/raw-access.ts, octo-signin.ts, demo/live-site/access-api.ts, api.ts, server.ts, static/business/access/index.html, deploy/README.md, tests
+
+Blocked/uncertain:
+- none
+
+Next:
+- open the pull request with Closes #131, confirm CI is green and arm auto-merge
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
