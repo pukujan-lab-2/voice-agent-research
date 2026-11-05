@@ -1,0 +1,41 @@
+{
+  "lane": "hybrid",
+  "version": 1,
+  "description": "LFM3 answers every turn and does the talking; a hard turn goes to the strong lane. For scaling.",
+  "reach": "everyone",
+  "answers": {
+    "provider": "local",
+    "model": "lfm3",
+    "timeout_ms": 15000
+  },
+  "escalate": {
+    "to": "strong",
+    "when": "code rejects the value LFM3 proposed, or LFM3 did nothing when the caller said something"
+  },
+  "tools": [
+    "propose_value",
+    "confirm_pending",
+    "reject_pending",
+    "go_to_field",
+    "answer_question",
+    "search_site",
+    "end_call"
+  ],
+  "guards": [],
+  "fixes": [],
+  "evals": {
+    "sets": [],
+    "judge": "jev"
+  },
+  "search": {
+    "service": "octo",
+    "embedder": "workspace",
+    "rerank": true
+  },
+  "tables": {
+    "flagged_turns": "hybrid_flagged_turns",
+    "replay_cases": "hybrid_replay_cases",
+    "eval_sets": "hybrid_eval_sets",
+    "judge_settings": "hybrid_judge_settings"
+  }
+}
