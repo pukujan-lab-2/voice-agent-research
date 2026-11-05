@@ -6,6 +6,7 @@
 //             sending a case's recorded messages to its /api/desk. Needs no keys.
 import fs from 'node:fs';
 import { Guide, type Judge, type Retriever } from '../../copilot-engine/src/guide.ts';
+import { dropOffers } from '../../copilot-engine/src/guard.ts';
 import { siteLibrary } from './site.ts';
 import { check, type Verdict } from './expect.ts';
 import type { Case } from './cases.ts';
@@ -41,6 +42,8 @@ export async function runDesk(c: Case, site?: string): Promise<Result> {
     body: JSON.stringify({ messages: c.recorded.deskMessages, tools: ASK_TOOLS, temperature: 0 }) });
   if (!r.ok) return { case: c, reply: '', verdict: null, skipped: `/api/desk answered ${r.status}` };
   const j = await r.json() as { content: string; calls: { name: string }[] };
-  // a model that calls answer_question says nothing itself: its words are checked only when it speaks
-  return { case: c, reply: j.content, verdict: check(c.expect, { reply: j.content, quoted: false }) };
+  // a model that calls answer_question says nothing itself: its words are checked only when it speaks. What is checked
+  // is what the caller hears: the desk drops the model's own offers (#38).
+  const reply = dropOffers(j.content ?? '');
+  return { case: c, reply, verdict: check(c.expect, { reply, quoted: false }) };
 }
