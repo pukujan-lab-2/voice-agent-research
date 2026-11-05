@@ -83,6 +83,9 @@ test('adding the business made one workspace for it and recorded its id', () => 
   assert.ok(dbs.has(clinicWs));
 });
 
+// The stored rows as text for a leak check, without a sealed record's random bytes: base64 ciphertext can spell "Ana" by chance (#166).
+const readable = (rows: unknown) => JSON.stringify(rows, (k, v) => ['ct', 'iv', 'key'].includes(k) && typeof v === 'string' ? '' : v);
+
 test('a test business runs a chat end to end in its own workspace, and the shared workspace gains no rows for it', async () => {
   const before = await dump(SHARED);
   const cfg = await api.handle(new Request(`https://copilot.test/api/copilot/config?business=clinic-test`, { headers: fromClinic }), '1.2.3.4');
@@ -106,17 +109,17 @@ test('a test business runs a chat end to end in its own workspace, and the share
   const row = (own.copilot_kv as { k: string; v: Record<string, unknown> }[]).find(r => r.k === 'sess:clinic-test:session-0001-abcdef');
   assert.ok(row, 'the session is in its workspace');
   assert.equal(row.v.sealed, 'a256gcm.v1', 'locked by its own key (#128)');
-  assert.doesNotMatch(JSON.stringify(own.copilot_kv), /Ana|baby|booking/, 'no call text is readable in Octo');
+  assert.doesNotMatch(readable(own.copilot_kv), /Ana|baby|booking/, 'no call text is readable in Octo');
   assert.deepEqual(traced.map(t => [t.name, t.ws]).sort(), [['desk', clinicWs], ['turn', clinicWs]], 'its traces go to its workspace');
   const turn = traced.find(t => t.name === 'turn')!.spec.attributes!;
   assert.equal(turn['input.value'], 'I need an appointment', 'the trace keeps the words, so evals can read them');
   assert.match(String(turn['call.record']), /^call-record\/clinic-test\/call-0001-abcdef\/[0-9a-f]{18}$/, 'the turn span points at its record');
-  assert.doesNotMatch(JSON.stringify(own.copilot_call_turns), /appointment|baby/, 'the record is locked in its workspace');
+  assert.doesNotMatch(readable(own.copilot_call_turns), /appointment|baby/, 'the record is locked in its workspace');
   const record = await api.callRecord('clinic-test', 'call-0001-abcdef');
   assert.ok(record.some(r => r.entry.span === 'turn' && r.entry['input.value'] === 'I need an appointment'), 'and opens for its business');
   assert.ok(record.some(r => r.entry.span === 'desk' && /baby/.test(r.entry['input.value'] ?? '')), 'the desk turn is in it too');
   assert.deepEqual(await dump(SHARED), before, 'the shared workspace is exactly as it was');
-  assert.doesNotMatch(JSON.stringify(before), /Welcome to the clinic|appointment/, 'and held only the registry entry for it');
+  assert.doesNotMatch(readable(before), /Welcome to the clinic|appointment/, 'and held only the registry entry for it');
 });
 
 test('demo businesses keep working on the shared workspace with their prefix', async () => {

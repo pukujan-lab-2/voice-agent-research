@@ -11,7 +11,8 @@ test('a sealed record holds no readable text, and its business opens it', async 
   const s = await vault.seal('clinic', 'call-1', record);
   assert.ok(isSealed(s));
   assert.match(s.key, /^vault:v1:\S+ vault:v1:\S+$/, 'both halves of the data key are stored only locked');
-  assert.doesNotMatch(JSON.stringify(s), /Ana|fever|555|booking/);
+  // iv, ct and key are random base64, which can spell "Ana" or "555" by chance (#166); everything else must hold no text
+  assert.doesNotMatch(JSON.stringify({ ...s, iv: '', ct: '', key: '' }), /Ana|fever|555|booking/);
   assert.deepEqual(await vault.open('clinic', 'call-1', s), record);
 });
 
