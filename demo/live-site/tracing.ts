@@ -11,9 +11,6 @@ import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-proto';
 import { resourceFromAttributes } from '@opentelemetry/resources';
 import { BasicTracerProvider, BatchSpanProcessor } from '@opentelemetry/sdk-trace-base';
 
-// The attributes that hold what a caller said or what the copilot answered (api.ts CALL_TEXT says the same).
-const CALL_TEXT_KEYS = /^(input\.value|output\.value|tool\.parameters|correction\.(before|after))$/;
-
 export type SpanKind = 'CHAIN' | 'LLM' | 'TOOL' | 'RETRIEVER' | 'EVALUATOR';
 export type SpanSpec = {
   name: string; kind: SpanKind; start: number; end: number;
@@ -55,9 +52,6 @@ export function createTracer(env: { OCTO_KEY?: string; OCTO_WORKSPACE?: string; 
   const spanIds = new Map<string, string>();
   const write = (tracer: Tracer, ws: string, spec: SpanSpec, session: string | null | undefined, parent?: Span) => {
     const attrs: Attributes = { 'openinference.span.kind': spec.kind, ...spec.attributes };
-    // A caller's words never leave in a trace (#129): api.ts moves them into the locked call record first; this drops
-    // anything that still slipped through.
-    for (const k of Object.keys(attrs)) if (CALL_TEXT_KEYS.test(k)) delete attrs[k];
     if (session) attrs['session.id'] = session;
     const span = tracer.startSpan(spec.name, { startTime: spec.start, attributes: attrs }, parent ? trace.setSpan(context.active(), parent) : context.active());
     if (spec.error) span.setStatus({ code: 2 });

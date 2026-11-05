@@ -32,7 +32,7 @@ import { maskPII } from '../../copilot-engine/src/guard.ts';
 import { MemoryStore, SESSION_TTL_MS, type Store } from '../../copilot-engine/src/memory.ts';
 import { OctoStore } from '../../copilot-engine/src/octo-store.ts';
 import { CallVault, isSealed, OpenBaoKeys } from '../../copilot-engine/src/call-vault.ts';
-import { CallRecords, retentionDays } from '../../copilot-engine/src/call-records.ts';
+import { CallRecords, retentionDays, traceWords } from '../../copilot-engine/src/call-records.ts';
 import { CallAudio, MAX_AUDIO_BYTES, recordsAudio, type Files } from '../../copilot-engine/src/call-audio.ts';
 import { CALLER, CallCallers } from '../../copilot-engine/src/call-callers.ts';
 import { octoSql } from '../../copilot-engine/src/octo-workspaces.ts';
@@ -105,8 +105,8 @@ function deskTools(raw: unknown): unknown[] | null {
   return tools.length === raw.length && JSON.stringify(tools).length < 8000 ? tools : null;
 }
 
-// Span attributes that hold a caller's words or the copilot's answer (#129); they go to the call record, never a trace.
-// tracing.ts's CALL_TEXT_KEYS is the same list (that file is Node only).
+// Span attributes that hold a caller's words or the copilot's answer (#129); they always go to the call record, and stay
+// in the trace too unless the business sets `traces: { words: false }`.
 const CALL_TEXT = /^(input\.value|output\.value|tool\.parameters|correction\.(before|after))$/;
 
 const toBase64 = (b: Uint8Array) => { let s = ''; for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode(...b.subarray(i, i + 0x8000)); return btoa(s); };
@@ -351,18 +351,19 @@ export function createApi(env: ApiEnv, opts: { slots?: Slots; offlinePassages?: 
     await callersAt(ws)?.forget(business, { call });
     return { records, recordings };
   };
-  // Span attributes that carry what a caller said or what the copilot answered. They never reach a trace: each span's
-  // go into the call record as one entry, and the span keeps `call.record`, a pointer to it. Without a key store, a call
-  // id or a business, the words are dropped, never sent.
-  const sealSpan = async (s: SpanSpec, business: string | undefined, call: string | null | undefined, ws: string | undefined): Promise<SpanSpec> => {
+  // Span attributes that carry what a caller said or what the copilot answered. Each span's go into the call record as
+  // one entry, and the span gets `call.record`, a pointer to it. The span keeps the words as well, so evals and fixes can
+  // read them, unless the business set `traces: { words: false }` (`keep` false); then they leave the span.
+  const sealSpan = async (s: SpanSpec, business: string | undefined, call: string | null | undefined, ws: string | undefined, keep?: boolean): Promise<SpanSpec> => {
+    keep ??= traceWords(business && BUSINESS_ID.test(business) ? await sites?.get(business) : null);
     const attributes = { ...(s.attributes ?? {}) }, entry: Record<string, string> = {};
-    for (const k of Object.keys(attributes)) if (CALL_TEXT.test(k)) { if (attributes[k] !== '') entry[k] = String(attributes[k]); delete attributes[k]; }
+    for (const k of Object.keys(attributes)) if (CALL_TEXT.test(k)) { if (attributes[k] !== '') entry[k] = String(attributes[k]); if (!keep) delete attributes[k]; }
     const book = business && call && BUSINESS_ID.test(business) ? recordsAt(ws) : null;
     if (Object.keys(entry).length && book) {
       try { attributes['call.record'] = await book.add(business!, call!, { span: s.name, ...entry }); }
       catch (e) { log(`call record: could not save a ${s.name} entry for ${business}: ${(e as Error).message}`); attributes['call.record.error'] = 'not saved'; }
     }
-    const children = s.children ? await Promise.all(s.children.map(c => sealSpan(c, business, call, ws))) : undefined;
+    const children = s.children ? await Promise.all(s.children.map(c => sealSpan(c, business, call, ws, keep))) : undefined;
     return { ...s, attributes, ...(children ? { children } : {}) };
   };
   const traceSealed = (s: SpanSpec, business: string | undefined, session: string | null, ws: string | undefined) => {

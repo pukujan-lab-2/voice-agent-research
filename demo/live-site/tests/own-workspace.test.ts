@@ -108,8 +108,8 @@ test('a test business runs a chat end to end in its own workspace, and the share
   assert.equal(row.v.sealed, 'a256gcm.v1', 'locked by its own key (#128)');
   assert.doesNotMatch(JSON.stringify(own.copilot_kv), /Ana|baby|booking/, 'no call text is readable in Octo');
   assert.deepEqual(traced.map(t => [t.name, t.ws]).sort(), [['desk', clinicWs], ['turn', clinicWs]], 'its traces go to its workspace');
-  assert.doesNotMatch(JSON.stringify(traced.map(t => t.spec)), /appointment|baby|Ana/, 'no call text reaches a trace (#129)');
   const turn = traced.find(t => t.name === 'turn')!.spec.attributes!;
+  assert.equal(turn['input.value'], 'I need an appointment', 'the trace keeps the words, so evals can read them');
   assert.match(String(turn['call.record']), /^call-record\/clinic-test\/call-0001-abcdef\/[0-9a-f]{18}$/, 'the turn span points at its record');
   assert.doesNotMatch(JSON.stringify(own.copilot_call_turns), /appointment|baby/, 'the record is locked in its workspace');
   const record = await api.callRecord('clinic-test', 'call-0001-abcdef');
@@ -127,6 +127,7 @@ test('demo businesses keep working on the shared workspace with their prefix', a
   assert.equal(((await dump(clinicWs)).copilot_kv as { k: string }[]).some(r => r.k.includes('demo-shop')), false);
   const now = Date.now();
   await post('/api/trace', { business: 'demo-shop', spans: [{ name: 'call', start: now - 10, end: now }] }, {});
+  await new Promise(r => setTimeout(r, 20)); // the span is written once its business's config is read
   assert.deepEqual(traced.map(t => t.ws), [undefined], 'its traces go to the shared workspace');
 });
 
@@ -268,4 +269,18 @@ test('one call, one caller and a whole business are erased by destroying their k
   for (const call of ['call-0003-abcdef', 'call-0004-abcdef', 'call-0005-abcdef']) assert.deepEqual(await api.callRecord('clinic-test', call), [], `${call} from the backup does not open`);
   const back = await post('/api/session', { op: 'get', business: 'clinic-test', id: 'session-0001-abcdef' });
   assert.equal((await back.json() as { snapshot: unknown }).snapshot, null, 'nor does the resume snapshot');
+});
+
+test('a business that sets traces.words false gets only the pointer in its traces', async () => {
+  await registry.put('quiet-test', { traces: { words: false } });
+  traced.length = 0;
+  const now = Date.now();
+  assert.equal((await post('/api/trace', { business: 'quiet-test', spans: [{ name: 'turn', start: now - 10, end: now, input: 'my baby has a fever' }] }, {})).status, 200);
+  await new Promise(r => setTimeout(r, 20));
+  const turn = traced.find(t => t.name === 'turn')!.spec.attributes!;
+  assert.doesNotMatch(JSON.stringify(turn), /fever/, 'no words in the trace');
+  assert.match(String(turn['call.record']), /^call-record\/quiet-test\//, 'only the pointer to its record');
+  assert.ok((await api.callRecord('quiet-test', 'call-0001-abcdef')).some(r => r.entry['input.value'] === 'my baby has a fever'), 'the record has them');
+  await assert.rejects(registry.put('quiet-test', { traces: { words: 'no' } }), /traces must be/);
+  await registry.remove('quiet-test');
 });
