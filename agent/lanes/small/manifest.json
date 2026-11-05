@@ -1,0 +1,39 @@
+{
+  "lane": "small",
+  "version": 1,
+  "description": "LFM3 alone on our own server, configured and improved over time.",
+  "reach": "everyone",
+  "answers": {
+    "provider": "local",
+    "model": "lfm3",
+    "timeout_ms": 15000
+  },
+  "tools": [
+    "propose_value",
+    "confirm_pending",
+    "reject_pending",
+    "go_to_field",
+    "answer_question",
+    "search_site",
+    "end_call"
+  ],
+  "guards": [],
+  "fixes": [],
+  "evals": {
+    "sets": [
+      "tau2_copilot_tax"
+    ],
+    "judge": "jev"
+  },
+  "search": {
+    "service": "octo",
+    "embedder": "workspace",
+    "rerank": true
+  },
+  "tables": {
+    "flagged_turns": "small_flagged_turns",
+    "replay_cases": "small_replay_cases",
+    "eval_sets": "small_eval_sets",
+    "judge_settings": "small_judge_settings"
+  }
+}

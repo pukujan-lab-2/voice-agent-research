@@ -1,0 +1,39 @@
+{
+  "lane": "strong",
+  "version": 1,
+  "description": "A strong model answers every turn. Today that is DeepSeek V4.1 Flash through InferHub, reached only from a development host or with the owner's token (decision 0017). When it cannot answer, the small lane's answer stands.",
+  "reach": "dev-or-owner",
+  "answers": {
+    "provider": "inferhub",
+    "model": "deepseek-v4.1-flash",
+    "timeout_ms": 8000,
+    "daily_cap": 300
+  },
+  "fallback": "small",
+  "tools": [
+    "propose_value",
+    "confirm_pending",
+    "reject_pending",
+    "go_to_field",
+    "answer_question",
+    "search_site",
+    "end_call"
+  ],
+  "guards": [],
+  "fixes": [],
+  "evals": {
+    "sets": [],
+    "judge": "jev"
+  },
+  "search": {
+    "service": "octo",
+    "embedder": "workspace",
+    "rerank": true
+  },
+  "tables": {
+    "flagged_turns": "strong_flagged_turns",
+    "replay_cases": "strong_replay_cases",
+    "eval_sets": "strong_eval_sets",
+    "judge_settings": "strong_judge_settings"
+  }
+}

@@ -1,0 +1,31 @@
+[project]
+name = "copilot-agent"
+version = "0.1.0"
+description = "The copilot's common core and its model lanes (docs/decisions/0022)"
+requires-python = ">=3.12"
+dependencies = ["pydantic>=2.14,<3"]
+
+[project.optional-dependencies]
+# import-linter checks the lane boundary: one lane never imports another, and common never imports a lane.
+dev = ["pytest>=8", "import-linter>=2.15,<3"]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.importlinter]
+root_packages = ["common", "lanes"]
+
+[[tool.importlinter.contracts]]
+name = "One lane never imports another"
+type = "independence"
+modules = ["lanes.strong", "lanes.hybrid", "lanes.small"]
+
+[[tool.importlinter.contracts]]
+name = "The common core never imports a lane"
+type = "forbidden"
+source_modules = ["common"]
+forbidden_modules = ["lanes"]
