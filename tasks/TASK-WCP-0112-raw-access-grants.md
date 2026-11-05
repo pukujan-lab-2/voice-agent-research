@@ -77,6 +77,29 @@ Blocked/uncertain:
 Next:
 - open the pull request with Closes #131, confirm CI is green and arm auto-merge
 
+### 2026-11-05 00:38:23 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["demo/live-site/static/business/access/index.html, deploy/README.md"],"completed":["The access page shows adding and removing members as coming soon, switched off, until Octo lets an owner's or admin's OAuth token pass the member routes with a one-time code"],"decisions":["Owner chose option (b) for add and remove: an Octo change for OAuth tokens with a one-time code; no OCTO_AGENT_KEY on the copilot server"],"evidence":["no external evidence recorded"],"next_action":"let PR 143 merge, then wire add and remove to Octo's one-time-code flow when it exists","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0112","timestamp":"2026-11-05T00:38:23Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"35a58dc13bb1cad543a4d402fea33d4ee267755ffe6c9c8c54b092d448017f73","request_id":"7155958716da46dc95f68c0b9c14df6a","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0112"} -->
+
+Completed:
+- The access page shows adding and removing members as coming soon, switched off, until Octo lets an owner's or admin's OAuth token pass the member routes with a one-time code
+
+Evidence:
+- no external evidence recorded
+
+Decisions:
+- Owner chose option (b) for add and remove: an Octo change for OAuth tokens with a one-time code; no OCTO_AGENT_KEY on the copilot server
+
+Changed:
+- demo/live-site/static/business/access/index.html, deploy/README.md
+
+Blocked/uncertain:
+- none
+
+Next:
+- let PR 143 merge, then wire add and remove to Octo's one-time-code flow when it exists
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
