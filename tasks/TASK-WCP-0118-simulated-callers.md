@@ -50,3 +50,26 @@ A caller who is vague, corrects the desk or gets annoyed can be simulated many t
 ## Checkpoint log
 
 No checkpoints yet.
+
+### 2026-11-05 05:25:23 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["eval/tau2/, eval/target-server.ts, eval/README.md"],"completed":["Simulated callers from tau2-bench now call the shipped desk with LFM3, and code scores quotes, form values, read-backs and never sending (#158)"],"decisions":["The agent under test is our desk, not a bare model; form callers use ten-digit phones because the desk rightly asks for an area code"],"evidence":["Full run 11 of 18 passed; the failures are real desk bugs plus one over-strict quote check, since fixed (rerun 3 of 3); npm run check exit 0, 337 tests passing"],"next_action":"Merge the pull request, then file the desk bugs the run found","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0118","timestamp":"2026-11-05T05:25:23Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"be54b3a608621726e00ee871d2103d1c0a60385bd75c0d7ff22b0284d935030c","request_id":"50cbe2ab998a4fbbaa108f69f3aa8130","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0118"} -->
+
+Completed:
+- Simulated callers from tau2-bench now call the shipped desk with LFM3, and code scores quotes, form values, read-backs and never sending (#158)
+
+Evidence:
+- Full run 11 of 18 passed; the failures are real desk bugs plus one over-strict quote check, since fixed (rerun 3 of 3); npm run check exit 0, 337 tests passing
+
+Decisions:
+- The agent under test is our desk, not a bare model; form callers use ten-digit phones because the desk rightly asks for an area code
+
+Changed:
+- eval/tau2/, eval/target-server.ts, eval/README.md
+
+Blocked/uncertain:
+- none
+
+Next:
+- Merge the pull request, then file the desk bugs the run found
