@@ -1,8 +1,8 @@
 # TASK-WCP-0114 — Trace Words
 
-<!-- continuity:task {"acceptance": ["Chat, desk and voice spans keep what the caller said and what was answered by default, and still point at the call record", "A business with traces.words false gets only the pointer; the voice agent drops words with OCTO_TRACE_WORDS=off", "The locked call record still gets every turn's words"], "depends_on": ["WCP-0109"], "goal": "Traces keep call words again so evals and fixes can read new calls", "id": "WCP-0114", "issue_url": "https://github.com/pukujan-lab-2/voice-agent-research/issues/147", "next_action": "Merge #148 once CI passes", "owner": "owner", "priority": "P1", "protocol_version": "0.1.0-draft", "schema": "project-continuity.task.v1", "status": "active", "why": "Since #129 the eval judge and fix tools read empty strings; the owner called locking words out of traces premature before the system works (#147)"} -->
+<!-- continuity:task {"acceptance": ["Chat, desk and voice spans keep what the caller said and what was answered by default, and still point at the call record", "A business with traces.words false gets only the pointer; the voice agent drops words with OCTO_TRACE_WORDS=off", "The locked call record still gets every turn's words"], "depends_on": ["WCP-0109"], "goal": "Traces keep call words again so evals and fixes can read new calls", "id": "WCP-0114", "issue_url": "https://github.com/pukujan-lab-2/voice-agent-research/issues/147", "next_action": "None for this task", "owner": "owner", "priority": "P1", "protocol_version": "0.1.0-draft", "schema": "project-continuity.task.v1", "status": "completed", "why": "Since #129 the eval judge and fix tools read empty strings; the owner called locking words out of traces premature before the system works (#147)"} -->
 
-- Status: active
+- Status: completed (merged in #148 as 8ca3bce)
 - Owner: owner
 - Priority: P1
 - Depends on: WCP-0109 (#129, merged as #137)
@@ -43,7 +43,7 @@ The owner opens a call's trace and reads what was said and answered, and evals g
 ## Related records
 
 - Leaf: #147. Parent: #121. Corrects: #129.
-- Primary writer: Claude Code session for the owner / branch `fix/147-trace-words` / as of 2026-11-05 PR #148 open.
+- Primary writer: Claude Code session for the owner / branch `fix/147-trace-words` / as of 2026-11-05 merged.
 
 ## Checkpoint log
 

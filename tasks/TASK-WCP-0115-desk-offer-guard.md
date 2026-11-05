@@ -1,8 +1,8 @@
 # TASK-WCP-0115 — Desk Offer Guard
 
-<!-- continuity:task {"acceptance": ["The two flagged turns of call 7d689fcd no longer fail their replay case", "Both cases are marked guarded and the snapshot is re-exported in the same pull request"], "depends_on": [], "goal": "The desk never makes an offer in the model's own words; code writes the real offers", "id": "WCP-0115", "issue_url": "https://github.com/pukujan-lab-2/voice-agent-research/issues/38", "next_action": "Merge the pull request once CI passes", "owner": "owner", "priority": "P1", "protocol_version": "0.1.0-draft", "schema": "project-continuity.task.v1", "status": "active", "why": "The desk prompt already forbids offers it can't make and the model ignores it; replaying #38's cases on the live site on 2026-11-05 failed both (#38)"} -->
+<!-- continuity:task {"acceptance": ["The two flagged turns of call 7d689fcd no longer fail their replay case", "Both cases are marked guarded and the snapshot is re-exported in the same pull request"], "depends_on": [], "goal": "The desk never makes an offer in the model's own words; code writes the real offers", "id": "WCP-0115", "issue_url": "https://github.com/pukujan-lab-2/voice-agent-research/issues/38", "next_action": "None for this task", "owner": "owner", "priority": "P1", "protocol_version": "0.1.0-draft", "schema": "project-continuity.task.v1", "status": "completed", "why": "The desk prompt already forbids offers it can't make and the model ignores it; replaying #38's cases on the live site on 2026-11-05 failed both (#38)"} -->
 
-- Status: active
+- Status: completed (merged in #151 as b5fc9c5)
 - Owner: owner
 - Priority: P1
 - Depends on: none
@@ -43,7 +43,7 @@ A caller is never promised help Maybe can't give: "just say the word" and "I can
 ## Related records
 
 - Leaf: #38. Parent: none.
-- Primary writer: Claude Code session for the owner / branch `fix/38-desk-invented-offers` / as of 2026-11-05 PR open.
+- Primary writer: Claude Code session for the owner / branch `fix/38-desk-invented-offers` / as of 2026-11-05 merged.
 
 ## Checkpoint log
 
