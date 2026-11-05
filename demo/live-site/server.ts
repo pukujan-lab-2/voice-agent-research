@@ -280,6 +280,7 @@ export async function start(opts: { port?: number; host?: string; offline?: bool
         headers: { 'content-type': 'application/json', ...(typeof req.headers.authorization === 'string' ? { authorization: req.headers.authorization } : {}),
           ...(typeof req.headers['x-session-id'] === 'string' ? { 'x-session-id': req.headers['x-session-id'] } : {}),
           ...(typeof req.headers['x-owner-token'] === 'string' ? { 'x-owner-token': req.headers['x-owner-token'] } : {}),
+          ...(typeof req.headers['x-access'] === 'string' ? { 'x-access': req.headers['x-access'] } : {}),
           ...(typeof req.headers.cookie === 'string' ? { cookie: req.headers.cookie } : {}), ...siteHeaders(req) },
         body: req.method === 'POST' ? Buffer.concat(chunks) : undefined }), visitor(req));
       res.writeHead(r.status, Object.fromEntries(r.headers));
