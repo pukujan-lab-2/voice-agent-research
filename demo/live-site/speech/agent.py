@@ -2,7 +2,7 @@
 
   caller's browser ──WebRTC──► LiveKit server (local, dev mode) ◄──► this worker
     Silero VAD + LiveKit's turn detector end each turn and handle barge-in (the caller talks over the voice);
-    LocalSTT / LocalTTS call speech/server.py with the call's voice stack (speech/stacks.json, docs/decisions/0012):
+    LocalSTT / LocalTTS call speech/server.py with the call's voice stack (agent/voice/stacks, docs/decisions/0012):
       english-fast  Parakeet to listen, the English turn detector, Pocket TTS to speak
       multilingual  Whisper large-v3-turbo, the multilingual turn detector, Kokoro in the caller's language
       lfm3-audio    LFM3-Audio hears and speaks (one model on llama.cpp), turns end on voice activity alone
@@ -39,6 +39,7 @@ from speech_errors import as_retryable
 from stall_watchdog import StallWatchdog
 from recording import audio_signature, room_business
 from telemetry import CallTelemetry
+from voice_config import STACKS
 
 SPEECH = os.environ.get('SPEECH_URL', 'http://127.0.0.1:8799')
 # On the VPS the agent sleeps between calls (#117): the shared Sablier stops it after 10 idle minutes and the site starts it when
@@ -68,10 +69,6 @@ async def send_audio(path, room: str, call: str) -> None:
             print('recording:', len(audio), 'bytes sent,', r.status, (await r.text())[:200], flush=True)
     except Exception as e:  # noqa: BLE001 - the call is over; say what happened and go on
         print('recording: not sent:', e, flush=True)
-
-
-with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'stacks.json')) as f:
-    STACKS = json.load(f)
 
 
 class Voice:

@@ -1,0 +1,11 @@
+{
+  "stack": "whisper-pocket",
+  "label": "Whisper + Pocket TTS",
+  "listens": "whisper-large-v3-turbo",
+  "turns": "multilingual",
+  "thinks": "lfm3",
+  "speaks": "pocket-tts",
+  "languages": [
+    "en"
+  ]
+}

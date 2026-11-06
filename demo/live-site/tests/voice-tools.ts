@@ -14,7 +14,7 @@
 //               yes, nothing submitted
 // Not covered: the voice itself (LiveKit, the turn detector, the page), which tests/voice-languages.ts exercises.
 //
-// Run: node --no-warnings tests/voice-tools.ts <stack>   (any stack in speech/stacks.json; tests/voice-matrix.ts runs them all)
+// Run: node --no-warnings tests/voice-tools.ts <stack>   (any stack in agent/voice/stacks; tests/voice-matrix.ts runs them all)
 // Needs speech/server.py (SPEECH_URL, default http://127.0.0.1:8799). A stack that thinks with lfm3 needs LFM3 at DESK_URL or
 // LLAMA_URL; one that thinks with lfm3-audio needs the llama.cpp server speech/server.py starts (LFM3_AUDIO_URL, default
 // http://127.0.0.1:8798).
@@ -24,8 +24,9 @@ import os from 'node:os';
 import path from 'node:path';
 import { Desk, lfm3AudioChat, OpenAIChat, type ChatModel } from '../../../copilot-engine/src/desk.ts';
 import type { Flow } from '../../../copilot-engine/src/types.ts';
+import { loadVoice } from '../voice-config.ts';
 
-const STACKS = JSON.parse(fs.readFileSync(new URL('../speech/stacks.json', import.meta.url), 'utf8')).stacks as Record<string, { listens: string; thinks: string }>;
+const STACKS = loadVoice().stacks;
 const stack = process.argv[2] ?? '';
 if (!STACKS[stack]) {
   console.error(`usage: node --no-warnings tests/voice-tools.ts ${Object.keys(STACKS).join('|')}`);

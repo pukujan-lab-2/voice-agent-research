@@ -49,7 +49,7 @@ export type Config = {
   // Caller verification on a desk page ("check on my return"): the server compares, the copilot only hears the result.
   // handoff: what to offer when a caller can't be verified or asks for a person.
   verify?: { handoff: string };
-  // The voice stacks this business lets visitors pick from, and its default (speech/stacks.json, docs/decisions/0012).
+  // The voice stacks this business lets visitors pick from, and its default (agent/voice/stacks, docs/decisions/0012).
   // The owner can still force one for every call on the server.
   voice?: { stacks?: string[]; default?: string };
 };

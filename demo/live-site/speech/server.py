@@ -11,7 +11,7 @@ STT is NVIDIA Parakeet TDT 0.6B v2 (CC-BY-4.0, sherpa-onnx int8; docs/decisions/
 on an M1, against 3-4 s for faster-whisper small.en, which pads every clip to 30 s. TTS is Kyutai's Pocket TTS (CPU, streams its first audio in about 0.2-0.5 s);
 Kokoro-82M is used instead when Pocket TTS can't load and speech/models/kokoro/ holds its files.
 
-Those two are the english-fast voice stack. The multilingual stack (speech/stacks.json, docs/decisions/0012) listens with
+Those two are the english-fast voice stack. The multilingual stack (agent/voice/stacks, docs/decisions/0012) listens with
 Whisper large-v3-turbo on Apple's GPU (mlx-whisper) and speaks with Kokoro in the caller's language.
 
 The lfm3-audio stack is one model for all of it: LFM3-Audio-2B on llama.cpp's server (speech/models/lfm3-audio/) hears the
@@ -33,6 +33,7 @@ import soundfile as sf
 
 from activity import Activity
 from stack_hold import DEFAULT_HOLD_S, StackHold
+from voice_config import STACKS
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 MODELS = os.path.join(HERE, 'models')
@@ -41,8 +42,6 @@ WHISPER = os.environ.get('WHISPER_MODEL', 'mlx-community/whisper-large-v3-turbo'
 LFM3_AUDIO = os.path.join(MODELS, 'lfm3-audio')
 LFM3_AUDIO_PORT = int(os.environ.get('LFM3_AUDIO_PORT', 8798))
 LFM3_AUDIO_URL = os.environ.get('LFM3_AUDIO_URL', '')  # a llama.cpp server already running; left out, one is started from models/lfm3-audio
-with open(os.path.join(HERE, 'stacks.json')) as f:
-    STACKS = json.load(f)
 ACTIVITY = Activity()  # deploy/pro/update.sh asks /health before it restarts this server (#76)
 
 
@@ -141,7 +140,7 @@ class KokoroTts:
         self.k = None
 
     def stream(self, text: str, stop: threading.Event, lang: str = 'en'):
-        # The caller's language picks Kokoro's pronunciation and a voice made for it (speech/stacks.json).
+        # The caller's language picks Kokoro's pronunciation and a voice made for it (agent/languages).
         espeak, voice = STACKS['languages'].get(lang, STACKS['languages']['en'])['kokoro']
         if lang == 'en':
             voice = self.voice
@@ -198,7 +197,7 @@ class Lfm3Audio:
 
     A caller's turn is cut by voice activity and recognised whole (`Perform ASR in <language>.`), not by the English-only
     live recogniser; the reply is spoken by /tts in the model's own voice. Both take the model card's 18 languages;
-    stacks.json lists the ones a call test has shown."""
+    agent/voice/stacks lists the ones a call test has shown."""
     rate = 24000
 
     def __init__(self):
@@ -306,7 +305,7 @@ class Stacks:
 
     def __init__(self, voice: str = 'alba'):
         self.voice_name = voice
-        self.made: dict[str, object] = {}  # the resident models, by the names stacks.json gives them
+        self.made: dict[str, object] = {}  # the resident models, by the names the stack manifests give them
         self.active: str | None = None
         self.busy: dict[str, int] = {}     # requests running on each stack
         self.cond = threading.Condition()

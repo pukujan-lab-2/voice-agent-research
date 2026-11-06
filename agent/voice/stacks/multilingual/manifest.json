@@ -1,0 +1,17 @@
+{
+  "stack": "multilingual",
+  "label": "Whisper + Kokoro (multilingual)",
+  "listens": "whisper-large-v3-turbo",
+  "turns": "multilingual",
+  "thinks": "lfm3",
+  "speaks": "kokoro",
+  "languages": [
+    "en",
+    "es",
+    "fr",
+    "it",
+    "pt",
+    "hi",
+    "zh"
+  ]
+}

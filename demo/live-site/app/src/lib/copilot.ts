@@ -99,7 +99,7 @@ export interface CopilotConfig {
   desk?: CopilotDesk;
   /** Caller verification ("check on my return"): handoff is what to offer when a caller can't be verified. */
   verify?: { handoff: string };
-  /** The voice stacks visitors may pick from, and the business default (speech/stacks.json, decision 0012). */
+  /** The voice stacks visitors may pick from, and the business default (agent/voice/stacks, decision 0012). */
   voice?: { stacks?: string[]; default?: string };
 }
 

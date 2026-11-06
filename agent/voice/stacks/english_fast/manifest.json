@@ -1,0 +1,11 @@
+{
+  "stack": "english-fast",
+  "label": "Parakeet + Pocket TTS",
+  "listens": "parakeet-tdt-0.6b-v2",
+  "turns": "english",
+  "thinks": "lfm3",
+  "speaks": "pocket-tts",
+  "languages": [
+    "en"
+  ]
+}

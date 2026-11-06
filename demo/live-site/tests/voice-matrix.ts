@@ -1,4 +1,4 @@
-// Every voice stack in speech/stacks.json, scored the same way (#82, PROJECT.md rule 8): one stack at a time, so the speech
+// Every voice stack in agent/voice/stacks, scored the same way (#82, PROJECT.md rule 8): one stack at a time, so the speech
 // server swaps its models in and the others out (docs/decisions/0014), never all of them loaded at once.
 //
 // Per stack and per language it claims:
@@ -22,22 +22,20 @@ import os from 'node:os';
 import path from 'node:path';
 import { loadEnv } from '../server.ts';
 import { createTracer, type SpanSpec } from '../tracing.ts';
+import { loadVoice } from '../voice-config.ts';
 
 const here = path.dirname(new URL(import.meta.url).pathname);
 const args = process.argv.slice(2);
 const opt = (name: string) => { const i = args.indexOf(`--${name}`); return i < 0 ? undefined : args[i + 1]; };
 const flag = (name: string) => args.includes(`--${name}`);
 const SPEECH = (process.env.SPEECH_URL || 'http://127.0.0.1:8799').replace(/\/$/, '');
-const conf = JSON.parse(fs.readFileSync(path.join(here, '../speech/stacks.json'), 'utf8')) as {
-  stacks: Record<string, { label: string; listens: string; speaks: string; thinks: string; languages: string[] }>;
-  languages: Record<string, { name: string }>;
-};
+const conf = loadVoice();
 const stacks = opt('stacks')?.split(',') ?? Object.keys(conf.stacks);
 const langs = opt('langs')?.split(',');
 const CLIPS = Number(opt('clips') ?? 5);
 // The judge hears every stack's voice; Whisper covers every language a stack claims.
 const JUDGE = process.env.JUDGE_STACK || 'multilingual';
-for (const s of [...stacks, JUDGE]) if (!conf.stacks[s]) throw new Error(`no stack ${s} in speech/stacks.json`);
+for (const s of [...stacks, JUDGE]) if (!conf.stacks[s]) throw new Error(`no stack ${s} in agent/voice/stacks`);
 
 // --- the clips: people reading, with transcripts written by people ---------------------------------------------------
 // Google FLEURS (CC-BY-4.0) where Hugging Face's row API can serve it, Multilingual LibriSpeech (CC-BY-4.0) for Spanish

@@ -1,0 +1,4 @@
+{
+  "description": "The stack a call runs on when nothing else picks one (decision 0012).",
+  "default": "english-fast"
+}

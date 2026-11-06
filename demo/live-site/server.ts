@@ -11,6 +11,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { createWaker } from './sablier.ts';
 import { createTracer } from './tracing.ts';
+import { loadVoice } from './voice-config.ts';
 import { stackForLanguage } from './widget/voice-choice.ts';
 import { createApi, type ApiEnv, type NameMatcher } from './api.ts';
 import type { Passage } from '../../copilot-engine/src/guide.ts';
@@ -119,12 +120,11 @@ function voiceUp(): Promise<void> {
   })().finally(() => { voiceStarting = null; });
   return voiceStarting;
 }
-// The voice stacks (speech/stacks.json, docs/decisions/0012) and who picks one for a call: the owner can force a stack
+// The voice stacks (agent/voice and agent/languages, docs/decisions/0012 and 0022) and who picks one for a call: the owner can force a stack
 // for every call (VOICE_STACK); otherwise the visitor's pick, if the business allows it; otherwise the business default.
 // The business's choices come from its copilot config (voice.stacks, voice.default); every site's config is in the
 // page today, so until businesses are stored server-side they are taken from the request.
-type Stacks = { default: string; stacks: Record<string, { label: string; languages: string[] }>; languages: Record<string, { name: string; native: string }> };
-const STACKS: Stacks = JSON.parse(fs.readFileSync(path.join(here, 'speech/stacks.json'), 'utf8'));
+const STACKS = loadVoice();
 type VoiceAsk = { stack?: unknown; language?: unknown; allowed?: unknown; default?: unknown; business?: unknown };
 function pickStack(ask: VoiceAsk, owner = process.env.VOICE_STACK ?? ''): { stack: string; by: 'owner' | 'visitor' | 'business' | 'default'; allowed: string[] } {
   const known = (s: unknown): s is string => typeof s === 'string' && Object.hasOwn(STACKS.stacks, s);
