@@ -81,6 +81,8 @@ The Maybe home page is `app/src/pages/MaybeHome.tsx` with its styles in `app/src
 
 Its pictures and films are not in the repository. `GET /api/site-media` reads two tables in the workspace's Octo database and returns, per slot, the public URL, a phone-sized version where there is one, the poster frame, the alt text, the crop positions and the film cut times (schema and seed: `tools/site_media.sql`). A slot that Octo cannot answer is left out, with no copy kept anywhere else, as in [decision 0004](../../docs/decisions/0004-octo-single-store.md). To change a picture, upload the file to Octo, publish it, and update its row in `site_media`; the page picks it up within a minute.
 
+The page loads its media only when it's needed. The hero fetches the slide on screen and the next one. Each film shows only its poster until it is half a screen from view. The 60-second story fetches its pictures the first time it opens. Every other page in `App.tsx` is loaded with `React.lazy`, so the first visit downloads only the home page's code (about 310 KB instead of 1.56 MB). Its public address is maybe.design-bakery.com, a tunnel A route to the same `copilot-web` as copilot.design-bakery.com.
+
 ## How it fits together
 
 - **The app** (`app/`): a React + Vite + shadcn app built by ABA (app-builder-automation) from `aba/spec.md`, then
