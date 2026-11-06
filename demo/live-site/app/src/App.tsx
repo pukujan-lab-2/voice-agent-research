@@ -1,102 +1,103 @@
-import { useEffect, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, type ReactNode } from "react";
 import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
-import Index from "./pages/Index";
+// The home page stays in the main bundle so `/` paints at once; every other page loads when it is visited.
 import MaybeHome from "./pages/MaybeHome";
-import VoiceLab from "./pages/VoiceLab";
-import Sent from "./pages/Sent";
+const Index = lazy(() => import("./pages/Index"));
+const VoiceLab = lazy(() => import("./pages/VoiceLab"));
+const Sent = lazy(() => import("./pages/Sent"));
 
 // Clinic
-import ClinicHome from "./pages/clinic/Home";
-import ClinicDoctors from "./pages/clinic/Doctors";
-import ClinicHelp from "./pages/clinic/Help";
-import ClinicBook from "./pages/clinic/Book";
+const ClinicHome = lazy(() => import("./pages/clinic/Home"));
+const ClinicDoctors = lazy(() => import("./pages/clinic/Doctors"));
+const ClinicHelp = lazy(() => import("./pages/clinic/Help"));
+const ClinicBook = lazy(() => import("./pages/clinic/Book"));
 
 // Appliance
-import ApplianceHome from "./pages/appliance/Home";
-import ApplianceManuals from "./pages/appliance/Manuals";
-import ApplianceHelp from "./pages/appliance/Help";
-import ApplianceSupport from "./pages/appliance/Support";
+const ApplianceHome = lazy(() => import("./pages/appliance/Home"));
+const ApplianceManuals = lazy(() => import("./pages/appliance/Manuals"));
+const ApplianceHelp = lazy(() => import("./pages/appliance/Help"));
+const ApplianceSupport = lazy(() => import("./pages/appliance/Support"));
 
 // Pricing
-import PricingPlans from "./pages/pricing/Plans";
-import PricingFaq from "./pages/pricing/Faq";
-import PricingQuote from "./pages/pricing/Quote";
+const PricingPlans = lazy(() => import("./pages/pricing/Plans"));
+const PricingFaq = lazy(() => import("./pages/pricing/Faq"));
+const PricingQuote = lazy(() => import("./pages/pricing/Quote"));
 
 // IT Desk
-import ItdeskHome from "./pages/itdesk/Home";
-import ItdeskKb from "./pages/itdesk/Kb";
-import ItdeskNew from "./pages/itdesk/New";
+const ItdeskHome = lazy(() => import("./pages/itdesk/Home"));
+const ItdeskKb = lazy(() => import("./pages/itdesk/Kb"));
+const ItdeskNew = lazy(() => import("./pages/itdesk/New"));
 
 
 // Pension
-import PensionHome from "./pages/pension/Home";
-import PensionForms from "./pages/pension/Forms";
-import PensionHelp from "./pages/pension/Help";
-import PensionR17 from "./pages/pension/R17";
+const PensionHome = lazy(() => import("./pages/pension/Home"));
+const PensionForms = lazy(() => import("./pages/pension/Forms"));
+const PensionHelp = lazy(() => import("./pages/pension/Help"));
+const PensionR17 = lazy(() => import("./pages/pension/R17"));
 
 // Brindlewick Tax & Accounting (fictional firm)
-import TaxHome from "./pages/tax/Home";
-import TaxServices from "./pages/tax/Services";
-import TaxServiceDetail from "./pages/tax/ServiceDetail";
-import TaxIndustries from "./pages/tax/Industries";
-import TaxIndustryDetail from "./pages/tax/IndustryDetail";
-import TaxPricing from "./pages/tax/Pricing";
-import TaxTeam from "./pages/tax/Team";
-import TaxLocations from "./pages/tax/Locations";
-import TaxCareers from "./pages/tax/Careers";
-import TaxCareerDetail from "./pages/tax/CareerDetail";
-import TaxApply from "./pages/tax/Apply";
-import TaxReviews from "./pages/tax/Reviews";
-import TaxBlog from "./pages/tax/Blog";
-import TaxBlogPost from "./pages/tax/BlogPost";
-import TaxAbout from "./pages/tax/About";
-import TaxContact from "./pages/tax/Contact";
-import TaxPrivacy from "./pages/tax/Privacy";
-import TaxTerms from "./pages/tax/Terms";
-import TaxGuides from "./pages/tax/Guides";
-import TaxGuidePage from "./pages/tax/Guide";
-import TaxFaq from "./pages/tax/Faq";
-import TaxBook from "./pages/tax/Book";
-import TaxStart from "./pages/tax/Start";
-import TaxSchedule from "./pages/tax/Schedule";
-import TaxNoticePage from "./pages/tax/Notice";
-import TaxPayrollSetup from "./pages/tax/PayrollSetup";
-import TaxAddressChange from "./pages/tax/AddressChange";
-import TaxPaymentPlan from "./pages/tax/PaymentPlan";
-import TaxPriorYear from "./pages/tax/PriorYear";
-import TaxRefer from "./pages/tax/Refer";
-import TaxToolsCalendar from "./pages/tax/ToolsCalendar";
-import TaxToolsChecklist from "./pages/tax/ToolsChecklist";
-import TaxToolsQuarterly from "./pages/tax/ToolsQuarterly";
-import TaxToolsMileage from "./pages/tax/ToolsMileage";
-import TaxToolsSeTax from "./pages/tax/ToolsSeTax";
-import TaxToolsRefundStatus from "./pages/tax/ToolsRefundStatus";
+const TaxHome = lazy(() => import("./pages/tax/Home"));
+const TaxServices = lazy(() => import("./pages/tax/Services"));
+const TaxServiceDetail = lazy(() => import("./pages/tax/ServiceDetail"));
+const TaxIndustries = lazy(() => import("./pages/tax/Industries"));
+const TaxIndustryDetail = lazy(() => import("./pages/tax/IndustryDetail"));
+const TaxPricing = lazy(() => import("./pages/tax/Pricing"));
+const TaxTeam = lazy(() => import("./pages/tax/Team"));
+const TaxLocations = lazy(() => import("./pages/tax/Locations"));
+const TaxCareers = lazy(() => import("./pages/tax/Careers"));
+const TaxCareerDetail = lazy(() => import("./pages/tax/CareerDetail"));
+const TaxApply = lazy(() => import("./pages/tax/Apply"));
+const TaxReviews = lazy(() => import("./pages/tax/Reviews"));
+const TaxBlog = lazy(() => import("./pages/tax/Blog"));
+const TaxBlogPost = lazy(() => import("./pages/tax/BlogPost"));
+const TaxAbout = lazy(() => import("./pages/tax/About"));
+const TaxContact = lazy(() => import("./pages/tax/Contact"));
+const TaxPrivacy = lazy(() => import("./pages/tax/Privacy"));
+const TaxTerms = lazy(() => import("./pages/tax/Terms"));
+const TaxGuides = lazy(() => import("./pages/tax/Guides"));
+const TaxGuidePage = lazy(() => import("./pages/tax/Guide"));
+const TaxFaq = lazy(() => import("./pages/tax/Faq"));
+const TaxBook = lazy(() => import("./pages/tax/Book"));
+const TaxStart = lazy(() => import("./pages/tax/Start"));
+const TaxSchedule = lazy(() => import("./pages/tax/Schedule"));
+const TaxNoticePage = lazy(() => import("./pages/tax/Notice"));
+const TaxPayrollSetup = lazy(() => import("./pages/tax/PayrollSetup"));
+const TaxAddressChange = lazy(() => import("./pages/tax/AddressChange"));
+const TaxPaymentPlan = lazy(() => import("./pages/tax/PaymentPlan"));
+const TaxPriorYear = lazy(() => import("./pages/tax/PriorYear"));
+const TaxRefer = lazy(() => import("./pages/tax/Refer"));
+const TaxToolsCalendar = lazy(() => import("./pages/tax/ToolsCalendar"));
+const TaxToolsChecklist = lazy(() => import("./pages/tax/ToolsChecklist"));
+const TaxToolsQuarterly = lazy(() => import("./pages/tax/ToolsQuarterly"));
+const TaxToolsMileage = lazy(() => import("./pages/tax/ToolsMileage"));
+const TaxToolsSeTax = lazy(() => import("./pages/tax/ToolsSeTax"));
+const TaxToolsRefundStatus = lazy(() => import("./pages/tax/ToolsRefundStatus"));
 
 // Brindlewick's practice app (/staff) and client portal (/tax/portal)
-import StaffLogin from "./pages/staff/Login";
-import StaffDashboard from "./pages/staff/Dashboard";
-import StaffClients from "./pages/staff/Clients";
-import StaffClientDetail from "./pages/staff/ClientDetail";
-import StaffPipeline from "./pages/staff/Pipeline";
-import StaffEngagements from "./pages/staff/Engagements";
-import NewEngagement from "./pages/staff/NewEngagement";
-import StaffQueue from "./pages/staff/Queue";
-import StaffDocuments from "./pages/staff/Documents";
-import StaffNotices from "./pages/staff/Notices";
-import StaffCalendar from "./pages/staff/Calendar";
-import StaffBilling from "./pages/staff/Billing";
-import StaffMessages from "./pages/staff/Messages";
-import StaffTasks from "./pages/staff/Tasks";
-import StaffReports from "./pages/staff/Reports";
-import StaffSubmissions from "./pages/staff/Submissions";
-import StaffAudit from "./pages/staff/Audit";
-import PortalLogin from "./pages/portal/Login";
-import PortalHome from "./pages/portal/Home";
-import PortalDocuments from "./pages/portal/Documents";
-import PortalInvoices from "./pages/portal/Invoices";
-import PortalMessages from "./pages/portal/Messages";
-import PortalAppointments from "./pages/portal/Appointments";
-import PortalOrganizer from "./pages/portal/Organizer";
+const StaffLogin = lazy(() => import("./pages/staff/Login"));
+const StaffDashboard = lazy(() => import("./pages/staff/Dashboard"));
+const StaffClients = lazy(() => import("./pages/staff/Clients"));
+const StaffClientDetail = lazy(() => import("./pages/staff/ClientDetail"));
+const StaffPipeline = lazy(() => import("./pages/staff/Pipeline"));
+const StaffEngagements = lazy(() => import("./pages/staff/Engagements"));
+const NewEngagement = lazy(() => import("./pages/staff/NewEngagement"));
+const StaffQueue = lazy(() => import("./pages/staff/Queue"));
+const StaffDocuments = lazy(() => import("./pages/staff/Documents"));
+const StaffNotices = lazy(() => import("./pages/staff/Notices"));
+const StaffCalendar = lazy(() => import("./pages/staff/Calendar"));
+const StaffBilling = lazy(() => import("./pages/staff/Billing"));
+const StaffMessages = lazy(() => import("./pages/staff/Messages"));
+const StaffTasks = lazy(() => import("./pages/staff/Tasks"));
+const StaffReports = lazy(() => import("./pages/staff/Reports"));
+const StaffSubmissions = lazy(() => import("./pages/staff/Submissions"));
+const StaffAudit = lazy(() => import("./pages/staff/Audit"));
+const PortalLogin = lazy(() => import("./pages/portal/Login"));
+const PortalHome = lazy(() => import("./pages/portal/Home"));
+const PortalDocuments = lazy(() => import("./pages/portal/Documents"));
+const PortalInvoices = lazy(() => import("./pages/portal/Invoices"));
+const PortalMessages = lazy(() => import("./pages/portal/Messages"));
+const PortalAppointments = lazy(() => import("./pages/portal/Appointments"));
+const PortalOrganizer = lazy(() => import("./pages/portal/Organizer"));
 
 /**
  * Registers the app's client-side navigate with the copilot, once, inside the router.
@@ -124,6 +125,7 @@ function CopilotNavigation({ children }: { children: ReactNode }) {
 const App = () => (
   <BrowserRouter>
     <CopilotNavigation>
+      <Suspense fallback={null}>
       <Routes>
         <Route path="/" element={<MaybeHome />} />
         {/* the earlier home page, kept for developers only */}
@@ -231,6 +233,7 @@ const App = () => (
         {/* Sent confirmation */}
         <Route path="/sent" element={<Sent />} />
       </Routes>
+      </Suspense>
     </CopilotNavigation>
   </BrowserRouter>
 );
