@@ -4,7 +4,7 @@
 
 ## Decision
 
-A voice call runs on one of several **voice stacks**, and each stack can be swapped for any call. A stack is the set of models that listen, judge the end of a turn, and speak. They are listed in one file, `demo/live-site/speech/stacks.json`, which the server, the agent and the speech server all read:
+A voice call runs on one of several **voice stacks**, and each stack can be swapped for any call. A stack is the set of models that listen, judge the end of a turn, and speak. They were listed in one file, `demo/live-site/speech/stacks.json`, which the server, the agent and the speech server all read. Since [0022](0022-model-lanes-on-livekit-tasks.md) (#169) each stack has its own folder, `agent/voice/stacks/<stack>/manifest.json`, and each language its own, `agent/languages/<code>/manifest.json`; `agent/voice/manifest.json` names the default:
 
 | Stack | Listens | Ends turns | Writes replies | Speaks | Languages |
 |---|---|---|---|---|---|

@@ -6,7 +6,8 @@ requires-python = ">=3.12"
 dependencies = ["pydantic>=2.14,<3"]
 
 [project.optional-dependencies]
-# import-linter checks the lane boundary: one lane never imports another, and common never imports a lane.
+# import-linter checks the boundaries: one lane never imports another, one voice stack never imports another, and common
+# imports neither.
 dev = ["pytest>=8", "import-linter>=2.15,<3"]
 
 [tool.uv]
@@ -17,7 +18,7 @@ pythonpath = ["."]
 testpaths = ["tests"]
 
 [tool.importlinter]
-root_packages = ["common", "lanes"]
+root_packages = ["common", "lanes", "voice"]
 
 [[tool.importlinter.contracts]]
 name = "One lane never imports another"
@@ -25,7 +26,12 @@ type = "independence"
 modules = ["lanes.strong", "lanes.hybrid", "lanes.small"]
 
 [[tool.importlinter.contracts]]
-name = "The common core never imports a lane"
+name = "The common core never imports a lane or a voice stack"
 type = "forbidden"
 source_modules = ["common"]
-forbidden_modules = ["lanes"]
+forbidden_modules = ["lanes", "voice"]
+
+[[tool.importlinter.contracts]]
+name = "One voice stack never imports another"
+type = "independence"
+modules = ["voice.stacks.english_fast", "voice.stacks.lfm3_audio", "voice.stacks.multilingual", "voice.stacks.parakeet_kokoro", "voice.stacks.whisper_pocket"]

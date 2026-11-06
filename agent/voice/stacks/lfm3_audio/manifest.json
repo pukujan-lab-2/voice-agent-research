@@ -1,0 +1,11 @@
+{
+  "stack": "lfm3-audio",
+  "label": "LFM3-Audio (one model)",
+  "listens": "lfm3-audio",
+  "turns": "vad",
+  "thinks": "lfm3-audio",
+  "speaks": "lfm3-audio",
+  "languages": [
+    "en"
+  ]
+}

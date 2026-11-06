@@ -1,0 +1,11 @@
+{
+  "stack": "parakeet-kokoro",
+  "label": "Parakeet + Kokoro",
+  "listens": "parakeet-tdt-0.6b-v2",
+  "turns": "english",
+  "thinks": "lfm3",
+  "speaks": "kokoro",
+  "languages": [
+    "en"
+  ]
+}

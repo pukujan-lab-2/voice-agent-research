@@ -1,0 +1,9 @@
+{
+  "language": "zh",
+  "name": "Chinese",
+  "native": "中文",
+  "kokoro": [
+    "cmn",
+    "zf_xiaobei"
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "language": "pt",
+  "name": "Portuguese",
+  "native": "Português",
+  "kokoro": [
+    "pt-br",
+    "pf_dora"
+  ]
+}

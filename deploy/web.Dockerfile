@@ -19,6 +19,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends python3 python3
 WORKDIR /app
 COPY --from=build /src/copilot-engine/src copilot-engine/src
 COPY --from=build /src/demo/live-site demo/live-site
+# The voice stacks and languages server.ts offers (demo/live-site/voice-config.ts).
+COPY --from=build /src/agent/voice agent/voice
+COPY --from=build /src/agent/languages agent/languages
 WORKDIR /app/demo/live-site
 ENV HOST=0.0.0.0 PORT=8787 VERIFY_MATCHER="python3 tools/verify_match.py" TRUST_PROXY=1
 USER node

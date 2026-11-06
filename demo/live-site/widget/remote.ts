@@ -13,7 +13,7 @@ type Signed = Passage & { sig?: string };
 // One id per call, sent with every request, so the server's traces of one call group into one Phoenix session.
 export let callId = crypto.randomUUID();
 export function newCall() { callId = crypto.randomUUID(); deskStack = ''; }
-// The voice stack the call runs on, so the server can send the desk's tool calls to the stack's own model (stacks.json "thinks").
+// The voice stack the call runs on, so the server can send the desk's tool calls to the stack's own model (its manifest's "thinks", agent/voice/stacks).
 let deskStack = '';
 export function setDeskStack(stack: string) { deskStack = stack; }
 // The business the page is for, sent with desk requests so the server can hold the call to that business's allowed stacks.

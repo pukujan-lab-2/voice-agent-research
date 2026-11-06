@@ -37,6 +37,14 @@ class AgentImageTest(unittest.TestCase):
         missing = sorted(needed_by_agent() - copied)
         self.assertEqual(missing, [], f'agent.py needs {missing}, which deploy/agent.Dockerfile does not COPY')
 
+    def test_the_voice_folders_are_copied_where_the_agent_looks(self):
+        # voice_config.py loads agent/common/voice.py and the stack and language folders from COPILOT_AGENT_DIR (#169)
+        text = open(DOCKERFILE, encoding='utf-8').read()
+        home = re.search(r'^ENV COPILOT_AGENT_DIR=/agent/(\S+)$', text, re.M)
+        self.assertIsNotNone(home, 'deploy/agent.Dockerfile does not set COPILOT_AGENT_DIR')
+        for src, dest in (('agent/common/voice.py', 'common/'), ('agent/voice', 'voice'), ('agent/languages', 'languages')):
+            self.assertIn(f'COPY {src} {home.group(1)}/{dest}\n', text)
+
 
 if __name__ == '__main__':
     unittest.main()

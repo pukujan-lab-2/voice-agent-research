@@ -40,7 +40,7 @@ def test_the_shipped_lanes_load():
 def test_every_lane_folder_is_in_the_import_check():
     # a new lane folder that the independence contract does not list could import another lane unchecked
     cfg = tomllib.loads((LANES.parent / 'pyproject.toml').read_text())
-    listed = next(c['modules'] for c in cfg['tool']['importlinter']['contracts'] if c['type'] == 'independence')
+    listed = next(c['modules'] for c in cfg['tool']['importlinter']['contracts'] if c['name'] == 'One lane never imports another')
     assert sorted(listed) == sorted(f'lanes.{d.name}' for d in LANES.iterdir() if d.is_dir() and not d.name.startswith(('_', '.')))
 
 

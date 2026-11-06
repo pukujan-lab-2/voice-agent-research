@@ -1,4 +1,4 @@
-// A call keeps hearing the caller after a barge-in, on every voice stack in speech/stacks.json (#67). The shape that went
+// A call keeps hearing the caller after a barge-in, on every voice stack in agent/voice/stacks (#67). The shape that went
 // wrong on lfm3-audio: the caller talks, talks over the voice, and then talks again; that third turn must be heard and
 // answered within a few seconds. The microphone is a stream we play recorded clips into (macOS `say`), as in
 // tests/voice-call.ts, so everything goes through LiveKit, the voice activity detector, the stack's speech models and the
@@ -19,12 +19,13 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, type Page } from 'playwright-core';
+import { loadVoice } from '../voice-config.ts';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const opt = (name: string) => { const i = process.argv.indexOf(`--${name}`); return i > 0 ? process.argv[i + 1] : undefined; };
-const conf = JSON.parse(fs.readFileSync(path.join(here, '../speech/stacks.json'), 'utf8')) as { stacks: Record<string, unknown> };
+const conf = loadVoice();
 const stacks = opt('stacks')?.split(',') ?? Object.keys(conf.stacks);
-for (const s of stacks) if (!conf.stacks[s]) throw new Error(`no stack ${s} in speech/stacks.json`);
+for (const s of stacks) if (!conf.stacks[s]) throw new Error(`no stack ${s} in agent/voice/stacks`);
 const HEAR_WITHIN_MS = Number(process.env.HEAR_WITHIN_MS ?? 8000);
 const STOP_WITHIN_MS = 1500;
 
