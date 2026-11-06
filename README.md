@@ -32,6 +32,10 @@ Collected 2026-10-28/29. Star counts, commit dates and licenses were checked liv
 
 > **Not legal advice.** License notes reflect what each project *declares*. Have a lawyer review the final stack before selling it.
 
+## Docs travel with the code
+
+A pull request that changes code must also update a `README.md` (any folder's) or a file under `docs/`, or `AGENTS.md` / `HANDOFF.md`. CI enforces it (`.github/workflows/docs-check.yml`, `scripts/check-docs-updated.mjs`). Other `.md` files and lockfiles count as neither. When nothing needs documenting, add the `no-docs-needed` label or a body line `No docs needed: <why>`; editing the body re-runs the check.
+
 ## Contents
 
 | # | Doc | What it covers |

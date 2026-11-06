@@ -1,0 +1,32 @@
+name: Docs check
+
+# A pull request that changes code must also update a README.md or a doc (scripts/check-docs-updated.mjs).
+# Its own workflow so that editing the PR body or its labels re-runs only this.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited, labeled, unlabeled]
+
+permissions:
+  contents: read
+
+jobs:
+  docs:
+    name: Docs and README updated
+    runs-on: [self-hosted, org-pool]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Self-test
+        run: node scripts/check-docs-updated.mjs --self-test
+      - name: Check this pull request
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+          DOC_PATHS: docs/,AGENTS.md,HANDOFF.md
+        run: node scripts/check-docs-updated.mjs
