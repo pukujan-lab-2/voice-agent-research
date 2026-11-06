@@ -55,3 +55,26 @@ A change to one voice stack or one language touches only that stack's or languag
 ## Checkpoint log
 
 No checkpoints yet.
+
+### 2026-11-06 14:42:17 UTC — claude-code
+
+<!-- continuity:checkpoint {"agent":"claude-code","blocked":[],"changed":["agent/voice, agent/languages, agent/common/voice.py, demo/live-site (server.ts, voice-config.ts, speech/, tests), deploy/*.Dockerfile, docs/decisions/0012"],"completed":["Each voice stack and language has its own folder and manifest under agent/voice/stacks and agent/languages; agent/common/voice.py and voice-config.ts read them for the agent, the speech server and the site; stacks.json is gone; import-linter fails the check when one stack imports another (#169)"],"decisions":["Stack folders use the stack name with '-' written '_' so each is a Python package the import check can see; the loader is standard library only so the agent image and the Pro's speech server need no new packages"],"evidence":["npm run test:agent: 22 tests pass and three import contracts are kept; the stack contract breaks when one stack imports another (tried, then undone); the TypeScript loader equals the Python one, which equalled the old stacks.json; npm run test:speech 26 pass; npm run check exit 0"],"next_action":"Merge the pull request; then file step 4, each form's steps as data","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0123","timestamp":"2026-11-06T14:42:17Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"f664ca23f356c5fc7c4c484d7a79ff10238d7c3fca919acf141680c257aa2422","request_id":"d1b6845731a04338be186247bb5ff111","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0123"} -->
+
+Completed:
+- Each voice stack and language has its own folder and manifest under agent/voice/stacks and agent/languages; agent/common/voice.py and voice-config.ts read them for the agent, the speech server and the site; stacks.json is gone; import-linter fails the check when one stack imports another (#169)
+
+Evidence:
+- npm run test:agent: 22 tests pass and three import contracts are kept; the stack contract breaks when one stack imports another (tried, then undone); the TypeScript loader equals the Python one, which equalled the old stacks.json; npm run test:speech 26 pass; npm run check exit 0
+
+Decisions:
+- Stack folders use the stack name with '-' written '_' so each is a Python package the import check can see; the loader is standard library only so the agent image and the Pro's speech server need no new packages
+
+Changed:
+- agent/voice, agent/languages, agent/common/voice.py, demo/live-site (server.ts, voice-config.ts, speech/, tests), deploy/*.Dockerfile, docs/decisions/0012
+
+Blocked/uncertain:
+- none
+
+Next:
+- Merge the pull request; then file step 4, each form's steps as data
