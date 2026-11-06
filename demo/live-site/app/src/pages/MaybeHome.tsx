@@ -53,6 +53,9 @@ const HERO: { slot: string; cls?: string; prob: string; help: ReactNode }[] = [
 function Hero({ media, openDeck }: { media: Slots; openDeck: () => void }) {
   const [i, setI] = useState(0);
   const [help, setHelp] = useState(false);
+  // only the slide on screen and the next one fetch their file; later ones wait their turn
+  const [seen, setSeen] = useState(() => new Set([0, 1]));
+  useEffect(() => setSeen(o => o.has(i) && o.has((i + 1) % HERO.length) ? o : new Set([...o, i, (i + 1) % HERO.length])), [i]);
   const videos = useRef<(HTMLVideoElement | null)[]>([]);
   const manual = useRef(false);
   useEffect(() => {
@@ -74,8 +77,8 @@ function Hero({ media, openDeck }: { media: Slots; openDeck: () => void }) {
         const s = media[h.slot];
         return (
           <div key={h.slot} className={`shot ${h.cls ?? ""} ${k === i ? "on" : ""}`} style={vars(s?.pos, s?.mpos)}>
-            {s?.kind === "video" && <video ref={el => { videos.current[k] = el; }} src={s.url} poster={s.poster_url ?? undefined} muted playsInline preload="metadata" aria-label={s.alt} />}
-            {s?.kind === "image" && <img src={s.url} alt={s.alt} />}
+            {s?.kind === "video" && seen.has(k) && <video ref={el => { videos.current[k] = el; }} src={s.url} poster={s.poster_url ?? undefined} muted playsInline preload={k === i ? "auto" : "metadata"} aria-label={s.alt} />}
+            {s?.kind === "image" && seen.has(k) && <img src={s.url} alt={s.alt} fetchPriority={k === 0 ? "high" : "low"} decoding="async" />}
           </div>
         );
       })}
@@ -124,7 +127,10 @@ function Film({ f, s }: { f: (typeof FILMS)[number]; s?: Slot }) {
       if (e.isIntersecting && !reduceMotion()) { v.currentTime = 0; v.play().catch(() => {}); } else v.pause();
     }), { threshold: 0.55 });
     io.observe(v);
-    return () => { cancelAnimationFrame(raf); io.disconnect(); v.removeEventListener("play", tick); v.removeEventListener("seeked", tick); };
+    // start fetching the film half a screen before it scrolls into view
+    const near = new IntersectionObserver(es => { if (es[0].isIntersecting) { v.preload = "auto"; near.disconnect(); } }, { rootMargin: "50% 0px" });
+    near.observe(v);
+    return () => { cancelAnimationFrame(raf); io.disconnect(); near.disconnect(); v.removeEventListener("play", tick); v.removeEventListener("seeked", tick); };
   }, [s?.url, s?.cuts]);
   // each subtitle stays on one line: if it's wider than the film, its type shrinks to fit
   useEffect(() => {
@@ -140,7 +146,7 @@ function Film({ f, s }: { f: (typeof FILMS)[number]; s?: Slot }) {
   return (
     <article className={`ch ${f.flip ? "flip" : ""}`}>
       <div className="media" ref={box}>
-        {s && <video ref={video} src={s.url} poster={s.poster_url ?? undefined} muted loop playsInline preload="metadata" aria-label={s.alt} />}
+        {s && <video ref={video} src={s.url} poster={s.poster_url ?? undefined} muted loop playsInline preload="none" aria-label={s.alt} />}
         <p className="sub" aria-live="polite">
           <span className={`ln ${beat === 0 ? "on" : ""}`}>{f.lines[0]}</span>
           <span className={`ln ${beat === 1 ? "on" : ""}`}>{f.lines[1]}</span>
@@ -384,7 +390,10 @@ const DUR = 10000;
 function Deck({ open, onClose, media }: { open: boolean; onClose: () => void; media: Slots }) {
   const [cur, setCur] = useState(0);
   const fills = useRef<(HTMLElement | null)[]>([]);
-  const img = (slot: string, key?: string) => { const s = media[slot]; return s ? <img key={key ?? slot} src={s.url} alt={s.alt} style={vars(s.pos, s.mpos)} /> : null; };
+  // its pictures are fetched the first time the story opens, not with the page
+  const [opened, setOpened] = useState(false);
+  useEffect(() => { if (open) setOpened(true); }, [open]);
+  const img = (slot: string, key?: string) => { const s = media[slot]; return s && opened ? <img key={key ?? slot} src={s.url} alt={s.alt} decoding="async" style={vars(s.pos, s.mpos)} /> : null; };
   const s3 = media["story.3"];
   const slides: { cap: string; cls?: string; node: ReactNode }[] = [
     { cap: "He's been shown how. He doesn't want to ask again.", node: img("story.1") },
@@ -477,7 +486,7 @@ export default function MaybeHome() {
           <p className="lede">Out loud, the way you'd ask a friend.</p>
         </div>
         <figure className="card">
-          {turn && <img src={turn.url} alt={turn.alt} style={vars(turn.pos, turn.mpos)} />}
+          {turn && <img src={turn.url} alt={turn.alt} loading="lazy" decoding="async" style={vars(turn.pos, turn.mpos)} />}
           <figcaption>He'd rather say it than type it.</figcaption>
         </figure>
       </div></section>
@@ -520,7 +529,7 @@ export default function MaybeHome() {
           <a className="btn btn-secondary" href="/tax">Talk to it yourself</a>
         </div>
       </div></section>
-      <footer><div className="wrap"><span>copilot.design-bakery.com</span><span>Prototype. The people on this page are composite stories. Research figures cite their sources.</span></div></footer>
+      <footer><div className="wrap"><span>maybe.design-bakery.com</span><span>Prototype. The people on this page are composite stories. Research figures cite their sources.</span></div></footer>
 
       <Deck open={deck} onClose={closeDeck} media={media ?? {}} />
     </div>
