@@ -94,5 +94,6 @@ The other stacks on the same Pro, the knockout caller's 13 lines, one at a time:
 |---|---|---|---|
 | `english-fast` (Parakeet + Pocket TTS) | median 116 ms, max 208 ms | 100–180 ms | "Yes." empty, "In the ICU" as "and the ICU" |
 | `multilingual` (Whisper large-v3-turbo + Kokoro) | median 1,386 ms, max 1,450 ms | 340–1,410 ms | none of the 13 ("Fifty" as "50") |
+| Whisper large-v3-turbo on the Windows RTX 4060 (faster-whisper, float16) | median 297 ms, max 344 ms; 3 at once 889 ms each | not run | none of the 13 |
 
-Whisper's 1.4 s is mostly after the turn ends, so streaming hides only about 0.2 s of it. Switching a server between stacks takes 4.5 s (to Whisper) and 11 s (back to Parakeet and Pocket TTS), and only one is resident at a time.
+On the RTX 4060 the same Whisper is about 4.7 times faster than on the M1 and hears the same words; it uses 3.2 GB of the 8 GB of VRAM (2.2 GB at int8_float16, 275 ms median, one word worse). Three calls at once share the GPU one turn at a time, so each turn takes about three times as long. The Windows server doesn't run Whisper yet; this was faster-whisper on its own. On the M1, Whisper's 1.4 s is mostly after the turn ends, so streaming hides only about 0.2 s of it. Switching a server between stacks takes 4.5 s (to Whisper) and 11 s (back to Parakeet and Pocket TTS), and only one is resident at a time.
