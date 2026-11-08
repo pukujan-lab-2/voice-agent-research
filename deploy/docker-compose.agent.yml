@@ -20,7 +20,9 @@ services:
         required: false
     environment:
       LIVEKIT_URL: ws://${LIVEKIT_HOST:-copilot-livekit}:7880
-      SPEECH_URL: ${SPEECH_URL:-http://host.docker.internal:18799}
+      # The speech gateway (docs/speech-gateway.md), which picks the speech server for each call
+      SPEECH_URL: ${SPEECH_URL:-http://host.docker.internal:18800}
+      SPEECH_PROJECT: copilot
       AGENT_DRAIN_S: ${AGENT_DRAIN_S:-1200}
       # Where a recorded call's audio goes when the call ends (#130); it is signed with SIGNING_SECRET from copilot.env.
       COPILOT_API_URL: ${COPILOT_API_URL:-http://copilot-web:8787}

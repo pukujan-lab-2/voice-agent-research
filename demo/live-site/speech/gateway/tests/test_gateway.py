@@ -27,6 +27,8 @@ multilingual = ["windows", "pro"]
 [project.copilot]
 when_full = "wait"
 wait_s = 1
+[project.riley]
+when_full = "cloud"  # answers 503 at once: the tests that fill every server don't wait on the fake clock
 """
 
 
@@ -111,7 +113,7 @@ class GatewayTest(unittest.IsolatedAsyncioTestCase):
     async def test_english_fills_the_pro_then_overflows_to_windows_then_no_room(self):
         for call in ('a', 'b', 'c', 'd'):
             self.assertEqual(await self.say(call, 'english-fast'), 200)
-        self.assertEqual(await self.say('e', 'english-fast'), 503, 'four places, a fifth call goes to its cloud fallback')
+        self.assertEqual(await self.say('e', 'english-fast'), 503, 'four places, a fifth call gets no_room')
         self.assertEqual(self.hosts(), [('pro', 'english-fast')] * 2 + [('windows', 'multilingual')] * 2)
 
     async def test_spanish_goes_to_windows_first(self):
@@ -194,6 +196,10 @@ class GatewayTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn('no [[host]]', self.gw.config.error)
         r = await self.client.get('/routes')
         self.assertIn('no [[host]]', (await r.json())['refused'])
+
+    async def test_a_project_without_a_block_waits_for_a_place(self):
+        r = gateway.parse('[[host]]\nname="p"\nurl="http://p"\nstacks=["english-fast"]\n[route]\nenglish-fast=["p"]\n')
+        self.assertEqual(r.project('nyc-map')['when_full'], 'wait', 'no one falls to the cloud unless its block says so')
 
     async def test_parse_refuses_a_route_to_a_stack_the_host_does_not_run(self):
         with self.assertRaises(ValueError):

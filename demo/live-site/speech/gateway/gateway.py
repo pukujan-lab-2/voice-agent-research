@@ -7,7 +7,7 @@ routes.toml picks:
 
   project ──► gateway ──► the Pro       (english-fast, lfm3-audio)
                       └─► the Windows PC (multilingual: Whisper large-v3-turbo + Kokoro on its RTX 4060)
-                      └─► 503 no_room   (the project's own fallback: Riley's cloud chain, or wait for a place)
+                      └─► 503 no_room   (after waiting for a place, when_full = "wait"; the project's own error path)
 
 The stack a request names already says the language (english-fast is English, multilingual is every other), so the stack
 picks the route. A request with X-Speech-Call stays on one server for the whole call (a pin); the gateway counts each
@@ -82,10 +82,10 @@ def parse(text: str) -> Routes:
                 raise ValueError(f'route {stack}: {name} does not run {there!r}')
             out.append((name, there))
         route[stack] = out
-    defaults = {'when_full': 'cloud', 'wait_s': 8, 'warm': ['english-fast'], 'stack': 'english-fast', **raw.get('defaults', {})}
+    defaults = {'when_full': 'wait', 'wait_s': 8, 'warm': ['english-fast'], 'stack': 'english-fast', **raw.get('defaults', {})}
     projects = raw.get('project', {})
     for name, p in [('defaults', defaults), *projects.items()]:
-        if p.get('when_full', 'cloud') not in ('cloud', 'wait'):
+        if p.get('when_full', 'wait') not in ('cloud', 'wait'):
             raise ValueError(f'{name}: when_full is "cloud" or "wait"')
         for s in p.get('warm', []):
             if s not in route:
