@@ -173,6 +173,18 @@ class GatewayTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(await self.say('c', 'english-fast'), 503)
         self.assertEqual(await self.say('x', 'multilingual'), 503, 'Windows is down and the Pro is full')
 
+    async def test_a_kept_alive_connection_the_server_closed_is_tried_again_not_marked_down(self):
+        forward, dropped = self.gw.forward, []
+
+        async def drop_once(*args):
+            if not dropped:
+                dropped.append(1)
+                raise gateway.aiohttp.ServerDisconnectedError()
+            return await forward(*args)
+        self.gw.forward = drop_once
+        self.assertEqual(await self.say('a', 'english-fast'), 200)
+        self.assertEqual((self.hosts(), self.gw.down), ([('pro', 'english-fast')], {}), 'same server, not passed over')
+
     async def test_a_bad_routes_file_is_refused_and_the_last_good_one_kept(self):
         before = self.gw.config.current()
         with open(self.path, 'w') as f:

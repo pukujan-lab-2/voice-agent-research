@@ -249,7 +249,8 @@ class Gateway:
                 return web.json_response({'error': 'bad json'}, status=400)
         stack = (payload or {}).get('stack') or request.query.get('stack') or (self.pins[call].stack if call in self.pins else '') \
             or routes.project(project)['stack']
-        for _ in range(2):  # a server that refuses the connection is marked down and the call placed again
+        stale = False
+        for _ in range(3):  # a server that refuses the connection is marked down and the call placed again
             got = await self.place_or_wait(routes, stack, call, project)
             if not got:
                 return web.json_response({'error': 'no_room', 'stack': stack}, status=503)
@@ -265,10 +266,17 @@ class Gateway:
                 if path == '/stt/stream':
                     return await self.websocket(request, url, query, routes, (stack, call, project), host, there)
                 return await self.forward(request, url, query, data)
+            except (aiohttp.ServerDisconnectedError, aiohttp.ClientConnectionResetError) as e:
+                if stale:  # twice in a row: it is the server, not a kept-alive connection it had closed
+                    self.mark_down(host, e)
+                stale = True  # the pool reused a connection the server had closed: try it once more
             except (aiohttp.ClientConnectionError, TimeoutError) as e:
-                log(f'{host} unreachable ({type(e).__name__}): passed over for {DOWN_S} s')
-                self.down[host] = self.clock() + DOWN_S
+                self.mark_down(host, e)
         return web.json_response({'error': 'no_room', 'stack': stack}, status=503)
+
+    def mark_down(self, host: str, e: Exception) -> None:
+        log(f'{host} unreachable ({type(e).__name__}): passed over for {DOWN_S} s')
+        self.down[host] = self.clock() + DOWN_S
 
     async def forward(self, request: web.Request, url: str, query: dict, data: bytes) -> web.StreamResponse:
         http = await self.session()
@@ -276,7 +284,9 @@ class Gateway:
         async with http.request(request.method, url, params=query, data=data, headers=headers) as up:
             out = web.StreamResponse(status=up.status, headers={k: v for k, v in up.headers.items() if k.lower() not in HOP})
             await out.prepare(request)
-            with contextlib.suppress(ConnectionResetError):  # the caller talked over it and dropped the audio
+            # Past this point the reply has started, so it can't be sent again elsewhere: a caller who talked over it
+            # dropped the audio, or the server broke off mid-reply and the caller hears it cut short
+            with contextlib.suppress(ConnectionResetError, aiohttp.ClientError, TimeoutError):
                 async for chunk in up.content.iter_any():
                     await out.write(chunk)
                 await out.write_eof()
