@@ -56,7 +56,7 @@ A new agent registered with LiveKit in 6 to 14 s in the 15 deploys before this c
 | LiveKit signalling | VPS, `copilot-livekit:7880` | through `server.ts` at `/rtc` |
 | Call audio (WebRTC) | VPS, `copilot-livekit` | the VPS's public address, TCP 7881 and UDP 7882 |
 | Voice agent (`speech/agent.py`) | VPS, `copilot-agent-<sha>` (one per release; the old one drains; asleep between calls) | joins every call's room; woken through Sablier by the site |
-| Speech models, all five stacks (`speech/server.py`) | Pro, `com.pukujan.copilot-speech` | reverse tunnel → VPS `127.0.0.1:18799` |
+| Speech models, all five stacks (`speech/server.py`) | Pro, `com.pukujan.copilot-speech` | reverse tunnel → VPS `127.0.0.1:18799`, reached only through the speech gateway on `:18800` ([speech-gateway.md](../docs/speech-gateway.md)) |
 | LFM3-Audio (the `lfm3-audio` stack) | Pro, started by the speech server | reverse tunnel → VPS `127.0.0.1:18798` |
 | LFM3 text model | Pro, `com.pukujan.lfm3` | nyc-map-agent's tunnel and bridge → `18099` |
 

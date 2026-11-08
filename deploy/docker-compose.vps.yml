@@ -3,10 +3,10 @@
 # compose file (docker-compose.agent.yml), one project per release, so a deploy never replaces an agent that is on a call.
 # The site binds loopback on 127.0.0.1:18787 and joins study-os_edge, where Cloudflare tunnel A reaches it as
 # copilot-web:8787 (copilot.design-bakery.com). Models stay on the MacBook Pro, reached through reverse SSH tunnels to
-# this host's loopback that the bridges below re-offer on the Docker gateway (containers can't reach the host's loopback):
-#   18099  LFM3 text model         nyc-map-agent's lfm3-bridge (that stack owns it)
-#   18799  speech/server.py        speech-bridge
-#   18798  LFM3-Audio's llama.cpp  audio-bridge
+# this host's loopback (containers can't reach the host's loopback):
+#   18099  LFM3 text model         nyc-map-agent's lfm3-bridge re-offers it on the Docker gateway (that stack owns it)
+#   18798  LFM3-Audio's llama.cpp  audio-bridge, below
+#   18799  speech/server.py        only through the speech gateway on 18800 (docs/speech-gateway.md); no bridge
 name: copilot
 
 x-env: &env
@@ -69,13 +69,6 @@ services:
     ports:
       - 7881:7881/tcp
       - 7882:7882/udp
-
-  speech-bridge:
-    <<: *env
-    container_name: copilot-speech-bridge
-    image: alpine/socat:1.8.0.3
-    network_mode: host
-    command: ["TCP-LISTEN:18799,bind=172.17.0.1,fork,reuseaddr,range=172.16.0.0/12", "TCP:127.0.0.1:18799"]
 
   audio-bridge:
     <<: *env
