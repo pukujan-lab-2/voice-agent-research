@@ -14,7 +14,8 @@
     "test": "npm --prefix copilot-engine test && node --test eval/tests/*.test.ts && node --no-warnings --test demo/live-site/tests/*.test.ts",
     "scenarios": "npm --prefix copilot-engine run scenarios",
     "replay": "node eval/replay.ts --snapshot --gate",
-    "check": "npm run lint && npm run lint:py && npm run typecheck && npm run orphans && npm test && npm run test:py && npm run test:speech && npm run test:agent && npm run scenarios && npm run replay",
+    "check": "npm run lint && npm run lint:py && npm run typecheck && npm run orphans && npm test && npm run test:py && npm run test:speech && npm run test:gateway && npm run test:agent && npm run scenarios && npm run replay",
+    "test:gateway": "uv run --no-project --with aiohttp==3.14.5 python -m unittest discover -s demo/live-site/speech/gateway/tests -p 'test_*.py'",
     "test:speech": "uv run --no-project --with numpy python -m unittest discover -s demo/live-site/speech/tests -p 'test_*.py'",
     "test:py": "uv run --directory ingest --extra dev pytest -q",
     "test:agent": "cd agent && export UV_PROJECT_ENVIRONMENT=\"$HOME/.cache/acs/deps/agent-venv\" && uv run --locked --extra dev pytest -q -p no:cacheprovider && PYTHONPATH=. uv run --locked --extra dev lint-imports --no-cache"
