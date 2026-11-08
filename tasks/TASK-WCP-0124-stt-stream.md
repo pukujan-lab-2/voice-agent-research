@@ -189,6 +189,29 @@ Blocked/uncertain:
 Next:
 - Confirm a Spanish call lands on Windows through the gateway; then move copilot, Maybe Home, NYC map and Precedent to the gateway
 
+### 2026-11-08 23:07:59 UTC — claude-opus-5-5
+
+<!-- continuity:checkpoint {"agent":"claude-opus-5-5","blocked":[],"changed":["demo/live-site/speech/gateway/routes.toml, gateway.py, tests; speech/agent.py; deploy compose files; docs/speech-gateway.md; AGENTS.md"],"completed":["Gateway waits by default (no cloud), copilot agent sends project and call headers and releases its place, gateway listens on loopback and 172.17.0.1 only, how-to-change routing doc and AGENTS.md pointer"],"decisions":["Owner 2026-11-08: no cloud speech by default; config files are the one place to change routing"],"evidence":["npm run test:gateway 20 pass; test:speech 37 pass; routes.toml parses with every project on wait"],"next_action":"After deploy: bot call on the copilot shows (copilot) in the gateway log; then remove copilot-speech-bridge","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0124","timestamp":"2026-11-08T23:07:59Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"19654360459f5de6be14c437b59f1a2c5e8aa9c8faf21a52d0f0075581d22c47","request_id":"42179784c9a943ee981c45da7d48da92","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0124"} -->
+
+Completed:
+- Gateway waits by default (no cloud), copilot agent sends project and call headers and releases its place, gateway listens on loopback and 172.17.0.1 only, how-to-change routing doc and AGENTS.md pointer
+
+Evidence:
+- npm run test:gateway 20 pass; test:speech 37 pass; routes.toml parses with every project on wait
+
+Decisions:
+- Owner 2026-11-08: no cloud speech by default; config files are the one place to change routing
+
+Changed:
+- demo/live-site/speech/gateway/routes.toml, gateway.py, tests; speech/agent.py; deploy compose files; docs/speech-gateway.md; AGENTS.md
+
+Blocked/uncertain:
+- none
+
+Next:
+- After deploy: bot call on the copilot shows (copilot) in the gateway log; then remove copilot-speech-bridge
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
