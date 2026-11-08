@@ -18,6 +18,11 @@ livekit-plugins-turn-detector==1.8.8
 aiohttp
 pocket-tts
 kokoro-onnx
-mlx-whisper
+mlx-whisper; sys_platform == 'darwin'
+# The Windows PC (multilingual stack on the RTX 4060): faster-whisper, onnxruntime-gpu 1.22 for Kokoro (CUDA 12, like torch's
+# cu128 build, whose lib folder gives both their CUDA and cuDNN DLLs), and ONNX_PROVIDER=CUDAExecutionProvider
+faster-whisper; sys_platform == 'win32'
+onnxruntime-gpu==1.22.0; sys_platform == 'win32'
+torch; sys_platform == 'win32'
 soundfile
 numpy

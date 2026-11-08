@@ -97,6 +97,52 @@ Blocked/uncertain:
 Next:
 - Merge PR #173, then nurse-screen #77 once the Pro runs it
 
+### 2026-11-08 00:18:57 UTC — claude-opus-5-5
+
+<!-- continuity:checkpoint {"agent":"claude-opus-5-5","blocked":[],"changed":["none"],"completed":["The speech server counts calls with leases and unloads when idle, and runs Whisper and Kokoro on the Windows GPU (branch feat/speech-hosts, stacked on #173, not yet a PR)."],"decisions":["no new decisions"],"evidence":["37 speech tests pass; Windows: Whisper about 0.35 s, Kokoro first audio 0.55-0.67 s, English lines only."],"next_action":"Plan the shared speech gateway here (owner, 2026-11-07: voice-agent-research owns the pipelines), then one English and one Spanish bot call through the Windows GPU.","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0124","timestamp":"2026-11-08T00:18:57Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"5d1cd6a0fa0885040acbd377c2d589da891a84d37975a1bb9a61daba004aeda2","request_id":"db460d0e1c844bf6a78f629b710ba3c7","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0124"} -->
+
+Completed:
+- The speech server counts calls with leases and unloads when idle, and runs Whisper and Kokoro on the Windows GPU (branch feat/speech-hosts, stacked on #173, not yet a PR).
+
+Evidence:
+- 37 speech tests pass; Windows: Whisper about 0.35 s, Kokoro first audio 0.55-0.67 s, English lines only.
+
+Decisions:
+- no new decisions
+
+Changed:
+- none
+
+Blocked/uncertain:
+- none
+
+Next:
+- Plan the shared speech gateway here (owner, 2026-11-07: voice-agent-research owns the pipelines), then one English and one Spanish bot call through the Windows GPU.
+
+### 2026-11-08 00:57:01 UTC — claude-opus-5-5
+
+<!-- continuity:checkpoint {"agent":"claude-opus-5-5","blocked":[],"changed":["none"],"completed":["Speech gateway PR #175 opened (stacked on #174); stale keep-alive retry fix; bot calls 1/3/5 through a test gateway split Pro/Windows/cloud as routed"],"decisions":["no new decisions"],"evidence":["PR #175 comment 6715323630; npm run test:gateway 18 OK"],"next_action":"Fix clipped first words in Spanish listening on Windows; move copilot, Maybe Home, NYC map, Precedent to the gateway after #174/#175 and server-management #157 merge","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0124","timestamp":"2026-11-08T00:57:01Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"d8bd54cfb15a28d36771a785a7c2d8b7c5d6cf87c2833db2d9f4825caf1bf931","request_id":"8742a2592bf04a91bfa87066d4a28faa","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0124"} -->
+
+Completed:
+- Speech gateway PR #175 opened (stacked on #174); stale keep-alive retry fix; bot calls 1/3/5 through a test gateway split Pro/Windows/cloud as routed
+
+Evidence:
+- PR #175 comment 6715323630; npm run test:gateway 18 OK
+
+Decisions:
+- no new decisions
+
+Changed:
+- none
+
+Blocked/uncertain:
+- none
+
+Next:
+- Fix clipped first words in Spanish listening on Windows; move copilot, Maybe Home, NYC map, Precedent to the gateway after #174/#175 and server-management #157 merge
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.

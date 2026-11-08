@@ -48,6 +48,7 @@ A pull request that changes code must also update a `README.md` (any folder's) o
 | 06 | [Phone calls: LiveKit vs Pipecat](docs/06-phone-calls.md) | Telephony patterns, SIP vs media streams, gotchas |
 | 07 | [Dictation apps](docs/07-dictation-apps.md) | Wispr Flow and its open-source alternatives |
 | 08 | [Speech model licenses](docs/08-speech-model-licenses.md) | Commercial-safe STT, TTS, translation, diarisation, LLM |
+| | [Speech gateway](docs/speech-gateway.md) | One gateway on the VPS routes every project's speech: English to the Pro, other languages to the Windows GPU, a config file to switch |
 
 ## Recommended stack (summary)
 
