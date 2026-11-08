@@ -212,6 +212,29 @@ Blocked/uncertain:
 Next:
 - After deploy: bot call on the copilot shows (copilot) in the gateway log; then remove copilot-speech-bridge
 
+### 2026-11-08 23:27:57 UTC — claude-opus-5-5
+
+<!-- continuity:checkpoint {"agent":"claude-opus-5-5","blocked":[],"changed":["gateway.py, gateway tests, deploy/docker-compose.vps.yml, deploy/vps/autodeploy.sh, deploy/README.md"],"completed":["Copilot calls on the gateway (call-d00c7a40, call-a39ed654 (copilot) -> pro); hang-up no longer marks servers down; speech-bridge removed from the copilot compose"],"decisions":["no new decisions"],"evidence":["voice-call.ts against copilot.design-bakery.com 10/10, small talk 1.1-1.2 s (1.1-1.3 s before); NYC map /api/stt 200 via the gateway; test:gateway 20 pass, new hang-up test fails without the fix"],"next_action":"After deploy remove the orphaned copilot-speech-bridge container and confirm all containers healthy","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0124","timestamp":"2026-11-08T23:27:57Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"67de4feeab8c3c8b7f661b674b8ec72b317dcf4b20b0e919045d0ecdf29846c9","request_id":"983a4cd8366e4850bc0c1956d8b31abf","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0124"} -->
+
+Completed:
+- Copilot calls on the gateway (call-d00c7a40, call-a39ed654 (copilot) -> pro); hang-up no longer marks servers down; speech-bridge removed from the copilot compose
+
+Evidence:
+- voice-call.ts against copilot.design-bakery.com 10/10, small talk 1.1-1.2 s (1.1-1.3 s before); NYC map /api/stt 200 via the gateway; test:gateway 20 pass, new hang-up test fails without the fix
+
+Decisions:
+- no new decisions
+
+Changed:
+- gateway.py, gateway tests, deploy/docker-compose.vps.yml, deploy/vps/autodeploy.sh, deploy/README.md
+
+Blocked/uncertain:
+- none
+
+Next:
+- After deploy remove the orphaned copilot-speech-bridge container and confirm all containers healthy
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
