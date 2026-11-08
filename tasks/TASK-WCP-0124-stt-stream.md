@@ -166,6 +166,29 @@ Blocked/uncertain:
 Next:
 - Owner allows port 6799 to agents in the tailnet rules; then move copilot, Maybe Home, NYC map and Precedent to the gateway
 
+### 2026-11-08 04:11:25 UTC — claude-opus-5-5
+
+<!-- continuity:checkpoint {"agent":"claude-opus-5-5","blocked":[],"changed":["none"],"completed":["Owner opened tailnet port 6799 to work-windows; Windows routes restored in PR #178"],"decisions":["no new decisions"],"evidence":["VPS gets 200 from agents:6799/health; Windows packet filter lists 6799; PR #178"],"next_action":"Confirm a Spanish call lands on Windows through the gateway; then move copilot, Maybe Home, NYC map and Precedent to the gateway","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0124","timestamp":"2026-11-08T04:11:25Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"eaa819b45b2e377ad462cbef6980e7ae49e4e57699c722e7ce269c6a0edfc350","request_id":"eae45bfa7c8c49fd9e12c1b342f1d05f","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0124"} -->
+
+Completed:
+- Owner opened tailnet port 6799 to work-windows; Windows routes restored in PR #178
+
+Evidence:
+- VPS gets 200 from agents:6799/health; Windows packet filter lists 6799; PR #178
+
+Decisions:
+- no new decisions
+
+Changed:
+- none
+
+Blocked/uncertain:
+- none
+
+Next:
+- Confirm a Spanish call lands on Windows through the gateway; then move copilot, Maybe Home, NYC map and Precedent to the gateway
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
