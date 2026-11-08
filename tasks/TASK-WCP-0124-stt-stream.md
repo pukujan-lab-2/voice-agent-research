@@ -97,6 +97,29 @@ Blocked/uncertain:
 Next:
 - Merge PR #173, then nurse-screen #77 once the Pro runs it
 
+### 2026-11-08 00:18:57 UTC — claude-opus-5-5
+
+<!-- continuity:checkpoint {"agent":"claude-opus-5-5","blocked":[],"changed":["none"],"completed":["The speech server counts calls with leases and unloads when idle, and runs Whisper and Kokoro on the Windows GPU (branch feat/speech-hosts, stacked on #173, not yet a PR)."],"decisions":["no new decisions"],"evidence":["37 speech tests pass; Windows: Whisper about 0.35 s, Kokoro first audio 0.55-0.67 s, English lines only."],"next_action":"Plan the shared speech gateway here (owner, 2026-11-07: voice-agent-research owns the pipelines), then one English and one Spanish bot call through the Windows GPU.","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0124","timestamp":"2026-11-08T00:18:57Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"5d1cd6a0fa0885040acbd377c2d589da891a84d37975a1bb9a61daba004aeda2","request_id":"db460d0e1c844bf6a78f629b710ba3c7","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0124"} -->
+
+Completed:
+- The speech server counts calls with leases and unloads when idle, and runs Whisper and Kokoro on the Windows GPU (branch feat/speech-hosts, stacked on #173, not yet a PR).
+
+Evidence:
+- 37 speech tests pass; Windows: Whisper about 0.35 s, Kokoro first audio 0.55-0.67 s, English lines only.
+
+Decisions:
+- no new decisions
+
+Changed:
+- none
+
+Blocked/uncertain:
+- none
+
+Next:
+- Plan the shared speech gateway here (owner, 2026-11-07: voice-agent-research owns the pipelines), then one English and one Spanish bot call through the Windows GPU.
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
