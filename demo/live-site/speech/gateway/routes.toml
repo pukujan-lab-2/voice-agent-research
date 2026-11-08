@@ -26,8 +26,12 @@ max_calls = 2
 # PC's multilingual stack (Whisper hears English, Kokoro speaks it in its English voice).
 
 [route]
-english-fast = ["pro", "windows:multilingual"]
-multilingual = ["windows", "pro"]         # every language but English goes to the Windows PC first
+# The Windows PC is left out until the tailnet's access rules let the VPS reach port 6799 on it (they allow only 6767
+# and 6787, 2026-11-08): every try waited 3 s for a timeout. Then put back:
+#   english-fast = ["pro", "windows:multilingual"]
+#   multilingual = ["windows", "pro"]         # every language but English goes to the Windows PC first
+english-fast = ["pro"]
+multilingual = ["pro"]
 lfm3-audio = ["pro"]
 
 # --- What a project gets when every server on its route is full, and what it loads ahead of a call (POST /warm).

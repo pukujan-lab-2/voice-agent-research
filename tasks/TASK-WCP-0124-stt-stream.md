@@ -143,6 +143,29 @@ Blocked/uncertain:
 Next:
 - Fix clipped first words in Spanish listening on Windows; move copilot, Maybe Home, NYC map, Precedent to the gateway after #174/#175 and server-management #157 merge
 
+### 2026-11-08 02:46:09 UTC — claude-opus-5-5
+
+<!-- continuity:checkpoint {"agent":"claude-opus-5-5","blocked":["tailnet access rules allow only 6767/6787 into the Windows PC, so the gateway cannot reach 6799; Spanish goes to the Pro until the owner allows 6799"],"changed":["none"],"completed":["Speech server and gateway merged as #176 (replacing #174/#175); gateway deployed on the VPS (Komodo stack speech-gateway, server-management #158); Windows RileySpeech task installed"],"decisions":["no new decisions"],"evidence":["PR #176 merged; gateway /health shows the Pro up; Windows 127.0.0.1:8799 /health 200"],"next_action":"Owner allows port 6799 to agents in the tailnet rules; then move copilot, Maybe Home, NYC map and Precedent to the gateway","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0124","timestamp":"2026-11-08T02:46:09Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"321fe9fe0d0bbae086fd6cd7e152a8c17d49595c27d1cdeb5dd279336a15c90f","request_id":"82a54e15e2d84f08aa227f0c75551e70","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0124"} -->
+
+Completed:
+- Speech server and gateway merged as #176 (replacing #174/#175); gateway deployed on the VPS (Komodo stack speech-gateway, server-management #158); Windows RileySpeech task installed
+
+Evidence:
+- PR #176 merged; gateway /health shows the Pro up; Windows 127.0.0.1:8799 /health 200
+
+Decisions:
+- no new decisions
+
+Changed:
+- none
+
+Blocked/uncertain:
+- tailnet access rules allow only 6767/6787 into the Windows PC, so the gateway cannot reach 6799; Spanish goes to the Pro until the owner allows 6799
+
+Next:
+- Owner allows port 6799 to agents in the tailnet rules; then move copilot, Maybe Home, NYC map and Precedent to the gateway
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
