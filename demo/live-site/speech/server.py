@@ -6,7 +6,9 @@
   POST /tts   {"text", "stack", "lang"}  ->  streamed 16-bit PCM at X-Sample-Rate Hz, first sound as soon as it is made
   POST /log   one JSON line per call turn (the widget's timings), appended to speech/turns.jsonl
   POST /load?stack=        swap a stack's models in (and the others' out) ahead of its first request; without call=1 it leaves a stack in use alone (stack_hold.py)
-  GET  /health             which stack is resident and what it loaded, and whether a request is in flight (inflight, idle_s)
+  POST /load?...&lease=    the same, and the call named by lease holds a place here; POST /lease?id= keeps it, POST /release?id= ends it (leases.py)
+  GET  /health             which stack is resident and what it loaded, whether a request is in flight (inflight, idle_s), and the calls
+                           holding a lease against max_calls (SPEECH_MAX_CALLS), so an agent can send a call to the server with room
 
 STT is NVIDIA Parakeet TDT 0.6B v2 (CC-BY-4.0, sherpa-onnx int8; docs/decisions/0002): about 0.4-1 s for a sentence
 on an M1, against 3-4 s for faster-whisper small.en, which pads every clip to 30 s. TTS is Kyutai's Pocket TTS (CPU, streams its first audio in about 0.2-0.5 s);
@@ -33,6 +35,7 @@ import numpy as np
 import soundfile as sf
 
 from activity import Activity
+from leases import Leases
 import stt_stream
 from stack_hold import DEFAULT_HOLD_S, StackHold
 from voice_config import STACKS
@@ -40,12 +43,17 @@ from voice_config import STACKS
 HERE = os.path.dirname(os.path.abspath(__file__))
 MODELS = os.path.join(HERE, 'models')
 PARAKEET = os.path.join(MODELS, 'sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8')
-WHISPER = os.environ.get('WHISPER_MODEL', 'mlx-community/whisper-large-v3-turbo')
+# mlx-whisper on a Mac; elsewhere faster-whisper on CUDA (the Windows PC's RTX 4060: 297 ms a turn, docs/scaling-limits.md)
+WHISPER = os.environ.get('WHISPER_MODEL', 'mlx-community/whisper-large-v3-turbo' if sys.platform == 'darwin' else 'large-v3-turbo')
 LFM3_AUDIO = os.path.join(MODELS, 'lfm3-audio')
 LFM3_AUDIO_PORT = int(os.environ.get('LFM3_AUDIO_PORT', 8798))
 LFM3_AUDIO_URL = os.environ.get('LFM3_AUDIO_URL', '')  # a llama.cpp server already running; left out, one is started from models/lfm3-audio
 DEVICE = os.environ.get('SPEECH_DEVICE', 'cpu')  # where Pocket TTS runs: cpu, or cuda on a machine with an NVIDIA GPU
 ACTIVITY = Activity()  # deploy/pro/update.sh asks /health before it restarts this server (#76)
+LEASES = Leases()  # the calls using this server, so an agent with several servers sends a call where there is room (leases.py)
+MAX_CALLS = int(os.environ.get('SPEECH_MAX_CALLS', 2))
+# Unload every model after this many idle seconds with no call holding a lease; 0 leaves it to the machine (the Pro's speech-idle.sh)
+IDLE_UNLOAD_S = float(os.environ.get('SPEECH_IDLE_UNLOAD_S', 0))
 
 
 def log(*a):
@@ -83,17 +91,45 @@ class Stt:
 
 
 class WhisperStt:
-    """Whisper large-v3-turbo on Apple's GPU. Told the caller's language when they picked one; otherwise it says which it heard."""
+    """Whisper large-v3-turbo on Apple's GPU, or on an NVIDIA GPU through faster-whisper. Told the caller's language when they
+    picked one; otherwise it says which it heard."""
 
     def __init__(self):
-        import mlx_whisper
-        self.mw = mlx_whisper
         self.lock = threading.Lock()
         self.confidence: float | None = None  # Whisper gives none per turn
+        try:
+            import mlx_whisper
+            self.mw, self.fw = mlx_whisper, None
+        except ImportError:
+            self.mw, self.fw = None, self._faster()
         with self.lock:
-            self.mw.transcribe(np.zeros(16000, 'float32'), path_or_hf_repo=WHISPER, language='en')
+            self._run(np.zeros(16000, 'float32'), 'en')
+
+    @staticmethod
+    def _faster():
+        if sys.platform == 'win32':
+            # CTranslate2 needs cuBLAS and cuDNN; the venv's torch carries both in its lib folder
+            with contextlib.suppress(ImportError):
+                import torch
+                os.add_dll_directory(os.path.join(os.path.dirname(torch.__file__), 'lib'))
+        from faster_whisper import WhisperModel
+        # float16: no word misheard of the 13 test lines; int8_float16 saves 1 GB of VRAM and got one wrong
+        return WhisperModel(WHISPER, device='cuda', compute_type=os.environ.get('WHISPER_COMPUTE', 'float16'))
+
+    def _run(self, audio: np.ndarray, lang: str | None) -> tuple[str, str]:
+        if self.fw is not None:
+            segs, info = self.fw.transcribe(audio, language=lang or None, beam_size=1, vad_filter=False,
+                                            condition_on_previous_text=False, temperature=0.0)
+            return ' '.join(s.text.strip() for s in segs).strip(), str(info.language or lang or '')
+        r = self.mw.transcribe(audio, path_or_hf_repo=WHISPER, language=lang or None,
+                               condition_on_previous_text=False, temperature=0.0)
+        return str(r.get('text', '')).strip(), str(r.get('language') or lang or '')
 
     def close(self) -> None:
+        if self.fw is not None:
+            self.fw = None
+            gc.collect()
+            return
         # mlx_whisper keeps the loaded model on a class, and MLX keeps freed GPU buffers cached: drop both. (The package's
         # `transcribe` is the function, which hides the module of that name, so the module comes from sys.modules.)
         holder = getattr(sys.modules.get('mlx_whisper.transcribe'), 'ModelHolder', None)
@@ -108,9 +144,7 @@ class WhisperStt:
         if sr != 16000:
             audio = np.interp(np.arange(0, len(audio), sr / 16000), np.arange(len(audio)), audio).astype('float32')
         with self.lock:
-            r = self.mw.transcribe(audio.astype('float32'), path_or_hf_repo=WHISPER, language=lang or None,
-                                   condition_on_previous_text=False, temperature=0.0)
-        return str(r.get('text', '')).strip(), str(r.get('language') or lang or '')
+            return self._run(audio.astype('float32'), lang)
 
 
 class PocketTts:
@@ -134,6 +168,10 @@ class PocketTts:
 
 class KokoroTts:
     def __init__(self, voice: str):
+        if sys.platform == 'win32':
+            # onnxruntime-gpu (ONNX_PROVIDER=CUDAExecutionProvider on the Windows PC) finds CUDA and cuDNN through torch's lib folder
+            with contextlib.suppress(ImportError):
+                import torch  # noqa: F401
         from kokoro_onnx import Kokoro
         d = os.path.join(MODELS, 'kokoro')
         self.k = Kokoro(os.path.join(d, 'kokoro-v1.0.onnx'), os.path.join(d, 'voices-v1.0.bin'))
@@ -380,6 +418,20 @@ class Stacks:
                 self.hold.used(stack)
                 self.cond.notify_all()
 
+    def unload_all(self) -> list[str]:
+        """Drop every model when nothing is running on them (the idle unload); the next request loads its stack again."""
+        with self.cond:
+            if any(self.busy.values()) or not self.made:
+                return []
+            gone = list(self.made)
+            for n in gone:
+                with contextlib.suppress(Exception):
+                    self.made[n].close()  # type: ignore[attr-defined]
+            self.made.clear()
+            self.active = None
+        gc.collect()
+        return gone
+
     def held_by(self, stack: str) -> str | None:
         """The resident stack a keep-warm load of `stack` must leave alone, or None (stack_hold.py)."""
         stack = stack if stack in STACKS['stacks'] else STACKS['default']
@@ -431,10 +483,11 @@ def handler(stacks: Stacks, turns_path: str):
                 with ACTIVITY.request():
                     stt_stream.serve(self, stacks, dict(p.split('=', 1) for p in query.split('&') if '=' in p), log)
                 return
-            if self.path == '/health':
+            if path == '/health':
                 parts = STACKS['stacks'][stacks.active or STACKS['default']]
                 return self.json(200, {'ok': True, 'stt': parts['listens'], 'tts': parts['speaks'], 'rate': 24000, 'active': stacks.active,
                                        'loaded': sorted(stacks.made), 'last_swap': stacks.last_swap,
+                                       'calls': LEASES.count(), 'calls_by_stack': LEASES.by_stack(), 'max_calls': MAX_CALLS,
                                        'rates': {'kokoro': 24000, 'pocket-tts': 24000, 'lfm3-audio': 24000}, **ACTIVITY.snapshot()})
             self.json(404, {'error': 'not found'})
 
@@ -473,7 +526,14 @@ def handler(stacks: Stacks, turns_path: str):
                     return self.json(200, {'ok': True, 'stack': held, 'held': True, 'loaded': sorted(stacks.made), 'ms': 0, 'swap': {}})
                 with stacks.use(q.get('stack', '')) as stack:
                     pass
+                if q.get('lease'):  # the call that asked holds a place here until it releases it (leases.py)
+                    LEASES.take(q['lease'], stack)
                 return self.json(200, {'ok': True, 'stack': stack, 'loaded': sorted(stacks.made), 'ms': round((time.time() - t) * 1000), 'swap': stacks.last_swap})
+            if path == '/lease':
+                return self.json(200, {'ok': LEASES.keep(q.get('id', '')), 'calls': LEASES.count()})
+            if path == '/release':
+                LEASES.release(q.get('id', ''))
+                return self.json(200, {'ok': True, 'calls': LEASES.count()})
             if path == '/tts':
                 try:
                     b = json.loads(self.body() or b'{}')
@@ -523,6 +583,18 @@ def handler(stacks: Stacks, turns_path: str):
     return H
 
 
+def idle_unload(stacks: Stacks) -> None:
+    """Frees the models' memory on a shared machine (the Windows PC runs its owner's own work too) once no call has used them for
+    IDLE_UNLOAD_S. The agent loads its stack again when a call starts or the site is opened (POST /load)."""
+    while True:
+        time.sleep(15)
+        snap = ACTIVITY.snapshot()
+        if not snap['inflight'] and snap['idle_s'] >= IDLE_UNLOAD_S and not LEASES.count():
+            gone = stacks.unload_all()
+            if gone:
+                log(f'idle {snap["idle_s"]:.0f} s: unloaded {gone}')
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--port', type=int, default=int(os.environ.get('SPEECH_PORT', 8799)))
@@ -536,6 +608,8 @@ def main():
         with stacks.use(a.stack):
             pass
         log(f'{stacks.active} ready in {time.time() - t:.1f} s')
+    if IDLE_UNLOAD_S:
+        threading.Thread(target=idle_unload, args=(stacks,), daemon=True).start()
     srv = ThreadingHTTPServer(('127.0.0.1', a.port), handler(stacks, os.path.join(HERE, 'turns.jsonl')))
     log(f'speech on http://127.0.0.1:{a.port}')
     srv.serve_forever()

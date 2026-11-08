@@ -26,3 +26,4 @@ One file per decision. A decision changes only through a new file that replaces 
 | 0020 | [The assistant is honest that it's an AI](0020-honest-that-it-is-an-ai.md) | 2026-11-02 |
 | 0021 | [Each adopter owns a workspace; the factory owns the code and the registry](0021-adopters-own-a-workspace.md) | 2026-11-04 |
 | 0022 | [A common core and three model lanes, each tested on its own, on LiveKit Agents tasks](0022-model-lanes-on-livekit-tasks.md) | 2026-11-05 |
+| 0023 | [One speech gateway serves every live call](0023-one-speech-gateway.md) | 2026-11-07 |

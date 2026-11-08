@@ -1,0 +1,18 @@
+# Komodo stack speech-gateway on the VPS (server-management komodo/resources/stacks-vps.toml), run from the copilot's
+# checkout at production (~/apps/copilot), which every copilot deploy moves. docs/speech-gateway.md.
+services:
+  gateway:
+    build: .
+    image: speech-gateway:local
+    container_name: speech-gateway
+    # Host networking: it reaches the Pro's tunnel on 127.0.0.1:18799 and the Windows PC over the host's tailnet, and listens
+    # on loopback and the docker bridges (routes.toml [listen]), never a public address.
+    network_mode: host
+    restart: unless-stopped
+    volumes:
+      - ../../demo/live-site/speech/gateway:/gateway:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:18800/routes', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
