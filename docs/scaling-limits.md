@@ -63,3 +63,37 @@ A business's copilot config (its pages, voice stacks, desk and manual settings) 
 Store a config with `npm run site-config -- put <business> <file.json>` in `demo/live-site` (it uses the Octo key the server uses). A page can mount with only `{ business, remote: true }` and take the rest from `GET /api/copilot/config?business=`; what the page passes wins.
 
 Known limit: the config endpoint is public by design (it holds what the page already shows), so it must never hold a secret. Writing a config needs the Octo key, which only the owner has.
+
+## Calls at once on one speech server (measured 2026-11-07)
+
+The speech server (`demo/live-site/speech/server.py`) runs one listening, one Parakeet and one Pocket TTS job at a time; each holds a lock. Simulated calls, each turn about 4 s of speech and a reply of over 120 characters, first audio of the reply after the turn's text:
+
+| Calls at once | Pro (M1, 16 GB) p50 / p90 | Windows, RTX 4060 p50 / p90 | Windows, CPU p50 / p90 |
+|---|---|---|---|
+| 1 | 83 / 90 ms | 219 / 244 ms | 357 / 387 ms |
+| 2 | 102 / 1,415 ms | 259 / 2,031 ms | 334 / 1,857 ms |
+| 4 | 847 / 2,569 ms | 1,944 / 4,522 ms | 8,377 / 9,952 ms |
+| 6 | 1,452 / 3,602 ms | not run | not run |
+
+One server is comfortable for one or two calls. Past that, callers wait on the voice lock. The Windows laptop is slower even with Pocket TTS on its GPU (`SPEECH_DEVICE=cuda`): its Parakeet decode took about 520 ms against the Pro's 175 ms. The cloud stack (Deepgram, Cartesia, Claude) stayed flat from 1 to 8 calls at about 2.1 s median from the caller's last word to Riley's first audio.
+
+`GET /stt/stream` (in `stt_stream.py`) takes the caller's audio over a WebSocket while they talk. The agent's VAD sends `decode` on a 0.1 s pause and `end` when the turn ends; when nothing was said after the pause, the pause's transcript is the final one and comes back at once (12 ms against about 175 ms for a `/stt` upload). It is still Parakeet on the whole turn, not a streaming model, so it adds a decode per pause and doesn't raise how many calls one server takes.
+
+Riley's screen end to end (bot caller on the VPS worker, Pro speech only, the caller's last word to Riley's first audio):
+
+| | 1 call median / p90 | 3 calls median / p90 |
+|---|---|---|
+| `POST /stt` per utterance | 2.51 / 2.89 s | 2.38 / 3.18 s |
+| `/stt/stream` | 2.22 / 2.48 s | 2.20 / 2.76 s |
+
+Every turn's final came from its pause transcript. The slowest turn (about 9 s) is the same in both: it's the screen's long knockout reply, not listening. About 1 in 13 turns came back empty in both, which is Parakeet missing a lone short word ("Yes."); Whisper heard it.
+
+The other stacks on the same Pro, the knockout caller's 13 lines, one at a time:
+
+| Stack | Listens, per turn | Speaks, first audio | Misheard |
+|---|---|---|---|
+| `english-fast` (Parakeet + Pocket TTS) | median 116 ms, max 208 ms | 100–180 ms | "Yes." empty, "In the ICU" as "and the ICU" |
+| `multilingual` (Whisper large-v3-turbo + Kokoro) | median 1,386 ms, max 1,450 ms | 340–1,410 ms | none of the 13 ("Fifty" as "50") |
+| Whisper large-v3-turbo on the Windows RTX 4060 (faster-whisper, float16) | median 297 ms, max 344 ms; 3 at once 889 ms each | not run | none of the 13 |
+
+On the RTX 4060 the same Whisper is about 4.7 times faster than on the M1 and hears the same words; it uses 3.2 GB of the 8 GB of VRAM (2.2 GB at int8_float16, 275 ms median, one word worse). Three calls at once share the GPU one turn at a time, so each turn takes about three times as long. The Windows server doesn't run Whisper yet; this was faster-whisper on its own. On the M1, Whisper's 1.4 s is mostly after the turn ends, so streaming hides only about 0.2 s of it. Switching a server between stacks takes 4.5 s (to Whisper) and 11 s (back to Parakeet and Pocket TTS), and only one is resident at a time.

@@ -1,5 +1,6 @@
 """The copilot's own speech: speech-to-text and text-to-speech on this machine, open models only, no audio leaves it.
 
+  GET  /stt/stream?stack=&lang=&sr=   WebSocket: the caller's audio while they talk, the turn's text when it ends (stt_stream.py)
   POST /stt?stack=&lang=   (used by speech/agent.py) body: 16 kHz mono float32 PCM (application/octet-stream) or a WAV
               file  ->  {"text", "language", "ms"}; lang is the caller's pick, left out to let the recogniser tell
   POST /tts   {"text", "stack", "lang"}  ->  streamed 16-bit PCM at X-Sample-Rate Hz, first sound as soon as it is made
@@ -32,6 +33,7 @@ import numpy as np
 import soundfile as sf
 
 from activity import Activity
+import stt_stream
 from stack_hold import DEFAULT_HOLD_S, StackHold
 from voice_config import STACKS
 
@@ -42,6 +44,7 @@ WHISPER = os.environ.get('WHISPER_MODEL', 'mlx-community/whisper-large-v3-turbo'
 LFM3_AUDIO = os.path.join(MODELS, 'lfm3-audio')
 LFM3_AUDIO_PORT = int(os.environ.get('LFM3_AUDIO_PORT', 8798))
 LFM3_AUDIO_URL = os.environ.get('LFM3_AUDIO_URL', '')  # a llama.cpp server already running; left out, one is started from models/lfm3-audio
+DEVICE = os.environ.get('SPEECH_DEVICE', 'cpu')  # where Pocket TTS runs: cpu, or cuda on a machine with an NVIDIA GPU
 ACTIVITY = Activity()  # deploy/pro/update.sh asks /health before it restarts this server (#76)
 
 
@@ -114,6 +117,8 @@ class PocketTts:
     def __init__(self, voice: str):
         from pocket_tts import TTSModel
         self.model = TTSModel.load_model()
+        if DEVICE != 'cpu':  # a CUDA GPU, on a machine that has one
+            self.model = self.model.to(DEVICE)
         self.voice = self.model.get_state_for_audio_prompt(voice)
         self.rate = self.model.sample_rate
         self.lock = threading.Lock()
@@ -124,7 +129,7 @@ class PocketTts:
     def stream(self, text: str, stop: threading.Event, lang: str = 'en'):
         with self.lock:
             for chunk in self.model.generate_audio_stream(self.voice, text, stop=stop):
-                yield chunk.numpy()
+                yield chunk.cpu().numpy()
 
 
 class KokoroTts:
@@ -418,6 +423,14 @@ def handler(stacks: Stacks, turns_path: str):
             self.wfile.write(b)
 
         def do_GET(self):
+            path, _, query = self.path.partition('?')
+            if path == '/stt/stream':
+                if not stt_stream.accept(self):
+                    return self.json(400, {'error': 'websocket upgrade expected'})
+                self.close_connection = True
+                with ACTIVITY.request():
+                    stt_stream.serve(self, stacks, dict(p.split('=', 1) for p in query.split('&') if '=' in p), log)
+                return
             if self.path == '/health':
                 parts = STACKS['stacks'][stacks.active or STACKS['default']]
                 return self.json(200, {'ok': True, 'stt': parts['listens'], 'tts': parts['speaks'], 'rate': 24000, 'active': stacks.active,
