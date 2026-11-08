@@ -120,6 +120,29 @@ Blocked/uncertain:
 Next:
 - Plan the shared speech gateway here (owner, 2026-11-07: voice-agent-research owns the pipelines), then one English and one Spanish bot call through the Windows GPU.
 
+### 2026-11-08 00:57:01 UTC — claude-opus-5-5
+
+<!-- continuity:checkpoint {"agent":"claude-opus-5-5","blocked":[],"changed":["none"],"completed":["Speech gateway PR #175 opened (stacked on #174); stale keep-alive retry fix; bot calls 1/3/5 through a test gateway split Pro/Windows/cloud as routed"],"decisions":["no new decisions"],"evidence":["PR #175 comment 6715323630; npm run test:gateway 18 OK"],"next_action":"Fix clipped first words in Spanish listening on Windows; move copilot, Maybe Home, NYC map, Precedent to the gateway after #174/#175 and server-management #157 merge","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0124","timestamp":"2026-11-08T00:57:01Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"d8bd54cfb15a28d36771a785a7c2d8b7c5d6cf87c2833db2d9f4825caf1bf931","request_id":"8742a2592bf04a91bfa87066d4a28faa","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0124"} -->
+
+Completed:
+- Speech gateway PR #175 opened (stacked on #174); stale keep-alive retry fix; bot calls 1/3/5 through a test gateway split Pro/Windows/cloud as routed
+
+Evidence:
+- PR #175 comment 6715323630; npm run test:gateway 18 OK
+
+Decisions:
+- no new decisions
+
+Changed:
+- none
+
+Blocked/uncertain:
+- none
+
+Next:
+- Fix clipped first words in Spanish listening on Windows; move copilot, Maybe Home, NYC map, Precedent to the gateway after #174/#175 and server-management #157 merge
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.

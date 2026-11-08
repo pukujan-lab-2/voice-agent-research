@@ -1,0 +1,56 @@
+# Where every project's speech goes (docs/speech-gateway.md). Edit, merge to main, and the gateway picks it up without a
+# restart; a file that doesn't parse is refused and the last good one stays (GET /routes shows the live one).
+
+idle_s = 90  # a call the gateway hasn't heard from this long gives its place back
+
+[listen]
+# 127.0.0.1 for host processes (Precedent); the docker bridges for project containers (host.docker.internal is
+# 172.17.0.1; Maybe Home's network is pinned to 192.168.16.0/20). No public address.
+addresses = ["127.0.0.1:18800", "172.17.0.1:18800", "192.168.16.1:18800"]
+
+# --- The speech servers. A new GPU box is one more block; max_calls goes up when a server runs more model copies.
+
+[[host]]
+name = "pro"                              # MacBook Pro M1, through its reverse tunnel
+url = "http://127.0.0.1:18799"
+stacks = ["english-fast", "multilingual", "lfm3-audio"]
+max_calls = 2                             # docs/scaling-limits.md: callers wait on the model locks past two
+
+[[host]]
+name = "windows"                          # the Windows PC's RTX 4060, over the tailnet (owner, 2026-11-07)
+url = "http://agents.tail7065c3.ts.net:6799"
+stacks = ["multilingual"]
+max_calls = 2
+
+# --- Which server each stack tries, in order. "host:stack" runs another stack there: English overflows to the Windows
+# PC's multilingual stack (Whisper hears English, Kokoro speaks it in its English voice).
+
+[route]
+english-fast = ["pro", "windows:multilingual"]
+multilingual = ["windows", "pro"]         # every language but English goes to the Windows PC first
+lfm3-audio = ["pro"]
+
+# --- What a project gets when every server on its route is full, and what it loads ahead of a call (POST /warm).
+#     when_full = "cloud": answer 503 at once; the project's own fallback (Riley's Deepgram and Cartesia) takes it.
+#     when_full = "wait":  hold the request up to wait_s for a place, then 503.
+
+[defaults]
+when_full = "cloud"
+wait_s = 8
+warm = ["english-fast"]
+stack = "english-fast"                    # for a request that names none (Precedent)
+
+[project.riley]
+warm = ["english-fast", "multilingual"]
+
+[project.copilot]                         # also the Design Bakery live call, which uses this agent
+when_full = "wait"                        # open models only (decision 0001): no cloud to fall back on
+
+[project.maybehome]
+when_full = "wait"
+warm = ["english-fast", "multilingual"]
+
+[project.nyc-map]
+stack = "multilingual"
+
+[project.precedent]
