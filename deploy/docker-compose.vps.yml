@@ -35,7 +35,7 @@ services:
       # this server from its own origin (the call's signalling and its token), so it is named here; without it the gate
       # answers 403 and every call from that site drops at once. Other sites need a site key.
       SITE_ORIGINS: ${SITE_ORIGINS:-https://copilot.design-bakery.com,https://www.design-bakery.com,https://design-bakery.com}
-      SPEECH_URL: http://host.docker.internal:18799
+      SPEECH_URL: http://host.docker.internal:18800  # the speech gateway (docs/speech-gateway.md); here it only says "don't start one"
       LLAMA_URL: http://host.docker.internal:18099
       LFM3_AUDIO_URL: http://host.docker.internal:18798
       # The voice agent sleeps between calls; the site wakes it through the VPS's one Sablier (demo/live-site/sablier.ts).

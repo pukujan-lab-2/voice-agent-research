@@ -4,6 +4,8 @@
 
 Read [PROJECT.md](PROJECT.md) for what the product is and its fixed rules, and [docs/decisions/](docs/decisions/README.md) for what is decided. Run `npm run check` before every commit. Stage files by name; other sessions may be editing the same checkout.
 
+Speech routing and fallbacks for every project's live calls are changed only in config: `demo/live-site/speech/gateway/routes.toml` and Riley's `screen.yaml` chains ([docs/speech-gateway.md](docs/speech-gateway.md#how-to-change-routing-or-fallbacks), "How to change routing or fallbacks"). Change them only when the user asks; never switch cloud speech on by yourself.
+
 ## Start
 
 Read PROJECT → CURRENT → active TASK → minimum relevant spec before editing.

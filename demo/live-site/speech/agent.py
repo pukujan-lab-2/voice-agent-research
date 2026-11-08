@@ -42,6 +42,13 @@ from telemetry import CallTelemetry
 from voice_config import STACKS
 
 SPEECH = os.environ.get('SPEECH_URL', 'http://127.0.0.1:8799')
+# On the VPS SPEECH_URL is the speech gateway (docs/speech-gateway.md): every speech request names the project and the call, so
+# the whole call stays on one server, and the call's place is released when it ends. A plain speech server ignores the headers.
+SPEECH_PROJECT = os.environ.get('SPEECH_PROJECT', 'copilot')
+
+
+def speech_headers(room: str) -> dict[str, str]:
+    return {'X-Speech-Project': SPEECH_PROJECT, 'X-Speech-Call': room}
 # On the VPS the agent sleeps between calls (#117): the shared Sablier stops it after 10 idle minutes and the site starts it when
 # the call button is pressed. Sablier counts it as ready once the container is healthy, which is once this file exists
 # (deploy/docker-compose.agent.yml mounts its directory as a tmpfs, so every start begins without it). Without SABLIER_URL (a
@@ -332,7 +339,7 @@ def voice_parts(http: aiohttp.ClientSession, voice: Voice, rates: dict) -> tuple
 async def entrypoint(ctx: JobContext):
     await ctx.connect()
     caller = await ctx.wait_for_participant()
-    http = aiohttp.ClientSession()
+    http = aiohttp.ClientSession(headers=speech_headers(ctx.room.name))
     if SABLIER_URL and SABLIER_NAME:
         awake = asyncio.create_task(keep_awake(http))
 
@@ -465,7 +472,14 @@ async def entrypoint(ctx: JobContext):
             tel.stack['language'] = voice.picked or 'heard'  # the call's record says the language it ended in
             print('language', voice.picked or 'heard', flush=True)
 
-    ctx.add_shutdown_callback(http.close)
+    async def _release_and_close(_reason: str = ''):
+        # One callback, release first: LiveKit runs shutdown callbacks at the same time, so a separate close could cut it off
+        with contextlib.suppress(Exception):
+            async with http.post(f'{SPEECH}/release', timeout=aiohttp.ClientTimeout(total=5)):
+                pass
+        await http.close()
+
+    ctx.add_shutdown_callback(_release_and_close)
 
     async def _sent(reason: str):
         print('job shutdown:', reason or '-', '| session:', closed.get('reason', 'still open'), '| user', session.user_state, '| agent', session.agent_state, flush=True)

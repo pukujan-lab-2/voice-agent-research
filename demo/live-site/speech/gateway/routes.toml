@@ -1,12 +1,13 @@
-# Where every project's speech goes (docs/speech-gateway.md). Edit, merge to main, and the gateway picks it up without a
-# restart; a file that doesn't parse is refused and the last good one stays (GET /routes shows the live one).
+# Where every project's speech goes (docs/speech-gateway.md, "How to change routing or fallbacks"). Edit, merge to main,
+# and the gateway picks it up without a restart ([listen] needs one); a file that doesn't parse is refused and the last
+# good one stays (GET /routes shows the live one). Change it only when the owner asks; never switch cloud speech on alone.
 
 idle_s = 90  # a call the gateway hasn't heard from this long gives its place back
 
 [listen]
-# 127.0.0.1 for host processes (Precedent); the docker bridges for project containers (host.docker.internal is
-# 172.17.0.1; Maybe Home's network is pinned to 192.168.16.0/20). No public address.
-addresses = ["127.0.0.1:18800", "172.17.0.1:18800", "192.168.16.1:18800"]
+# 127.0.0.1 for host processes (Precedent); 172.17.0.1 (host.docker.internal) for every project container, whatever its
+# network. No public address. A change here takes a gateway restart.
+addresses = ["127.0.0.1:18800", "172.17.0.1:18800"]
 
 # --- The speech servers. A new GPU box is one more block; max_calls goes up when a server runs more model copies.
 
@@ -31,23 +32,26 @@ multilingual = ["windows", "pro"]         # every language but English goes to t
 lfm3-audio = ["pro"]
 
 # --- What a project gets when every server on its route is full, and what it loads ahead of a call (POST /warm).
-#     when_full = "cloud": answer 503 at once; the project's own fallback (Riley's Deepgram and Cartesia) takes it.
-#     when_full = "wait":  hold the request up to wait_s for a place, then 503.
+#     when_full = "wait":  hold the request up to wait_s for a place, then 503 (owner, 2026-11-08: nobody falls to the
+#                          cloud by default; no project's active chain has a cloud voice).
+#     when_full = "cloud": answer 503 at once, so the project's own cloud fallback takes the call. Costs money: use it
+#                          only with a cloud entry switched back on in that project's chain (Riley's screen.yaml).
 
 [defaults]
-when_full = "cloud"
+when_full = "wait"
 wait_s = 8
 warm = ["english-fast"]
 stack = "english-fast"                    # for a request that names none (Precedent)
 
 [project.riley]
 warm = ["english-fast", "multilingual"]
+# when_full = "cloud"                     # costs money: Deepgram and Cartesia, with them uncommented in screen.yaml
 
-[project.copilot]                         # also the Design Bakery live call, which uses this agent
-when_full = "wait"                        # open models only (decision 0001): no cloud to fall back on
+[project.copilot]                         # open models only (decision 0001): no cloud to fall back on
+
+[project.design-bakery]                   # the Design Bakery live call (Pukujan/design-bakery voice-agent/)
 
 [project.maybehome]
-when_full = "wait"
 warm = ["english-fast", "multilingual"]
 
 [project.nyc-map]
