@@ -224,6 +224,11 @@ class Gateway:
         if path == '/warm':
             asyncio.ensure_future(self.warm(routes, request.query.get('project', project)))
             return web.json_response({'ok': True}, status=202)
+        if path == '/place':  # where the call would go, taken now without loading anything (the client's room check)
+            got = await self.place_or_wait(routes, request.query.get('stack') or routes.project(project)['stack'], call, project)
+            if not got:
+                return web.json_response({'error': 'no_room'}, status=503)
+            return web.json_response({'ok': True, 'host': got[0], 'stack': got[1]})
         if path == '/lease':  # the call's place is the gateway's: keep it here
             k = request.query.get('id') or call
             if k in self.pins:
@@ -258,7 +263,7 @@ class Gateway:
             url = routes.hosts[host].url + path
             try:
                 if path == '/stt/stream':
-                    return await self.websocket(request, url, query)
+                    return await self.websocket(request, url, query, routes, (stack, call, project), host, there)
                 return await self.forward(request, url, query, data)
             except (aiohttp.ClientConnectionError, TimeoutError) as e:
                 log(f'{host} unreachable ({type(e).__name__}): passed over for {DOWN_S} s')
@@ -277,22 +282,51 @@ class Gateway:
                 await out.write_eof()
             return out
 
-    async def websocket(self, request: web.Request, url: str, query: dict) -> web.WebSocketResponse:
+    async def websocket(self, request: web.Request, url: str, query: dict, routes: Routes, who: tuple, host: str,
+                        there: str) -> web.WebSocketResponse:
+        """The listening stream, both ways. The client names the stack in its decode and end messages too: those are
+        rewritten to the stack it runs on this host, and a new stack (the caller picked Spanish) places the call again.
+        If that moves it to another host the stream is closed, and the client opens a new one, which lands there."""
+        stack, call, project = who
         http = await self.session()
         up = await http.ws_connect(url.replace('http', 'ws', 1), params=query, heartbeat=20)
         down = web.WebSocketResponse(heartbeat=20)
         await down.prepare(request)
 
-        async def pump(src, dst):
-            async for msg in src:
+        async def outbound():
+            nonlocal stack, there
+            async for msg in down:
                 if msg.type == aiohttp.WSMsgType.BINARY:
-                    await dst.send_bytes(msg.data)
+                    await up.send_bytes(msg.data)
                 elif msg.type == aiohttp.WSMsgType.TEXT:
-                    await dst.send_str(msg.data)
+                    try:
+                        m = json.loads(msg.data)
+                    except ValueError:
+                        m = None
+                    if isinstance(m, dict) and m.get('stack'):
+                        if m['stack'] != stack:
+                            got = self.place(routes, m['stack'], call, project)
+                            if not got or got[0] != host:
+                                break  # the call moved: close, and the client's next stream goes to its new host
+                            stack, there = m['stack'], got[1]
+                        await up.send_str(json.dumps({**m, 'stack': there}))
+                    else:
+                        await up.send_str(msg.data)
                 else:
                     break
-            await dst.close()
-        await asyncio.gather(pump(down, up), pump(up, down), return_exceptions=True)
+            await up.close()
+
+        async def inbound():
+            async for msg in up:
+                if msg.type == aiohttp.WSMsgType.TEXT:
+                    await down.send_str(msg.data)
+                elif msg.type == aiohttp.WSMsgType.BINARY:
+                    await down.send_bytes(msg.data)
+                else:
+                    break
+            await down.close()
+        await asyncio.gather(outbound(), inbound(), return_exceptions=True)
+        await down.close()
         return down
 
     async def health(self, routes: Routes, call: str | None) -> web.Response:

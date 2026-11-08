@@ -27,6 +27,7 @@ graph TD
 |---|---|
 | Carries `X-Speech-Call: <room>` | Pinned: the whole call stays on one server. A new stack (the caller picked Spanish) moves it along the new stack's route. |
 | No call id | The first server for its stack with room, not pinned. |
+| `POST /place?stack=` | Takes the call's place now and says which server, without loading anything; 503 when there is no room. A client checks this at call start to know at once whether to use its fallback. |
 | `POST /lease?id=<room>` | Keeps the call's place without speech. A call silent for `idle_s` (90 s) gives its place back. |
 | `POST /release` | Frees the call's place at once (send it when the call ends). |
 | `POST /warm?project=<name>` | Loads the project's `warm` stacks on their first servers ahead of a call; answers at once. |

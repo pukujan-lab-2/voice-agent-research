@@ -61,8 +61,10 @@ async def fake(name: str, got: list):
         await ws.prepare(r)
         got.append((name, '/stt/stream', r.query.get('stack')))
         async for msg in ws:
+            if msg.type == web.WSMsgType.TEXT:  # a decode or end message: say which stack it asked for
+                await ws.send_str(json.dumps({'final': name, 'stack': json.loads(msg.data)['stack']}))
+                continue
             await ws.send_str(json.dumps({'final': f'{name}:{len(msg.data)}'}))
-            break
         await ws.close()
         return ws
     app = web.Application()
@@ -208,6 +210,28 @@ class GatewayTest(unittest.IsolatedAsyncioTestCase):
             msg = await ws.receive()
             self.assertEqual(json.loads(msg.data), {'final': 'windows:640'})
         self.assertIn(('windows', '/stt/stream', 'multilingual'), self.got)
+
+    async def test_place_takes_a_place_without_loading(self):
+        r = await self.client.post('/place?stack=multilingual', headers={'X-Speech-Call': 'a'})
+        self.assertEqual(await r.json(), {'ok': True, 'host': 'windows', 'stack': 'multilingual'})
+        self.assertEqual(self.got, [])
+        self.assertEqual(self.gw.pins['a'].host, 'windows')
+
+    async def test_the_stack_inside_listening_messages_is_the_one_it_runs_there(self):
+        await self.say('a', 'english-fast')
+        await self.say('b', 'english-fast')  # the Pro is full: call c overflows to Windows' multilingual stack
+        async with self.client.ws_connect('/stt/stream?stack=english-fast&lang=en&sr=16000',
+                                          headers={'X-Speech-Call': 'c'}) as ws:
+            await ws.send_str(json.dumps({'type': 'end', 'speech_end': 0, 'stack': 'english-fast', 'lang': 'en'}))
+            self.assertEqual(json.loads((await ws.receive()).data), {'final': 'windows', 'stack': 'multilingual'})
+
+    async def test_a_listening_stream_closes_when_its_call_moves(self):
+        async with self.client.ws_connect('/stt/stream?stack=english-fast&lang=en&sr=16000',
+                                          headers={'X-Speech-Call': 'a'}) as ws:
+            await ws.send_str(json.dumps({'type': 'decode', 'stack': 'multilingual', 'lang': 'es'}))
+            msg = await ws.receive()
+            self.assertIn(msg.type, (web.WSMsgType.CLOSE, web.WSMsgType.CLOSED, web.WSMsgType.CLOSING))
+        self.assertEqual(self.gw.pins['a'].host, 'windows', 'the next stream opens on the Windows PC')
 
 
 if __name__ == '__main__':
