@@ -28,7 +28,7 @@ REPO_DIR="$(cd "$DEPLOY_DIR/.." && pwd)"
 . "$DEPLOY_DIR/vps/lib.sh"
 OWNER="$(stat -c %U "$REPO_DIR" 2>/dev/null || stat -f %Su "$REPO_DIR")"  # GNU stat on the VPS, BSD stat on a Mac
 COMPOSE=(docker compose -f "$DEPLOY_DIR/docker-compose.vps.yml")
-SERVICES_BEHIND_CALLS=(livekit speech-bridge audio-bridge)  # restarted only when their configuration changed
+SERVICES_BEHIND_CALLS=(livekit audio-bridge)  # restarted only when their configuration changed
 
 # Komodo's agent runs as root; the checkout belongs to its owner, so git runs as them.
 git_() {

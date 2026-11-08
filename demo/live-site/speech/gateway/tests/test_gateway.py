@@ -1,7 +1,7 @@
 """The speech gateway against fake speech servers: English on the Pro, overflow to the Windows PC, then no room; Spanish on
 the Windows PC; a call pinned, moved when it changes stack, freed when it goes quiet; a bad routes file refused; the
 listening WebSocket forwarded."""
-import asyncio, json, os, sys, tempfile, unittest
+import asyncio, contextlib, json, os, sys, tempfile, unittest
 
 from aiohttp import web
 from aiohttp.test_utils import TestClient, TestServer
@@ -186,6 +186,15 @@ class GatewayTest(unittest.IsolatedAsyncioTestCase):
         self.gw.forward = drop_once
         self.assertEqual(await self.say('a', 'english-fast'), 200)
         self.assertEqual((self.hosts(), self.gw.down), ([('pro', 'english-fast')], {}), 'same server, not passed over')
+
+    async def test_a_caller_who_hangs_up_mid_request_does_not_mark_the_server_down(self):
+        async def hang_up(request, *args):
+            request.transport.close()  # the agent closed its session as the call ended
+            raise gateway.aiohttp.ClientConnectionResetError('Cannot write to closing transport')
+        self.gw.forward = hang_up
+        with contextlib.suppress(Exception):
+            await self.say('a', 'english-fast')
+        self.assertEqual(self.gw.down, {}, 'neither server is passed over')
 
     async def test_a_bad_routes_file_is_refused_and_the_last_good_one_kept(self):
         before = self.gw.config.current()

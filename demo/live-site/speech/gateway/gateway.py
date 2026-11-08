@@ -266,12 +266,15 @@ class Gateway:
                 if path == '/stt/stream':
                     return await self.websocket(request, url, query, routes, (stack, call, project), host, there)
                 return await self.forward(request, url, query, data)
-            except (aiohttp.ServerDisconnectedError, aiohttp.ClientConnectionResetError) as e:
-                if stale:  # twice in a row: it is the server, not a kept-alive connection it had closed
-                    self.mark_down(host, e)
-                stale = True  # the pool reused a connection the server had closed: try it once more
             except (aiohttp.ClientConnectionError, TimeoutError) as e:
-                self.mark_down(host, e)
+                if request.transport is None or request.transport.is_closing():
+                    # The caller hung up mid-request (a call ending): writing to it failed, the server is fine. Marking
+                    # it down here passed the Pro and then the Windows PC over for every other call (2026-11-08).
+                    return web.Response(status=499)
+                if isinstance(e, (aiohttp.ServerDisconnectedError, aiohttp.ClientConnectionResetError)) and not stale:
+                    stale = True  # the pool reused a connection the server had closed: try it once more
+                    continue
+                self.mark_down(host, e)  # refused, timed out, or dropped twice in a row: it is the server
         return web.json_response({'error': 'no_room', 'stack': stack}, status=503)
 
     def mark_down(self, host: str, e: Exception) -> None:
