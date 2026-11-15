@@ -234,6 +234,9 @@ export async function start(opts: { port?: number; host?: string; offline?: bool
   const sweeper = setInterval(() => void api.sweepRecords().then(gone => {
     const n = Object.values(gone).reduce((a, b) => a + b, 0);
     if (n) console.error(`${new Date().toISOString()} call records: deleted ${n} past retention`);
+  }).catch(err => {
+    // Octo unreachable (a connect timeout) must not take the server down with every live call on it: try again next hour.
+    console.error(`${new Date().toISOString()} call records: sweep failed, retrying next hour: ${err instanceof Error ? (err.cause instanceof Error ? err.cause.message : err.message) : String(err)}`);
   }), 3_600_000);
   sweeper.unref();
   // The site gate for what this server answers itself. A socket can't carry the site key, so /rtc is checked like a
