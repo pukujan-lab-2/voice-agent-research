@@ -37,7 +37,7 @@ from livekit.plugins.turn_detector.english import EnglishModel
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
 from speech_errors import as_retryable
 from stall_watchdog import StallWatchdog
-from recording import audio_signature, room_business
+from recording import audio_signature, publish_recording, room_business
 from telemetry import CallTelemetry
 from voice_config import STACKS
 
@@ -56,6 +56,8 @@ def speech_headers(room: str) -> dict[str, str]:
 REGISTERED = '/run/agent/registered'
 SABLIER_URL, SABLIER_NAME = os.environ.get('SABLIER_URL', ''), os.environ.get('SABLIER_NAME', '')
 COPILOT_API, SIGNING = os.environ.get('COPILOT_API_URL', '').rstrip('/'), os.environ.get('SIGNING_SECRET', '')
+# The Redis whose stream holds finished calls' recordings until the site saves them (recording.py); unset: post them directly.
+RECORDING_QUEUE = os.environ.get('RECORDING_QUEUE_URL', '')
 
 
 def recorded_business(room: str) -> str:
@@ -64,16 +66,24 @@ def recorded_business(room: str) -> str:
 
 
 async def send_audio(path, room: str, call: str) -> None:
-    """The call's recording to the site, which locks it. A failed send is logged; the recording is not kept anywhere else."""
+    """The call's recording to the site, which locks it. It goes on the recording queue, where it waits until the site has
+    saved it. Without a queue, or when the queue can't take it, it is posted to the site once; if that fails it is lost."""
     try:
         audio = path.read_bytes() if path and path.exists() else b''
         if not audio:
             print('recording: nothing was recorded', flush=True)
             return
-        headers = {'content-type': 'audio/ogg', 'x-call-room': room, 'x-call-id': call, 'x-call-sig': audio_signature(SIGNING, room, call, audio)}
+        signature = audio_signature(SIGNING, room, call, audio)
+        if RECORDING_QUEUE:
+            try:
+                print('recording:', len(audio), 'bytes queued as', await publish_recording(RECORDING_QUEUE, room, call, signature, audio), flush=True)
+                return
+            except Exception as e:  # noqa: BLE001 - Redis is away or full: the direct post below is still worth a try
+                print('recording: not queued, posting it instead:', e, flush=True)
+        headers = {'content-type': 'audio/ogg', 'x-call-room': room, 'x-call-id': call, 'x-call-sig': signature}
         async with aiohttp.ClientSession() as h, h.post(f'{COPILOT_API}/api/call-audio', data=audio, headers=headers,
                                                          timeout=aiohttp.ClientTimeout(total=120)) as r:
-            print('recording:', len(audio), 'bytes sent,', r.status, (await r.text())[:200], flush=True)
+            print('recording:', len(audio), 'bytes sent,' if r.ok else 'bytes NOT kept, the site answered', r.status, (await r.text())[:200], flush=True)
     except Exception as e:  # noqa: BLE001 - the call is over; say what happened and go on
         print('recording: not sent:', e, flush=True)
 

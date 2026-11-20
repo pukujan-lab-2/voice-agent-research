@@ -25,6 +25,9 @@ services:
       SPEECH_PROJECT: copilot
       AGENT_DRAIN_S: ${AGENT_DRAIN_S:-1200}
       # Where a recorded call's audio goes when the call ends (#130); it is signed with SIGNING_SECRET from copilot.env.
+      # The recording queue of the main stack (its `redis` service), where that audio waits until the site has saved it.
+      # Empty, or Redis away: the agent posts the audio to COPILOT_API_URL once, as before.
+      RECORDING_QUEUE_URL: ${RECORDING_QUEUE_URL-redis://copilot-redis:6379}
       COPILOT_API_URL: ${COPILOT_API_URL:-http://copilot-web:8787}
       # During a call the agent renews its own Sablier session, so a call longer than the idle time is not cut.
       SABLIER_URL: ${SABLIER_URL:-http://sablier:10000}

@@ -20,6 +20,16 @@ jobs:
   gates:
     runs-on: [self-hosted, org-pool]
     timeout-minutes: 15
+    # A fresh Redis for the recording queue's tests (demo/live-site/recording-queue.ts), the version the VPS runs
+    # (deploy/docker-compose.vps.yml). It is thrown away with the job.
+    services:
+      redis:
+        image: redis:8.8.4-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 2s --health-timeout 5s --health-retries 20
+    env:
+      RECORDING_QUEUE_TEST_URL: redis://localhost:6379
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

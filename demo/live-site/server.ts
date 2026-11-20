@@ -14,6 +14,7 @@ import { createTracer } from './tracing.ts';
 import { loadVoice } from './voice-config.ts';
 import { stackForLanguage } from './widget/voice-choice.ts';
 import { createApi, type ApiEnv, type NameMatcher } from './api.ts';
+import { startRecordingQueue } from './recording-queue.ts';
 import type { Passage } from '../../copilot-engine/src/guide.ts';
 import { loadSlots, SLOT_NAMES, type Slots } from '../../copilot-engine/src/slots.ts';
 
@@ -239,6 +240,12 @@ export async function start(opts: { port?: number; host?: string; offline?: bool
     console.error(`${new Date().toISOString()} call records: sweep failed, retrying next hour: ${err instanceof Error ? (err.cause instanceof Error ? err.cause.message : err.message) : String(err)}`);
   }), 3_600_000);
   sweeper.unref();
+  // A finished call's recording waits in a Redis stream until it is saved here (recording-queue.ts), so one that ends during
+  // a deploy or while the key store is down is saved afterwards. Without RECORDING_QUEUE_URL the agent posts it directly.
+  const recordings = !opts.offline && process.env.RECORDING_QUEUE_URL ? startRecordingQueue(process.env.RECORDING_QUEUE_URL,
+    async r => (await api.serve(new Request('http://local/api/call-audio', { method: 'POST', body: new Uint8Array(r.audio),
+      headers: { 'content-type': r.type, 'x-call-room': r.room, 'x-call-id': r.call, 'x-call-sig': r.sig } }), 'recording-queue')).status,
+    msg => console.error(`${new Date().toISOString()} ${msg}`)) : null;
   // The site gate for what this server answers itself. A socket can't carry the site key, so /rtc is checked like a
   // preflight (an origin some business lists); the voice token it needs was handed out only after the key was checked.
   const gateOf = (req: http.IncomingMessage, socket = false) => api.gate(new Request('http://local/', { method: socket ? 'OPTIONS' : 'POST', headers: siteHeaders(req) }));
@@ -318,7 +325,7 @@ export async function start(opts: { port?: number; host?: string; offline?: bool
   });
   await new Promise<void>(r => server.listen(opts.port ?? 0, opts.host ?? '127.0.0.1', r));
   const url = `http://${opts.host ?? '127.0.0.1'}:${(server.address() as { port: number }).port}`;
-  return { url, mode: api.mode, close: () => new Promise<void>(r => { clearInterval(sweeper); server.closeAllConnections(); server.close(() => r()); }).then(() => tracing?.flush()) };
+  return { url, mode: api.mode, close: () => new Promise<void>(r => { clearInterval(sweeper); recordings?.stop(); server.closeAllConnections(); server.close(() => r()); }).then(() => tracing?.flush()) };
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
