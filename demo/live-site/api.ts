@@ -37,7 +37,7 @@ import { CallAudio, MAX_AUDIO_BYTES, recordsAudio, type Files } from '../../copi
 import { CALLER, CallCallers } from '../../copilot-engine/src/call-callers.ts';
 import { octoSql } from '../../copilot-engine/src/octo-workspaces.ts';
 import { loadSlots, SLOT_NAMES, type Slots } from '../../copilot-engine/src/slots.ts';
-import { createSmart, SmartError, type Scope } from './smart.ts';
+import { createSmart, SmartError, type Scope, type SmartClock } from './smart.ts';
 import { BUSINESS_ID, isOrigin, siteGate, type Gate, SiteConfigs, type Sites } from '../../copilot-engine/src/site-config.ts';
 
 export type ApiEnv = {
@@ -137,7 +137,9 @@ export function createApi(env: ApiEnv, opts: { slots?: Slots; offlinePassages?: 
   // Each business's config (voice stacks allowed, pages, desk). Default: the Octo table copilot_sites when live, none offline.
   sites?: Sites;
   // ownHostHeader: the host the visitor asked for comes in x-own-host (server.ts sets it; a request from outside can't).
-  ownHostHeader?: boolean } = {}) {
+  ownHostHeader?: boolean;
+  // The smart slot's clock (its time budget and daily cap). Default: the real one; tests pass a fake one.
+  smartClock?: SmartClock } = {}) {
   const offline = env.OFFLINE === '1';
   if (!offline && !(env.OPENROUTER_JEV_KEY && env.OCTO_KEY && env.OCTO_WORKSPACE)) throw new Error('missing OPENROUTER_JEV_KEY, OCTO_KEY or OCTO_WORKSPACE (or set OFFLINE=1)');
   const jevUrl = env.JEV_URL || JEV_URL;
@@ -153,7 +155,7 @@ export function createApi(env: ApiEnv, opts: { slots?: Slots; offlinePassages?: 
   const audioDeskModel = offline || !env.LFM3_AUDIO_URL ? null : lfm3AudioChat(env.LFM3_AUDIO_URL);
   // Model slots: every one is the local model unless the file or env names a hosted one; checked when the server starts.
   const slots = opts.slots ?? loadSlots(undefined, env);
-  const smart = createSmart(env as Record<string, string | undefined>, slots, { log });
+  const smart = createSmart(env as Record<string, string | undefined>, slots, { log, ...opts.smartClock });
   const overlap = new OverlapJudge();
   // When Jev is overloaded or down, the word-overlap judge stands in, so a covered question isn't answered "I don't know".
   // choose: the same pick with what Jev said (its probabilities, the rule that kept or dropped the pick, or the error),

@@ -205,13 +205,59 @@ test('when every route fails the turn goes on with the local answer, and the slo
   assert.equal((await desk(api, DEV)).smart, true, 'not a key problem, so the page may ask again');
 });
 
+// A clock the test moves by hand (#188): `now` reads it, timers wait in a list until `fire` runs the ones it is told to.
+const fakeClock = () => {
+  let t = 1_700_000_000_000;
+  const timers: { at: number; ms: number; fn: () => void; live: boolean }[] = [];
+  return {
+    timers,
+    now: () => t,
+    advance: (ms: number) => { t += ms; },
+    setTimer: (fn: () => void, ms: number) => { const x = { at: t + ms, ms, fn, live: true }; timers.push(x); return () => { x.live = false; }; },
+    // run every live timer due by `t`, as a real timer would once the clock got there
+    fire: () => { for (const x of timers) if (x.live && x.at <= t) { x.live = false; x.fn(); } },
+  };
+};
+const until = async (cond: () => boolean) => { for (let i = 0; i < 1000 && !cond(); i++) await new Promise(res => setImmediate(res)); assert.ok(cond(), 'the walk got there'); };
+
 test('the slot\'s time budget covers the whole walk: a hanging second route ends it at the timeout', async () => {
   reset();
-  gateway = respond({ [ROUTES[0]]: 402, [ROUTES[1]]: 'hang' });
-  const t0 = Date.now();
-  const r = await desk(make({ ...SMART, SLOT_DESK_TIMEOUT_MS: '600' }), DEV, { smart: true });
-  assert.equal(r.reason, 'timeout'); assert.ok(Date.now() - t0 < 2000);
+  const clock = fakeClock();
+  const hang = respond({ [ROUTES[1]]: 'hang' });
+  // the first route takes 250 ms of the 600 ms budget before its 402, so the second route has 350 ms left, not a fresh 600
+  gateway = async init => {
+    if (JSON.parse(String(init.body)).model === ROUTES[0]) { clock.advance(250); return new Response('{"error":{}}', { status: 402 }); }
+    return hang(init);
+  };
+  const pending = desk(createApi({ ...SMART, SLOT_DESK_TIMEOUT_MS: '600' }, { trace: s => { spans.push(s); }, smartClock: clock }), DEV, { smart: true });
+  await until(() => gatewayCalls().length === 2);
+  assert.deepEqual(clock.timers.map(x => x.ms), [600, 350], 'the second route gets only what the first one left of the budget');
+  clock.advance(350); clock.fire();
+  const r = await pending;
+  assert.equal(r.status, 409); assert.equal(r.reason, 'timeout');
+  assert.deepEqual(r.tried, [{ model: ROUTES[0], why: '402' }, { model: ROUTES[1], why: 'timeout' }]);
   assert.deepEqual(gatewayModels(), ROUTES.slice(0, 2), 'no third route after the deadline');
+});
+
+test('a deadline timer that fires a moment before the clock reads the deadline still ends the walk as a timeout, not "exhausted" (#188)', async () => {
+  reset();
+  const clock = fakeClock();
+  gateway = respond({ [ROUTES[0]]: 402, [ROUTES[1]]: 'hang' });
+  const pending = desk(createApi({ ...SMART, SLOT_DESK_TIMEOUT_MS: '600' }, { trace: s => { spans.push(s); }, smartClock: clock }), DEV, { smart: true });
+  await until(() => gatewayCalls().length === 2);
+  // Node's timers count whole milliseconds, so a real one can fire while Date.now() still reads a millisecond short of the deadline
+  clock.advance(599); for (const x of clock.timers) if (x.live) { x.live = false; x.fn(); }
+  const r = await pending;
+  assert.equal(r.reason, 'timeout', 'the budget ended the walk, so the reason says so');
+  assert.deepEqual(gatewayModels(), ROUTES.slice(0, 2));
+});
+
+test('when the budget is spent between routes the walk stops before the next one and says timeout', async () => {
+  reset();
+  const clock = fakeClock();
+  gateway = async init => { clock.advance(600); return respond({ [ROUTES[0]]: 502 })(init); }; // the 502 arrives exactly at the deadline
+  const r = await desk(createApi({ ...SMART, SLOT_DESK_TIMEOUT_MS: '600' }, { trace: s => { spans.push(s); }, smartClock: clock }), DEV, { smart: true });
+  assert.equal(r.reason, 'timeout'); assert.deepEqual(gatewayModels(), ROUTES.slice(0, 1), 'no second route once the budget is gone');
 });
 
 test('a 400 would fail the same way on every route, so the walk stops at once', async () => {
