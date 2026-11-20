@@ -109,3 +109,64 @@ test('on a real Redis a 3 MB recording survives a failed save and is saved by an
     writer.destroy();
   }
 });
+
+// Property tests: many random histories of the same worker code. Each history has recordings arriving at random times, two
+// site processes taking turns, the site going down and coming back, and acknowledgements that fail (Redis away, or the
+// process dying after the save). formal/recording_queue.tla checks the same rules on a model; this checks them on pass().
+function random(seed: number) {   // mulberry32: the same seed gives the same history, so a failure can be replayed
+  return () => { seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+}
+
+async function history(seed: number, opts: { workers: string[]; reverse?: boolean }) {
+  const rnd = random(seed), s = stream();
+  const calls = Array.from({ length: 1 + Math.floor(rnd() * 6) }, (_, i) => ({ call: `call-${seed}-${i}`, bad: rnd() < 0.25 }));
+  if (opts.reverse) calls.reverse();
+  const waiting = [...calls], bad = new Set(calls.filter(c => c.bad).map(c => c.call));
+  const saved = new Map<string, number>(), finishedCalls = new Set<string>(), idToCall = new Map<string, string>();
+  let siteUp = true, ackWorks = true;
+  const save = async (r: Recording) => {
+    if (!siteUp) return rnd() < 0.5 ? 503 : Promise.reject(new Error('unreachable'));
+    if (bad.has(r.call)) return 403;
+    saved.set(r.call, (saved.get(r.call) ?? 0) + 1);
+    return 200;
+  };
+  const q: Queue = { ...s.q, async done(id) { if (!ackWorks) throw new Error('Redis away'); finishedCalls.add(idToCall.get(id)!); await s.q.done(id); } };
+  const check = (when: string) => {
+    for (const c of finishedCalls) assert.ok(saved.has(c) || bad.has(c), `seed ${seed}, ${when}: ${c} was acknowledged without being saved or refused`);
+    for (const c of bad) assert.ok(!saved.has(c), `seed ${seed}, ${when}: refused recording ${c} was saved`);
+  };
+  const turn = async (worker: string) => { try { await pass(q, worker, save, quiet, { retryMs: 60_000, now: s.now }); } catch { /* the pass died; what it held stays pending */ } };
+  for (let step = 0; step < 60; step++) {
+    const r = rnd();
+    if (r < 0.2 && waiting.length) { const c = waiting.shift()!; idToCall.set(s.add({ ...recording, call: c.call }).id, c.call); }
+    else if (r < 0.3) siteUp = !siteUp;
+    else if (r < 0.4) ackWorks = !ackWorks;
+    else if (r < 0.6) s.later(Math.floor(rnd() * 90_000));
+    else await turn(opts.workers[Math.floor(rnd() * opts.workers.length)]);
+    check(`step ${step}`);
+  }
+  // The world settles: everything is up, the remaining calls end, and the workers keep going.
+  siteUp = true; ackWorks = true;
+  for (const c of waiting.splice(0)) idToCall.set(s.add({ ...recording, call: c.call }).id, c.call);
+  for (let i = 0; i < 4; i++) { s.later(60_000); for (const w of opts.workers) await turn(w); }
+  check('settled');
+  for (const c of calls) if (!c.bad) assert.ok(saved.has(c.call), `seed ${seed}: ${c.call} was never saved`);
+  assert.equal(s.pending.size, 0, `seed ${seed}: messages are still pending after the world settled`);
+  assert.equal(s.finished.length, calls.length, `seed ${seed}: every message is acknowledged exactly once`);
+  return { saved: [...saved.keys()].sort(), twice: [...saved.values()].some(n => n > 1) };
+}
+
+test('in 500 random histories no recording is acknowledged unsaved, and every good one is saved once things settle', async () => {
+  let twice = 0;
+  for (let seed = 1; seed <= 500; seed++) if ((await history(seed, { workers: ['web-1', 'web-2'] })).twice) twice++;
+  // At-least-once delivery: some histories must save a recording twice, or the failed acknowledgements were never exercised.
+  assert.ok(twice > 0, 'no history saved a recording twice: the acknowledgement failures did nothing');
+});
+
+test('what gets saved does not depend on how many workers there are or the order the calls ended in', async () => {
+  for (let seed = 1; seed <= 200; seed++) {
+    const two = await history(seed, { workers: ['web-1', 'web-2'] });
+    assert.deepEqual((await history(seed, { workers: ['web-1'] })).saved, two.saved, `seed ${seed}: one worker`);
+    assert.deepEqual((await history(seed, { workers: ['web-1', 'web-2', 'web-3'], reverse: true })).saved, two.saved, `seed ${seed}: three workers, reversed`);
+  }
+});

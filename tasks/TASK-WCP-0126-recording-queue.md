@@ -21,6 +21,7 @@ The agent posts a recording once and keeps no copy, so a call that ends during a
 - `demo/live-site/speech/agent.py`, `recording.py`, `requirements.txt`, `tests/test_recording.py`
 - `deploy/docker-compose.vps.yml`, `deploy/docker-compose.agent.yml`, `deploy/agent-requirements.txt`, `deploy/README.md`
 - `demo/live-site/package.json` and its lockfile, the root `package.json`, `.github/workflows/ci.yml`
+- `formal/` (the TLA+ model, its configurations, README and test)
 
 ## Human outcome
 

@@ -66,6 +66,18 @@ jobs:
         run: npm run test:gateway
       - name: Lane manifests and the check that one lane never imports another (Python)
         run: npm run test:agent
+      # The TLA+ model of the recording queue (formal/README.md). The jar is the release server-management's CI uses.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Fetch TLC
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/tla2tools.jar" https://github.com/tlaplus/tlaplus/releases/download/v1.7.4/tla2tools.jar
+          echo "936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88  $RUNNER_TEMP/tla2tools.jar" | sha256sum -c -
+          echo "TLA2TOOLS=$RUNNER_TEMP/tla2tools.jar" >> "$GITHUB_ENV"
+      - name: Recording queue model (TLA+)
+        run: npm run test:formal
       - name: Issue-log record tool checks its priority handling
         run: python3 .github/scripts/oio_record.py --self-test
       - name: Lint Python (Ruff)
