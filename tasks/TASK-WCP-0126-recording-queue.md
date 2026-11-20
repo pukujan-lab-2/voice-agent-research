@@ -107,6 +107,29 @@ Blocked/uncertain:
 Next:
 - Read the CI run for the model step, then wait for the owner's go-ahead and server-management#190 before leaving draft
 
+### 2026-11-20 17:19:26 UTC — Claude
+
+<!-- continuity:checkpoint {"agent":"Claude","blocked":[],"changed":["demo/live-site/speech/agent.py, speech/recording.py, speech/tests/test_recording.py, deploy/docker-compose.agent.yml, deploy/README.md, formal/"],"completed":["A recording was still lost when Redis and the site were down at the same moment; the agent now keeps it on disk and sends it again later"],"decisions":["Owner asked on 2026-11-20 to close the gap the model found. A kept recording is retried only when an agent runs, and is deleted after a day"],"evidence":["On e597527, 2026-11-20: npm run check exits 0 with the model checker on. TLC 1.7.4: recording_queue_redis_down.cfg now holds NothingLost and AllSaved (18,339 distinct states) and recording_queue_both_down.cfg, the agent without the keep, still loses a recording. Eleven new Python tests cover deliver, keep and resend, among them two agents going through the folder at once. CI on 84afcd3 passed after one rerun; the first run failed on smart-desk.test.ts's 600 ms timeout test, which this change does not touch. Not run: the agent itself with LiveKit, so the start-up resend is untested end to end"],"next_action":"Read this push's CI run","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0126","timestamp":"2026-11-20T17:19:26Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"2a7d495db19438935518240b77ffcd3457a81504211ce8fc2d2c01d34f383c49","request_id":"ef71e76231ce4b1a830293da59c5f60f","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0126"} -->
+
+Completed:
+- A recording was still lost when Redis and the site were down at the same moment; the agent now keeps it on disk and sends it again later
+
+Evidence:
+- On e597527, 2026-11-20: npm run check exits 0 with the model checker on. TLC 1.7.4: recording_queue_redis_down.cfg now holds NothingLost and AllSaved (18,339 distinct states) and recording_queue_both_down.cfg, the agent without the keep, still loses a recording. Eleven new Python tests cover deliver, keep and resend, among them two agents going through the folder at once. CI on 84afcd3 passed after one rerun; the first run failed on smart-desk.test.ts's 600 ms timeout test, which this change does not touch. Not run: the agent itself with LiveKit, so the start-up resend is untested end to end
+
+Decisions:
+- Owner asked on 2026-11-20 to close the gap the model found. A kept recording is retried only when an agent runs, and is deleted after a day
+
+Changed:
+- demo/live-site/speech/agent.py, speech/recording.py, speech/tests/test_recording.py, deploy/docker-compose.agent.yml, deploy/README.md, formal/
+
+Blocked/uncertain:
+- none
+
+Next:
+- Read this push's CI run
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
