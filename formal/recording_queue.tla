@@ -7,21 +7,24 @@
 \* through /api/call-audio, and only then acknowledges and deletes the message. A message that
 \* was read but not acknowledged stays on the stream's pending list, and any worker may claim
 \* it again. If Redis is away when the call ends, the agent posts the recording to the site
-\* once, as it did before the queue existed.
+\* once, as it did before the queue existed. If that fails too, the agent keeps the file on
+\* disk and tries both paths again later (recording.py keep, resend_kept).
 \*
 \* The model lets the site and Redis go down and come back, and lets a worker die between any
 \* two steps. It checks:
 \*
 \*   QueuedNeverLost  - a recording that reached the stream is in the stream, saved, or was
 \*                      refused by the site; it is never simply gone
-\*   NothingLost      - no recording is lost at all (holds only while Redis stays up)
+\*   NothingLost      - no recording is lost at all (needs KeepOnDisk, or Redis always up)
 \*   DroppedForCause  - only a recording the site refuses for good is dropped
 \*   EventuallySaved  - once the site and Redis stay up, every queued recording is saved
+\*   AllSaved         - once they stay up, every recording the site accepts is saved, queued or not
 \*   SavedOnce        - a recording is saved at most once (does NOT hold: see README.md)
 \*   SavedWhateverHappens - EventuallySaved without its condition (does NOT hold, on purpose)
 \*
 \* UseQueue = FALSE is the agent before the queue: one post, no copy kept.
 \* AckFirst = TRUE is the worker written the wrong way round: acknowledge, then save.
+\* KeepOnDisk = FALSE is the agent that does not keep a recording it could not send.
 \*
 \* Check with:  java -cp tla2tools.jar tlc2.TLC -config recording_queue.cfg recording_queue.tla
 \**************************************************************************
@@ -32,15 +35,16 @@ CONSTANTS Calls,           \* recorded calls that end
           Workers,         \* site processes reading the stream (two overlap during a deploy)
           UseQueue,        \* TRUE: the agent publishes to the stream; FALSE: it posts directly
           AckFirst,        \* TRUE: the worker acknowledges before it saves
+          KeepOnDisk,      \* TRUE: the agent keeps a recording that reached neither Redis nor the site
           MaxSiteFlips,    \* how many times the site may go down or come back
           MaxRedisFlips,   \* the same for Redis
           MaxCrashes,      \* how many times a worker may die mid-message
           None
 
-ASSUME BadCalls \subseteq Calls /\ UseQueue \in BOOLEAN /\ AckFirst \in BOOLEAN
+ASSUME BadCalls \subseteq Calls /\ UseQueue \in BOOLEAN /\ AckFirst \in BOOLEAN /\ KeepOnDisk \in BOOLEAN
 ASSUME MaxSiteFlips \in Nat /\ MaxRedisFlips \in Nat /\ MaxCrashes \in Nat
 
-VARIABLES agent,       \* agent[c]: "ended" (the recording is in the agent's hands) or "done"
+VARIABLES agent,       \* agent[c]: "ended" (in the agent's hands), "kept" (on its disk) or "done"
           stream,      \* messages in the Redis stream
           pending,     \* messages handed to a worker and not yet acknowledged
           hand,        \* hand[w]: the message worker w is working on, or None
@@ -56,7 +60,7 @@ vars == <<agent, stream, pending, hand, step, saved, saves, dropped, lost, everQ
           siteUp, redisUp, siteFlips, redisFlips, crashes>>
 
 TypeOK ==
-    /\ agent \in [Calls -> {"ended", "done"}]
+    /\ agent \in [Calls -> {"ended", "kept", "done"}]
     /\ stream \subseteq Calls /\ pending \subseteq stream
     /\ hand \in [Workers -> Calls \cup {None}]
     /\ step \in [Workers -> {"idle", "got", "acked", "saved", "rejected"}]
@@ -81,25 +85,36 @@ Free(w)  == /\ hand' = [hand EXCEPT ![w] = None]
 ----
 \* The agent, when a call ends.
 
-\* publish_recording: XADD. The agent's copy is gone once Redis has the message.
+InHand(c) == agent[c] \in {"ended", "kept"}
+
+\* publish_recording: XADD. The agent's copy is gone once Redis has the message. A kept
+\* recording takes the same path when an agent goes through the folder again.
 Publish(c) ==
-    /\ agent[c] = "ended" /\ UseQueue /\ redisUp
+    /\ InHand(c) /\ UseQueue /\ redisUp
     /\ agent' = [agent EXCEPT ![c] = "done"]
     /\ stream' = stream \cup {c}
     /\ everQueued' = everQueued \cup {c}
     /\ UNCHANGED <<pending, hand, step, saved, saves, dropped, lost, siteUp, redisUp, siteFlips, redisFlips, crashes>>
 
-\* send_audio's direct post: the only path without a queue, and the fallback when Redis is away.
-\* It happens once. If the site is down the recording is gone.
+\* The post to the site: the only path without a queue, and the fallback when Redis is away.
+\* With the site down, the recording is kept on disk if the agent does that, and gone if not.
 DirectPost(c) ==
-    /\ agent[c] = "ended" /\ (~UseQueue \/ ~redisUp)
-    /\ agent' = [agent EXCEPT ![c] = "done"]
-    /\ IF c \in BadCalls
-         THEN dropped' = dropped \cup {c} /\ UNCHANGED <<saved, saves, lost>>
-         ELSE IF siteUp
-           THEN Store(c) /\ UNCHANGED <<dropped, lost>>
-           ELSE lost' = lost \cup {c} /\ UNCHANGED <<saved, saves, dropped>>
+    /\ InHand(c) /\ (~UseQueue \/ ~redisUp)
+    /\ \/ /\ siteUp /\ c \in BadCalls
+          /\ agent' = [agent EXCEPT ![c] = "done"]
+          /\ dropped' = dropped \cup {c} /\ UNCHANGED <<saved, saves, lost>>
+       \/ /\ siteUp /\ c \notin BadCalls
+          /\ agent' = [agent EXCEPT ![c] = "done"]
+          /\ Store(c) /\ UNCHANGED <<dropped, lost>>
+       \/ /\ ~siteUp /\ KeepOnDisk /\ agent[c] = "ended"
+          /\ agent' = [agent EXCEPT ![c] = "kept"]
+          /\ UNCHANGED <<saved, saves, dropped, lost>>
+       \/ /\ ~siteUp /\ ~KeepOnDisk
+          /\ agent' = [agent EXCEPT ![c] = "done"]
+          /\ lost' = lost \cup {c} /\ UNCHANGED <<saved, saves, dropped>>
     /\ UNCHANGED <<stream, pending, hand, step, everQueued, siteUp, redisUp, siteFlips, redisFlips, crashes>>
+
+Agent(c) == Publish(c) \/ DirectPost(c)
 
 ----
 \* A worker (recording-queue.ts pass).
@@ -183,12 +198,13 @@ FlipSite  == /\ siteFlips < MaxSiteFlips /\ siteUp' = ~siteUp /\ siteFlips' = si
 FlipRedis == /\ redisFlips < MaxRedisFlips /\ redisUp' = ~redisUp /\ redisFlips' = redisFlips + 1
              /\ UNCHANGED <<agent, stream, pending, hand, step, saved, saves, dropped, lost, everQueued, siteUp, siteFlips, crashes>>
 
-Next == \/ \E c \in Calls : Publish(c) \/ DirectPost(c)
+Next == \/ \E c \in Calls : Agent(c)
         \/ \E w \in Workers : Work(w) \/ Crash(w)
         \/ FlipSite \/ FlipRedis
 
-\* Every worker keeps working. Nothing forces a call to end, the site to come back or a crash.
-Spec == Init /\ [][Next]_vars /\ \A w \in Workers : WF_vars(Work(w))
+\* Every worker keeps working, and the agent keeps trying what it holds. Nothing forces the
+\* site to come back or a worker to die.
+Spec == Init /\ [][Next]_vars /\ (\A w \in Workers : WF_vars(Work(w))) /\ (\A c \in Calls : WF_vars(Agent(c)))
 
 ----
 Held(c) == \E w \in Workers : hand[w] = c
@@ -201,7 +217,10 @@ SavedOnce       == \A c \in Calls : saves[c] <= 1
 
 EventuallySaved ==
     <>[](siteUp /\ redisUp) => \A c \in Calls \ BadCalls : (c \in everQueued) ~> (c \in saved)
-\* The same without the condition. It does NOT hold: while the site stays down nothing can be saved.
+AllSaved ==
+    <>[](siteUp /\ redisUp) => \A c \in Calls \ BadCalls : <>(c \in saved)
+
+\* The same as EventuallySaved without the condition. It does NOT hold: while the site stays down nothing can be saved.
 \* It is here to show that the checker does look for recordings that wait forever.
 SavedWhateverHappens == \A c \in Calls \ BadCalls : (c \in everQueued) ~> (c \in saved)
 ===========================================================================

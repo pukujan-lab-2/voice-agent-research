@@ -46,12 +46,12 @@ class RecordingQueueModel(unittest.TestCase):
         self.assertIn(what, out)
 
     def test_the_queue_loses_nothing_and_saves_everything_once_the_site_is_back(self):
-        self.assertIn('Checking temporal properties', self.holds('recording_queue.cfg'))
+        self.assertIn('Finished checking temporal properties', self.holds('recording_queue.cfg'))
 
-    def test_a_queued_recording_survives_redis_going_away_too(self):
-        self.assertIn('Checking temporal properties', self.holds('recording_queue_redis_down.cfg'))
+    def test_nothing_is_lost_when_redis_goes_away_too_because_the_agent_keeps_the_file(self):
+        self.assertIn('Finished checking temporal properties', self.holds('recording_queue_redis_down.cfg'))
 
-    def test_redis_and_the_site_down_together_still_loses_a_recording(self):
+    def test_without_keeping_the_file_redis_and_the_site_down_together_lose_a_recording(self):
         self.breaks('recording_queue_both_down.cfg', 'Invariant NothingLost is violated')
 
     def test_the_agent_before_the_queue_loses_a_recording(self):

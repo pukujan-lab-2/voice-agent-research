@@ -29,6 +29,9 @@ services:
       # Empty, or Redis away: the agent posts the audio to COPILOT_API_URL once, as before.
       RECORDING_QUEUE_URL: ${RECORDING_QUEUE_URL-redis://copilot-redis:6379}
       COPILOT_API_URL: ${COPILOT_API_URL:-http://copilot-web:8787}
+      # A recording that reached neither Redis nor the site is kept here and sent again when an agent next starts or
+      # finishes a call (speech/recording.py). The volume below is shared by every release's agent.
+      RECORDING_KEEP_DIR: /recordings-kept
       # During a call the agent renews its own Sablier session, so a call longer than the idle time is not cut.
       SABLIER_URL: ${SABLIER_URL:-http://sablier:10000}
       SABLIER_NAME: ${COPILOT_PREFIX:-copilot}-agent-${AGENT_TAG:-local}
@@ -45,6 +48,8 @@ services:
     # Docker empties on every start: a stopped container keeps the rest of its filesystem, and a file left from the last run made
     # a woken agent look ready 7 s before it had registered, so the call that woke it got no agent (#117).
     tmpfs: [/run/agent]
+    volumes:
+      - recordings:/recordings-kept
     healthcheck:
       test: ["CMD", "test", "-f", "/run/agent/registered"]
       interval: 30s
@@ -59,6 +64,12 @@ services:
       driver: json-file
       options: { max-size: "10m", max-file: "3" }
     networks: [lk, sablier]
+
+# One volume for every release: the fixed name makes each release's compose project use the same one, so a recording a
+# drained agent kept is found by the next. Agents are removed with `docker rm -f` (deploy/vps/lib.sh), which leaves it.
+volumes:
+  recordings:
+    name: ${COPILOT_PREFIX:-copilot}-agent-recordings
 
 networks:
   lk:
