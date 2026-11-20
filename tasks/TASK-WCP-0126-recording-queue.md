@@ -60,6 +60,29 @@ Not needed.
 
 No checkpoints yet.
 
+### 2026-11-20 16:49:36 UTC — Claude
+
+<!-- continuity:checkpoint {"agent":"Claude","blocked":[],"changed":["demo/live-site/recording-queue.ts, server.ts, speech/agent.py, speech/recording.py, deploy/docker-compose.vps.yml, deploy/docker-compose.agent.yml, .github/workflows/ci.yml"],"completed":["A call that ended while the site was restarting lost its recording; the agent now puts the recording on a Redis stream and the site saves it from there, retrying a failed save every minute for a day"],"decisions":["Owner chose Redis Streams over a plain retry on 2026-11-20; the pull request stays a draft until a TLA+ model and property tests exist"],"evidence":["npm run check exits 0 on 030c173 (2026-11-20); the worker's five tests and the publisher's two pass against stand-ins; a 2 KB recording went from the Python publisher to the Node worker through fakeredis's TCP server with a failed save retried and claimed by a second consumer. Not yet run on a real Redis: the two tests for that run in this branch's CI"],"next_action":"Read the first CI run on a real Redis and fix what it finds","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0126","timestamp":"2026-11-20T16:49:36Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"0b244c023c7e4bde57f90993e6b9686868930a118cf220d73a731eaad0e7b38e","request_id":"9d7e46a95aa94bf385e23c4581e78eb7","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0126"} -->
+
+Completed:
+- A call that ended while the site was restarting lost its recording; the agent now puts the recording on a Redis stream and the site saves it from there, retrying a failed save every minute for a day
+
+Evidence:
+- npm run check exits 0 on 030c173 (2026-11-20); the worker's five tests and the publisher's two pass against stand-ins; a 2 KB recording went from the Python publisher to the Node worker through fakeredis's TCP server with a failed save retried and claimed by a second consumer. Not yet run on a real Redis: the two tests for that run in this branch's CI
+
+Decisions:
+- Owner chose Redis Streams over a plain retry on 2026-11-20; the pull request stays a draft until a TLA+ model and property tests exist
+
+Changed:
+- demo/live-site/recording-queue.ts, server.ts, speech/agent.py, speech/recording.py, deploy/docker-compose.vps.yml, deploy/docker-compose.agent.yml, .github/workflows/ci.yml
+
+Blocked/uncertain:
+- none
+
+Next:
+- Read the first CI run on a real Redis and fix what it finds
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
