@@ -84,6 +84,29 @@ Blocked/uncertain:
 Next:
 - Read the first CI run on a real Redis and fix what it finds
 
+### 2026-11-20 17:06:34 UTC — Claude
+
+<!-- continuity:checkpoint {"agent":"Claude","blocked":[],"changed":["formal/recording_queue.tla and its seven configurations, formal/README.md, formal/test_recording_queue_model.py, demo/live-site/tests/recording-queue.test.ts, .github/workflows/ci.yml, package.json"],"completed":["The queue had no proof that a crash between steps cannot lose a recording; a TLA+ model and random-history tests of the worker now check that"],"decisions":["The model shows one loss left: Redis and the site down at the same moment. Not closed in this change; recorded in formal/README.md"],"evidence":["TLC 1.7.4 on 7c7155b, 2026-11-20: recording_queue.cfg and recording_queue_redis_down.cfg report no error with temporal properties checked (3,814 and 17,305 distinct states); the five configurations that should fail do fail on the named invariant or property. The worker's 500-history and metamorphic tests pass, and both fail when pass() is changed to acknowledge a failed save. npm run check exits 0. CI on b732cb6 passed, including a 3 MB recording on a real Redis"],"next_action":"Read the CI run for the model step, then wait for the owner's go-ahead and server-management#190 before leaving draft","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0126","timestamp":"2026-11-20T17:06:34Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"dcd61d2297cd44b6816d89d4c11eb1415b4bfa853cbc23bd39ccc4e5976a5a03","request_id":"4f7241b8ae0c40f29a19c920bcc6ebc9","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0126"} -->
+
+Completed:
+- The queue had no proof that a crash between steps cannot lose a recording; a TLA+ model and random-history tests of the worker now check that
+
+Evidence:
+- TLC 1.7.4 on 7c7155b, 2026-11-20: recording_queue.cfg and recording_queue_redis_down.cfg report no error with temporal properties checked (3,814 and 17,305 distinct states); the five configurations that should fail do fail on the named invariant or property. The worker's 500-history and metamorphic tests pass, and both fail when pass() is changed to acknowledge a failed save. npm run check exits 0. CI on b732cb6 passed, including a 3 MB recording on a real Redis
+
+Decisions:
+- The model shows one loss left: Redis and the site down at the same moment. Not closed in this change; recorded in formal/README.md
+
+Changed:
+- formal/recording_queue.tla and its seven configurations, formal/README.md, formal/test_recording_queue_model.py, demo/live-site/tests/recording-queue.test.ts, .github/workflows/ci.yml, package.json
+
+Blocked/uncertain:
+- none
+
+Next:
+- Read the CI run for the model step, then wait for the owner's go-ahead and server-management#190 before leaving draft
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
