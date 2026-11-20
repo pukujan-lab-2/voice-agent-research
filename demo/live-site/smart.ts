@@ -50,9 +50,15 @@ const cookieOf = (req: Request): string => {
   return '';
 };
 
-export function createSmart(env: Env, slots: Slots, opts: { log?: (m: string) => void; now?: () => number } = {}) {
+// The clock the slot's time budget runs on: what time it is, and a timer that calls back after some milliseconds (returning
+// a cancel). Tests pass a fake one so the budget is checked without waiting on the wall clock.
+export type SmartClock = { now: () => number; setTimer: (fn: () => void, ms: number) => () => void };
+const realTimer = (fn: () => void, ms: number) => { const t = setTimeout(fn, ms); return () => clearTimeout(t); };
+
+export function createSmart(env: Env, slots: Slots, opts: { log?: (m: string) => void; now?: () => number; setTimer?: SmartClock['setTimer'] } = {}) {
   const log = opts.log ?? (() => {});
   const now = opts.now ?? Date.now;
+  const setTimer = opts.setTimer ?? realTimer;
   const ownerOn = env.SMART_OWNER === '1' && !!env.OWNER_TOKEN;
   const used: Partial<Record<SlotName, { day: string; n: number }>> = {};
   const today = () => new Date(now()).toISOString().slice(0, 10);
@@ -91,22 +97,25 @@ export function createSmart(env: Env, slots: Slots, opts: { log?: (m: string) =>
       const u = (used[name] = count(name) ? used[name]! : { day: today(), n: 0 });
       u.n++;
       const tried: Tried[] = [];
-      const deadline = Date.now() + slot.timeoutMs;
+      const deadline = now() + slot.timeoutMs;
+      // Whether the budget is what ended the walk. Recorded where it happens, never re-read from the clock afterwards: a timer
+      // may fire up to a millisecond before the clock reads the deadline (#188), and the walk must still say 'timeout'.
+      let ranOut = false;
       const fail = (reason: SmartReason, why: string): never => {
         log(`smart ${name}: ${reason} (${slot.provider}): ${why}${tried.length ? `; tried ${tried.map(t => `${t.model} ${t.why}`).join(', ')}` : ''}`);
         throw new SmartError(reason, why, tried);
       };
       for (const route of slot.routes) {
-        const left = deadline - Date.now();
-        if (left <= 0) break;
+        const left = deadline - now();
+        if (left <= 0) { ranOut = true; break; }
         const model = new OpenAIChat({ url: slot.url, key: env[slot.keyName!], model: route, stream: slot.stream, nothink: false, timeoutMs: left + 1000, attempts: 1 }); // the race below is the deadline
-        let timer: ReturnType<typeof setTimeout> | undefined;
+        let cancel = () => {};
         try {
-          const r = await Promise.race([model.chat(messages, tools, o), new Promise<never>((_, no) => { timer = setTimeout(() => no(new SmartError('timeout', 'deadline')), left); })]);
+          const r = await Promise.race([model.chat(messages, tools, o), new Promise<never>((_, no) => { cancel = setTimer(() => no(new SmartError('timeout', 'deadline')), left); })]);
           if (!reportedModelOk(r.model)) return fail('banned-model', `${slot.provider} reported a model that is not allowed`);
           return { ...r, tried };
         } catch (e) {
-          if (e instanceof SmartError) { if (e.reason !== 'timeout') throw e; tried.push({ model: route, why: 'timeout' }); break; } // our own refusals (a banned model, a rejected key) end the walk
+          if (e instanceof SmartError) { if (e.reason !== 'timeout') throw e; tried.push({ model: route, why: 'timeout' }); ranOut = true; break; } // our own refusals (a banned model, a rejected key) end the walk
           const status = Number((e as { status?: number }).status) || 0;
           tried.push({ model: route, why: status ? String(status) : 'no answer' });
           if (status === 401 || status === 403) {
@@ -114,9 +123,9 @@ export function createSmart(env: Env, slots: Slots, opts: { log?: (m: string) =>
             return fail('auth', `${slot.provider} rejected the key (HTTP ${status}); if it is the 30-day vault lease it may have expired, so renew it as deploy/README.md says. Smart turns are off for 10 minutes and the local model answers`);
           }
           if (!passOver(status)) return fail('error', `${slot.provider} ${route} answered ${status}`);
-        } finally { clearTimeout(timer); }
+        } finally { cancel(); }
       }
-      return fail(Date.now() >= deadline ? 'timeout' : 'exhausted', Date.now() >= deadline ? `no answer within ${slot.timeoutMs} ms` : `every ${slot.provider} route failed`);
+      return ranOut ? fail('timeout', `no answer within ${slot.timeoutMs} ms`) : fail('exhausted', `every ${slot.provider} route failed`);
     },
     // POST /api/owner: sets (or, with an empty token, clears) the owner cookie. Not found unless the owner switch is on.
     ownerSession(token: unknown): Response {
