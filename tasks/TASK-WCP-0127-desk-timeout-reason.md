@@ -55,6 +55,29 @@ Not needed.
 
 No checkpoints yet.
 
+### 2026-11-20 23:46:47 UTC — Claude
+
+<!-- continuity:checkpoint {"agent":"Claude","blocked":[],"changed":["none"],"completed":["A smart-slot call that ran out of time could be reported as every route failing; the walk now records the timeout when it happens"],"decisions":["no new decisions"],"evidence":["npm run check exits 0 on 35d9568 (2026-11-20). Before the fix the unchanged code gave the wrong reason in 49 of 1000 loaded runs at a 5 ms budget; after, 0 of 1000 loaded and idle. The test file passed 16 of 16 runs here"],"next_action":"Merge; the next deploy carries the fix","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0127","timestamp":"2026-11-20T23:46:47Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"7df769ca629af968cabfec2ade68bc7a2336effb6eb6051563509b24a00ad05c","request_id":"9f2936c67ee44850976adfe652b2d76a","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0127"} -->
+
+Completed:
+- A smart-slot call that ran out of time could be reported as every route failing; the walk now records the timeout when it happens
+
+Evidence:
+- npm run check exits 0 on 35d9568 (2026-11-20). Before the fix the unchanged code gave the wrong reason in 49 of 1000 loaded runs at a 5 ms budget; after, 0 of 1000 loaded and idle. The test file passed 16 of 16 runs here
+
+Decisions:
+- no new decisions
+
+Changed:
+- none
+
+Blocked/uncertain:
+- none
+
+Next:
+- Merge; the next deploy carries the fix
+
 ## Handoff
 
 Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.
