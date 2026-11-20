@@ -16,6 +16,7 @@ livekit-agents==1.8.8
 livekit-plugins-silero==1.8.8
 livekit-plugins-turn-detector==1.8.8
 aiohttp
+redis
 pocket-tts
 kokoro-onnx
 mlx-whisper; sys_platform == 'darwin'

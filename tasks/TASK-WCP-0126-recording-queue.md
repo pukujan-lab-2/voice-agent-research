@@ -1,0 +1,135 @@
+# TASK-WCP-0126 — Recording Queue
+
+<!-- continuity:task {"acceptance":["A recording published while the site is down is saved once the site is back","A save that fails with 5xx stays queued and is saved later by whichever site process runs then","A recording the site will never accept is dropped at once and logged","Saved recordings leave Redis","With Redis unreachable the site starts, serves and stops cleanly, and the agent posts the recording directly"],"depends_on":[],"goal":"A finished call's recording waits in a Redis stream until the site has saved it","id":"WCP-0126","issue_url":"https://github.com/pukujan-lab-2/voice-agent-research/issues/186","next_action":"Read the first CI run on a real Redis, then write the TLA+ model and property tests before the pull request leaves draft","owner":"Claude","priority":"P1","protocol_version":"0.1.0-draft","schema":"project-continuity.task.v1","status":"active","why":"The agent posts a recording once and keeps no copy, so a call that ends during a deploy or a key-store outage loses its recording"} -->
+
+- Status: active
+- Owner: Claude
+- Priority: P1
+- Depends on: none
+
+## Goal
+
+A finished call's recording waits in a Redis stream until the site has saved it
+
+## Why
+
+The agent posts a recording once and keeps no copy, so a call that ends during a deploy or a key-store outage loses its recording
+
+## Allowed files
+
+- `demo/live-site/recording-queue.ts`, `demo/live-site/server.ts`, `demo/live-site/tests/recording-queue.test.ts`
+- `demo/live-site/speech/agent.py`, `recording.py`, `requirements.txt`, `tests/test_recording.py`
+- `deploy/docker-compose.vps.yml`, `deploy/docker-compose.agent.yml`, `deploy/agent-requirements.txt`, `deploy/README.md`
+- `demo/live-site/package.json` and its lockfile, the root `package.json`, `.github/workflows/ci.yml`
+- `formal/` (the TLA+ model, its configurations, README and test)
+
+## Human outcome
+
+A business that records its calls keeps the recording of a call that ended while the copilot's site was restarting or could not reach its key store.
+
+## Scope and boundaries
+
+- In scope: the Redis stream between the voice agent and the site, its worker, the `redis` service in the VPS compose file, tests, and the deploy notes.
+- Out of scope: call-record entries and traces, which are written during the call; any other use of Redis.
+- Dependencies/uncertainty: none on other tasks. The worker has run against a stand-in Redis only; the first run on a real Redis is this pull request's CI. server-management's `vps/services.toml` needs a `copilot-redis` entry before the merge.
+
+## Acceptance criteria
+
+- [ ] A recording published while the site is down is saved once the site is back.
+- [ ] A save that fails with 5xx stays queued and is saved later by whichever site process runs then.
+- [ ] A recording the site will never accept is dropped at once and logged.
+- [ ] Saved recordings leave Redis.
+- [ ] With Redis unreachable the site starts, serves and stops cleanly, and the agent posts the recording directly.
+
+## Evidence and sources
+
+The gap was read in `demo/live-site/speech/agent.py` (`send_audio`) on `production` at 702f25a on 2026-11-20: one post, no retry, and a 502 or 503 answer logged as sent. No lost recording was looked for in the VPS logs.
+
+On the branch, 2026-11-20: `npm run check` exits 0. The worker's five tests against a stand-in stream pass. The publisher's two tests against fakeredis pass. By hand, the Python publisher and the Node worker passed a 2 KB recording through fakeredis's TCP server: a 503 save stayed pending, was not retried early, was claimed by a second consumer and saved, and the stream ended empty. That server drops connections on a 1 MB message and after an error reply, so large recordings and the group-already-exists path are covered only by the two real-Redis tests, which CI runs.
+
+## Reproduction details (only when needed)
+
+Not needed.
+
+## Related records
+
+- Required leaf owning issue, parent ancestry and dependencies (or explicitly none): pukujan-lab-2/voice-agent-research#186 is the leaf; parent: none; dependencies: none.
+- Primary writer / branch / source issue revision / as-of status: Claude (owner-directed) / `task/186-recording-queue` / #186 as opened 2026-11-20 / in progress, pull request in draft.
+- Related PR/CI evidence and push receipt (request ID / SHA):
+
+## Checkpoint log
+
+No checkpoints yet.
+
+### 2026-11-20 16:49:36 UTC — Claude
+
+<!-- continuity:checkpoint {"agent":"Claude","blocked":[],"changed":["demo/live-site/recording-queue.ts, server.ts, speech/agent.py, speech/recording.py, deploy/docker-compose.vps.yml, deploy/docker-compose.agent.yml, .github/workflows/ci.yml"],"completed":["A call that ended while the site was restarting lost its recording; the agent now puts the recording on a Redis stream and the site saves it from there, retrying a failed save every minute for a day"],"decisions":["Owner chose Redis Streams over a plain retry on 2026-11-20; the pull request stays a draft until a TLA+ model and property tests exist"],"evidence":["npm run check exits 0 on 030c173 (2026-11-20); the worker's five tests and the publisher's two pass against stand-ins; a 2 KB recording went from the Python publisher to the Node worker through fakeredis's TCP server with a failed save retried and claimed by a second consumer. Not yet run on a real Redis: the two tests for that run in this branch's CI"],"next_action":"Read the first CI run on a real Redis and fix what it finds","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0126","timestamp":"2026-11-20T16:49:36Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"0b244c023c7e4bde57f90993e6b9686868930a118cf220d73a731eaad0e7b38e","request_id":"9d7e46a95aa94bf385e23c4581e78eb7","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0126"} -->
+
+Completed:
+- A call that ended while the site was restarting lost its recording; the agent now puts the recording on a Redis stream and the site saves it from there, retrying a failed save every minute for a day
+
+Evidence:
+- npm run check exits 0 on 030c173 (2026-11-20); the worker's five tests and the publisher's two pass against stand-ins; a 2 KB recording went from the Python publisher to the Node worker through fakeredis's TCP server with a failed save retried and claimed by a second consumer. Not yet run on a real Redis: the two tests for that run in this branch's CI
+
+Decisions:
+- Owner chose Redis Streams over a plain retry on 2026-11-20; the pull request stays a draft until a TLA+ model and property tests exist
+
+Changed:
+- demo/live-site/recording-queue.ts, server.ts, speech/agent.py, speech/recording.py, deploy/docker-compose.vps.yml, deploy/docker-compose.agent.yml, .github/workflows/ci.yml
+
+Blocked/uncertain:
+- none
+
+Next:
+- Read the first CI run on a real Redis and fix what it finds
+
+### 2026-11-20 17:06:34 UTC — Claude
+
+<!-- continuity:checkpoint {"agent":"Claude","blocked":[],"changed":["formal/recording_queue.tla and its seven configurations, formal/README.md, formal/test_recording_queue_model.py, demo/live-site/tests/recording-queue.test.ts, .github/workflows/ci.yml, package.json"],"completed":["The queue had no proof that a crash between steps cannot lose a recording; a TLA+ model and random-history tests of the worker now check that"],"decisions":["The model shows one loss left: Redis and the site down at the same moment. Not closed in this change; recorded in formal/README.md"],"evidence":["TLC 1.7.4 on 7c7155b, 2026-11-20: recording_queue.cfg and recording_queue_redis_down.cfg report no error with temporal properties checked (3,814 and 17,305 distinct states); the five configurations that should fail do fail on the named invariant or property. The worker's 500-history and metamorphic tests pass, and both fail when pass() is changed to acknowledge a failed save. npm run check exits 0. CI on b732cb6 passed, including a 3 MB recording on a real Redis"],"next_action":"Read the CI run for the model step, then wait for the owner's go-ahead and server-management#190 before leaving draft","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0126","timestamp":"2026-11-20T17:06:34Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"dcd61d2297cd44b6816d89d4c11eb1415b4bfa853cbc23bd39ccc4e5976a5a03","request_id":"4f7241b8ae0c40f29a19c920bcc6ebc9","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0126"} -->
+
+Completed:
+- The queue had no proof that a crash between steps cannot lose a recording; a TLA+ model and random-history tests of the worker now check that
+
+Evidence:
+- TLC 1.7.4 on 7c7155b, 2026-11-20: recording_queue.cfg and recording_queue_redis_down.cfg report no error with temporal properties checked (3,814 and 17,305 distinct states); the five configurations that should fail do fail on the named invariant or property. The worker's 500-history and metamorphic tests pass, and both fail when pass() is changed to acknowledge a failed save. npm run check exits 0. CI on b732cb6 passed, including a 3 MB recording on a real Redis
+
+Decisions:
+- The model shows one loss left: Redis and the site down at the same moment. Not closed in this change; recorded in formal/README.md
+
+Changed:
+- formal/recording_queue.tla and its seven configurations, formal/README.md, formal/test_recording_queue_model.py, demo/live-site/tests/recording-queue.test.ts, .github/workflows/ci.yml, package.json
+
+Blocked/uncertain:
+- none
+
+Next:
+- Read the CI run for the model step, then wait for the owner's go-ahead and server-management#190 before leaving draft
+
+### 2026-11-20 17:19:26 UTC — Claude
+
+<!-- continuity:checkpoint {"agent":"Claude","blocked":[],"changed":["demo/live-site/speech/agent.py, speech/recording.py, speech/tests/test_recording.py, deploy/docker-compose.agent.yml, deploy/README.md, formal/"],"completed":["A recording was still lost when Redis and the site were down at the same moment; the agent now keeps it on disk and sends it again later"],"decisions":["Owner asked on 2026-11-20 to close the gap the model found. A kept recording is retried only when an agent runs, and is deleted after a day"],"evidence":["On e597527, 2026-11-20: npm run check exits 0 with the model checker on. TLC 1.7.4: recording_queue_redis_down.cfg now holds NothingLost and AllSaved (18,339 distinct states) and recording_queue_both_down.cfg, the agent without the keep, still loses a recording. Eleven new Python tests cover deliver, keep and resend, among them two agents going through the folder at once. CI on 84afcd3 passed after one rerun; the first run failed on smart-desk.test.ts's 600 ms timeout test, which this change does not touch. Not run: the agent itself with LiveKit, so the start-up resend is untested end to end"],"next_action":"Read this push's CI run","protocol_version":"0.1.0-draft","schema":"project-continuity.checkpoint.v1","task_id":"WCP-0126","timestamp":"2026-11-20T17:19:26Z"} -->
+<!-- continuity:checkpoint-operation {"payload_sha256":"2a7d495db19438935518240b77ffcd3457a81504211ce8fc2d2c01d34f383c49","request_id":"ef71e76231ce4b1a830293da59c5f60f","schema":"project-continuity.checkpoint-operation.v1","task_id":"WCP-0126"} -->
+
+Completed:
+- A recording was still lost when Redis and the site were down at the same moment; the agent now keeps it on disk and sends it again later
+
+Evidence:
+- On e597527, 2026-11-20: npm run check exits 0 with the model checker on. TLC 1.7.4: recording_queue_redis_down.cfg now holds NothingLost and AllSaved (18,339 distinct states) and recording_queue_both_down.cfg, the agent without the keep, still loses a recording. Eleven new Python tests cover deliver, keep and resend, among them two agents going through the folder at once. CI on 84afcd3 passed after one rerun; the first run failed on smart-desk.test.ts's 600 ms timeout test, which this change does not touch. Not run: the agent itself with LiveKit, so the start-up resend is untested end to end
+
+Decisions:
+- Owner asked on 2026-11-20 to close the gap the model found. A kept recording is retried only when an agent runs, and is deleted after a day
+
+Changed:
+- demo/live-site/speech/agent.py, speech/recording.py, speech/tests/test_recording.py, deploy/docker-compose.agent.yml, deploy/README.md, formal/
+
+Blocked/uncertain:
+- none
+
+Next:
+- Read this push's CI run
+
+## Handoff
+
+Read PROJECT → CURRENT → this task → minimum relevant spec. Checkpoint before stopping.

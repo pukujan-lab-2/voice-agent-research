@@ -24,7 +24,7 @@ call's key before it reaches Octo. Nothing else keeps it.
 
 Run: speech/.venv/bin/python speech/agent.py dev    (server.ts starts it with the speech server)
 """
-import asyncio, contextlib, inspect, json, os, re, time, uuid
+import asyncio, contextlib, inspect, json, os, re, threading, time, uuid
 
 import aiohttp
 from livekit import rtc
@@ -37,7 +37,7 @@ from livekit.plugins.turn_detector.english import EnglishModel
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
 from speech_errors import as_retryable
 from stall_watchdog import StallWatchdog
-from recording import audio_signature, room_business
+from recording import deliver, keep, resend_kept, room_business
 from telemetry import CallTelemetry
 from voice_config import STACKS
 
@@ -56,6 +56,10 @@ def speech_headers(room: str) -> dict[str, str]:
 REGISTERED = '/run/agent/registered'
 SABLIER_URL, SABLIER_NAME = os.environ.get('SABLIER_URL', ''), os.environ.get('SABLIER_NAME', '')
 COPILOT_API, SIGNING = os.environ.get('COPILOT_API_URL', '').rstrip('/'), os.environ.get('SIGNING_SECRET', '')
+# The Redis whose stream holds finished calls' recordings until the site saves them (recording.py); unset: post them directly.
+RECORDING_QUEUE = os.environ.get('RECORDING_QUEUE_URL', '')
+# Where a recording that could reach neither the queue nor the site is kept until one of them is back (recording.py keep).
+RECORDING_KEEP = os.environ.get('RECORDING_KEEP_DIR', '')
 
 
 def recorded_business(room: str) -> str:
@@ -63,19 +67,42 @@ def recorded_business(room: str) -> str:
     return room_business(room) if COPILOT_API and SIGNING else ''
 
 
+async def _post_audio(headers: dict[str, str], audio: bytes) -> int:
+    async with aiohttp.ClientSession() as h, h.post(f'{COPILOT_API}/api/call-audio', data=audio, headers=headers,
+                                                     timeout=aiohttp.ClientTimeout(total=120)) as r:
+        return r.status
+
+
+def _say(*parts) -> None:
+    print(*parts, flush=True)
+
+
+async def resend_recordings() -> None:
+    """Sends the recordings an earlier call could not (recording.py resend_kept). Never raises."""
+    try:
+        counts = await resend_kept(RECORDING_KEEP, secret=SIGNING, queue_url=RECORDING_QUEUE, post=_post_audio, log=_say)
+        if any(counts.values()):
+            _say('recording: kept recordings', counts)
+    except Exception as e:  # noqa: BLE001 - a kept recording waits for the next try
+        _say('recording: could not go through the kept recordings:', e)
+
+
 async def send_audio(path, room: str, call: str) -> None:
-    """The call's recording to the site, which locks it. A failed send is logged; the recording is not kept anywhere else."""
+    """The call's recording to the site, which locks it. It goes on the recording queue, where it waits until the site has
+    saved it. If Redis is away it is posted to the site once. If that fails too it is kept on disk and sent again when an
+    agent next starts or finishes a call; with no folder to keep it in (RECORDING_KEEP_DIR), it is lost."""
     try:
         audio = path.read_bytes() if path and path.exists() else b''
         if not audio:
-            print('recording: nothing was recorded', flush=True)
+            _say('recording: nothing was recorded')
             return
-        headers = {'content-type': 'audio/ogg', 'x-call-room': room, 'x-call-id': call, 'x-call-sig': audio_signature(SIGNING, room, call, audio)}
-        async with aiohttp.ClientSession() as h, h.post(f'{COPILOT_API}/api/call-audio', data=audio, headers=headers,
-                                                         timeout=aiohttp.ClientTimeout(total=120)) as r:
-            print('recording:', len(audio), 'bytes sent,', r.status, (await r.text())[:200], flush=True)
+        outcome = await deliver(audio, room, call, secret=SIGNING, queue_url=RECORDING_QUEUE, post=_post_audio, log=_say)
+        if outcome == 'failed':
+            kept = keep(RECORDING_KEEP, room, call, audio) if RECORDING_KEEP else None
+            _say('recording: kept to send later as' if kept else 'recording: LOST, nowhere to keep it:', kept.name if kept else call)
     except Exception as e:  # noqa: BLE001 - the call is over; say what happened and go on
-        print('recording: not sent:', e, flush=True)
+        _say('recording: not sent:', e)
+    await resend_recordings()
 
 
 class Voice:
@@ -301,6 +328,8 @@ server.setup_fnc = prewarm
 def _registered(*_):
     with contextlib.suppress(OSError):  # the directory exists only in the container
         open(REGISTERED, 'w').close()
+    if RECORDING_KEEP:  # recordings an earlier agent could not send; on its own thread, off the worker's loop
+        threading.Thread(target=lambda: asyncio.run(resend_recordings()), daemon=True).start()
 
 
 async def keep_awake(http: aiohttp.ClientSession) -> None:

@@ -42,6 +42,9 @@ services:
       # deploy/.env names the agent of this release (deploy/vps/autodeploy.sh writes it). Empty: nothing is woken.
       SABLIER_URL: http://sablier:10000
       SABLIER_AGENT: ${COPILOT_AGENT_CONTAINER:-}
+      # Finished calls' recordings wait in the `redis` service below until this server has saved them
+      # (demo/live-site/recording-queue.ts). Set it empty in the environment to go back to the agent's direct post.
+      RECORDING_QUEUE_URL: ${RECORDING_QUEUE_URL-redis://copilot-redis:6379}
     ports:
       - 127.0.0.1:18787:8787
     # The concept videos are not in git and not in the image; they live on the host in ~/apps/copilot-media (deploy/README.md)
@@ -76,6 +79,31 @@ services:
     image: alpine/socat:1.8.0.3
     network_mode: host
     command: ["TCP-LISTEN:18798,bind=172.17.0.1,fork,reuseaddr,range=172.16.0.0/12", "TCP:127.0.0.1:18798"]
+
+  # The recording queue (#130, demo/live-site/recording-queue.ts): the agent adds a finished call's audio to a stream here
+  # and the site saves it from there, so a call that ends while the site restarts keeps its recording. No port is
+  # published: only this stack's network reaches it. It does not read copilot.env. The append-only file keeps queued
+  # recordings across a restart; they are deleted from the stream once saved. `noeviction` makes Redis refuse a new
+  # recording when it is full, and the agent then posts it directly, instead of Redis dropping one that is waiting.
+  redis:
+    container_name: copilot-redis
+    image: redis:8.8.4-alpine
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "400mb", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - redis:/data
+    mem_limit: 512m
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+volumes:
+  redis:
 
 networks:
   edge:

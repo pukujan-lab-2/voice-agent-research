@@ -20,6 +20,16 @@ jobs:
   gates:
     runs-on: [self-hosted, org-pool]
     timeout-minutes: 15
+    # A fresh Redis for the recording queue's tests (demo/live-site/recording-queue.ts), the version the VPS runs
+    # (deploy/docker-compose.vps.yml). It is thrown away with the job.
+    services:
+      redis:
+        image: redis:8.8.4-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 2s --health-timeout 5s --health-retries 20
+    env:
+      RECORDING_QUEUE_TEST_URL: redis://localhost:6379
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -56,6 +66,18 @@ jobs:
         run: npm run test:gateway
       - name: Lane manifests and the check that one lane never imports another (Python)
         run: npm run test:agent
+      # The TLA+ model of the recording queue (formal/README.md). The jar is the release server-management's CI uses.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Fetch TLC
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/tla2tools.jar" https://github.com/tlaplus/tlaplus/releases/download/v1.7.4/tla2tools.jar
+          echo "936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88  $RUNNER_TEMP/tla2tools.jar" | sha256sum -c -
+          echo "TLA2TOOLS=$RUNNER_TEMP/tla2tools.jar" >> "$GITHUB_ENV"
+      - name: Recording queue model (TLA+)
+        run: npm run test:formal
       - name: Issue-log record tool checks its priority handling
         run: python3 .github/scripts/oio_record.py --self-test
       - name: Lint Python (Ruff)
